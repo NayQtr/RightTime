@@ -3,5 +3,21 @@
     "allow": [
       "mcp__rea__*"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/install-ghidra.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/install-rea-backends.sh"
+          }
+        ]
+      }
+    ]
   }
 }
