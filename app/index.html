@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rightime</title>
+<meta name="description" content="Rightime — a standing table of six, somewhere in your city, every week.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{
+    --bg:oklch(97% 0.012 60);--surface:oklch(98.6% 0.01 70);--surface2:oklch(96% 0.018 60);
+    --ink:oklch(22% 0.03 20);--ink-soft:oklch(44% 0.025 20);--ink-faint:oklch(58% 0.02 25);
+    --line:oklch(88% 0.02 60);--claret:oklch(38% 0.13 15);--claret-ink:oklch(44% 0.15 15);--claret-deep:oklch(30% 0.12 18);
+    --ember:oklch(70% 0.15 62);--on-claret:oklch(96% 0.02 70);--good:oklch(52% 0.11 150);--warn:oklch(62% 0.12 70);--bad:oklch(55% 0.17 25);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:oklch(17% 0.02 25);--surface:oklch(22% 0.025 23);--surface2:oklch(25% 0.03 22);
+    --ink:oklch(94% 0.015 70);--ink-soft:oklch(78% 0.02 55);--ink-faint:oklch(64% 0.02 45);
+    --line:oklch(34% 0.03 25);--claret:oklch(55% 0.15 16);--claret-ink:oklch(72% 0.14 16);--claret-deep:oklch(30% 0.1 18);
+    --ember:oklch(76% 0.13 65);--on-claret:oklch(97% 0.015 70);--good:oklch(72% 0.12 155);--warn:oklch(78% 0.1 75);--bad:oklch(72% 0.14 25);color-scheme:dark;}}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.08;letter-spacing:-.015em;margin:0;}
+  a{color:var(--claret-ink);}
+  .wrap{max-width:720px;margin-inline:auto;padding:0 20px;}
+  header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);}
+  .bar{display:flex;align-items:center;gap:1rem;padding:.7rem 0;}
+  .brand{font-family:"Fraunces",serif;font-weight:600;font-size:1.3rem;display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;background:none;border:none;color:var(--ink);}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ember);}
+  .bar .sp{margin-left:auto;}
+  .nav{display:flex;gap:1.1rem;font-weight:600;font-size:.92rem;}
+  .nav button{background:none;border:none;cursor:pointer;color:var(--ink-soft);font:inherit;font-weight:600;padding:.3rem 0;}
+  .nav button[aria-current="true"]{color:var(--claret-ink);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:46px;border:none;cursor:pointer;font:inherit;font-weight:700;border-radius:3px;padding:.75rem 1.3rem;background:var(--claret);color:var(--on-claret);text-decoration:none;}
+  .btn:hover{background:var(--claret-deep);} .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink);}
+  .btn.bad{background:transparent;color:var(--bad);border:1.5px solid color-mix(in srgb,var(--bad) 45%,var(--line));}
+  :focus-visible{outline:3px solid var(--ember);outline-offset:2px;}
+  input{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:3px;padding:.75rem .85rem;width:100%;min-height:46px;}
+  main{padding:2rem 0 4rem;}
+  .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--claret-ink);font-weight:700;}
+  h1.big{font-size:clamp(2.2rem,6vw,3.4rem);margin:.4rem 0 0;}
+  .lede{color:var(--ink-soft);font-size:1.1rem;margin:1rem 0 1.6rem;max-width:40ch;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:6px;font-weight:600;font-size:.9rem;transition:.25s;z-index:50;pointer-events:none;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .muted{color:var(--ink-faint);font-size:.9rem;}
+  /* questionnaire */
+  .q h2{font-size:1.5rem;margin:.3rem 0 1.1rem;}
+  .progress{height:5px;background:var(--line);border-radius:999px;overflow:hidden;margin-bottom:1.2rem;}
+  .progress i{display:block;height:100%;background:var(--ember);transition:width .3s;}
+  .opts{display:flex;flex-wrap:wrap;gap:.5rem;}
+  .opt{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:.6rem .9rem;cursor:pointer;font:inherit;font-weight:600;color:var(--ink);min-height:44px;}
+  .opt[aria-pressed="true"]{border-color:var(--claret);background:color-mix(in srgb,var(--claret) 12%,var(--surface));color:var(--claret-ink);}
+  .rowbtns{display:flex;gap:.6rem;margin-top:1.4rem;}
+  /* events */
+  .filters{display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 1rem;}
+  .filters button{flex:0 0 auto;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:.35rem .8rem;cursor:pointer;font:inherit;font-weight:600;font-size:.85rem;color:var(--ink-soft);min-height:38px;}
+  .filters button[aria-pressed="true"]{border-color:var(--claret);color:var(--claret-ink);}
+  .ev{border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;margin-bottom:.9rem;}
+  .ev .top{padding:1rem 1.1rem .7rem;cursor:pointer;}
+  .ev .ty{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ember);}
+  .ev h3{font-size:1.2rem;margin:.2rem 0 .1rem;}
+  .ev .meta{color:var(--ink-soft);font-size:.88rem;}
+  .ev .seat{display:flex;align-items:center;gap:.6rem;padding:.6rem 1.1rem;border-top:1px solid var(--line);font-size:.82rem;font-weight:600;}
+  .dots{display:flex;gap:3px;} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);} .dots i.on{background:var(--claret);}
+  .tag{margin-left:auto;font-size:.7rem;font-weight:700;padding:.15rem .55rem;border-radius:999px;}
+  .tag.open{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent);}
+  .tag.full{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent);}
+  .ev .act{padding:.7rem 1.1rem;border-top:1px solid var(--line);}
+  .bk{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:1.1rem;margin-bottom:.9rem;}
+  .bk .st{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+  .st.confirmed{color:var(--good);} .st.cancelled{color:var(--bad);}
+  .empty{text-align:center;color:var(--ink-soft);padding:2.4rem 1rem;}
+  .center{max-width:420px;margin:3rem auto 0;text-align:center;}
+  .pen{display:flex;gap:.6rem;background:color-mix(in srgb,var(--warn) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line));border-radius:8px;padding:.7rem .85rem;font-size:.84rem;margin:1rem 0;}
+  .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--claret);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none;} .toast{transition:none;}}
+  footer{border-top:1px solid var(--line);padding:1.6rem 0;color:var(--ink-faint);font-size:.8rem;}
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <button class="brand" id="brandBtn"><span class="dot"></span>Rightime</button>
+  <span class="sp"></span>
+  <nav class="nav" id="nav" hidden>
+    <button data-nav="events" aria-current="true">Events</button>
+    <button data-nav="me">My events</button>
+    <button data-nav="signout">Sign out</button>
+  </nav>
+</div></header>
+<main><div class="wrap" id="app"><p class="muted"><span class="spin"></span> Loading…</p></div></main>
+<footer><div class="wrap">Rightime — a demo product reconstructed from the Timeleft concept. Real auth &amp; database; no payments or chat in this slice.</div></footer>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL="https://ecsvbrsvwcgfcqjhkmrw.supabase.co";
+const SUPABASE_KEY="sb_publishable_o5FpdaGNgbABXoSobcs2tQ_SITZzrc0";
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const CITIES={par:"Paris",lon:"London",nyc:"New York",phl:"Philadelphia",den:"Denver",sd:"San Diego"};
+const FMT={dinner:"Dinner",women:"Women-only",coffee:"Coffee",drinks:"Drinks",walk:"Walk",run:"Run"};
+const app=document.getElementById("app"), nav=document.getElementById("nav");
+let session=null, profile=null, eventFilter="all";
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+function loading(){app.innerHTML='<p class="muted"><span class="spin"></span> Loading…</p>';}
+
+document.getElementById("brandBtn").onclick=()=>{ if(session) go("events"); };
+nav.addEventListener("click",e=>{const b=e.target.closest("[data-nav]");if(!b)return;const v=b.getAttribute("data-nav");if(v==="signout")return signOut();go(v);});
+
+async function boot(){
+  const {data}=await db.auth.getSession();
+  session=data.session;
+  db.auth.onAuthStateChange((_e,s)=>{ session=s; });
+  if(!session) return viewAuth();
+  const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+  profile=p;
+  nav.hidden=false;
+  if(!profile||!profile.onboarding_complete) return viewOnboarding();
+  go("events");
+}
+function go(v){ if(v==="events")viewEvents(); else if(v==="me")viewMe();
+  nav.querySelectorAll("[data-nav]").forEach(b=>b.setAttribute("aria-current", b.getAttribute("data-nav")===v));
+  window.scrollTo(0,0);
+}
+async function signOut(){ await db.auth.signOut(); session=null;profile=null;nav.hidden=true;viewAuth();toast("Signed out"); }
+
+/* ---- AUTH (magic link) ---- */
+function viewAuth(){
+  nav.hidden=true;
+  app.innerHTML=`<div class="center">
+    <p class="eyebrow">Meet people in real life</p>
+    <h1 class="big">A standing table of six.</h1>
+    <p class="lede" style="margin-inline:auto;">Sign in with your email — we'll send a magic link. No password.</p>
+    <form id="authf" style="display:grid;gap:.7rem;text-align:left;">
+      <input id="email" type="email" required placeholder="you@email.com" autocomplete="email" aria-label="Email">
+      <button class="btn" type="submit">Send me a magic link</button>
+    </form>
+    <p class="muted" id="authmsg" style="margin-top:1rem;"></p>
+  </div>`;
+  document.getElementById("authf").onsubmit=async(e)=>{
+    e.preventDefault();
+    const email=document.getElementById("email").value.trim();
+    const btn=e.target.querySelector("button"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Sending…';
+    const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+    btn.disabled=false; btn.textContent="Send me a magic link";
+    document.getElementById("authmsg").textContent=error?("Couldn't send: "+error.message):("Check "+email+" for your sign-in link.");
+  };
+}
+
+/* ---- ONBOARDING (real questionnaire fields) ---- */
+const QS=[
+ {k:"gender",label:"About you",q:"How do you define yourself?",opts:["Woman","Man","Non-binary","Prefer not to say"]},
+ {k:"birthdate",label:"About you",q:"Which decade were you born in?",opts:["1990s","1980s","2000s","1970s"]},
+ {k:"children",label:"About you",q:"Do you have children?",opts:["No","Yes","Prefer not to say"]},
+ {k:"industry",label:"How you tick",q:"If you're working, what industry?",opts:["Tech","Creative","Health","Finance","Education","Other"]},
+ {k:"personality",label:"How you tick",q:"At a table of strangers, you're…",opts:["Asking the questions","The storyteller","The quiet observer","The debater"]},
+ {k:"interests",label:"How you tick",q:"Pick what pulls you in",multi:true,opts:["Food","Film","Travel","Startups","Art","Music","Books","Sport"]},
+ {k:"drinks",label:"At the table",q:"Do you drink?",opts:["Yes, happily","Socially","Rarely","No"]},
+ {k:"dietary",label:"At the table",q:"Anything for the kitchen?",multi:true,opts:["No restrictions","Vegetarian","Vegan","Pescatarian","Halal","Gluten-free"]}
+];
+let qi=0, answers={};
+function viewOnboarding(){ qi=0; answers=(profile&&profile.characteristics)||{}; renderQ(); }
+function renderQ(){
+  if(qi>=QS.length) return renderCity();
+  const Q=QS[qi], pct=Math.round(qi/QS.length*100), sel=answers[Q.k]||(Q.multi?[]:null);
+  app.innerHTML=`<div class="q" style="max-width:520px;margin-inline:auto;">
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <p class="eyebrow">${esc(Q.label)} · ${qi+1}/${QS.length}</p><h2>${esc(Q.q)}</h2>
+    <div class="opts">${Q.opts.map(o=>`<button class="opt" data-o="${esc(o)}" aria-pressed="${Q.multi?sel.includes(o):sel===o}">${esc(o)}</button>`).join("")}</div>
+    <div class="rowbtns">${qi>0?'<button class="btn ghost" id="qb">Back</button>':''}
+      <button class="btn" id="qn" ${(Q.multi?sel.length:sel)?'':'disabled'}>${qi===QS.length-1?'Finish':'Continue'}</button></div></div>`;
+  app.querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>{
+    const v=b.getAttribute("data-o");
+    if(Q.multi){const a=answers[Q.k]||[];const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);answers[Q.k]=a;}
+    else answers[Q.k]=v; renderQ();
+  });
+  const n=document.getElementById("qn"); if(n)n.onclick=()=>{qi++;renderQ();};
+  const bb=document.getElementById("qb"); if(bb)bb.onclick=()=>{qi--;renderQ();};
+}
+function renderCity(){
+  app.innerHTML=`<div class="q" style="max-width:520px;margin-inline:auto;"><p class="eyebrow">Last thing</p><h2>Where do you meet?</h2>
+    <div class="opts">${Object.entries(CITIES).map(([id,n])=>`<button class="opt" data-c="${id}">${esc(n)}</button>`).join("")}</div></div>`;
+  app.querySelectorAll("[data-c]").forEach(b=>b.onclick=async()=>{
+    const city=b.getAttribute("data-c");
+    b.innerHTML='<span class="spin"></span>';
+    const {error}=await db.from("profiles").update({characteristics:answers,city_id:city,onboarding_complete:true}).eq("id",session.user.id);
+    if(error){toast("Save failed: "+error.message);return renderCity();}
+    const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle(); profile=p;
+    toast("Welcome to Rightime"); go("events");
+  });
+}
+
+/* ---- EVENTS ---- */
+async function viewEvents(){
+  loading();
+  const {data:evs,error}=await db.from("events").select("*").eq("city_id",profile.city_id).order("starts_at");
+  if(error){app.innerHTML='<p class="muted">Could not load events: '+esc(error.message)+'</p>';return;}
+  const {data:myb}=await db.from("bookings").select("event_id,status").eq("user_id",session.user.id);
+  const booked=new Set((myb||[]).filter(b=>b.status==="confirmed").map(b=>b.event_id));
+  const types=["all",...Object.keys(FMT)];
+  const list=evs.filter(e=>eventFilter==="all"||e.type===eventFilter);
+  app.innerHTML=`<p class="eyebrow">${esc(CITIES[profile.city_id]||"")} · this week</p><h1 class="big" style="font-size:2rem;">Near you</h1>
+    <div class="filters">${types.map(t=>`<button data-f="${t}" aria-pressed="${eventFilter===t}">${t==="all"?"All":esc(FMT[t])}</button>`).join("")}</div>
+    <div id="list">${list.length?list.map(e=>evCard(e,booked.has(e.id))).join(""):'<div class="empty">Nothing in this format yet.</div>'}</div>`;
+  app.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{eventFilter=b.getAttribute("data-f");viewEvents();});
+  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
+  app.querySelectorAll("[data-book]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();book(b.getAttribute("data-book"));});
+}
+function evCard(e,isB){
+  let dots="";for(let i=0;i<Math.min(e.seats,8);i++)dots+=`<i class="${i<e.attendees_count?'on':''}"></i>`;
+  const act=isB?'<button class="btn ghost" disabled>Booked ✓</button>'
+    :e.status==="full"?'<button class="btn ghost" disabled>Full</button>'
+    :`<button class="btn" data-book="${e.id}">Book my seat</button>`;
+  return `<div class="ev"><div class="top" data-open="${e.id}"><div class="ty">${esc(FMT[e.type]||e.type)}</div><h3>${esc(e.name)}</h3><div class="meta">${new Date(e.starts_at).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${esc(e.neighbourhood||"")}</div></div>
+    <div class="seat"><div class="dots">${dots}</div>${e.attendees_count}/${e.seats}<span class="tag ${e.status==="full"?"full":"open"}">${e.status==="full"?"Full":"Open"}</span></div>
+    <div class="act">${act}</div></div>`;
+}
+async function book(id){
+  const {error}=await db.from("bookings").insert({user_id:session.user.id,event_id:id,status:"confirmed"});
+  if(error){ toast(/full/i.test(error.message)?"That table just filled up":("Booking failed: "+error.message)); }
+  else toast("Seat booked — see you there");
+  viewEvents();
+}
+
+/* ---- DETAIL ---- */
+async function viewDetail(id){
+  loading();
+  const {data:e}=await db.from("events").select("*").eq("id",id).maybeSingle();
+  if(!e){return viewEvents();}
+  const {data:mb}=await db.from("bookings").select("*").eq("user_id",session.user.id).eq("event_id",id).maybeSingle();
+  const isB=mb&&mb.status==="confirmed";
+  app.innerHTML=`<button class="btn ghost" id="back" style="min-height:40px;padding:.4rem .9rem;margin-bottom:1rem;">‹ Back</button>
+    <div class="ty" style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ember);">${esc(FMT[e.type]||e.type)}</div>
+    <h1 class="big" style="font-size:2rem;">${esc(e.name)}</h1>
+    <p class="lede">${new Date(e.starts_at).toLocaleString(undefined,{weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})} · ${esc(e.neighbourhood||"")} · ${esc(CITIES[e.city_id]||"")}</p>
+    <p class="muted">${e.attendees_count} of ${e.seats} seats taken · exact spot revealed the day of</p>
+    ${isB?`<div class="pen"><span>⚠️</span><div>Cancel the night before to free your seat. Flaking last-minute would cost a small penalty in the full product.</div></div>
+          <button class="btn bad" id="cancel">Cancel my seat</button>`
+         :(e.status==="full"?'<button class="btn ghost" disabled style="margin-top:1rem;">This table is full</button>'
+          :'<button class="btn" id="bookd" style="margin-top:1rem;">Book my seat</button>')}`;
+  document.getElementById("back").onclick=()=>viewEvents();
+  const bd=document.getElementById("bookd"); if(bd)bd.onclick=async()=>{await book(id);viewDetail(id);};
+  const cx=document.getElementById("cancel"); if(cx)cx.onclick=async()=>{
+    await db.from("bookings").update({status:"cancelled"}).eq("user_id",session.user.id).eq("event_id",id);
+    toast("Seat cancelled"); viewDetail(id);
+  };
+}
+
+/* ---- MY EVENTS ---- */
+async function viewMe(){
+  loading();
+  const {data:bs}=await db.from("bookings").select("status,created_at,events(*)").eq("user_id",session.user.id).order("created_at",{ascending:false});
+  const rows=(bs||[]).filter(b=>b.events);
+  app.innerHTML=`<h1 class="big" style="font-size:2rem;">My events</h1>${
+    rows.length?rows.map(b=>`<div class="bk" data-open="${b.events.id}" style="cursor:pointer;"><span class="st ${b.status}">${b.status}</span>
+      <h3 style="font-family:'Fraunces',serif;font-size:1.15rem;margin:.2rem 0 .1rem;">${esc(b.events.name)}</h3>
+      <div class="muted">${new Date(b.events.starts_at).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${esc(b.events.neighbourhood||"")}</div></div>`).join("")
+    :'<div class="empty">Nothing booked yet. Find a table under Events.</div>'}`;
+  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
+}
+
+boot();
+</script>
+</body>
+</html>
