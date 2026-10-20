@@ -74,6 +74,15 @@
   .empty{text-align:center;color:var(--ink-soft);padding:2.4rem 1rem;}
   .center{max-width:420px;margin:3rem auto 0;text-align:center;}
   .pen{display:flex;gap:.6rem;background:color-mix(in srgb,var(--warn) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line));border-radius:8px;padding:.7rem .85rem;font-size:.84rem;margin:1rem 0;}
+  .mates{margin:1.6rem 0;border-top:1px solid var(--line);padding-top:1.2rem;}
+  .mates h3{font-size:1.15rem;margin-bottom:.2rem;}
+  .mate{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid var(--line);}
+  .mate:last-child{border-bottom:none;}
+  .mate .av{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:color-mix(in srgb,var(--claret) 16%,var(--surface2));color:var(--claret-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem;font-family:"Fraunces",serif;}
+  .mate .who{font-weight:600;font-size:.92rem;}
+  .prow{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--line);}
+  .prow .k{color:var(--ink-faint);font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+  .prow .v{text-align:right;font-weight:600;}
   .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--claret);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;}
   @keyframes sp{to{transform:rotate(360deg);}}
   @media (prefers-reduced-motion:reduce){.spin{animation:none;} .toast{transition:none;}}
@@ -87,6 +96,7 @@
   <nav class="nav" id="nav" hidden>
     <button data-nav="events" aria-current="true">Events</button>
     <button data-nav="me">My events</button>
+    <button data-nav="profile">Profile</button>
     <button data-nav="signout">Sign out</button>
   </nav>
 </div></header>
@@ -123,7 +133,7 @@ async function boot(){
   if(!profile||!profile.onboarding_complete) return viewOnboarding();
   go("events");
 }
-function go(v){ if(v==="events")viewEvents(); else if(v==="me")viewMe();
+function go(v){ if(v==="events")viewEvents(); else if(v==="me")viewMe(); else if(v==="profile")viewProfile();
   nav.querySelectorAll("[data-nav]").forEach(b=>b.setAttribute("aria-current", b.getAttribute("data-nav")===v));
   window.scrollTo(0,0);
 }
@@ -240,7 +250,8 @@ async function viewDetail(id){
     <p class="lede">${new Date(e.starts_at).toLocaleString(undefined,{weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})} · ${esc(e.neighbourhood||"")} · ${esc(CITIES[e.city_id]||"")}</p>
     <p class="muted">${e.attendees_count} of ${e.seats} seats taken · exact spot revealed the day of</p>
     ${isB?`<div class="pen"><span>⚠️</span><div>Cancel the night before to free your seat. Flaking last-minute would cost a small penalty in the full product.</div></div>
-          <button class="btn bad" id="cancel">Cancel my seat</button>`
+          <button class="btn bad" id="cancel">Cancel my seat</button>
+          <div class="mates" id="mates"><p class="muted"><span class="spin"></span> Finding your table…</p></div>`
          :(e.status==="full"?'<button class="btn ghost" disabled style="margin-top:1rem;">This table is full</button>'
           :'<button class="btn" id="bookd" style="margin-top:1rem;">Book my seat</button>')}`;
   document.getElementById("back").onclick=()=>viewEvents();
@@ -249,6 +260,40 @@ async function viewDetail(id){
     await db.from("bookings").update({status:"cancelled"}).eq("user_id",session.user.id).eq("event_id",id);
     toast("Seat cancelled"); viewDetail(id);
   };
+  if(isB) loadMates(id);
+}
+async function loadMates(id){
+  const box=document.getElementById("mates"); if(!box)return;
+  const {data,error}=await db.rpc("tablemates",{p_event:id});
+  if(error){box.innerHTML='<p class="muted">Couldn’t load your table right now.</p>';return;}
+  const blurbs=(data&&data.blurbs)||[], total=(data&&data.total)||1;
+  if(total<=1){
+    box.innerHTML='<h3>Who’s at your table</h3><p class="muted">You’re the first to book. We’ll fill the table to six — check back as others join.</p>';
+    return;
+  }
+  box.innerHTML='<h3>Who’s at your table</h3><p class="muted" style="margin:.1rem 0 .6rem;">'+total+' of 6 confirmed. Names stay private until you meet.</p>'+
+    blurbs.map(b=>{const t=String(b||"A guest");return '<div class="mate"><div class="av">'+esc(t.charAt(0).toUpperCase())+'</div><div class="who">'+esc(t)+'</div></div>';}).join("");
+}
+
+/* ---- PROFILE ---- */
+function viewProfile(){
+  const c=(profile&&profile.characteristics)||{};
+  const rows=[
+    ["City", CITIES[profile&&profile.city_id]||"—"],
+    ["You are", c.gender||"—"],
+    ["Born", c.birthdate||"—"],
+    ["Children", c.children||"—"],
+    ["Industry", c.industry||"—"],
+    ["At the table", c.personality||"—"],
+    ["Into", Array.isArray(c.interests)?c.interests.join(", "):(c.interests||"—")],
+    ["Drinks", c.drinks||"—"],
+    ["Dietary", Array.isArray(c.dietary)?c.dietary.join(", "):(c.dietary||"—")]
+  ];
+  app.innerHTML='<h1 class="big" style="font-size:2rem;">Profile</h1>'+
+    '<p class="muted" style="margin:.3rem 0 1.2rem;">'+esc(session.user.email||"")+'</p>'+
+    rows.map(r=>'<div class="prow"><span class="k">'+esc(r[0])+'</span><span class="v">'+esc(r[1])+'</span></div>').join("")+
+    '<div class="rowbtns"><button class="btn ghost" id="redo">Change my city</button></div>';
+  document.getElementById("redo").onclick=()=>{ answers=(profile&&profile.characteristics)||{}; renderCity(); };
 }
 
 /* ---- MY EVENTS ---- */
