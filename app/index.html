@@ -113,9 +113,9 @@ const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CITIES={par:"Paris",lon:"London",nyc:"New York",phl:"Philadelphia",den:"Denver",sd:"San Diego"};
 const FMT={dinner:"Dinner",women:"Women-only",coffee:"Coffee",drinks:"Drinks",walk:"Walk",run:"Run"};
 const app=document.getElementById("app"), nav=document.getElementById("nav");
-let session=null, profile=null, eventFilter="all";
+let session=null, profile=null, eventFilter="all", busy=false;
 
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
 function loading(){app.innerHTML='<p class="muted"><span class="spin"></span> Loading…</p>';}
 
@@ -123,15 +123,19 @@ document.getElementById("brandBtn").onclick=()=>{ if(session) go("events"); };
 nav.addEventListener("click",e=>{const b=e.target.closest("[data-nav]");if(!b)return;const v=b.getAttribute("data-nav");if(v==="signout")return signOut();go(v);});
 
 async function boot(){
-  const {data}=await db.auth.getSession();
-  session=data.session;
-  db.auth.onAuthStateChange((_e,s)=>{ session=s; });
-  if(!session) return viewAuth();
-  const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
-  profile=p;
-  nav.hidden=false;
-  if(!profile||!profile.onboarding_complete) return viewOnboarding();
-  go("events");
+  try{
+    const {data:p,error}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+    if(error) return bootError();
+    profile=p;
+    nav.hidden=false;
+    if(!profile||!profile.onboarding_complete) return viewOnboarding();
+    go("events");
+  }catch(_e){ bootError(); }
+}
+function bootError(){
+  nav.hidden=true;
+  app.innerHTML='<div class="center"><p class="lede" style="margin-inline:auto;">We couldn’t load your account just now.</p><button class="btn" id="retry">Try again</button></div>';
+  const r=document.getElementById("retry"); if(r)r.onclick=()=>boot();
 }
 function go(v){ if(v==="events")viewEvents(); else if(v==="me")viewMe(); else if(v==="profile")viewProfile();
   nav.querySelectorAll("[data-nav]").forEach(b=>b.setAttribute("aria-current", b.getAttribute("data-nav")===v));
@@ -200,13 +204,15 @@ function renderCity(){
     b.innerHTML='<span class="spin"></span>';
     const {error}=await db.from("profiles").update({characteristics:answers,city_id:city,onboarding_complete:true}).eq("id",session.user.id);
     if(error){toast("Save failed: "+error.message);return renderCity();}
-    const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle(); profile=p;
+    const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+    profile=p||{...(profile||{}),characteristics:answers,city_id:city,onboarding_complete:true};
     toast("Welcome to Rightime"); go("events");
   });
 }
 
 /* ---- EVENTS ---- */
 async function viewEvents(){
+  if(!profile) return boot();
   loading();
   const {data:evs,error}=await db.from("events").select("*").eq("city_id",profile.city_id).order("starts_at");
   if(error){app.innerHTML='<p class="muted">Could not load events: '+esc(error.message)+'</p>';return;}
@@ -219,7 +225,7 @@ async function viewEvents(){
     <div id="list">${list.length?list.map(e=>evCard(e,booked.has(e.id))).join(""):'<div class="empty">Nothing in this format yet.</div>'}</div>`;
   app.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{eventFilter=b.getAttribute("data-f");viewEvents();});
   app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
-  app.querySelectorAll("[data-book]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();book(b.getAttribute("data-book"));});
+  app.querySelectorAll("[data-book]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();b.disabled=true;book(b.getAttribute("data-book"));});
 }
 function evCard(e,isB){
   let dots="";for(let i=0;i<Math.min(e.seats,8);i++)dots+=`<i class="${i<e.attendees_count?'on':''}"></i>`;
@@ -230,11 +236,13 @@ function evCard(e,isB){
     <div class="seat"><div class="dots">${dots}</div>${e.attendees_count}/${e.seats}<span class="tag ${e.status==="full"?"full":"open"}">${e.status==="full"?"Full":"Open"}</span></div>
     <div class="act">${act}</div></div>`;
 }
-async function book(id){
-  const {error}=await db.from("bookings").insert({user_id:session.user.id,event_id:id,status:"confirmed"});
+async function book(id,rerender){
+  if(busy) return; busy=true;
+  const {error}=await db.from("bookings").upsert({user_id:session.user.id,event_id:id,status:"confirmed"},{onConflict:"user_id,event_id"});
+  busy=false;
   if(error){ toast(/full/i.test(error.message)?"That table just filled up":("Booking failed: "+error.message)); }
   else toast("Seat booked — see you there");
-  viewEvents();
+  if(rerender!==false) viewEvents();
 }
 
 /* ---- DETAIL ---- */
@@ -255,10 +263,12 @@ async function viewDetail(id){
          :(e.status==="full"?'<button class="btn ghost" disabled style="margin-top:1rem;">This table is full</button>'
           :'<button class="btn" id="bookd" style="margin-top:1rem;">Book my seat</button>')}`;
   document.getElementById("back").onclick=()=>viewEvents();
-  const bd=document.getElementById("bookd"); if(bd)bd.onclick=async()=>{await book(id);viewDetail(id);};
+  const bd=document.getElementById("bookd"); if(bd)bd.onclick=async()=>{bd.disabled=true;await book(id,false);viewDetail(id);};
   const cx=document.getElementById("cancel"); if(cx)cx.onclick=async()=>{
-    await db.from("bookings").update({status:"cancelled"}).eq("user_id",session.user.id).eq("event_id",id);
-    toast("Seat cancelled"); viewDetail(id);
+    if(busy) return; busy=true; cx.disabled=true;
+    const {error}=await db.from("bookings").update({status:"cancelled"}).eq("user_id",session.user.id).eq("event_id",id);
+    busy=false;
+    toast(error?("Couldn’t cancel: "+error.message):"Seat cancelled"); viewDetail(id);
   };
   if(isB) loadMates(id);
 }
@@ -266,12 +276,12 @@ async function loadMates(id){
   const box=document.getElementById("mates"); if(!box)return;
   const {data,error}=await db.rpc("tablemates",{p_event:id});
   if(error){box.innerHTML='<p class="muted">Couldn’t load your table right now.</p>';return;}
-  const blurbs=(data&&data.blurbs)||[], total=(data&&data.total)||1;
+  const blurbs=(data&&data.blurbs)||[], total=(data&&data.total)||1, seats=(data&&data.seats)||6;
   if(total<=1){
-    box.innerHTML='<h3>Who’s at your table</h3><p class="muted">You’re the first to book. We’ll fill the table to six — check back as others join.</p>';
+    box.innerHTML='<h3>Who’s at your table</h3><p class="muted">You’re the first to book. We’ll fill the table to '+seats+' — check back as others join.</p>';
     return;
   }
-  box.innerHTML='<h3>Who’s at your table</h3><p class="muted" style="margin:.1rem 0 .6rem;">'+total+' of 6 confirmed. Names stay private until you meet.</p>'+
+  box.innerHTML='<h3>Who’s at your table</h3><p class="muted" style="margin:.1rem 0 .6rem;">'+total+' of '+seats+' confirmed. Names stay private until you meet.</p>'+
     blurbs.map(b=>{const t=String(b||"A guest");return '<div class="mate"><div class="av">'+esc(t.charAt(0).toUpperCase())+'</div><div class="who">'+esc(t)+'</div></div>';}).join("");
 }
 
@@ -309,7 +319,11 @@ async function viewMe(){
   app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
 }
 
-boot();
+db.auth.onAuthStateChange((_e,s)=>{
+  const was=!!session; session=s;
+  if(s && !was) boot();
+  else if(!s){ profile=null; nav.hidden=true; viewAuth(); }
+});
 </script>
 </body>
 </html>
