@@ -7,7 +7,24 @@ Supabase project (Postgres + Auth + RLS).
 
 Config is inline in `index.html` (`SUPABASE_URL` + publishable key — safe to ship).
 
-Deploy: any static host. For Vercel: `vercel deploy app --prod` (or point a
-Vercel project at this folder). After deploy, add the deployed origin to
-Supabase → Authentication → URL Configuration (Site URL + Redirect URLs) so
-magic links return to the site.
+## Live
+
+- App (production): https://rightime-app.vercel.app/
+- Supabase project: `ecsvbrsvwcgfcqjhkmrw` (eu-west-1)
+
+## Deploy
+
+Any static host. For Vercel: `vercel deploy app --prod` (or point a Vercel
+project at this folder).
+
+## Required one-time Supabase step (for magic-link sign-in)
+
+Supabase only redirects magic links back to allow-listed origins. In the
+Supabase dashboard → **Authentication → URL Configuration**:
+
+- **Site URL**: `https://rightime-app.vercel.app`
+- **Redirect URLs**: add `https://rightime-app.vercel.app/**`
+
+Until this is set, the sign-in email sends but its link bounces to the default
+`localhost` origin. There is no API/MCP tool for this setting — it is a
+dashboard-only change.
