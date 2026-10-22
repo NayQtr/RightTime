@@ -9,7 +9,7 @@ Config is inline in `index.html` (`SUPABASE_URL` + publishable key — safe to s
 
 ## Live
 
-- App (production): https://rightime-app.vercel.app/
+- App (production): https://rightime-app-three.vercel.app/
 - Supabase project: `ecsvbrsvwcgfcqjhkmrw` (eu-west-1)
 
 ## Deploy
@@ -22,8 +22,8 @@ project at this folder).
 Supabase only redirects magic links back to allow-listed origins. In the
 Supabase dashboard → **Authentication → URL Configuration**:
 
-- **Site URL**: `https://rightime-app.vercel.app`
-- **Redirect URLs**: add `https://rightime-app.vercel.app/**`
+- **Site URL**: `https://rightime-app-three.vercel.app`
+- **Redirect URLs**: add `https://rightime-app-three.vercel.app/**`
 
 Until this is set, the sign-in email sends but its link bounces to the default
 `localhost` origin. There is no API/MCP tool for this setting — it is a
