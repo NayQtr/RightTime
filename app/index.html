@@ -1,329 +1,1707 @@
 <!doctype html>
+<!-- BEFORE LAUNCH (stubs the owner must fill; nothing here is claimed as final):
+     1. Privacy and Terms pages are plain-language drafts that say on the page they should be reviewed. Have a lawyer replace them.
+     2. No contact email or reporting channel is published, because none was supplied. Add one to the Safety, Privacy and Terms pages.
+     3. Profile first name writes profiles.first_name with an own-row update. Confirm your RLS allows that column.
+     4. PAST_BLOCKS_BOOKING (top of the script) is false: every table the database returns is listed and bookable. Past-dated tables just carry a "Date passed" tag. Set it to true to close them in the UI once the seed dates are confirmed; the database does not enforce that either way.
+     4b. EARLY_ACCESS_BANNER (top of the script) is true: signed-in pages say listed tables are examples and that no venue details or reminders are sent yet. Set it false when real tables run and day-of messaging exists.
+     5. Run one real magic-link round trip against the live project; this file has been tested only against a mocked Supabase client. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Rightime</title>
-<meta name="description" content="Rightime — a standing table of six, somewhere in your city, every week.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap">
+<title>Rightime — a standing table of six, every week</title>
+<meta name="description" content="Rightime seats you at a small table of about six in your city, every week. Answer a few questions, pick a night, and find out the venue on the day.">
+<meta name="theme-color" content="#f9f4ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1210" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Rightime">
+<meta property="og:title" content="Rightime — sit down with people you haven't met">
+<meta property="og:description" content="A small table of about six in your city, every week. Dinner, women-only, coffee, drinks, walks and runs.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='5.2' fill='none' stroke='%237a1f2b' stroke-width='1.6'/%3E%3Cg fill='%237a1f2b'%3E%3Ccircle cx='18.93' cy='8' r='2.2'/%3E%3Ccircle cx='18.93' cy='16' r='2.2'/%3E%3Ccircle cx='12' cy='20' r='2.2'/%3E%3Ccircle cx='5.07' cy='16' r='2.2'/%3E%3Ccircle cx='5.07' cy='8' r='2.2'/%3E%3C/g%3E%3Ccircle cx='12' cy='4' r='2.4' fill='%23e8943a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&display=swap">
 <style>
+/* ============ Design tokens (OKLCH). Light is the default; dark is redefined below. ============ */
+:root{
+  --bg:oklch(97.5% 0.012 75);
+  --surface:oklch(99% 0.006 75);
+  --surface2:oklch(95% 0.02 70);
+  --ink:oklch(22% 0.03 20);
+  --ink-soft:oklch(40% 0.03 20);       /* >= 8:1 on bg/surface/surface2 */
+  --ink-faint:oklch(46% 0.03 22);      /* muted text: >= 6:1 on bg/surface/surface2 */
+  --line:oklch(88% 0.02 65);           /* decorative dividers only */
+  --line-strong:oklch(58% 0.03 40);    /* UI component borders: >= 3:1 */
+  --accent:oklch(45% 0.15 22);         /* ember-claret used AS TEXT/links: >= 6.9:1 */
+  --claret:oklch(38% 0.13 15);
+  --mark:oklch(38% 0.13 15);           /* claret for non-text UI marks (progress fill, checked radios, seats): >= 3:1 */
+  --claret-deep:oklch(30% 0.12 18);
+  --on-claret:oklch(97% 0.02 70);
+  --ember:oklch(72% 0.15 62);          /* decorative fills only, never text */
+  --on-ember:oklch(22% 0.03 20);
+  --focus:oklch(46% 0.12 45);          /* focus ring: >= 6.4:1 on bg/surface/surface2 */
+  --good-fg:oklch(38% 0.09 150);  --good-bg:oklch(93% 0.05 150);
+  --warn-fg:oklch(42% 0.09 65);   --warn-bg:oklch(94% 0.06 85);
+  --bad-fg:oklch(44% 0.14 25);    --bad-bg:oklch(94% 0.028 25);
+  --band:oklch(30% 0.12 18);      --on-band:oklch(96% 0.02 70); --on-band-soft:oklch(86% 0.03 60); --focus-band:oklch(86% 0.1 70);
+  --shadow:0 1px 2px oklch(25% 0.05 20 / .07),0 10px 28px oklch(25% 0.05 20 / .08);
+  --r-s:8px; --r-m:14px; --r-l:24px;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"Hanken Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
   :root{
-    --bg:oklch(97% 0.012 60);--surface:oklch(98.6% 0.01 70);--surface2:oklch(96% 0.018 60);
-    --ink:oklch(22% 0.03 20);--ink-soft:oklch(44% 0.025 20);--ink-faint:oklch(58% 0.02 25);
-    --line:oklch(88% 0.02 60);--claret:oklch(38% 0.13 15);--claret-ink:oklch(44% 0.15 15);--claret-deep:oklch(30% 0.12 18);
-    --ember:oklch(70% 0.15 62);--on-claret:oklch(96% 0.02 70);--good:oklch(52% 0.11 150);--warn:oklch(62% 0.12 70);--bad:oklch(55% 0.17 25);
-    color-scheme:light;
+    --bg:oklch(17% 0.02 25);
+    --surface:oklch(22% 0.025 23);
+    --surface2:oklch(26% 0.03 22);
+    --ink:oklch(94% 0.015 70);
+    --ink-soft:oklch(80% 0.02 55);
+    --ink-faint:oklch(72% 0.02 45);
+    --line:oklch(34% 0.03 25);
+    --line-strong:oklch(60% 0.03 30);
+    --accent:oklch(76% 0.13 20);
+    --claret:oklch(52% 0.15 16);
+    --mark:oklch(62% 0.15 18);
+    --claret-deep:oklch(40% 0.13 18);
+    --on-claret:oklch(98% 0.01 70);
+    --ember:oklch(76% 0.13 65);
+    --on-ember:oklch(20% 0.03 20);
+    --focus:oklch(80% 0.14 65);
+    --good-fg:oklch(82% 0.11 155);  --good-bg:oklch(30% 0.05 150);
+    --warn-fg:oklch(84% 0.1 80);    --warn-bg:oklch(31% 0.05 80);
+    --bad-fg:oklch(82% 0.09 25);    --bad-bg:oklch(30% 0.045 25);
+    --band:oklch(25% 0.06 20); --on-band:oklch(95% 0.015 70); --on-band-soft:oklch(80% 0.03 55); --focus-band:oklch(86% 0.1 70);
+    --shadow:0 1px 2px oklch(0% 0 0 / .4),0 12px 30px oklch(0% 0 0 / .35);
+    color-scheme:dark;
   }
-  @media (prefers-color-scheme:dark){:root{
-    --bg:oklch(17% 0.02 25);--surface:oklch(22% 0.025 23);--surface2:oklch(25% 0.03 22);
-    --ink:oklch(94% 0.015 70);--ink-soft:oklch(78% 0.02 55);--ink-faint:oklch(64% 0.02 45);
-    --line:oklch(34% 0.03 25);--claret:oklch(55% 0.15 16);--claret-ink:oklch(72% 0.14 16);--claret-deep:oklch(30% 0.1 18);
-    --ember:oklch(76% 0.13 65);--on-claret:oklch(97% 0.015 70);--good:oklch(72% 0.12 155);--warn:oklch(78% 0.1 75);--bad:oklch(72% 0.14 25);color-scheme:dark;}}
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;}
-  h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.08;letter-spacing:-.015em;margin:0;}
-  a{color:var(--claret-ink);}
-  .wrap{max-width:720px;margin-inline:auto;padding:0 20px;}
-  header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);}
-  .bar{display:flex;align-items:center;gap:1rem;padding:.7rem 0;}
-  .brand{font-family:"Fraunces",serif;font-weight:600;font-size:1.3rem;display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;background:none;border:none;color:var(--ink);}
-  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--ember);}
-  .bar .sp{margin-left:auto;}
-  .nav{display:flex;gap:1.1rem;font-weight:600;font-size:.92rem;}
-  .nav button{background:none;border:none;cursor:pointer;color:var(--ink-soft);font:inherit;font-weight:600;padding:.3rem 0;}
-  .nav button[aria-current="true"]{color:var(--claret-ink);}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:46px;border:none;cursor:pointer;font:inherit;font-weight:700;border-radius:3px;padding:.75rem 1.3rem;background:var(--claret);color:var(--on-claret);text-decoration:none;}
-  .btn:hover{background:var(--claret-deep);} .btn:disabled{opacity:.45;cursor:not-allowed;}
-  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink);}
-  .btn.bad{background:transparent;color:var(--bad);border:1.5px solid color-mix(in srgb,var(--bad) 45%,var(--line));}
-  :focus-visible{outline:3px solid var(--ember);outline-offset:2px;}
-  input{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:3px;padding:.75rem .85rem;width:100%;min-height:46px;}
-  main{padding:2rem 0 4rem;}
-  .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--claret-ink);font-weight:700;}
-  h1.big{font-size:clamp(2.2rem,6vw,3.4rem);margin:.4rem 0 0;}
-  .lede{color:var(--ink-soft);font-size:1.1rem;margin:1rem 0 1.6rem;max-width:40ch;}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:6px;font-weight:600;font-size:.9rem;transition:.25s;z-index:50;pointer-events:none;max-width:90%;text-align:center;}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-  .muted{color:var(--ink-faint);font-size:.9rem;}
-  /* questionnaire */
-  .q h2{font-size:1.5rem;margin:.3rem 0 1.1rem;}
-  .progress{height:5px;background:var(--line);border-radius:999px;overflow:hidden;margin-bottom:1.2rem;}
-  .progress i{display:block;height:100%;background:var(--ember);transition:width .3s;}
-  .opts{display:flex;flex-wrap:wrap;gap:.5rem;}
-  .opt{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:.6rem .9rem;cursor:pointer;font:inherit;font-weight:600;color:var(--ink);min-height:44px;}
-  .opt[aria-pressed="true"]{border-color:var(--claret);background:color-mix(in srgb,var(--claret) 12%,var(--surface));color:var(--claret-ink);}
-  .rowbtns{display:flex;gap:.6rem;margin-top:1.4rem;}
-  /* events */
-  .filters{display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 1rem;}
-  .filters button{flex:0 0 auto;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:.35rem .8rem;cursor:pointer;font:inherit;font-weight:600;font-size:.85rem;color:var(--ink-soft);min-height:38px;}
-  .filters button[aria-pressed="true"]{border-color:var(--claret);color:var(--claret-ink);}
-  .ev{border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;margin-bottom:.9rem;}
-  .ev .top{padding:1rem 1.1rem .7rem;cursor:pointer;}
-  .ev .ty{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ember);}
-  .ev h3{font-size:1.2rem;margin:.2rem 0 .1rem;}
-  .ev .meta{color:var(--ink-soft);font-size:.88rem;}
-  .ev .seat{display:flex;align-items:center;gap:.6rem;padding:.6rem 1.1rem;border-top:1px solid var(--line);font-size:.82rem;font-weight:600;}
-  .dots{display:flex;gap:3px;} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);} .dots i.on{background:var(--claret);}
-  .tag{margin-left:auto;font-size:.7rem;font-weight:700;padding:.15rem .55rem;border-radius:999px;}
-  .tag.open{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent);}
-  .tag.full{color:var(--warn);background:color-mix(in srgb,var(--warn) 18%,transparent);}
-  .ev .act{padding:.7rem 1.1rem;border-top:1px solid var(--line);}
-  .bk{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:1.1rem;margin-bottom:.9rem;}
-  .bk .st{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
-  .st.confirmed{color:var(--good);} .st.cancelled{color:var(--bad);}
-  .empty{text-align:center;color:var(--ink-soft);padding:2.4rem 1rem;}
-  .center{max-width:420px;margin:3rem auto 0;text-align:center;}
-  .pen{display:flex;gap:.6rem;background:color-mix(in srgb,var(--warn) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line));border-radius:8px;padding:.7rem .85rem;font-size:.84rem;margin:1rem 0;}
-  .mates{margin:1.6rem 0;border-top:1px solid var(--line);padding-top:1.2rem;}
-  .mates h3{font-size:1.15rem;margin-bottom:.2rem;}
-  .mate{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid var(--line);}
-  .mate:last-child{border-bottom:none;}
-  .mate .av{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:color-mix(in srgb,var(--claret) 16%,var(--surface2));color:var(--claret-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem;font-family:"Fraunces",serif;}
-  .mate .who{font-weight:600;font-size:.92rem;}
-  .prow{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--line);}
-  .prow .k{color:var(--ink-faint);font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
-  .prow .v{text-align:right;font-weight:600;}
-  .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--claret);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;}
-  @keyframes sp{to{transform:rotate(360deg);}}
-  @media (prefers-reduced-motion:reduce){.spin{animation:none;} .toast{transition:none;}}
-  footer{border-top:1px solid var(--line);padding:1.6rem 0;color:var(--ink-faint);font-size:.8rem;}
+}
+
+/* ============ Base ============ */
+*,*::before,*::after{box-sizing:border-box;}
+html{scroll-padding-top:84px;-webkit-text-size-adjust:100%;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:1rem;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;overflow-wrap:break-word;}
+img,svg{max-width:100%;}
+h1,h2,h3,h4{font-family:var(--display);font-optical-sizing:auto;font-weight:600;line-height:1.1;letter-spacing:-.015em;margin:0;text-wrap:balance;}
+h1{font-size:clamp(2.1rem,1.2rem + 4.4vw,3.6rem);}
+h2{font-size:clamp(1.65rem,1.2rem + 1.8vw,2.45rem);}
+h3{font-size:1.25rem;}
+p{margin:0;text-wrap:pretty;}
+h1,h2,h3,h4,.eyebrow,.brk,strong,.dl dd,.who,.sub,.fmt,.when>span,.where>span,.meta p>span{overflow-wrap:anywhere;}
+.panel,.auth-card,.card,.band,.notice>div,.seatlist li>div,.first,.empty,.sample{min-width:0;}
+em{font-style:italic;color:var(--accent);}
+a{color:var(--accent);text-underline-offset:.2em;text-decoration-thickness:1px;}
+a:hover{text-decoration-thickness:2px;}
+ul,ol{margin:0;padding:0;}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:4px;}
+[tabindex="-1"]:focus{outline:none;}
+.band :focus-visible{outline-color:var(--focus-band);}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+.skip{position:absolute;left:16px;top:-80px;z-index:100;background:var(--ink);color:var(--bg);padding:.7rem 1rem;border-radius:var(--r-s);font-weight:700;text-decoration:none;}
+.skip:focus{top:12px;}
+.wrap{width:100%;max-width:1120px;margin-inline:auto;padding-inline:16px;}
+.narrow{max-width:760px;}
+@media (min-width:700px){.wrap{padding-inline:28px;}}
+.ic{width:1.25em;height:1.25em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.25em;}
+.eyebrow{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;}
+.muted{color:var(--ink-faint);}
+.soft{color:var(--ink-soft);}
+.lede{font-size:clamp(1.05rem,1rem + .5vw,1.25rem);color:var(--ink-soft);max-width:44ch;}
+
+/* ============ Buttons, chips, forms ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:48px;padding:.7rem 1.4rem;border:2px solid transparent;border-radius:999px;background:var(--claret);color:var(--on-claret);font:inherit;font-weight:700;text-decoration:none;cursor:pointer;transition:background-color .2s,transform .2s,box-shadow .2s;text-align:center;}
+.btn:hover{background:var(--claret-deep);text-decoration:none;box-shadow:var(--shadow);transform:translateY(-1px);}
+.btn:active{transform:none;}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.55;cursor:not-allowed;box-shadow:none;transform:none;}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--ink);}
+.btn.ghost:hover{background:var(--surface2);}
+.btn.danger{background:transparent;color:var(--bad-fg);border-color:var(--bad-fg);}
+.btn.danger:hover{background:var(--bad-bg);}
+.btn.sm{min-height:44px;padding:.45rem 1.05rem;font-size:.95rem;}
+.btn.block{width:100%;}
+.btn.on-band{background:var(--on-band);color:var(--band);}
+.btn.on-band:hover{background:var(--on-band-soft);}
+.btn.ghost.on-band{background:transparent;color:var(--on-band);border-color:var(--on-band);}
+.link-btn{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer;text-underline-offset:.2em;}
+label.field{display:block;font-weight:700;margin-bottom:.4rem;}
+input[type="email"],input[type="text"]{font:inherit;color:var(--ink);background:var(--surface);border:2px solid var(--line-strong);border-radius:var(--r-s);padding:.75rem .9rem;width:100%;min-height:50px;}
+input::placeholder{color:var(--ink-faint);opacity:1;}
+.hint{font-size:.9rem;color:var(--ink-soft);margin-top:.4rem;}
+.err{color:var(--bad-fg);background:var(--bad-bg);border:1px solid var(--bad-fg);border-radius:var(--r-s);padding:.7rem .9rem;font-weight:600;font-size:.95rem;margin-top:.8rem;}
+.notice{display:flex;gap:.7rem;align-items:flex-start;background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-fg);border-radius:var(--r-m);padding:.8rem 1rem;font-size:.95rem;}
+.notice.info{background:var(--surface2);color:var(--ink);border-color:var(--line-strong);}
+.notice .ic{margin-top:.15rem;}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;}
+.chip{display:inline-flex;align-items:center;gap:.4rem;min-height:44px;padding:.4rem 1rem;border-radius:999px;border:2px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;font-size:.95rem;cursor:pointer;}
+.chip:hover{background:var(--surface2);}
+.chip[aria-pressed="true"]{background:var(--claret);border-color:var(--mark);color:var(--on-claret);}
+.chip .n{font-weight:500;opacity:.85;font-size:.85rem;}
+.tag{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:700;padding:.2rem .65rem;border-radius:999px;white-space:nowrap;}
+.tag.good{background:var(--good-bg);color:var(--good-fg);}
+.tag.warn{background:var(--warn-bg);color:var(--warn-fg);}
+.tag.bad{background:var(--bad-bg);color:var(--bad-fg);}
+.tag.neutral{background:var(--surface2);color:var(--ink-soft);}
+
+/* ============ Header / footer ============ */
+.site-header{position:sticky;top:0;z-index:40;background:color-mix(in oklab,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);}
+.bar{display:flex;align-items:center;gap:1rem;min-height:64px;}
+.brand{display:inline-flex;align-items:center;gap:.55rem;font-family:var(--display);font-weight:700;font-size:1.4rem;letter-spacing:-.02em;color:var(--ink);text-decoration:none;min-height:44px;}
+.brand svg{width:30px;height:30px;color:var(--claret);fill:currentColor;stroke:none;}
+.brand:hover{text-decoration:none;}
+.menu-btn{margin-left:auto;display:inline-flex;align-items:center;gap:.5rem;min-height:44px;padding:.4rem .9rem;border:2px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-weight:700;cursor:pointer;}
+.nav{display:none;position:absolute;left:0;right:0;top:100%;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:var(--shadow);padding:.5rem 16px 1rem;}
+.nav[data-open="true"]{display:block;}
+.nav ul{list-style:none;display:grid;gap:.15rem;}
+.nav a:not(.btn),.nav .navbtn{display:flex;align-items:center;min-height:48px;padding:.4rem .6rem;border-radius:var(--r-s);color:var(--ink);font:inherit;font-weight:600;text-decoration:none;background:none;border:0;width:100%;cursor:pointer;text-align:left;}
+.nav a:not(.btn):hover,.nav .navbtn:hover{background:var(--surface2);}
+.nav a:not(.btn)[aria-current="page"]{color:var(--accent);background:var(--surface2);}
+.nav .cta .btn{width:100%;}
+.nav .cta{margin-top:.5rem;}
+@media (min-width:900px){
+  .menu-btn{display:none;}
+  .nav{display:block;position:static;background:none;border:0;box-shadow:none;padding:0;margin-left:auto;}
+  .nav ul{display:flex;align-items:center;gap:.25rem;}
+  .nav a:not(.btn),.nav .navbtn{width:auto;min-height:44px;padding:.4rem .85rem;border-radius:999px;}
+  .nav .cta .btn{width:auto;}
+  .nav .cta{margin:0 0 0 .5rem;}
+}
+main{flex:1;}
+.site-footer{margin-top:4rem;border-top:1px solid var(--line);background:var(--surface2);padding:3rem 0 2rem;}
+.foot-grid{display:grid;gap:2rem;grid-template-columns:minmax(0,1fr);}
+@media (min-width:700px){.foot-grid{grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,1fr));}}
+.site-footer h2{font-family:var(--sans);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin-bottom:.7rem;}
+.site-footer ul{list-style:none;display:grid;gap:.1rem;}
+.site-footer li a{display:inline-flex;align-items:center;min-height:36px;color:var(--ink);}
+.foot-note{margin-top:2.2rem;padding-top:1.4rem;border-top:1px solid var(--line);font-size:.88rem;color:var(--ink-soft);display:grid;gap:.5rem;}
+
+/* ============ Views, motion ============ */
+.view{padding-bottom:1rem;}
+.view.enter{animation:enter .35s ease-out both;}
+@keyframes enter{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.page-head{padding:3rem 0 2rem;}
+.page-head h1{margin-top:.6rem;}
+.page-head .lede{margin-top:1rem;}
+.section{padding:3.2rem 0;}
+.section.tint{background:var(--surface2);}
+.section-head{max-width:640px;margin-bottom:2rem;}
+.section-head h2{margin-top:.5rem;}
+.section-head p{margin-top:.8rem;color:var(--ink-soft);}
+.grid{display:grid;gap:1rem;}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:1.4rem;position:relative;}
+.card h3,.card>h2{margin-bottom:.4rem;}
+.card>h2{font-size:1.25rem;}
+.card p{color:var(--ink-soft);}
+.card .ico{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--surface2);color:var(--claret);margin-bottom:.9rem;}
+.card .ico .ic{width:24px;height:24px;}
+@media (prefers-color-scheme:dark){.card .ico{color:var(--accent);}}
+
+/* Hero */
+.hero{position:relative;overflow:hidden;padding:2.5rem 0 3.5rem;background:radial-gradient(55% 60% at 88% 8%,color-mix(in oklab,var(--ember) 24%,transparent),transparent 70%),radial-gradient(45% 50% at 0% 0%,color-mix(in oklab,var(--claret) 9%,transparent),transparent 70%);}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:2rem;align-items:center;}
+@media (min-width:900px){.hero-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:3rem;}.hero{padding:4rem 0 5rem;}}
+.hero h1{margin:.9rem 0 1.2rem;font-size:clamp(2.4rem,1.2rem + 5.4vw,4.6rem);line-height:1.02;letter-spacing:-.025em;}
+.hero .lede{margin-bottom:1.8rem;}
+.hero-cta{display:flex;flex-wrap:wrap;gap:.8rem;}
+.hero-fine{margin-top:1.4rem;font-size:.92rem;color:var(--ink-soft);max-width:52ch;display:flex;gap:.6rem;align-items:flex-start;}
+.hero-art{display:grid;justify-items:center;gap:.8rem;}
+.hero-art svg{width:min(100%,380px);height:auto;}
+.hero-art figcaption{font-family:var(--display);font-style:italic;color:var(--ink-soft);font-size:1.05rem;text-align:center;}
+.t-table{fill:var(--surface);stroke:var(--line-strong);stroke-width:2;}
+.t-ring{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:3 7;}
+.t-seat{fill:var(--surface);stroke:var(--line-strong);stroke-width:2.5;}
+.t-seat.on{fill:var(--mark);stroke:var(--mark);}
+.t-seat.me{fill:var(--ember);stroke:var(--claret);}
+.t-plate{fill:var(--surface2);stroke:var(--line-strong);stroke-width:1.5;}
+.t-candle{fill:var(--ember);}
+.t-glow{fill:var(--ember);opacity:.25;}
+.hero-art .t-seat{animation:seatin .6s ease-out both;}
+.hero-art .t-glow{animation:glow 3.6s ease-in-out infinite;transform-origin:200px 200px;}
+@keyframes seatin{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:none;}}
+@keyframes glow{0%,100%{opacity:.18;transform:scale(1);}50%{opacity:.34;transform:scale(1.25);}}
+.t-seat{transform-box:fill-box;transform-origin:center;}
+
+.facts{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));margin-top:-1.4rem;position:relative;}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:1.1rem 1.3rem;box-shadow:var(--shadow);}
+.fact b{font-family:var(--display);font-size:1.3rem;display:block;font-weight:600;}
+.fact span{color:var(--ink-soft);font-size:.95rem;}
+
+/* Steps */
+.steps{list-style:none;display:grid;gap:1rem;counter-reset:step;}
+.steps li{counter-increment:step;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:1.3rem 1.3rem 1.3rem 4.4rem;}
+.steps li::before{content:counter(step);position:absolute;left:1.1rem;top:1.15rem;width:2.3rem;height:2.3rem;border-radius:50%;background:var(--claret);color:var(--on-claret);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:1.15rem;}
+.steps h3{margin-bottom:.3rem;}
+.steps p{color:var(--ink-soft);}
+@media (min-width:900px){.steps.row{grid-template-columns:repeat(4,1fr);}.steps.row li{padding:4.2rem 1.2rem 1.3rem;}.steps.row li::before{left:1.2rem;top:1.2rem;}}
+
+/* Split sections */
+.split{display:grid;grid-template-columns:minmax(0,1fr);gap:2rem;align-items:center;}
+@media (min-width:900px){.split{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3.5rem;}}
+.sample{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:1.4rem;box-shadow:var(--shadow);}
+.sample-tag{display:inline-block;font-size:.78rem;font-weight:700;color:var(--ink-soft);background:var(--surface2);border-radius:999px;padding:.2rem .7rem;margin-bottom:.9rem;}
+.seatlist{list-style:none;display:grid;gap:.1rem;}
+.seatlist li{display:flex;gap:.8rem;align-items:flex-start;padding:.8rem 0;border-bottom:1px solid var(--line);}
+.seatlist li:last-child{border-bottom:0;}
+.seatno{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:.95rem;background:var(--surface2);color:var(--ink);border:2px solid var(--line-strong);}
+.seatno.me{background:var(--ember);color:var(--on-ember);border-color:var(--claret);}
+.seatno.open{background:transparent;border-style:dashed;color:var(--ink-faint);}
+.seatlist .who{font-weight:600;}
+.seatlist .sub{font-size:.88rem;color:var(--ink-soft);}
+.seatlist li.open .who{color:var(--ink-faint);font-weight:500;}
+
+/* Formats / cities */
+.fmt-card{display:flex;flex-direction:column;gap:.2rem;}
+.fmt-card .go{margin-top:auto;padding-top:.8rem;font-weight:700;}
+.dl{display:grid;grid-template-columns:minmax(0,1fr);gap:.15rem;margin-top:.8rem;}
+.dl div{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:.8rem;padding:.55rem 0;border-top:1px solid var(--line);}
+.dl dt{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--ink-soft);padding-top:.15rem;}
+.dl dd{margin:0;font-weight:500;}
+.city-card h2{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline;flex-wrap:wrap;}
+.city-card .country{font-family:var(--sans);font-size:.9rem;font-weight:600;color:var(--ink-soft);letter-spacing:0;}
+
+/* Prose, FAQ */
+.prose h2{font-size:1.6rem;margin:2.4rem 0 .7rem;}
+.prose h2:first-child{margin-top:0;}
+.prose p,.prose li{color:var(--ink-soft);margin-bottom:.9rem;max-width:68ch;}
+.prose ul{padding-left:1.2rem;}
+.prose strong{color:var(--ink);}
+.faq-group{margin-top:2.2rem;}
+.faq-group h2{font-size:1.5rem;margin-bottom:.8rem;}
+details.q{border-top:1px solid var(--line);}
+details.q:last-of-type{border-bottom:1px solid var(--line);}
+details.q summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem .2rem;min-height:56px;font-weight:700;font-size:1.05rem;}
+details.q summary::-webkit-details-marker{display:none;}
+details.q summary::after{content:"";flex:none;width:.7rem;height:.7rem;border-right:2.5px solid var(--accent);border-bottom:2.5px solid var(--accent);transform:rotate(45deg);transition:transform .2s;margin-right:.3rem;}
+details.q[open] summary::after{transform:rotate(-135deg);}
+details.q .a{padding:0 .2rem 1.2rem;color:var(--ink-soft);max-width:68ch;}
+details.q .a p+p{margin-top:.7rem;}
+details.earlier{margin-top:2rem;}
+details.earlier .a{max-width:none;}
+.city-card p+p{margin-top:.55rem;}
+.city-card .k{font-weight:700;color:var(--ink);}
+
+/* CTA band */
+.band{background:var(--band);color:var(--on-band);border-radius:var(--r-l);padding:2.4rem 1.5rem;display:grid;gap:1.2rem;justify-items:start;}
+.band h2{color:var(--on-band);}
+.band em{color:inherit;}
+.band p{color:var(--on-band-soft);max-width:52ch;}
+@media (min-width:700px){.band{padding:3rem;}}
+
+/* Sign-in */
+.auth-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:2rem;padding:3rem 0;align-items:start;}
+@media (min-width:900px){.auth-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4rem;padding:4.5rem 0;}}
+.auth-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:1.6rem;box-shadow:var(--shadow);}
+.auth-card form{display:grid;gap:1rem;}
+.ticks{list-style:none;display:grid;gap:.8rem;margin-top:1.6rem;}
+.ticks li{display:flex;gap:.7rem;align-items:flex-start;color:var(--ink-soft);}
+.ticks .ic{color:var(--accent);margin-top:.2rem;}
+.sent h2{font-size:1.6rem;}
+.sent p{margin-top:.6rem;color:var(--ink-soft);}
+.sent ul{margin:1rem 0 1.2rem 1.2rem;color:var(--ink-soft);display:grid;gap:.3rem;}
+
+/* Onboarding */
+.step-wrap{max-width:600px;margin-inline:auto;padding:2.2rem 0 2rem;}
+.progress{height:8px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-bottom:1.4rem;}
+.progress i{display:block;height:100%;background:var(--mark);border-radius:999px;transition:width .35s ease;}
+.step-wrap h1{font-size:clamp(1.7rem,1.2rem + 2.2vw,2.4rem);margin:.5rem 0 .6rem;}
+fieldset{border:0;margin:0;padding:0;min-width:0;}
+.opts{display:grid;gap:.6rem;margin-top:1.2rem;}
+@media (min-width:520px){.opts.two{grid-template-columns:1fr 1fr;}}
+.opt{position:relative;display:block;}
+.opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;}
+.opt>span{display:flex;align-items:center;gap:.7rem;min-height:54px;padding:.6rem 1rem;border:2px solid var(--line-strong);border-radius:var(--r-m);background:var(--surface);font-weight:600;transition:background-color .15s,border-color .15s;}
+.opt>span::before{content:"";flex:none;width:1.2rem;height:1.2rem;border:2px solid var(--line-strong);border-radius:50%;background:var(--surface);transition:all .15s;}
+.opt.multi>span::before{border-radius:6px;}
+.opt input:checked + span{border-color:var(--mark);background:color-mix(in oklab,var(--claret) 10%,var(--surface));}
+.opt input:checked + span::before{border-color:var(--mark);background:var(--mark);box-shadow:inset 0 0 0 3px var(--surface);}
+.opt.multi input:checked + span::before{box-shadow:none;background:var(--mark) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/80% no-repeat;}
+.opt input:focus-visible + span{outline:3px solid var(--focus);outline-offset:3px;}
+.opt small{display:block;font-weight:500;color:var(--ink-soft);font-size:.85rem;}
+.step-actions{display:flex;gap:.7rem;margin-top:1.6rem;flex-wrap:wrap;}
+.step-actions .btn{flex:1 1 140px;}
+
+/* Events */
+.app-head{padding:2.4rem 0 1.2rem;display:flex;flex-wrap:wrap;gap:1rem 2rem;justify-content:space-between;align-items:flex-end;}
+.app-head>*{min-width:0;}
+.app-head h1{font-size:clamp(1.9rem,1.2rem + 3vw,3rem);margin-top:.4rem;}
+.day-h{font-family:var(--sans);font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin:1.8rem 0 .7rem;}
+.list{list-style:none;display:grid;gap:.9rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));}
+.ecard{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;transition:box-shadow .2s,transform .2s,border-color .2s;}
+.ecard:hover{box-shadow:var(--shadow);transform:translateY(-2px);border-color:var(--line-strong);}
+.ecard-main{padding:1.1rem 1.2rem .8rem;display:grid;grid-template-columns:minmax(0,1fr);gap:.25rem;}
+.fmt{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);}
+.ecard h3,.ecard h2{font-size:1.25rem;}
+.ecard h3 a,.bk-link{color:var(--ink);text-decoration:none;}
+.ecard h3 a::after,.bk-link::after{content:"";position:absolute;inset:0;}
+.ecard h3 a:focus-visible,.bk-link:focus-visible{outline:none;}
+.ecard:has(h3 a:focus-visible),.ecard:has(.bk-link:focus-visible){outline:3px solid var(--focus);outline-offset:3px;}
+.when,.where{font-size:.92rem;color:var(--ink-soft);display:flex;gap:.45rem;align-items:center;}
+.ecard-foot{margin-top:auto;padding:.8rem 1.2rem 1.1rem;border-top:1px solid var(--line);display:grid;gap:.7rem;}
+.seats{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-size:.9rem;font-weight:600;}
+.seatrow{display:inline-flex;gap:4px;}
+.seatrow i{width:11px;height:11px;border-radius:50%;border:2px solid var(--line-strong);background:transparent;}
+.seatrow i.on{background:var(--mark);border-color:var(--mark);}
+.ecard .btn{position:relative;z-index:2;}
+.sk{background:linear-gradient(90deg,var(--surface2) 0%,var(--line) 50%,var(--surface2) 100%);background-size:200% 100%;animation:sh 1.4s linear infinite;border-radius:var(--r-s);}
+@keyframes sh{to{background-position:-200% 0;}}
+.sk-card{height:206px;border-radius:var(--r-m);}
+.empty{text-align:center;max-width:460px;margin:2.5rem auto;padding:2rem 1rem;display:grid;gap:.9rem;justify-items:center;}
+.empty svg.big{width:120px;height:120px;}
+.empty .ic.big{width:56px;height:56px;stroke-width:1.4;color:var(--ink-faint);}
+.empty h2{font-size:1.5rem;}
+.empty p{color:var(--ink-soft);}
+.crumb{display:inline-flex;align-items:center;gap:.4rem;margin:1.6rem 0 .6rem;min-height:44px;font-weight:600;}
+
+/* Detail */
+.detail{display:grid;grid-template-columns:minmax(0,1fr);gap:1.6rem;padding-bottom:1rem;}
+@media (min-width:900px){.detail{grid-template-columns:minmax(0,1.3fr) minmax(0,.9fr);gap:3rem;align-items:start;}.detail aside{position:sticky;top:90px;}}
+.detail h1{font-size:clamp(1.9rem,1.2rem + 3vw,3rem);margin:.5rem 0 .8rem;}
+.meta{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;margin:.6rem 0 1.4rem;}
+.meta p{display:flex;gap:.6rem;align-items:center;color:var(--ink-soft);font-size:1.02rem;}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:1.5rem;box-shadow:var(--shadow);}
+.panel h2{font-size:1.35rem;}
+.panel .tbl{display:grid;justify-items:center;margin-bottom:1rem;}
+.panel .tbl svg{width:180px;height:auto;}
+.panel .status{display:flex;gap:.6rem;align-items:center;margin:.2rem 0 1rem;font-weight:700;}
+.panel .actions{display:grid;gap:.7rem;margin-top:1rem;}
+.confirm{border:2px solid var(--bad-fg);border-radius:var(--r-m);padding:1rem;display:grid;gap:.7rem;margin-top:1rem;}
+.confirm[hidden]{display:none;}
+.mates{margin-top:2rem;}
+.mates h2{font-size:1.5rem;margin-bottom:.3rem;}
+.first{display:grid;gap:.4rem;justify-items:start;padding:1.2rem;border:2px dashed var(--line-strong);border-radius:var(--r-m);margin-top:1rem;}
+.first svg{width:110px;height:110px;}
+
+/* Bookings, profile */
+.bk{display:flex;flex-direction:column;gap:.35rem;padding:1.1rem 1.2rem;}
+.bk .tags{display:flex;gap:.5rem;flex-wrap:wrap;}
+.profile-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1.2rem;padding-bottom:2rem;}
+@media (min-width:900px){.profile-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;}}
+.profile-grid .full{grid-column:1/-1;}
+.panel form{display:grid;gap:1rem;}
+.panel .opts{margin-top:0;}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:var(--bg);padding:.8rem 1.2rem;border-radius:var(--r-m);font-weight:600;font-size:.95rem;transition:opacity .25s,transform .25s;z-index:80;pointer-events:none;width:max-content;max-width:calc(100% - 32px);text-align:center;box-shadow:var(--shadow);}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.toast.error{background:var(--bad-fg);color:var(--bad-bg);}
+.spin{display:inline-block;width:1.1em;height:1.1em;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-.2em;}
+@keyframes sp{to{transform:rotate(360deg);}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+  .ecard:hover,.btn:hover{transform:none;}
+  .sk{animation:none;}
+}
+@media print{.site-header,.site-footer,.toast,.skip{display:none;}}
+noscript .ns{padding:2rem 16px;max-width:640px;margin:0 auto;}
 </style>
 </head>
 <body>
-<header><div class="wrap bar">
-  <button class="brand" id="brandBtn"><span class="dot"></span>Rightime</button>
-  <span class="sp"></span>
-  <nav class="nav" id="nav" hidden>
-    <button data-nav="events" aria-current="true">Events</button>
-    <button data-nav="me">My events</button>
-    <button data-nav="profile">Profile</button>
-    <button data-nav="signout">Sign out</button>
-  </nav>
-</div></header>
-<main><div class="wrap" id="app"><p class="muted"><span class="spin"></span> Loading…</p></div></main>
-<footer><div class="wrap">Rightime — a demo product reconstructed from the Timeleft concept. Real auth &amp; database; no payments or chat in this slice.</div></footer>
-<div class="toast" id="toast"></div>
+<a class="skip" href="#main" id="skip">Skip to main content</a>
+
+<!-- Icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="4" r="2.4" style="fill:var(--ember)"/><circle cx="18.93" cy="8" r="2.2"/><circle cx="18.93" cy="16" r="2.2"/><circle cx="12" cy="20" r="2.2"/><circle cx="5.07" cy="16" r="2.2"/><circle cx="5.07" cy="8" r="2.2"/></symbol>
+  <symbol id="i-dinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-women" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M12 14v8M9 18h6"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h2a2.5 2.5 0 0 1 0 5h-2M7 3v2M11 3v2"/></symbol>
+  <symbol id="i-drinks" viewBox="0 0 24 24"><path d="M5 4h14l-7 9z"/><path d="M12 13v7M8 20h8"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24"><path d="M4 19c5 0 3-6 8-6s3-6 8-6"/><circle cx="4" cy="19" r="1.6"/><circle cx="20" cy="7" r="1.6"/></symbol>
+  <symbol id="i-run" viewBox="0 0 24 24"><circle cx="12" cy="14" r="7"/><path d="M12 14l3-3M10 3h4"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.5c2.6.1 4.2 1.6 4.6 4.5"/></symbol>
+</svg>
+
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="#/" id="brand" aria-label="Rightime, home"><svg aria-hidden="true" focusable="false"><use href="#i-mark"/></svg><span>Rightime</span></a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="nav"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg><span>Menu</span></button>
+    <nav class="nav" id="nav" aria-label="Main" data-open="false"><ul id="navList"></ul></nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <div class="view" id="view">
+    <div class="wrap"><h1 class="page-head" style="padding:3rem 0 1rem;font-size:2rem">Rightime</h1><noscript><p class="ns">Rightime needs JavaScript to show tables and sign you in. Please enable it and reload.</p></noscript><p class="muted"><span class="spin"></span> Loading…</p></div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="#/"><svg aria-hidden="true" focusable="false"><use href="#i-mark"/></svg><span>Rightime</span></a>
+        <p class="soft" style="margin-top:.8rem;max-width:34ch">A standing table of about six, in your city, every week.</p>
+      </div>
+      <div><h2>Explore</h2><ul>
+        <li><a href="#/how-it-works">How it works</a></li><li><a href="#/formats">Formats</a></li><li><a href="#/cities">Cities</a></li><li><a href="#/faq">FAQ</a></li><li><a href="#/about">About</a></li></ul></div>
+      <div><h2>Trust</h2><ul>
+        <li><a href="#/safety">Meeting strangers well</a></li><li><a href="#/privacy">Privacy</a></li><li><a href="#/terms">Terms</a></li></ul></div>
+      <div><h2>Account</h2><ul id="footAccount"></ul></div>
+    </div>
+    <div class="foot-note">
+      <p><strong>Early access.</strong> Sign-in, onboarding, browsing, booking and the anonymous table view work on a live database. Payments, chat, and day-of venue details and reminders are not built yet, and tables listed after you sign in may be examples.</p>
+      <p>© <span id="year">2026</span> Rightime. An independent project; not affiliated with any other social-dining service.</p>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<div class="sr-only" id="announcer" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+"use strict";
+/* ============================================================
+   Rightime — single-file SPA (hash-routed). Backend contracts:
+   tables profiles / events / bookings, RPC tablemates, upsert booking,
+   emailRedirectTo = origin + pathname, re-render on auth state change.
+   ============================================================ */
 const SUPABASE_URL="https://ecsvbrsvwcgfcqjhkmrw.supabase.co";
-const SUPABASE_KEY="sb_publishable_o5FpdaGNgbABXoSobcs2tQ_SITZzrc0";
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const SUPABASE_KEY="sb_publishable_o5FpdaGNgbABXoSobcs2tQ_SITZzrc0"; // publishable (client-safe) key only
+const BOOT_HASH=location.hash||"";           // captured before supabase-js consumes magic-link tokens
+const PAST_BLOCKS_BOOKING=false;              // OFF by default: every table the database returns is listed and bookable, so the live backend is exercised exactly as it is. Set true only once you have confirmed the seed dates and want past-dated tables moved under "Earlier tables" and closed for booking in the UI (the database does not enforce that).
+const UP=PAST_BLOCKS_BOOKING?"upcoming ":"";   // wording only
+const EARLY_ACCESS_BANNER=true;                // honest early-access notice on signed-in pages (see the BEFORE LAUNCH list)
+const EARLY_NOTICE_TEXT="Early access: the tables listed here are examples while Rightime is being built. Booking saves your seat in the database; venue details and reminders are not sent yet.";
+const earlyNotice=(style)=>EARLY_ACCESS_BANNER?`<div class="notice info"${style?` style="${style}"`:""}>${ic("info")}<div>${esc(EARLY_NOTICE_TEXT)}</div></div>`:"";
 
-const CITIES={par:"Paris",lon:"London",nyc:"New York",phl:"Philadelphia",den:"Denver",sd:"San Diego"};
-const FMT={dinner:"Dinner",women:"Women-only",coffee:"Coffee",drinks:"Drinks",walk:"Walk",run:"Run"};
-const app=document.getElementById("app"), nav=document.getElementById("nav");
-let session=null, profile=null, eventFilter="all", busy=false;
+let db=null;
+try{ db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); }catch(_e){ db=null; }
 
-function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
-function loading(){app.innerHTML='<p class="muted"><span class="spin"></span> Loading…</p>';}
-
-document.getElementById("brandBtn").onclick=()=>{ if(session) go("events"); };
-nav.addEventListener("click",e=>{const b=e.target.closest("[data-nav]");if(!b)return;const v=b.getAttribute("data-nav");if(v==="signout")return signOut();go(v);});
-
-async function boot(){
-  try{
-    const {data:p,error}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
-    if(error) return bootError();
-    profile=p;
-    nav.hidden=false;
-    if(!profile||!profile.onboarding_complete) return viewOnboarding();
-    go("events");
-  }catch(_e){ bootError(); }
-}
-function bootError(){
-  nav.hidden=true;
-  app.innerHTML='<div class="center"><p class="lede" style="margin-inline:auto;">We couldn’t load your account just now.</p><button class="btn" id="retry">Try again</button></div>';
-  const r=document.getElementById("retry"); if(r)r.onclick=()=>boot();
-}
-function go(v){ if(v==="events")viewEvents(); else if(v==="me")viewMe(); else if(v==="profile")viewProfile();
-  nav.querySelectorAll("[data-nav]").forEach(b=>b.setAttribute("aria-current", b.getAttribute("data-nav")===v));
-  window.scrollTo(0,0);
-}
-async function signOut(){ await db.auth.signOut(); session=null;profile=null;nav.hidden=true;viewAuth();toast("Signed out"); }
-
-/* ---- AUTH (magic link) ---- */
-function viewAuth(){
-  nav.hidden=true;
-  app.innerHTML=`<div class="center">
-    <p class="eyebrow">Meet people in real life</p>
-    <h1 class="big">A standing table of six.</h1>
-    <p class="lede" style="margin-inline:auto;">Sign in with your email — we'll send a magic link. No password.</p>
-    <form id="authf" style="display:grid;gap:.7rem;text-align:left;">
-      <input id="email" type="email" required placeholder="you@email.com" autocomplete="email" aria-label="Email">
-      <button class="btn" type="submit">Send me a magic link</button>
-    </form>
-    <p class="muted" id="authmsg" style="margin-top:1rem;"></p>
-  </div>`;
-  document.getElementById("authf").onsubmit=async(e)=>{
-    e.preventDefault();
-    const email=document.getElementById("email").value.trim();
-    const btn=e.target.querySelector("button"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Sending…';
-    const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
-    btn.disabled=false; btn.textContent="Send me a magic link";
-    document.getElementById("authmsg").textContent=error?("Couldn't send: "+error.message):("Check "+email+" for your sign-in link.");
-  };
-}
-
-/* ---- ONBOARDING (real questionnaire fields) ---- */
+/* ---------- reference data ---------- */
+const CITIES={
+  par:{name:"Paris",country:"France",tz:"Europe/Paris",locale:"en-GB"},
+  lon:{name:"London",country:"United Kingdom",tz:"Europe/London",locale:"en-GB"},
+  nyc:{name:"New York",country:"United States",tz:"America/New_York",locale:"en-US"},
+  phl:{name:"Philadelphia",country:"United States",tz:"America/New_York",locale:"en-US"},
+  den:{name:"Denver",country:"United States",tz:"America/Denver",locale:"en-US"},
+  sd:{name:"San Diego",country:"United States",tz:"America/Los_Angeles",locale:"en-US"}
+};
+const FORMATS=[
+  {id:"dinner",name:"Dinner",icon:"dinner",short:"The classic: a shared meal at a table of about six.",
+   long:"An evening around one table with about five people you haven't met. Order, share, talk. It's the format everything else is a variation of.",
+   good:"Meeting people outside your usual circles",pace:"Unhurried. Plan for the evening.",
+   expect:"A table of about six, an evening of conversation over a meal. The venue is shared on the day in the Rightime format (not built into this early version yet)."},
+  {id:"women",name:"Women-only",icon:"women",short:"The same dinner format, for a table of women.",
+   long:"A dinner table for women. Same shape as the dinner format, with a table that's intended for women only.",
+   good:"Settling in somewhere new, or simply preferring the company",pace:"Unhurried. Plan for the evening.",
+   expect:"A table intended for women, about six around it. By booking you confirm the table is right for you. The venue is shared on the day in the Rightime format (not built into this early version yet)."},
+  {id:"coffee",name:"Coffee",icon:"coffee",short:"A lighter way in: coffee with a small group.",
+   long:"A smaller commitment than dinner. Coffee and conversation with a small group, a good first Rightime if an evening feels like a lot.",
+   good:"Trying Rightime for the first time",pace:"Lighter. Easy to fit around your day.",
+   expect:"Coffee with a small group. Check the date and time on the event page. The venue is shared on the day in the Rightime format (not built into this early version yet)."},
+  {id:"drinks",name:"Drinks",icon:"drinks",short:"Evening drinks with a small group.",
+   long:"Drinks with a small group. What goes in your glass is entirely up to you: your answer to the drinks question is part of your profile, not a requirement.",
+   good:"After-work company without a full meal",pace:"Relaxed. Come and go as the evening suits you.",
+   expect:"Drinks with a small group. Check the date and time on the event page. The venue is shared on the day in the Rightime format (not built into this early version yet)."},
+  {id:"walk",name:"Walk",icon:"walk",short:"Walk and talk through a neighbourhood.",
+   long:"Conversation on the move: a group walk through a neighbourhood. Wear shoes you're happy to talk in.",
+   good:"People who think better when they're moving",pace:"Moving. Side-by-side conversation.",
+   expect:"A group walk starting in the neighbourhood shown on the event page. The meeting point is shared on the day in the Rightime format (not built into this early version yet)."},
+  {id:"run",name:"Run",icon:"run",short:"A group run, with conversation if you like.",
+   long:"A group run through a neighbourhood. Check the event page for the area and the time.",
+   good:"Runners who'd rather not run alone",pace:"Active. Bring your running kit.",
+   expect:"A group run starting in the neighbourhood shown on the event page. The meeting point is shared on the day in the Rightime format (not built into this early version yet)."}
+];
+const FMT=Object.fromEntries(FORMATS.map(f=>[f.id,f]));
 const QS=[
  {k:"gender",label:"About you",q:"How do you define yourself?",opts:["Woman","Man","Non-binary","Prefer not to say"]},
- {k:"birthdate",label:"About you",q:"Which decade were you born in?",opts:["1990s","1980s","2000s","1970s"]},
+ {k:"birthdate",label:"About you",q:"Which decade were you born in?",opts:["2000s","1990s","1980s","1970s"]},
  {k:"children",label:"About you",q:"Do you have children?",opts:["No","Yes","Prefer not to say"]},
  {k:"industry",label:"How you tick",q:"If you're working, what industry?",opts:["Tech","Creative","Health","Finance","Education","Other"]},
  {k:"personality",label:"How you tick",q:"At a table of strangers, you're…",opts:["Asking the questions","The storyteller","The quiet observer","The debater"]},
- {k:"interests",label:"How you tick",q:"Pick what pulls you in",multi:true,opts:["Food","Film","Travel","Startups","Art","Music","Books","Sport"]},
+ {k:"interests",label:"How you tick",q:"Pick what pulls you in",hint:"Choose as many as you like.",multi:true,opts:["Food","Film","Travel","Startups","Art","Music","Books","Sport"]},
  {k:"drinks",label:"At the table",q:"Do you drink?",opts:["Yes, happily","Socially","Rarely","No"]},
- {k:"dietary",label:"At the table",q:"Anything for the kitchen?",multi:true,opts:["No restrictions","Vegetarian","Vegan","Pescatarian","Halal","Gluten-free"]}
+ {k:"dietary",label:"At the table",q:"Anything for the kitchen?",hint:"Choose all that apply.",multi:true,exclusive:"No restrictions",opts:["No restrictions","Vegetarian","Vegan","Pescatarian","Halal","Gluten-free"]}
 ];
-let qi=0, answers={};
-function viewOnboarding(){ qi=0; answers=(profile&&profile.characteristics)||{}; renderQ(); }
-function renderQ(){
-  if(qi>=QS.length) return renderCity();
-  const Q=QS[qi], pct=Math.round(qi/QS.length*100), sel=answers[Q.k]||(Q.multi?[]:null);
-  app.innerHTML=`<div class="q" style="max-width:520px;margin-inline:auto;">
-    <div class="progress"><i style="width:${pct}%"></i></div>
-    <p class="eyebrow">${esc(Q.label)} · ${qi+1}/${QS.length}</p><h2>${esc(Q.q)}</h2>
-    <div class="opts">${Q.opts.map(o=>`<button class="opt" data-o="${esc(o)}" aria-pressed="${Q.multi?sel.includes(o):sel===o}">${esc(o)}</button>`).join("")}</div>
-    <div class="rowbtns">${qi>0?'<button class="btn ghost" id="qb">Back</button>':''}
-      <button class="btn" id="qn" ${(Q.multi?sel.length:sel)?'':'disabled'}>${qi===QS.length-1?'Finish':'Continue'}</button></div></div>`;
-  app.querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>{
-    const v=b.getAttribute("data-o");
-    if(Q.multi){const a=answers[Q.k]||[];const i=a.indexOf(v);i>-1?a.splice(i,1):a.push(v);answers[Q.k]=a;}
-    else answers[Q.k]=v; renderQ();
-  });
-  const n=document.getElementById("qn"); if(n)n.onclick=()=>{qi++;renderQ();};
-  const bb=document.getElementById("qb"); if(bb)bb.onclick=()=>{qi--;renderQ();};
+
+/* ---------- helpers ---------- */
+const $=(s,r)=> (r||document).querySelector(s);
+const $$=(s,r)=> Array.from((r||document).querySelectorAll(s));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+const ic=(n,c)=>`<svg class="ic${c?" "+c:""}" aria-hidden="true" focusable="false"><use href="#i-${n}"/></svg>`;
+const viewEl=$("#view"), navEl=$("#nav"), navList=$("#navList"), menuBtn=$("#menuBtn");
+$("#year").textContent=new Date().getFullYear();
+
+function announce(msg){const a=$("#announcer");a.textContent="";setTimeout(()=>{a.textContent=msg;},60);}
+let toastTimer=null;
+function toast(msg,kind){
+  const t=$("#toast"); clearTimeout(toastTimer);
+  t.className="toast"; t.textContent="";
+  setTimeout(()=>{t.textContent=msg;t.className="toast show"+(kind==="error"?" error":"");},50);
+  toastTimer=setTimeout(()=>{t.className="toast";setTimeout(()=>{t.textContent="";},300);},kind==="error"?7000:4500);
 }
-function renderCity(){
-  app.innerHTML=`<div class="q" style="max-width:520px;margin-inline:auto;"><p class="eyebrow">Last thing</p><h2>Where do you meet?</h2>
-    <div class="opts">${Object.entries(CITIES).map(([id,n])=>`<button class="opt" data-c="${id}">${esc(n)}</button>`).join("")}</div></div>`;
-  app.querySelectorAll("[data-c]").forEach(b=>b.onclick=async()=>{
-    const city=b.getAttribute("data-c");
-    b.innerHTML='<span class="spin"></span>';
-    const {error}=await db.from("profiles").update({characteristics:answers,city_id:city,onboarding_complete:true}).eq("id",session.user.id);
-    if(error){toast("Save failed: "+error.message);return renderCity();}
-    const {data:p}=await db.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
-    profile=p||{...(profile||{}),characteristics:answers,city_id:city,onboarding_complete:true};
-    toast("Welcome to Rightime"); go("events");
+function cityName(id){return (CITIES[id]&&CITIES[id].name)||"your city";}
+function fmtDate(iso,cityId,opts){
+  const c=CITIES[cityId]; const o=Object.assign({},opts); if(c)o.timeZone=c.tz;
+  try{return new Intl.DateTimeFormat(c?c.locale:"en-GB",o).format(new Date(iso));}catch(_e){return String(iso);}
+}
+const D_SHORT={weekday:"short",day:"numeric",month:"short"};
+const D_LONG={weekday:"long",day:"numeric",month:"long"};
+const T_ONLY={hour:"numeric",minute:"2-digit"};
+const D_KEY={year:"numeric",month:"2-digit",day:"2-digit"};
+const isPast=iso=>new Date(iso).getTime()<Date.now();
+function timeZoneLabel(cityId){return CITIES[cityId]?CITIES[cityId].name+" time":"local time";}
+function seatsLeft(e){return Math.max(0,(e.seats||0)-(e.attendees_count||0));}
+function isFull(e){return e.status==="full"||seatsLeft(e)===0;}
+
+/* ---------- state ---------- */
+const S={ready:false,session:null,user:null,profile:null,profileState:"idle",authUnavailable:!db,
+  magic:/access_token=|type=magiclink/.test(BOOT_HASH),authNotice:"",
+  answers:{},qi:0,stepFrom:null,mode:"onboard",busy:false,didFirst:false,events:[],booked:new Set(),cooldownUntil:0,cooldownFor:"",sentTo:"",cityCounts:null};
+if(/error_description=|error=access_denied|error_code=/.test(BOOT_HASH)) S.authNotice="expired";
+
+/* ============================================================
+   ROUTER
+   ============================================================ */
+let renderTok=0;
+function parseLoc(){
+  const raw=location.hash||"";
+  if(raw && !raw.startsWith("#/")) return {path:null,query:new URLSearchParams()};
+  const s=raw.slice(1)||"/"; const i=s.indexOf("?");
+  const p=i>-1?s.slice(0,i):s, q=i>-1?s.slice(i+1):"";
+  return {path:(p.replace(/\/+$/,"")||"/"),query:new URLSearchParams(q)};
+}
+function navigate(hash,replace){
+  if(replace){ history.replaceState(null,"",location.pathname+location.search+hash); route(); }
+  else if(location.hash===hash){ route(); }
+  else location.hash=hash;
+}
+const PUBLIC={
+  "/":viewHome,"/how-it-works":viewHow,"/formats":viewFormats,"/cities":viewCities,"/faq":viewFaq,
+  "/about":viewAbout,"/safety":viewSafety,"/privacy":viewPrivacy,"/terms":viewTerms,"/signin":viewSignin
+};
+function needsOnboarding(){return !S.profile||!S.profile.onboarding_complete;}
+
+function route(){
+  const tok=++renderTok;
+  const loc=parseLoc();
+  closeMenu();
+  if(loc.path===null){                      // auth callback in flight, or junk hash
+    if(!S.ready){ return showLoading("Signing you in…"); }
+    if(S.user){ return navigate("#/app",true); }
+    if(S.authNotice) return navigate("#/signin",true);
+    return navigate("#/",true);
+  }
+  const p=loc.path;
+  if(p!=="/app/onboarding") S.mode="onboard";
+  if(S.magic && S.ready && !S.user) S.magic=false;        // a token that produced no session (expired, wrong device, malformed) must never pin the loading screen
+  if(S.magic && (p==="/"||p==="/signin")) return showLoading("Signing you in…");
+  if(p==="/signin" && S.ready && S.user) return navigate("#/app",true);
+  if(PUBLIC[p]){
+    if(p!=="/signin" && !S.user && !S.magic) forgetNext();     // the visitor wandered off: drop the saved destination
+    return present(PUBLIC[p](loc,tok),tok);
+  }
+  if(p==="/app") return navigate("#/app/events",true);
+  const mDetail=p.match(/^\/app\/events\/([0-9a-fA-F-]{36})$/);
+  const appViews={"/app/events":viewEvents,"/app/my-events":viewMyEvents,"/app/profile":viewProfile,"/app/onboarding":viewOnboarding};
+  if(mDetail||appViews[p]){
+    if(!S.ready) return showLoading("Loading…");
+    if(!S.user){ rememberNext(location.hash); return navigate("#/signin",true); }
+    if(S.profileState==="loading"||S.profileState==="idle") return showLoading("Loading your account…");
+    if(S.profileState==="error") return present(viewAccountError(),tok);
+    if(needsOnboarding() && p!=="/app/onboarding") return navigate("#/app/onboarding",true);
+    if(!needsOnboarding() && p==="/app/onboarding" && S.mode!=="edit") return navigate("#/app/events",true);
+    if(mDetail) return present(viewDetail(mDetail[1]),tok);
+    return present(appViews[p](loc,tok),tok);
+  }
+  return present(viewNotFound(),tok);
+}
+function showLoading(msg){
+  viewEl.innerHTML=`<div class="wrap"><h1 class="page-head" style="font-size:1.6rem">${esc(msg)}</h1><p class="muted"><span class="spin"></span> One moment…</p></div>`;
+  document.title="Loading · Rightime"; markNav();
+}
+function present(v,tok){
+  if(!v||tok!==renderTok) return;
+  document.title=v.title;
+  viewEl.innerHTML=v.html;
+  viewEl.classList.remove("enter"); void viewEl.offsetWidth; viewEl.classList.add("enter");
+  markNav(); window.scrollTo(0,0);
+  /* Move focus to the new h1 on every view change. Only a bare first visit to the site (no hash at all) is left alone;
+     a magic-link return or a deep link still gets focus. */
+  if(S.didFirst||BOOT_HASH) focusHeading();
+  S.didFirst=true;
+  if(v.after) v.after(tok);
+}
+function focusHeading(sel){
+  const el=(sel&&$(sel,viewEl))||$("h1",viewEl); if(!el) return;
+  if(!el.hasAttribute("tabindex")) el.setAttribute("tabindex","-1");
+  el.focus({preventScroll:true});
+}
+/* Replace part/all of the view after async data arrives; keeps focus sensible. */
+function refresh(tok,html,title,focusSel){
+  if(tok!==renderTok) return false;
+  const a=document.activeElement;
+  const had=!a||a===document.body||viewEl.contains(a);
+  viewEl.innerHTML=html; if(title) document.title=title;
+  if(had) focusHeading(focusSel);
+  return true;
+}
+function markNav(){
+  const path=parseLoc().path||"/";
+  $$("a[href^='#/']",navList).forEach(a=>{
+    const h=a.getAttribute("href").slice(1);
+    const cur=(h==="/")?path==="/":(path===h||path.startsWith(h+"/"));
+    if(cur)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");
   });
+}
+window.addEventListener("hashchange",route);
+$("#skip").addEventListener("click",e=>{ e.preventDefault(); const m=$("#main"); m.focus({preventScroll:true}); m.scrollIntoView(); });
+
+/* menu */
+function closeMenu(){navEl.setAttribute("data-open","false");menuBtn.setAttribute("aria-expanded","false");}
+menuBtn.addEventListener("click",()=>{const o=navEl.getAttribute("data-open")!=="true";navEl.setAttribute("data-open",String(o));menuBtn.setAttribute("aria-expanded",String(o));});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&navEl.getAttribute("data-open")==="true"){closeMenu();menuBtn.focus();} });
+document.addEventListener("click",e=>{ if(navEl.getAttribute("data-open")==="true" && !e.target.closest(".bar")) closeMenu(); });
+function renderHeader(){
+  const li=(h,t)=>`<li><a href="${h}">${t}</a></li>`;
+  let html="";
+  if(S.user){
+    html=li("#/app/events","Events")+li("#/app/my-events","My events")+li("#/app/profile","Profile")+
+      `<li><button class="navbtn" type="button" data-act="signout">Sign out</button></li>`;
+  }else{
+    html=li("#/how-it-works","How it works")+li("#/formats","Formats")+li("#/cities","Cities")+li("#/faq","FAQ")+li("#/about","About")+
+      `<li class="cta"><a class="btn sm" href="#/signin">Sign in</a></li>`;
+  }
+  navList.innerHTML=html;
+  $("#footAccount").innerHTML=S.user
+    ?`<li><a href="#/app/events">Events</a></li><li><a href="#/app/my-events">My events</a></li><li><a href="#/app/profile">Profile</a></li>`
+    :`<li><a href="#/signin">Sign in or join</a></li>`;
+  markNav();
 }
 
-/* ---- EVENTS ---- */
-async function viewEvents(){
-  if(!profile) return boot();
-  loading();
-  const {data:evs,error}=await db.from("events").select("*").eq("city_id",profile.city_id).order("starts_at");
-  if(error){app.innerHTML='<p class="muted">Could not load events: '+esc(error.message)+'</p>';return;}
-  const {data:myb}=await db.from("bookings").select("event_id,status").eq("user_id",session.user.id);
-  const booked=new Set((myb||[]).filter(b=>b.status==="confirmed").map(b=>b.event_id));
-  const types=["all",...Object.keys(FMT)];
-  const list=evs.filter(e=>eventFilter==="all"||e.type===eventFilter);
-  app.innerHTML=`<p class="eyebrow">${esc(CITIES[profile.city_id]||"")} · this week</p><h1 class="big" style="font-size:2rem;">Near you</h1>
-    <div class="filters">${types.map(t=>`<button data-f="${t}" aria-pressed="${eventFilter===t}">${t==="all"?"All":esc(FMT[t])}</button>`).join("")}</div>
-    <div id="list">${list.length?list.map(e=>evCard(e,booked.has(e.id))).join(""):'<div class="empty">Nothing in this format yet.</div>'}</div>`;
-  app.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{eventFilter=b.getAttribute("data-f");viewEvents();});
-  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
-  app.querySelectorAll("[data-book]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();b.disabled=true;book(b.getAttribute("data-book"));});
-}
-function evCard(e,isB){
-  let dots="";for(let i=0;i<Math.min(e.seats,8);i++)dots+=`<i class="${i<e.attendees_count?'on':''}"></i>`;
-  const act=isB?'<button class="btn ghost" disabled>Booked ✓</button>'
-    :e.status==="full"?'<button class="btn ghost" disabled>Full</button>'
-    :`<button class="btn" data-book="${e.id}">Book my seat</button>`;
-  return `<div class="ev"><div class="top" data-open="${e.id}"><div class="ty">${esc(FMT[e.type]||e.type)}</div><h3>${esc(e.name)}</h3><div class="meta">${new Date(e.starts_at).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${esc(e.neighbourhood||"")}</div></div>
-    <div class="seat"><div class="dots">${dots}</div>${e.attendees_count}/${e.seats}<span class="tag ${e.status==="full"?"full":"open"}">${e.status==="full"?"Full":"Open"}</span></div>
-    <div class="act">${act}</div></div>`;
-}
-async function book(id,rerender){
-  if(busy) return; busy=true;
-  const {error}=await db.from("bookings").upsert({user_id:session.user.id,event_id:id,status:"confirmed"},{onConflict:"user_id,event_id"});
-  busy=false;
-  if(error){ toast(/full/i.test(error.message)?"That table just filled up":("Booking failed: "+error.message)); }
-  else toast("Seat booked — see you there");
-  if(rerender!==false) viewEvents();
-}
+/* global delegated actions */
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const act=b.getAttribute("data-act");
+  if(act==="signout") return signOut();
+  if(act==="retry") return route();
+  if(act==="retry-account"){ await bootProfile(); return route(); }
+});
 
-/* ---- DETAIL ---- */
-async function viewDetail(id){
-  loading();
-  const {data:e}=await db.from("events").select("*").eq("id",id).maybeSingle();
-  if(!e){return viewEvents();}
-  const {data:mb}=await db.from("bookings").select("*").eq("user_id",session.user.id).eq("event_id",id).maybeSingle();
-  const isB=mb&&mb.status==="confirmed";
-  app.innerHTML=`<button class="btn ghost" id="back" style="min-height:40px;padding:.4rem .9rem;margin-bottom:1rem;">‹ Back</button>
-    <div class="ty" style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ember);">${esc(FMT[e.type]||e.type)}</div>
-    <h1 class="big" style="font-size:2rem;">${esc(e.name)}</h1>
-    <p class="lede">${new Date(e.starts_at).toLocaleString(undefined,{weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"})} · ${esc(e.neighbourhood||"")} · ${esc(CITIES[e.city_id]||"")}</p>
-    <p class="muted">${e.attendees_count} of ${e.seats} seats taken · exact spot revealed the day of</p>
-    ${isB?`<div class="pen"><span>⚠️</span><div>Cancel the night before to free your seat. Flaking last-minute would cost a small penalty in the full product.</div></div>
-          <button class="btn bad" id="cancel">Cancel my seat</button>
-          <div class="mates" id="mates"><p class="muted"><span class="spin"></span> Finding your table…</p></div>`
-         :(e.status==="full"?'<button class="btn ghost" disabled style="margin-top:1rem;">This table is full</button>'
-          :'<button class="btn" id="bookd" style="margin-top:1rem;">Book my seat</button>')}`;
-  document.getElementById("back").onclick=()=>viewEvents();
-  const bd=document.getElementById("bookd"); if(bd)bd.onclick=async()=>{bd.disabled=true;await book(id,false);viewDetail(id);};
-  const cx=document.getElementById("cancel"); if(cx)cx.onclick=async()=>{
-    if(busy) return; busy=true; cx.disabled=true;
-    const {error}=await db.from("bookings").update({status:"cancelled"}).eq("user_id",session.user.id).eq("event_id",id);
-    busy=false;
-    toast(error?("Couldn’t cancel: "+error.message):"Seat cancelled"); viewDetail(id);
-  };
-  if(isB) loadMates(id);
+/* ============================================================
+   AUTH
+   ============================================================ */
+/* Per-person state that must never carry over to the next account in the same tab. */
+const DRAFT_KEY="rightime.draft", NEXT_KEY="rightime.next", NEXT_TTL=30*60*1000;
+function resetUserState(){
+  S.answers={}; S.pendingCity=""; S.qi=0; S.stepFrom=null; S.mode="onboard"; S.filter="all";
+  S.events=[]; S.booked=new Set(); S.cityCounts=null; S.sentTo=""; S.busy=false;
+  try{ sessionStorage.removeItem(DRAFT_KEY); }catch(_e){}
+  try{ localStorage.removeItem(NEXT_KEY); }catch(_e){}
 }
-async function loadMates(id){
-  const box=document.getElementById("mates"); if(!box)return;
-  const {data,error}=await db.rpc("tablemates",{p_event:id});
-  if(error){box.innerHTML='<p class="muted">Couldn’t load your table right now.</p>';return;}
-  const blurbs=(data&&data.blurbs)||[], total=(data&&data.total)||1, seats=(data&&data.seats)||6;
-  if(total<=1){
-    box.innerHTML='<h3>Who’s at your table</h3><p class="muted">You’re the first to book. We’ll fill the table to '+seats+' — check back as others join.</p>';
+function saveDraft(){
+  if(S.mode==="edit"||!S.user) return;
+  try{ sessionStorage.setItem(DRAFT_KEY,JSON.stringify({uid:S.user.id,answers:S.answers,city:S.pendingCity||""})); }catch(_e){}
+}
+function loadDraft(){
+  if(!S.user||Object.keys(S.answers).length) return;
+  try{
+    const d=JSON.parse(sessionStorage.getItem(DRAFT_KEY)||"null");
+    if(d&&d.uid===S.user.id&&d.answers&&typeof d.answers==="object"){ S.answers=d.answers; if(d.city&&CITIES[d.city]&&!S.pendingCity) S.pendingCity=d.city; }
+    else if(d) sessionStorage.removeItem(DRAFT_KEY);        // someone else's leftovers
+  }catch(_e){}
+}
+function rememberNext(hash){ try{ localStorage.setItem(NEXT_KEY,JSON.stringify({h:hash,t:Date.now()})); }catch(_e){} }
+function forgetNext(){ try{ localStorage.removeItem(NEXT_KEY); }catch(_e){} }
+function takeNext(){           // one-shot, expires after 30 minutes, must be an in-app route
+  let h="";
+  try{
+    const d=JSON.parse(localStorage.getItem(NEXT_KEY)||"null");
+    if(d&&typeof d.h==="string"&&/^#\/app\//.test(d.h)&&Date.now()-d.t<NEXT_TTL) h=d.h;
+    localStorage.removeItem(NEXT_KEY);
+  }catch(_e){}
+  return h;
+}
+let magicArmed=S.magic;   // stays true if the 20s fallback released the loading screen but the sign-in lands late (slow network)
+function initAuth(){
+  renderHeader();
+  if(S.magic){
+    setTimeout(()=>{ if(S.magic){ S.magic=false; route(); } },20000);   // watchdog: the loading screen can never outlive this
+    setTimeout(()=>{ magicArmed=false; },180000);
+  }
+  if(!db){ S.ready=true; route(); return; }
+  db.auth.onAuthStateChange((event,session)=>{ setTimeout(()=>onAuth(event,session),0); }); // never await supabase inside the callback
+  db.auth.getSession().then(({data})=>{ if(!S.ready) onAuth("INITIAL_SESSION",data&&data.session||null); })
+    .catch(()=>{ if(!S.ready) onAuth("INITIAL_SESSION",null); });
+  setTimeout(()=>{ if(!S.ready) onAuth("INITIAL_SESSION",null); },S.magic?18000:8000);
+}
+async function onAuth(event,session){
+  const prevId=S.user&&S.user.id, newId=session&&session.user?session.user.id:null;
+  const first=!S.ready;
+  S.session=session||null; S.user=session?session.user:null; S.ready=true;
+  if(event==="TOKEN_REFRESHED"||event==="USER_UPDATED") return;
+  if(!newId){
+    const rejected=first&&S.magic;           // the page opened with a sign-in token but no session came of it
+    S.profile=null; S.profileState="idle"; S.magic=false;
+    if(prevId) resetUserState();             // session ended here or in another tab
+    if(rejected){ S.authNotice="expired"; }
+    renderHeader();
+    if(rejected){ navigate("#/signin",true); return; }
+    if(prevId){                              // the session ended: leave the app without remembering the old person's page as a "next" destination
+      forgetNext();
+      const pp=parseLoc().path;
+      if(pp===null||pp==="/app"||pp.startsWith("/app/")){ navigate("#/",true); return; }
+      route(); return;
+    }
+    if(first&&!pageIsRendered()) route();
     return;
   }
-  box.innerHTML='<h3>Who’s at your table</h3><p class="muted" style="margin:.1rem 0 .6rem;">'+total+' of '+seats+' confirmed. Names stay private until you meet.</p>'+
-    blurbs.map(b=>{const t=String(b||"A guest");return '<div class="mate"><div class="av">'+esc(t.charAt(0).toUpperCase())+'</div><div class="who">'+esc(t)+'</div></div>';}).join("");
+  if(newId===prevId && !first) return;       // same user re-announced (tab focus etc.)
+  if(prevId&&prevId!==newId){ S.profile=null; S.profileState="idle"; resetUserState(); }   // switched account without a sign-out event
+  renderHeader();
+  await bootProfile();
+  if(!S.user||S.user.id!==newId) return;
+  renderHeader();
+  const p=parseLoc().path;
+  if((S.magic||magicArmed||p==="/signin"||p===null) && (p===null||p==="/"||p==="/signin")){
+    let next="#/app";
+    if(!needsOnboarding()){ const n=takeNext(); if(n) next=n; }   // a new user keeps the saved destination until onboarding finishes
+    S.magic=false; magicArmed=false; navigate(next,true);
+  }else if(!pageIsRendered()) route();
+}
+function pageIsRendered(){          // a public page is already on screen: no need to re-render it on auth changes
+  const p=parseLoc().path;
+  return p!==null && !!PUBLIC[p] && !(S.magic&&(p==="/"||p==="/signin"));
+}
+async function bootProfile(){
+  const uid=S.user&&S.user.id; if(!uid||!db) return;
+  S.profileState="loading";
+  for(let i=0;i<3;i++){
+    try{
+      const {data,error}=await db.from("profiles").select("*").eq("id",uid).maybeSingle();
+      if(error) throw error;
+      if(!S.user||S.user.id!==uid) return;
+      if(data){S.profile=data;S.profileState="ready";return;}
+    }catch(_e){ if(i===2){ if(S.user&&S.user.id===uid) S.profileState="error"; return; } }
+    await sleep(600*(i+1));
+  }
+  if(S.user&&S.user.id===uid){ S.profile=null; S.profileState="ready"; }   // no row yet: treated as not onboarded
+}
+async function signOut(){
+  try{ if(db) await db.auth.signOut(); }catch(_e){}
+  S.session=null;S.user=null;S.profile=null;S.profileState="idle";
+  resetUserState();
+  renderHeader(); toast("You're signed out. See you at the table.");
+  navigate("#/",false);
 }
 
-/* ---- PROFILE ---- */
-function viewProfile(){
-  const c=(profile&&profile.characteristics)||{};
-  const rows=[
-    ["City", CITIES[profile&&profile.city_id]||"—"],
-    ["You are", c.gender||"—"],
-    ["Born", c.birthdate||"—"],
-    ["Children", c.children||"—"],
-    ["Industry", c.industry||"—"],
-    ["At the table", c.personality||"—"],
-    ["Into", Array.isArray(c.interests)?c.interests.join(", "):(c.interests||"—")],
-    ["Drinks", c.drinks||"—"],
-    ["Dietary", Array.isArray(c.dietary)?c.dietary.join(", "):(c.dietary||"—")]
+/* ============================================================
+   MARKETING VIEWS
+   ============================================================ */
+function heroTable(){
+  const seats=[0,1,2,3,4,5].map(i=>{
+    const a=(-90+i*60)*Math.PI/180, x=200+Math.cos(a)*128, y=200+Math.sin(a)*128;
+    return `<circle class="t-seat${i===0?" me":""}" style="animation-delay:${(i*0.1).toFixed(1)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="26"/>`;
+  }).join("");
+  const plates=[0,1,2,3,4,5].map(i=>{
+    const a=(-90+i*60)*Math.PI/180, x=200+Math.cos(a)*62, y=200+Math.sin(a)*62;
+    return `<circle class="t-plate" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 400 400" role="img" aria-label="Illustration of a round table with six seats, one of them highlighted as yours"><circle class="t-ring" cx="200" cy="200" r="178"/><circle class="t-table" cx="200" cy="200" r="98"/>${plates}<circle class="t-glow" cx="200" cy="200" r="22"/><circle class="t-candle" cx="200" cy="200" r="8"/>${seats}</svg>`;
+}
+function miniTable(n,taken,mine){
+  n=Math.max(2,Math.min(n||6,12)); taken=Math.max(0,Math.min(taken||0,n));
+  const seats=[];
+  for(let i=0;i<n;i++){
+    const a=(-90+i*360/n)*Math.PI/180, x=100+Math.cos(a)*72, y=100+Math.sin(a)*72;
+    const cls=(mine&&i===0)?"me":(i<taken?"on":"");
+    seats.push(`<circle class="t-seat ${cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${n>8?11:14}"/>`);
+  }
+  return `<svg viewBox="0 0 200 200" aria-hidden="true" focusable="false"><circle class="t-table" cx="100" cy="100" r="46"/><circle class="t-candle" cx="100" cy="100" r="5"/>${seats.join("")}</svg>`;
+}
+function fmtIcon(id){return ic((FMT[id]&&FMT[id].icon)||"dinner");}
+function formatCards(link){
+  return FORMATS.map(f=>`<article class="card fmt-card"><div class="ico">${ic(f.icon)}</div><h3>${esc(f.name)}</h3><p>${esc(f.short)}</p>${link?`<a class="go" href="#/formats">Details ${ic("arrow")}</a>`:""}</article>`).join("");
+}
+function stepsHtml(row){
+  const items=[
+    ["Tell us how you tick","Eight short questions: who you are, what you do, what pulls you in, what's on the table. No essays, no photos. You can change your answers any time."],
+    ["Pick your city","Choose where you'll meet. Switch later from your profile whenever you move or travel."],
+    ["Book a seat","Browse the week's tables in your city, in any of six formats, and take a seat. Each table seats about six."],
+    ["See who's coming, anonymously","Once you're booked, you can read short, de-identified notes about the others who've confirmed. Never names, emails or photos."],
+    ["Show up","In the Rightime format the venue is shared on the day; sending it isn't built into this early version yet. Plans change? Cancel your seat and it goes back to the table."]
   ];
-  app.innerHTML='<h1 class="big" style="font-size:2rem;">Profile</h1>'+
-    '<p class="muted" style="margin:.3rem 0 1.2rem;">'+esc(session.user.email||"")+'</p>'+
-    rows.map(r=>'<div class="prow"><span class="k">'+esc(r[0])+'</span><span class="v">'+esc(r[1])+'</span></div>').join("")+
-    '<div class="rowbtns"><button class="btn ghost" id="redo">Change my city</button></div>';
-  document.getElementById("redo").onclick=()=>{ answers=(profile&&profile.characteristics)||{}; renderCity(); };
+  const list=row?items.slice(0,4):items;
+  return `<ol class="steps${row?" row":""}">${list.map(s=>`<li><h3>${esc(s[0])}</h3><p>${esc(s[1])}</p></li>`).join("")}</ol>`;
+}
+function ctaBand(title,text){
+  return `<div class="band"><h2>${esc(title)}</h2><p>${esc(text)}</p><a class="btn on-band" href="#/app">Find your table ${ic("arrow")}</a></div>`;
+}
+function faqItems(list){
+  return list.map(([q,a])=>`<details class="q"><summary>${esc(q)}</summary><div class="a">${a}</div></details>`).join("");
+}
+const FAQ=[
+ ["Getting started",[
+  ["What is Rightime?","<p>Rightime is a weekly social table. You book a seat at a small table, about six people, in your city, and spend an evening (or a coffee, or a walk) with people you haven't met before.</p>"],
+  ["How do I join?","<p>Enter your email on the sign-in page and open the magic link we send you. The first time, you'll answer eight short questions and choose your city. There's no password to create or remember.</p>"],
+  ["Is it free?","<p>This early version has no payments: nothing in Rightime charges you. Pricing isn't part of this version.</p>"],
+  ["Does it work on my phone?","<p>Yes. Rightime is designed phone-first and works in any modern browser, in light or dark mode.</p>"]]],
+ ["Tables and booking",[
+  ["How many people are at a table?","<p>About six. Every table shows how many seats it has and how many are taken. When a table reaches its limit it shows as full and can't be overbooked.</p>"],
+  ["When do I find out where?","<p>In the Rightime format the venue is shared on the day of the event, and until then you see the date, time and neighbourhood. Sending the venue (and reminders) isn't built into this early version yet, so for now the event page is all you get.</p>"],
+  ["Can I cancel?","<p>Yes. Open the event from <em>My events</em> and choose <em>Cancel my seat</em>. Your seat goes back to the table. If there's still room later, you can book it again.</p>"],
+  ["What if a table is full?","<p>Pick another date or another format. Full tables are clearly marked and can't be booked.</p>"],
+  ["Can I bring a friend?","<p>Rightime seats individuals: each seat is booked by one person with their own account.</p>"]]],
+ ["Privacy and safety",[
+  ["What do other guests see about me?","<p>One short, de-identified line, built from two of your answers: how you tend to show up at a table of strangers and, if you gave one, your industry. Only guests who have confirmed a seat at the same table can see it. Nobody receives your name or email through Rightime.</p>"],
+  ["Who can read my answers?","<p>Your profile and bookings are protected by row-level security in the database, which refuses to return anyone else's rows, so nobody else can open your full answers. There is one exception, and it is deliberate: guests who have confirmed a seat at the same table as you see a single line made from two of your answers (how you tend to show up at a table, and your industry if you gave one). The other six answers are never shown to anyone else.</p>"],
+  ["Are guests identity-checked?","<p>Not in this version. Rightime does not verify identity documents. Read <a href=\"#/safety\">Meeting strangers well</a> for sensible habits.</p>"],
+  ["How does a women-only table work?","<p>Women-only tables are intended for women, and booking one confirms it's right for you. Rightime doesn't verify identity documents in this version.</p>"],
+  ["Can I delete my account?","<p>There isn't an in-app delete option yet. See the <a href=\"#/privacy\">privacy page</a> for what's stored.</p>"],
+  ["Why do you ask about decade of birth or children?","<p>They're part of the eight-question profile. Where a question offers <em>Prefer not to say</em>, you can choose it, and you can change any answer later from your profile.</p>"]]],
+ ["Formats and cities",[
+  ["Which formats are there?","<p>Dinner, women-only, coffee, drinks, walks and runs. See <a href=\"#/formats\">the formats</a> for what each is like.</p>"],
+  ["Which cities?","<p>Paris, London, New York, Philadelphia, Denver and San Diego are available to choose. How many tables are listed in each city changes from week to week, and the city pickers inside the app show the current count for each one.</p>"],
+  ["Which time zone are times shown in?","<p>Each event shows the local time of its city, labelled clearly, for example <em>19:30 · Paris time</em>.</p>"]]]
+];
+
+function viewHome(){
+  const html=`
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">Dinner with strangers · every week · your city</p>
+        <h1 id="hero-h">Sit down with people you <em>haven't met</em> yet.</h1>
+        <p class="lede">Every week, Rightime seats you at a small table of about six in your city. Answer a few questions, pick a night, and find out where on the day.</p>
+        <div class="hero-cta">
+          <a class="btn" href="#/app">Find your table ${ic("arrow")}</a>
+          <a class="btn ghost" href="#/how-it-works">How it works</a>
+        </div>
+        <p class="hero-fine">${ic("info")}<span>Early access: sign-in, booking and the anonymous table view work on a live database. Payments, chat, and day-of venue details and reminders aren't built yet.</span></p>
+      </div>
+      <figure class="hero-art" style="margin:0">${heroTable()}<figcaption>Six seats. One of them is yours.</figcaption></figure>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="facts" role="list">
+    <div class="fact" role="listitem"><b>About six at a table</b><span>Small enough that everyone gets heard.</span></div>
+    <div class="fact" role="listitem"><b>Venue shared on the day</b><span>The Rightime format: you commit to the people, not the restaurant.</span></div>
+    <div class="fact" role="listitem"><b>Anonymous until you meet</b><span>Short notes about your table, never names.</span></div>
+  </div></div>
+
+  <section class="section" aria-labelledby="how-h"><div class="wrap">
+    <div class="section-head"><p class="eyebrow">How it works</p><h2 id="how-h">From email to empty seat in four steps</h2><p>No password, no profile photo, no pitch. Just a short questionnaire and a calendar of tables.</p></div>
+    ${stepsHtml(true)}
+    <p style="margin-top:1.4rem"><a href="#/how-it-works">The full walkthrough ${ic("arrow")}</a></p>
+  </div></section>
+
+  <section class="section tint" aria-labelledby="fmt-h"><div class="wrap">
+    <div class="section-head"><p class="eyebrow">Formats</p><h2 id="fmt-h">An evening, a coffee, or a walk</h2><p>Pick the kind of table that suits your week. Every format keeps the same small-group shape.</p></div>
+    <div class="grid g3">${formatCards(true)}</div>
+  </div></section>
+
+  <section class="section" aria-labelledby="mates-h"><div class="wrap split">
+    <div>
+      <p class="eyebrow">Your table</p>
+      <h2 id="mates-h" style="margin:.5rem 0 1rem">Know who's coming, without knowing who's who</h2>
+      <p class="soft" style="max-width:52ch">After you book, Rightime shows a short, anonymous note about each of the others who've confirmed their seat: how they tend to show up at a table and, if they said, their industry. Enough to look forward to the conversation, never enough to look anyone up. Only guests at your table can see them, and nobody sees your name or email.</p>
+      <p class="soft" style="max-width:52ch;margin-top:.9rem">While you're the first to book, you'll see exactly that. Seats fill as others join.</p>
+    </div>
+    <div class="sample" aria-labelledby="sample-h">
+      <span class="sample-tag">Illustrative example, written for this page</span>
+      <h3 id="sample-h" style="font-size:1.2rem">Who's at your table</h3>
+      <ul class="seatlist">
+        <li><span class="seatno me" aria-hidden="true">1</span><div><div class="who">You</div><div class="sub">Confirmed</div></div></li>
+        <li><span class="seatno" aria-hidden="true">2</span><div><div class="who">The storyteller · in Health</div><div class="sub">Confirmed</div></div></li>
+        <li><span class="seatno" aria-hidden="true">3</span><div><div class="who">The quiet observer · in Creative</div><div class="sub">Confirmed</div></div></li>
+        <li class="open"><span class="seatno open" aria-hidden="true">4</span><div><div class="who">Open seat</div></div></li>
+        <li class="open"><span class="seatno open" aria-hidden="true">5</span><div><div class="who">Open seat</div></div></li>
+        <li class="open"><span class="seatno open" aria-hidden="true">6</span><div><div class="who">Open seat</div></div></li>
+      </ul>
+    </div>
+  </div></section>
+
+  <section class="section tint" aria-labelledby="why-h"><div class="wrap">
+    <div class="section-head"><p class="eyebrow">What we care about</p><h2 id="why-h">Built to be easy to say yes to</h2></div>
+    <div class="grid g3">
+      <article class="card"><div class="ico">${ic("users")}</div><h3>Small on purpose</h3><p>Six around a table means nobody is left at the far end. Conversation stays one conversation.</p></article>
+      <article class="card"><div class="ico">${ic("lock")}</div><h3>Private by default</h3><p>Only you can read your profile and bookings. Other guests get a de-identified one-liner, nothing that identifies you.</p></article>
+      <article class="card"><div class="ico">${ic("check")}</div><h3>Low pressure</h3><p>No photo to pick, no bio to polish, no icebreaker to perform. Show up, say hello, and take it from there.</p></article>
+    </div>
+  </div></section>
+
+  <section class="section" aria-labelledby="city-h"><div class="wrap">
+    <div class="section-head"><p class="eyebrow">Cities</p><h2 id="city-h">Six cities to choose from</h2><p>Pick the city you live in, or the one you're visiting. How many tables are listed in each changes from week to week, so the app shows you the live count once you're signed in.</p></div>
+    <div class="chips" role="list">${Object.values(CITIES).map(c=>`<span class="chip" role="listitem" style="cursor:default">${ic("pin")}${esc(c.name)}</span>`).join("")}</div>
+    <p style="margin-top:1.4rem"><a href="#/cities">About the cities ${ic("arrow")}</a></p>
+  </div></section>
+
+  <section class="section tint" aria-labelledby="faq-h"><div class="wrap narrow">
+    <div class="section-head"><p class="eyebrow">Questions</p><h2 id="faq-h">The short answers</h2></div>
+    ${faqItems([FAQ[0][1][0],FAQ[0][1][2],FAQ[2][1][0],FAQ[1][1][2]])}
+    <p style="margin-top:1.4rem"><a href="#/faq">Every question ${ic("arrow")}</a></p>
+  </div></section>
+
+  <section class="section"><div class="wrap">${ctaBand("Your seat is waiting.","It takes an email address and eight short questions. The magic link means there's no password to remember.")}</div></section>`;
+  return {title:"Rightime — a standing table of six, every week",html};
 }
 
-/* ---- MY EVENTS ---- */
-async function viewMe(){
-  loading();
-  const {data:bs}=await db.from("bookings").select("status,created_at,events(*)").eq("user_id",session.user.id).order("created_at",{ascending:false});
-  const rows=(bs||[]).filter(b=>b.events);
-  app.innerHTML=`<h1 class="big" style="font-size:2rem;">My events</h1>${
-    rows.length?rows.map(b=>`<div class="bk" data-open="${b.events.id}" style="cursor:pointer;"><span class="st ${b.status}">${b.status}</span>
-      <h3 style="font-family:'Fraunces',serif;font-size:1.15rem;margin:.2rem 0 .1rem;">${esc(b.events.name)}</h3>
-      <div class="muted">${new Date(b.events.starts_at).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${esc(b.events.neighbourhood||"")}</div></div>`).join("")
-    :'<div class="empty">Nothing booked yet. Find a table under Events.</div>'}`;
-  app.querySelectorAll("[data-open]").forEach(c=>c.onclick=()=>viewDetail(c.getAttribute("data-open")));
+function pageHead(eyebrow,title,lede){
+  return `<div class="wrap"><header class="page-head"><p class="eyebrow">${esc(eyebrow)}</p><h1>${title}</h1>${lede?`<p class="lede">${esc(lede)}</p>`:""}</header></div>`;
+}
+function viewHow(){
+  const asks=QS.map(q=>`<li><strong>${esc(q.label)}.</strong> ${esc(q.q)}</li>`).join("");
+  const html=`${pageHead("How it works","From a magic link to a seat at the table","Five small steps. You'll spend about as long on the questions as you would choosing a restaurant.")}
+  <div class="wrap narrow"><h2 class="sr-only">The five steps</h2>${stepsHtml(false)}</div>
+  <section class="section"><div class="wrap narrow prose">
+    <h2>The eight questions</h2>
+    <p>Everything Rightime asks you, in the order it asks. You answer once and can change any answer later from your profile.</p>
+    <ul>${asks}</ul>
+    <p>Then you choose your city. That's the whole questionnaire.</p>
+    <h2>What happens to your answers</h2>
+    <p>They're stored on your profile, and your profile can be read only by you. The one exception is a single line built from two answers (how you tend to show up at a table, and your industry if you gave one), which other confirmed guests at your table can see. Never your name or email, and never your other answers.</p>
+    <h2>Changing your mind</h2>
+    <p>Cancel a seat from the event page and it goes back to the table. If there's still room, you can book it again. If a table is full, it's marked full and nobody can squeeze in a seventh chair.</p>
+    <h2>What Rightime doesn't do yet</h2>
+    <div class="notice info">${ic("info")}<div>This is an early version. There are no payments, no in-app chat, no identity verification, and no day-of venue details or reminders yet. What's here (sign-in, onboarding, browsing, booking and the anonymous table view) works on a live database, and the tables you see after signing in may be examples.</div></div>
+  </div></section>
+  <section class="section"><div class="wrap">${ctaBand("Ready when you are.","Sign in with your email to see this week's tables.")}</div></section>`;
+  return {title:"How it works · Rightime",html};
+}
+function viewFormats(){
+  const rows=FORMATS.map(f=>`<article class="card" style="padding:1.6rem">
+    <div style="display:flex;gap:.9rem;align-items:center"><div class="ico" style="margin:0">${ic(f.icon)}</div><h2 style="font-size:1.6rem">${esc(f.name)}</h2></div>
+    <p style="margin-top:.9rem">${esc(f.long)}</p>
+    <dl class="dl"><div><dt>Good for</dt><dd>${esc(f.good)}</dd></div><div><dt>Pace</dt><dd>${esc(f.pace)}</dd></div><div><dt>What to expect</dt><dd>${esc(f.expect)}</dd></div></dl>
+    <p style="margin-top:1rem"><a class="btn ghost sm" href="#/app/events?format=${f.id}">Browse ${esc(f.name.toLowerCase())} tables ${ic("arrow")}</a></p></article>`).join("");
+  const html=`${pageHead("Formats","Six ways to share a table","Every format is a small group. Choose the one that fits your week, and mix them as often as you like.")}
+  <div class="wrap"><div class="grid g2">${rows}</div></div>
+  <section class="section"><div class="wrap">${ctaBand("Pick a format, pick a night.","Tables are listed by city and date once you're signed in.")}</div></section>`;
+  return {title:"Formats · Rightime",html};
+}
+function localClock(tz,loc){ try{ return new Intl.DateTimeFormat(loc,{hour:"2-digit",minute:"2-digit",timeZone:tz}).format(new Date()); }catch(_e){ return ""; } }
+function tzShort(tz){ try{ const p=new Intl.DateTimeFormat("en-GB",{timeZone:tz,timeZoneName:"short"}).formatToParts(new Date()).find(x=>x.type==="timeZoneName"); return p?p.value:""; }catch(_e){ return ""; } }
+function viewCities(){
+  const cards=Object.entries(CITIES).map(([id,c])=>{
+    const clock=localClock(c.tz,c.locale), z=tzShort(c.tz);
+    return `<article class="card city-card"><h2>${esc(c.name)} <span class="country">${esc(c.country)}</span></h2>
+    <p><span class="k">Time zone:</span> ${esc(c.tz.replace("_"," "))}${z?" ("+esc(z)+")":""}</p>
+    ${clock?`<p><span class="k">Local time when you opened this page:</span> ${esc(clock)}</p>`:""}
+    <p>Every table here is shown in ${esc(timeZoneLabel(id))}, so the start time on the page is the start time on the ground. Each table names its neighbourhood. In the Rightime format the venue is shared on the day; that step isn't built into this early version yet.</p>
+    <p><a href="#/signin">Sign in to see the tables listed for ${esc(c.name)} ${ic("arrow")}</a></p></article>`;
+  }).join("");
+  const html=`${pageHead("Cities","Where the tables are","Choose your city when you join and change it any time from your profile.")}
+  <div class="wrap"><div class="grid g3">${cards}</div>
+  <div class="notice info" style="margin-top:1.4rem">${ic("info")}<div>Which tables are listed in each city changes from week to week, and we don't print counts here that could go stale. After you sign in, the city step and your profile show how many tables each city has listed right now.</div></div></div>
+  <section class="section tint" aria-labelledby="citysame-h"><div class="wrap">
+    <div class="section-head"><p class="eyebrow">Same everywhere</p><h2 id="citysame-h">What's the same in every city</h2></div>
+    <div class="grid g3">
+      <article class="card"><h3>A table of about six</h3><p>The shape of the evening doesn't change with the postcode: a small table, one conversation, people you haven't met.</p></article>
+      <article class="card"><h3>Venue on the day</h3><p>Each table shows its date, time and neighbourhood up front. In the Rightime format the venue is shared on the day it takes place; that step isn't built into this early version yet.</p></article>
+      <article class="card"><h3>Private by design</h3><p>Once you've booked, you can see a short, de-identified line about each other guest at your table. No names, no photos.</p></article>
+    </div></div></section>
+  <section class="section" aria-labelledby="citychoose-h"><div class="wrap narrow prose">
+    <h2 id="citychoose-h">Choosing a city</h2>
+    <ul>
+      <li><strong>You see one city at a time.</strong> The events list shows tables in the city on your profile.</li>
+      <li><strong>Travelling?</strong> Switch city from your profile, book there, and switch back whenever you like.</li>
+      <li><strong>Your city isn't listed?</strong> The six above are the ones Rightime supports today. There's no way to request a new city yet, and we'd rather say so than promise one.</li>
+      <li><strong>Empty list?</strong> If a city has no tables listed, the app says so plainly and points you to the city picker.</li>
+    </ul>
+  </div></section>
+  <section class="section"><div class="wrap">${ctaBand("Find a table near you.","Sign in, choose your city, and see what's on this week.")}</div></section>`;
+  return {title:"Cities · Rightime",html};
+}
+function viewFaq(){
+  const groups=FAQ.map(([g,items])=>`<div class="faq-group"><h2>${esc(g)}</h2>${faqItems(items)}</div>`).join("");
+  const html=`${pageHead("FAQ","Questions, answered plainly")}
+  <div class="wrap narrow">${groups}
+  <div class="notice info" style="margin-top:2.4rem">${ic("info")}<div>Rightime is in early access, so some answers say "not yet". We'd rather tell you that than guess.</div></div></div>
+  <section class="section"><div class="wrap">${ctaBand("Still curious?","The quickest way to understand a table is to take a seat at one.")}</div></section>`;
+  return {title:"FAQ · Rightime",html};
+}
+function viewAbout(){
+  const html=`${pageHead("About","Strangers make good company when the setting is right","Rightime is built around one idea: a small table, a shared evening, and no performance required.")}
+  <div class="wrap narrow prose">
+    <h2>The idea</h2>
+    <p>Most of us meet people through the same few channels: work, friends of friends, the apps. A table of six strangers is a different door. Nobody is on show, nobody is auditioning, and the evening has a natural shape: sit down, order, talk.</p>
+    <p>Rightime is our take on that old idea, made to be quick to join and easy to leave. It's inspired by the broader concept of dinners with strangers and is its own product.</p>
+    <h2>How we make decisions</h2>
+    <ul>
+      <li><strong>Small tables.</strong> About six, so one conversation can hold everyone.</li>
+      <li><strong>Privacy first.</strong> Your profile and bookings are yours alone. What other guests see about you is one de-identified line.</li>
+      <li><strong>Plain language.</strong> If something isn't built yet, we say so on the page.</li>
+      <li><strong>Accessible by default.</strong> Keyboard-friendly, readable in light and dark, and respectful of reduced-motion settings.</li>
+    </ul>
+    <h2>Where Rightime is today</h2>
+    <p>This is an early-access version. Real today: magic-link sign-in, the eight-question profile, browsing tables by city and format, booking and cancelling a seat, and the anonymous view of your table. Not built yet: payments, in-app chat, identity verification, day-of venue details and reminders, and automated matching.</p>
+    <h2>Under the hood</h2>
+    <p>Rightime runs on Supabase (Postgres, authentication and row-level security). The database enforces seat limits itself, so a table can't be overbooked, and only you can read your own profile and bookings.</p>
+  </div>
+  <section class="section"><div class="wrap">${ctaBand("Come and sit down.","Join with your email. The magic link does the rest.")}</div></section>`;
+  return {title:"About · Rightime",html};
+}
+function viewSafety(){
+  const html=`${pageHead("Meeting strangers well","Sensible habits for a night out with new people")}
+  <div class="wrap narrow prose">
+    <h2>Before you go</h2>
+    <ul><li>Tell a friend where you're going and roughly when you expect to be home.</li><li>Check the event page for the date, time and neighbourhood, and plan your journey both ways.</li><li>Cancel as early as you can if your plans change, so your seat can go to someone else.</li></ul>
+    <h2>At the table</h2>
+    <ul><li>Prefer public places when you meet people for the first time. Don't share your address or move on to private locations with people you've just met unless you're comfortable.</li><li>Share only what you want to share. You never have to answer a question.</li><li>Look after your own drinks and limits. Nobody should pressure you either way.</li><li>It's always fine to leave.</li></ul>
+    <h2>What Rightime does</h2>
+    <ul><li>Shows other guests only de-identified one-liners, and only to people at the same table.</li><li>Keeps your profile and bookings readable by you alone, apart from the one line about you that guests at your table can see.</li><li>Caps every table at its seat count.</li></ul>
+    <h2>What Rightime doesn't do yet</h2>
+    <div class="notice">${ic("info")}<div>There's no identity verification, no in-app reporting channel, no chat, and no day-of venue details in this early version. If something at a table doesn't feel right, trust that feeling and leave, and in an emergency contact local emergency services.</div></div>
+  </div>
+  <section class="section"><div class="wrap">${ctaBand("Ready to sit down?","Small tables, public places, and no pressure.")}</div></section>`;
+  return {title:"Meeting strangers well · Rightime",html};
+}
+function viewPrivacy(){
+  const html=`${pageHead("Privacy","What Rightime stores, and who can see it")}
+  <div class="wrap narrow prose">
+    <div class="notice info">${ic("info")}<div>A plain-language summary for an early-access product, last updated 22 October 2026. It isn't a substitute for a lawyer-reviewed policy, which should replace it before a wider launch.</div></div>
+    <h2>What we store</h2>
+    <ul><li><strong>Your email address</strong>, to send your sign-in link.</li><li><strong>Your answers</strong> to the eight profile questions, and your city.</li><li><strong>Your first name</strong>, only if you choose to add one.</li><li><strong>Your bookings</strong>: which tables you've booked or cancelled.</li></ul>
+    <h2>Who can see it</h2>
+    <p>Only you can read your profile and bookings; the database refuses to return anyone else's rows. The one exception is deliberate: guests who have confirmed a seat at the same table as you can see a single line about you, made from exactly two of your answers, the "at a table of strangers, you're…" answer (for example, "The storyteller") and, if you gave one, your industry. It never includes your name, email, city or any other answer.</p>
+    <h2>Cookies and local storage</h2>
+    <p>Rightime doesn't set cookies itself. Your signed-in session is kept in your browser's local storage so you stay signed in. Signing out removes it. While you fill in the questionnaire, your unsaved answers are also kept in this tab's session storage so a reload doesn't lose them; they are cleared when you finish or sign out, and when you close the tab. A link you opened while signed out may be remembered in local storage for up to 30 minutes so we can take you there after you sign in.</p>
+    <h2>Third parties</h2>
+    <ul><li>Your data is stored with Supabase (database and authentication), which also sends the magic-link email.</li><li>When the page loads, your browser requests fonts from Google Fonts and a script from the jsDelivr CDN. Those services can see your IP address and browser details as part of that request.</li><li>This page includes no advertising or analytics scripts.</li></ul>
+    <h2>Your choices</h2>
+    <p>You can change your answers, city and first name from your profile at any time. There's no in-app account deletion yet.</p>
+  </div>`;
+  return {title:"Privacy · Rightime",html};
+}
+function viewTerms(){
+  const html=`${pageHead("Terms","The ground rules, in plain language")}
+  <div class="wrap narrow prose">
+    <div class="notice info">${ic("info")}<div>A plain-language draft for an early-access product, last updated 22 October 2026. It should be reviewed and replaced with proper terms before a wider launch.</div></div>
+    <h2>Using Rightime</h2>
+    <p>Rightime helps you book a seat at small social gatherings. By signing in you agree to use it honestly: one account per person, truthful answers, and respect for the people you meet.</p>
+    <h2>Early access</h2>
+    <p>Rightime is provided as it is while in early access. Tables, dates and availability can change, and a gathering isn't guaranteed to be full or to take place as listed.</p>
+    <h2>Bookings</h2>
+    <p>Booking reserves a seat; cancelling releases it. Please cancel as early as you can. Tables can't be booked past their seat limit.</p>
+    <h2>Your conduct</h2>
+    <p>Treat other guests and venues with courtesy. Meeting people in person carries real-world risks that Rightime can't remove; see <a href="#/safety">Meeting strangers well</a>.</p>
+    <h2>No payments yet</h2>
+    <p>This version doesn't take payments. Any future pricing will be shown clearly before it applies.</p>
+  </div>`;
+  return {title:"Terms · Rightime",html};
+}
+function viewNotFound(){
+  return {title:"Page not found · Rightime",html:`<div class="wrap narrow"><div class="empty">${miniTable(6,1,true).replace("<svg",'<svg class="big"')}<h1 style="font-size:2rem">That page isn't on the menu</h1><p>The link may be old or mistyped. Here are some places to start.</p><div class="hero-cta" style="justify-content:center"><a class="btn" href="#/">Go home</a><a class="btn ghost" href="#/how-it-works">How it works</a></div></div></div>`};
 }
 
-db.auth.onAuthStateChange((_e,s)=>{
-  const was=!!session; session=s;
-  if(s && !was) boot();
-  else if(!s){ profile=null; nav.hidden=true; viewAuth(); }
+/* ============================================================
+   SIGN-IN
+   ============================================================ */
+function viewSignin(){
+  const wasExpired=S.authNotice==="expired"; S.authNotice="";
+  const notice=wasExpired?`<div class="err" role="alert">That sign-in link didn't work. It may have expired or already been used. Request a new one below.</div>`:"";
+  const off=S.authUnavailable?`<div class="err" role="alert">Sign-in is unavailable because a required script couldn't load. Check your connection and reload the page.</div>`:"";
+  const html=`<div class="wrap auth-grid">
+    <div>
+      <p class="eyebrow">Join or sign in</p>
+      <h1 style="margin:.6rem 0 1rem">One email. No password.</h1>
+      <p class="lede">Enter your email and we'll send a magic link. Open it on this device and you're in. New here? The same link creates your account.</p>
+      <ul class="ticks">
+        <li>${ic("mail")}<span>We email you a one-time sign-in link.</span></li>
+        <li>${ic("users")}<span>Eight short questions, then pick your city.</span></li>
+        <li>${ic("lock")}<span>Your answers stay private. Other guests see only anonymous notes.</span></li>
+      </ul>
+    </div>
+    <div class="auth-card" id="authCard">${notice}${off}${signinForm()}</div>
+  </div>`;
+  return {title:"Sign in · Rightime",html,after:()=>bindSignin()};
+}
+function signinForm(){
+  return `<form id="authf" novalidate>
+    <div><label class="field" for="email">Email address</label>
+    <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required aria-describedby="emailHint" value="${esc(S.sentTo)}">
+    <p class="hint" id="emailHint">We'll only use it to send your sign-in link.</p></div>
+    <div id="autherr" role="alert"></div>
+    <button class="btn block" type="submit" id="authBtn"${S.authUnavailable?" disabled":""}>Send me a magic link ${ic("arrow")}</button>
+  </form>`;
+}
+function bindSignin(){
+  const f=$("#authf"); if(!f) return;
+  f.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const inp=$("#email"), errBox=$("#autherr"), btn=$("#authBtn");
+    const email=inp.value.trim();
+    errBox.innerHTML="";
+    if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      errBox.innerHTML='<div class="err">Enter a valid email address, like you@example.com.</div>';
+      inp.setAttribute("aria-invalid","true"); inp.focus(); return;
+    }
+    inp.removeAttribute("aria-invalid");
+    if(Date.now()<S.cooldownUntil && email.toLowerCase()===S.cooldownFor){ errBox.innerHTML='<div class="err">Please wait '+Math.ceil((S.cooldownUntil-Date.now())/1000)+' seconds before requesting another link.</div>'; return; }
+    btn.disabled=true; btn.innerHTML='<span class="spin"></span> Sending…';
+    let error=null;
+    try{
+      const r=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+      error=r.error;
+    }catch(ex){ error=ex||{message:"Network error"}; }
+    if(error){
+      btn.disabled=false; btn.innerHTML='Send me a magic link '+ic("arrow");
+      const ri=rateInfo(error);
+      if(ri.limited && ri.secs){ S.cooldownUntil=Date.now()+ri.secs*1000; S.cooldownFor=email.toLowerCase(); }
+      errBox.innerHTML='<div class="err">'+esc(ri.limited?(ri.secs?"Please wait "+ri.secs+" seconds before requesting another link.":"Too many requests. Wait a minute, then try again."):("We couldn't send the link: "+(error.message||"unknown error")+". Please try again."))+'</div>';
+      return;
+    }
+    S.sentTo=email; S.authNotice=""; S.cooldownUntil=Date.now()+RESEND_MS; S.cooldownFor=email.toLowerCase();
+    showSent(email);
+  });
+}
+/* A short client-side pause that stops accidental double-sends. It is a UX choice, not a statement about the project's auth limits:
+   if the server rate-limits, its own message (and any wait it names) is shown instead. The pause applies per address. */
+const RESEND_MS=20000;
+function rateInfo(error){
+  const msg=(error&&error.message)||"";
+  const m=msg.match(/(\d+)\s*second/i);
+  const limited=(error&&error.status===429)||/rate limit|too many|only request this after/i.test(msg);
+  return {limited,secs:m?Math.min(parseInt(m[1],10),3600):0};
+}
+function showSent(email){
+  const card=$("#authCard"); if(!card) return;
+  card.innerHTML=`<div class="sent"><h2 id="sentH" tabindex="-1">Check your inbox</h2>
+    <p>We sent a sign-in link to <strong class="brk">${esc(email)}</strong>. Open it on this device to continue.</p>
+    <ul><li>It can take a minute. Check your spam or promotions folder too.</li><li>Opening the link signs you in, even in a new tab.</li><li>Wrong address? Use a different email below.</li></ul>
+    <div class="hero-cta"><button class="btn ghost" type="button" id="resend" disabled>Send another link</button><button class="btn ghost" type="button" id="diffEmail">Use a different email</button></div>
+    <p class="hint" id="resendHint" aria-live="off"></p></div>`;
+  const sentH=$("#sentH"); if(sentH) sentH.focus();
+  const rb=$("#resend"), hint=$("#resendHint");
+  let timer=0;
+  const tick=()=>{
+    clearTimeout(timer);
+    if(!document.body.contains(rb)) return;
+    const left=Math.ceil((S.cooldownUntil-Date.now())/1000);
+    if(left>0){ rb.disabled=true; hint.textContent="You can request another link in "+left+"s."; timer=setTimeout(tick,1000); }
+    else{ hint.textContent=""; rb.disabled=false; }
+  };
+  tick();
+  rb.addEventListener("click",async()=>{
+    rb.disabled=true; rb.innerHTML='<span class="spin"></span> Sending…';
+    let error=null; try{ const r=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}}); error=r.error; }catch(ex){ error=ex; }
+    rb.textContent="Send another link";
+    if(error){
+      const ri=rateInfo(error);
+      if(ri.limited){ S.cooldownUntil=Date.now()+(ri.secs||60)*1000; S.cooldownFor=email.toLowerCase(); toast(ri.secs?"Please wait "+ri.secs+" seconds before requesting another link.":"Too many requests. Wait a minute, then try again.","error"); }
+      else toast("We couldn't send another link: "+((error&&error.message)||"network problem")+".","error");
+      tick(); return;
+    }
+    S.cooldownUntil=Date.now()+RESEND_MS; S.cooldownFor=email.toLowerCase(); toast("Another link is on its way."); tick();
+  });
+  $("#diffEmail").addEventListener("click",()=>{ S.sentTo=""; card.innerHTML=signinForm(); bindSignin(); const i=$("#email"); if(i) i.focus(); });
+}
+
+/* ============================================================
+   ONBOARDING (8 questions + city) — also used to edit answers
+   ============================================================ */
+/* The current question lives in the URL (#/app/onboarding?q=N) so the browser Back button steps back a question and a reload keeps your place. */
+function stepHash(i){return "#/app/onboarding?q="+i;}
+function stepAnswered(Q){const v=S.answers[Q.k]; return Q.multi?(Array.isArray(v)&&v.length>0):!!v;}
+function maxStep(){
+  if(S.mode==="edit") return QS.length-1;
+  let i=0; while(i<QS.length&&stepAnswered(QS[i])) i++;
+  return i;                                   // QS.length is the city step
+}
+function viewOnboarding(loc){
+  if(S.mode!=="edit"){ loadDraft(); S.answers=Object.assign({},(S.profile&&S.profile.characteristics)||{},S.answers); }
+  const raw=loc&&loc.query?loc.query.get("q"):null;
+  let q=raw===null?S.qi:parseInt(raw,10); if(!Number.isFinite(q)) q=0;
+  S.qi=Math.max(0,Math.min(q,maxStep()));     // can't jump past a question you haven't answered
+  if(raw===null||String(S.qi)!==raw) history.replaceState(null,"",location.pathname+location.search+stepHash(S.qi));
+  return renderStep();
+}
+function stepTotal(){return S.mode==="edit"?QS.length:QS.length+1;}
+function progressHtml(i){
+  const total=stepTotal();
+  return `<div class="progress" role="progressbar" aria-label="${S.mode==="edit"?"Update your answers":"Profile setup"} progress" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${i}" aria-valuetext="Step ${Math.min(i+1,total)} of ${total}"><i style="width:${Math.round(i/total*100)}%"></i></div>`;
+}
+function renderStep(){
+  if(S.qi>=QS.length){
+    if(S.mode==="edit"){ return {title:"Saving · Rightime",html:'<div class="wrap"><h1 class="page-head">Saving your answers…</h1></div>',after:()=>saveProfileAnswers()}; }
+    return cityStep();
+  }
+  const Q=QS[S.qi], cur=S.answers[Q.k], sel=Q.multi?(Array.isArray(cur)?cur:[]):cur;
+  const type=Q.multi?"checkbox":"radio";
+  const opts=Q.opts.map((o,i)=>{
+    const on=Q.multi?sel.includes(o):sel===o;
+    return `<label class="opt${Q.multi?" multi":""}"><input type="${type}" name="${Q.k}" value="${esc(o)}"${on?" checked":""}><span>${esc(o)}</span></label>`;
+  }).join("");
+  const html=`<div class="wrap"><div class="step-wrap">
+    ${progressHtml(S.qi)}
+    <p class="eyebrow">${esc(Q.label)} · ${S.qi+1} of ${stepTotal()}</p>
+    <h1 id="qh">${esc(Q.q)}</h1>
+    ${Q.hint?`<p class="soft" id="qhint">${esc(Q.hint)}</p>`:`<p class="muted" id="qhint">Choose one.</p>`}
+    <form id="qf" novalidate>
+      <fieldset aria-labelledby="qh" aria-describedby="qhint"><div class="opts${Q.opts.length<=6&&Q.opts.every(o=>o.length<18)?" two":""}">${opts}</div></fieldset>
+      <div id="qerr" role="alert"></div>
+      <div class="step-actions">${S.qi>0?'<button class="btn ghost" type="button" id="qb">Back</button>':(S.mode==="edit"?'<a class="btn ghost" href="#/app/profile">Cancel</a>':'')}<button class="btn" type="submit">${S.qi===QS.length-1&&S.mode==="edit"?"Save answers":"Continue"} ${ic("arrow")}</button></div>
+    </form>
+    <p class="hint" style="margin-top:1.4rem">${ic("lock")} Of all these answers, only your table style and industry feed the one anonymous line your table sees.</p>
+  </div></div>`;
+  return {title:`${Q.q} · Step ${S.qi+1} of ${stepTotal()} · Rightime`,html,after:()=>bindStep(Q)};
+}
+function bindStep(Q){
+  const f=$("#qf");
+  f.addEventListener("change",e=>{
+    const t=e.target; if(t.tagName!=="INPUT") return;
+    if(Q.multi){
+      let vals=$$("input:checked",f).map(i=>i.value);
+      if(Q.exclusive){
+        if(t.checked && t.value===Q.exclusive){ vals=[Q.exclusive]; $$("input",f).forEach(i=>{i.checked=(i.value===Q.exclusive);}); }
+        else if(t.checked && t.value!==Q.exclusive){ vals=vals.filter(v=>v!==Q.exclusive); $$("input",f).forEach(i=>{if(i.value===Q.exclusive)i.checked=false;}); }
+      }
+      S.answers[Q.k]=vals;
+    }else S.answers[Q.k]=t.value;
+    saveDraft();
+    $("#qerr").innerHTML="";
+  });
+  f.addEventListener("submit",e=>{
+    e.preventDefault();
+    const v=S.answers[Q.k], ok=Q.multi?(Array.isArray(v)&&v.length>0):!!v;
+    if(!ok){ $("#qerr").innerHTML='<div class="err">'+(Q.multi?"Choose at least one option to continue.":"Choose an option to continue.")+'</div>'; const first=$("input",f); if(first) first.focus(); return; }
+    S.stepFrom=S.qi; S.qi++; goStep();
+  });
+  const b=$("#qb"); if(b) b.addEventListener("click",stepBack);
+}
+/* The in-page Back must behave like the browser Back: when the previous question is the previous history entry, step back through
+   history instead of pushing a new entry (which would create a q=7, q=8, q=7 loop). Otherwise (after a reload, say) it replaces the current entry. */
+function stepBack(){
+  const target=Math.max(0,S.qi-1);
+  if(S.stepFrom===target){ S.stepFrom=null; history.back(); return; }
+  S.stepFrom=null; S.qi=target; navigate(stepHash(target),true);
+}
+function goStep(){
+  if(S.mode==="edit"&&S.qi>=QS.length){ const tok=++renderTok; present(renderStep(),tok); return; }   // last edit step saves
+  navigate(stepHash(S.qi));
+}
+function cityStep(){
+  const cur=(S.profile&&S.profile.city_id)||S.pendingCity||"";
+  const opts=Object.entries(CITIES).map(([id,c])=>`<label class="opt"><input type="radio" name="city" value="${id}"${cur===id?" checked":""}><span><span style="display:block">${esc(c.name)}<small>${esc(c.country)}<span data-city-count="${id}"></span></small></span></span></label>`).join("");
+  const html=`<div class="wrap"><div class="step-wrap">
+    ${progressHtml(QS.length)}
+    <p class="eyebrow">Last thing · ${QS.length+1} of ${stepTotal()}</p>
+    <h1 id="qh">Where do you meet?</h1>
+    <p class="soft" id="qhint">You'll see tables in this city. You can change it later from your profile.</p>
+    <form id="cf" novalidate>
+      <fieldset aria-labelledby="qh" aria-describedby="qhint"><div class="opts two">${opts}</div></fieldset>
+      <div id="qerr" role="alert"></div>
+      <div class="step-actions"><button class="btn ghost" type="button" id="qb">Back</button><button class="btn" type="submit" id="cbtn">Finish ${ic("check")}</button></div>
+    </form>
+  </div></div>`;
+  return {title:"Choose your city · Step 9 of 9 · Rightime",html,after:()=>{
+    fillCityCounts();
+    $("#qb").addEventListener("click",stepBack);
+    $("#cf").addEventListener("change",e=>{S.pendingCity=e.target.value;saveDraft();$("#qerr").innerHTML="";});
+    $("#cf").addEventListener("submit",async e=>{
+      e.preventDefault();
+      const c=$("input:checked",$("#cf")); if(!c){ $("#qerr").innerHTML='<div class="err">Choose a city to finish.</div>'; $("input",$("#cf")).focus(); return; }
+      const btn=$("#cbtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Saving…';
+      const res=await saveProfile({characteristics:S.answers,city_id:c.value,onboarding_complete:true});
+      if(!res.ok){ btn.disabled=false; btn.innerHTML='Finish '+ic("check"); $("#qerr").innerHTML='<div class="err">'+esc(res.msg)+'</div>'; return; }
+      S.qi=0; S.pendingCity=""; try{ sessionStorage.removeItem(DRAFT_KEY); }catch(_e){}
+      toast("Welcome to Rightime. Here's what's on near you."); navigate(takeNext()||"#/app/events",true);
+    });
+  }};
+}
+async function fillCityCounts(){
+  try{
+    if(!S.cityCounts){
+      const {data,error}=await db.from("events").select("city_id,starts_at");
+      if(error) throw error;
+      const m={}; Object.keys(CITIES).forEach(k=>{m[k]=0;});
+      (data||[]).forEach(e=>{ if(!(PAST_BLOCKS_BOOKING&&isPast(e.starts_at))) m[e.city_id]=(m[e.city_id]||0)+1; });
+      S.cityCounts=m;
+    }
+    $$("[data-city-count]").forEach(el=>{
+      const n=S.cityCounts[el.getAttribute("data-city-count")]||0;
+      el.textContent=" · "+(n?n+" "+UP+(n===1?"table":"tables"):"no "+UP+"tables yet");
+    });
+  }catch(_e){ /* counts are a nicety; the picker works without them */ }
+}
+async function saveProfile(patch){
+  if(!db||!S.user) return {ok:false,msg:"You're signed out. Please sign in again."};
+  try{
+    const {data,error}=await db.from("profiles").update(patch).eq("id",S.user.id).select().maybeSingle();
+    if(error) return {ok:false,msg:"We couldn't save that: "+error.message};
+    if(!data) return {ok:false,msg:"We couldn't find your profile yet. Please wait a moment and try again."};
+    S.profile=data; return {ok:true};
+  }catch(_e){ return {ok:false,msg:"Network problem while saving. Please try again."}; }
+}
+async function saveProfileAnswers(){
+  const res=await saveProfile({characteristics:S.answers});
+  S.mode="onboard"; S.qi=0;
+  if(res.ok){ toast("Your answers are updated."); navigate("#/app/profile",true); }
+  else{ toast(res.msg,"error"); navigate("#/app/profile",true); }
+}
+
+/* ============================================================
+   EVENTS LIST
+   ============================================================ */
+function skeletonCards(n){return Array.from({length:n},()=>'<li><div class="sk sk-card"></div></li>').join("");}
+function viewEvents(loc,tok){
+  const city=S.profile.city_id; let filter=loc.query.get("format")||"all";
+  if(filter!=="all"&&!FMT[filter]) filter="all";
+  S.filter=filter;
+  const greet=S.profile.first_name?`, ${esc(S.profile.first_name)}`:"";
+  const html=`<div class="wrap">
+    <header class="app-head"><div><p class="eyebrow">${esc(cityName(city))} · ${UP?"upcoming ":""}tables</p><h1>Pull up a chair${greet}</h1></div>
+    <a class="btn ghost sm" href="#/app/profile">Not in ${esc(cityName(city))}? Change city</a></header>
+    ${earlyNotice("margin-bottom:1rem")}
+    <div id="evBody" aria-busy="true"><ul class="list" aria-label="Loading tables">${skeletonCards(6)}</ul></div></div>`;
+  return {title:`Events in ${cityName(city)} · Rightime`,html,after:t=>loadEvents(t)};
+}
+async function loadEvents(tok,opts){
+  opts=opts||{};
+  try{
+    const [ev,bk]=await Promise.all([
+      db.from("events").select("*").eq("city_id",S.profile.city_id).order("starts_at"),
+      db.from("bookings").select("event_id,status").eq("user_id",S.user.id)
+    ]);
+    if(tok!==renderTok) return;
+    if(ev.error) throw ev.error; if(bk.error) throw bk.error;
+    S.events=ev.data||[]; S.booked=new Set((bk.data||[]).filter(b=>b.status==="confirmed").map(b=>b.event_id));
+    renderEventsBody(tok,opts.focusId);
+  }catch(err){
+    if(tok!==renderTok) return;
+    const b=$("#evBody"); if(!b) return;
+    b.setAttribute("aria-busy","false");
+    b.innerHTML=`<div class="empty">${ic("info","big")}<h2>We couldn't load the tables</h2><p>${esc((err&&err.message)||"Please check your connection.")}</p><button class="btn" type="button" data-act="retry">Try again</button></div>`;
+  }
+}
+function evCard(e,isB){
+  const left=seatsLeft(e), full=isFull(e), past=isPast(e.starts_at);
+  const dots=Array.from({length:Math.min(e.seats||6,12)},(_,i)=>`<i class="${i<e.attendees_count?"on":""}"></i>`).join("");
+  let status;
+  if(isB) status=`<span class="tag good">${ic("check")} You're in</span>`;
+  else if(full) status=`<span class="tag warn">Full</span>`;
+  else status=`<span class="tag good">${left} ${left===1?"seat":"seats"} left</span>`;
+  const pastTag=past?`<span class="tag neutral">Date passed</span>`:"";
+  const blocked=PAST_BLOCKS_BOOKING&&past;
+  const action=isB?`<a class="btn ghost sm" href="#/app/events/${e.id}" style="position:relative;z-index:2">View your table</a>`
+    :(full||blocked)?`<button class="btn ghost sm" type="button" disabled>${full?"Table full":"Closed"}</button>`
+    :`<button class="btn sm" type="button" data-book="${e.id}">Book my seat</button>`;
+  return `<li class="ecard" data-card="${e.id}">
+    <div class="ecard-main">
+      <span class="fmt">${fmtIcon(e.type)} ${esc((FMT[e.type]&&FMT[e.type].name)||e.type)}</span>
+      <h3><a href="#/app/events/${e.id}">${esc(e.name)}</a></h3>
+      <p class="when">${ic("cal")}<span>${esc(fmtDate(e.starts_at,e.city_id,D_SHORT))} · ${esc(fmtDate(e.starts_at,e.city_id,T_ONLY))} ${esc(timeZoneLabel(e.city_id))}</span></p>
+      ${e.neighbourhood?`<p class="where">${ic("pin")}<span>${esc(e.neighbourhood)}</span></p>`:""}
+    </div>
+    <div class="ecard-foot">
+      <div class="seats"><span class="seatrow" aria-hidden="true">${dots}</span><span>${e.attendees_count} of ${e.seats} seats taken</span></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${status}${pastTag}</div>
+      ${action}
+    </div></li>`;
+}
+function renderEventsBody(tok,focusId){
+  const body=$("#evBody"); if(!body||tok!==renderTok) return;
+  const evs=S.events.filter(e=>!(PAST_BLOCKS_BOOKING&&isPast(e.starts_at))), filter=S.filter||"all";
+  const present_=FORMATS.filter(f=>evs.some(e=>e.type===f.id)||f.id===filter);
+  const counts=Object.fromEntries(FORMATS.map(f=>[f.id,evs.filter(e=>e.type===f.id).length]));
+  const chips=!evs.length?"":`<div class="chips" role="group" aria-label="Filter by format"><button class="chip" type="button" data-f="all" aria-pressed="${filter==="all"}">All <span class="n">${evs.length}</span></button>${present_.map(f=>`<button class="chip" type="button" data-f="${f.id}" aria-pressed="${filter===f.id}">${fmtIcon(f.id)} ${esc(f.name)} <span class="n">${counts[f.id]}</span></button>`).join("")}</div>`;
+  let inner;
+  if(!S.events.length){
+    inner=`<div class="empty">${miniTable(6,0,false).replace("<svg",'<svg class="big"')}<h2>No tables in ${esc(cityName(S.profile.city_id))} yet</h2><p>New tables are added over time. Another city might have something this week, or check back soon.</p><a class="btn" href="#/app/profile">Change my city</a></div>`;
+    body.setAttribute("aria-busy","false"); body.innerHTML=inner; return;
+  }
+  body.setAttribute("aria-busy","false");
+  body.innerHTML=chips+`<p class="muted" id="evCount" role="status" aria-live="polite" style="margin-top:1rem"></p><div id="evList"></div>`;
+  paintEventList();
+  if(focusId){ const a=$(`[data-card="${focusId}"] h3 a`,viewEl); if(a) a.focus(); }
+}
+function paintEventList(){
+  const list=$("#evList"); if(!list) return;
+  const filter=S.filter||"all", cid=S.profile.city_id;
+  const matches=S.events.filter(e=>filter==="all"||e.type===filter);
+  const shown=matches.filter(e=>!(PAST_BLOCKS_BOOKING&&isPast(e.starts_at)));
+  const earlier=matches.filter(e=>PAST_BLOCKS_BOOKING&&isPast(e.starts_at)).sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at));
+  $("#evCount").textContent=shown.length?`${shown.length} ${UP}${shown.length===1?"table":"tables"}${filter==="all"?"":" · "+FMT[filter].name}`:"";
+  let out="";
+  if(!shown.length){
+    const fname=filter==="all"?"":FMT[filter].name.toLowerCase()+" ";
+    out=`<div class="empty"><h2>No ${UP}${esc(fname)}tables</h2><p>${filter==="all"?"Every table listed in "+esc(cityName(cid))+" has already taken place. New ones are added over time, so check back soon, or try another city.":"Nothing in this format in "+esc(cityName(cid))+" is listed right now. Try another format, or see everything."}</p>${filter==="all"?'<a class="btn" href="#/app/profile">Change my city</a>':'<button class="btn" type="button" data-f="all">Show all formats</button>'}</div>`;
+  }else{
+    const groups=[];
+    shown.forEach(e=>{
+      const key=fmtDate(e.starts_at,cid,D_KEY);
+      let g=groups[groups.length-1];
+      if(!g||g.key!==key){g={key,label:fmtDate(e.starts_at,cid,D_LONG),items:[]};groups.push(g);}
+      g.items.push(e);
+    });
+    out=groups.map(g=>`<section aria-labelledby="d-${esc(g.key.replace(/\W/g,""))}"><h2 class="day-h" id="d-${esc(g.key.replace(/\W/g,""))}">${esc(g.label)}</h2><ul class="list">${g.items.map(e=>evCard(e,S.booked.has(e.id))).join("")}</ul></section>`).join("");
+  }
+  if(earlier.length){
+    const open=$("details.earlier",list)&&$("details.earlier",list).open;
+    out+=`<details class="q earlier"${open?" open":""}><summary>Earlier tables (${earlier.length})</summary><div class="a"><p class="muted" style="margin-bottom:.8rem">These have already taken place and are closed for booking.</p><ul class="list">${earlier.map(e=>evCard(e,S.booked.has(e.id))).join("")}</ul></div></details>`;
+  }
+  list.innerHTML=out;
+}
+viewEl.addEventListener("click",async e=>{
+  const f=e.target.closest("[data-f]");
+  if(f && $("#evList")){
+    S.filter=f.getAttribute("data-f");
+    history.replaceState(null,"",location.pathname+location.search+"#/app/events"+(S.filter==="all"?"":"?format="+S.filter));
+    $$(".chip[data-f]",viewEl).forEach(c=>c.setAttribute("aria-pressed",String(c.getAttribute("data-f")===S.filter)));
+    paintEventList();
+    const again=$(`.chip[data-f="${S.filter}"]`,viewEl); if(again&&e.target.closest("[data-f]").classList.contains("btn")) again.focus();
+    return;
+  }
+  const b=e.target.closest("[data-book]");
+  if(b){
+    const id=b.getAttribute("data-book"), tok=renderTok;
+    b.disabled=true; b.innerHTML='<span class="spin"></span> Booking…';
+    const ok=await bookSeat(id);
+    if(tok!==renderTok) return;
+    if(ok){ S.booked.add(id); await loadEvents(tok,{focusId:id}); }
+    else{ b.disabled=false; b.textContent="Book my seat"; if(ok===false) loadEvents(tok,{focusId:id}); }
+  }
 });
+async function bookSeat(id){
+  if(S.busy) return null; S.busy=true;
+  try{
+    const {error}=await db.from("bookings").upsert({user_id:S.user.id,event_id:id,status:"confirmed"},{onConflict:"user_id,event_id"});
+    if(error){ toast(/full|capacity|seats/i.test(error.message||"")?"That table just filled up. Try another date.":("We couldn't book that seat: "+error.message),"error"); return false; }
+    toast("Seat booked."); return true;
+  }catch(_e){ toast("Network problem. Your seat wasn't booked, please try again.","error"); return false; }
+  finally{ S.busy=false; }
+}
+
+/* ============================================================
+   EVENT DETAIL
+   ============================================================ */
+function viewDetail(id){
+  const html=`<div class="wrap"><a class="crumb" href="#/app/events">${ic("back")} All tables</a><h1 style="font-size:2rem">Loading table…</h1><div class="sk" style="height:260px;margin-top:1.4rem;border-radius:var(--r-l)"></div></div>`;
+  return {title:"Table · Rightime",html,after:t=>loadDetail(id,t)};
+}
+async function loadDetail(id,tok,focusSel){
+  try{
+    const [ev,bk]=await Promise.all([
+      db.from("events").select("*").eq("id",id).maybeSingle(),
+      db.from("bookings").select("*").eq("user_id",S.user.id).eq("event_id",id).maybeSingle()
+    ]);
+    if(tok!==renderTok) return;
+    if(ev.error) throw ev.error;
+    const e=ev.data;
+    if(!e){
+      refresh(tok,`<div class="wrap narrow"><div class="empty">${ic("info","big")}<h1 style="font-size:2rem">We can't find that table</h1><p>It may have been removed, or the link is mistyped.</p><a class="btn" href="#/app/events">See all tables</a></div></div>`,"Table not found · Rightime");
+      return;
+    }
+    const mb=bk&&bk.data, isB=!!(mb&&mb.status==="confirmed"), wasCancelled=!!(mb&&mb.status==="cancelled");
+    if(!refresh(tok,detailHtml(e,isB,wasCancelled),`${e.name} · Rightime`,focusSel)) return;
+    bindDetail(e,isB,tok);
+    if(isB) loadMates(e,tok);
+  }catch(err){
+    if(tok!==renderTok) return;
+    refresh(tok,`<div class="wrap narrow"><div class="empty">${ic("info","big")}<h1 style="font-size:2rem">We couldn't load this table</h1><p>${esc((err&&err.message)||"Please check your connection.")}</p><button class="btn" type="button" data-act="retry">Try again</button> <a class="btn ghost" href="#/app/events">All tables</a></div></div>`,"Couldn't load table · Rightime");
+  }
+}
+function detailHtml(e,isB,wasCancelled){
+  const f=FMT[e.type], full=isFull(e), past=isPast(e.starts_at), left=seatsLeft(e);
+  const blocked=PAST_BLOCKS_BOOKING&&past;
+  const dateL=fmtDate(e.starts_at,e.city_id,D_LONG), timeL=fmtDate(e.starts_at,e.city_id,T_ONLY);
+  let panel;
+  if(isB){
+    panel=`<h2 id="bookStatus" tabindex="-1">You're in</h2>
+      <p class="status"><span class="tag good">${ic("check")} Seat confirmed</span></p>
+      <p class="soft">Your seat is saved as confirmed. Plans change? Cancel as early as you can so someone else can take your seat.</p>
+      <div class="actions"><button class="btn danger" type="button" id="cancelAsk" aria-expanded="false" aria-controls="cancelBox">Cancel my seat</button></div>
+      <div class="confirm" id="cancelBox" hidden role="group" aria-labelledby="cancelQ"><p id="cancelQ"><strong>Give up your seat?</strong> It goes back to the table, and you can rebook it later if there's room.</p>
+        <button class="btn danger" type="button" id="cancelYes">Yes, cancel my seat</button><button class="btn ghost" type="button" id="cancelNo">Keep my seat</button></div>`;
+  }else if(full){
+    panel=`<h2 id="bookStatus" tabindex="-1">This table is full</h2><p class="soft" style="margin-top:.4rem">Every seat is taken. Another date or format might suit you.</p><div class="actions"><a class="btn" href="#/app/events">See other tables</a></div>`;
+  }else if(blocked){
+    panel=`<h2 id="bookStatus" tabindex="-1">Booking has closed</h2><p class="soft" style="margin-top:.4rem">This table has already taken place.</p><div class="actions"><a class="btn" href="#/app/events">See other tables</a></div>`;
+  }else{
+    panel=`<h2 id="bookStatus" tabindex="-1">${wasCancelled?"Want your seat back?":"Take a seat"}</h2>
+      <p class="status"><span class="tag good">${left} ${left===1?"seat":"seats"} left</span></p>
+      ${wasCancelled?'<p class="soft">You cancelled this seat earlier. You can book it again while there\'s room.</p>':'<p class="soft">Booking reserves your seat at this table. You can cancel any time.</p>'}
+      ${e.type==="women"?`<div class="notice info" style="margin-top:.8rem">${ic("info")}<div>This table is intended for women. By booking you confirm it's right for you.</div></div>`:""}
+      <div class="actions"><button class="btn" type="button" id="bookBtn">${wasCancelled?"Book again":"Book my seat"}</button></div>`;
+  }
+  return `<div class="wrap"><a class="crumb" href="#/app/events">${ic("back")} All tables</a>
+    <div class="detail">
+      <div>
+        <span class="fmt">${fmtIcon(e.type)} ${esc(f?f.name:e.type)}</span>
+        <h1>${esc(e.name)}</h1>
+        <div class="meta">
+          <p>${ic("cal")}<span>${esc(dateL)}${past?' <span class="tag neutral">Date passed</span>':""}</span></p>
+          <p>${ic("clock")}<span>${esc(timeL)} · ${esc(timeZoneLabel(e.city_id))}</span></p>
+          <p>${ic("pin")}<span>${esc(e.neighbourhood||"Neighbourhood to be confirmed")}, ${esc(cityName(e.city_id))}</span></p>
+        </div>
+        ${f?`<div class="prose"><h2 style="font-size:1.3rem;margin-top:1.6rem">What to expect</h2><p>${esc(f.expect)}</p></div>`:""}
+        <dl class="dl">
+          <div><dt>Seats</dt><dd>${e.attendees_count} of ${e.seats} taken</dd></div>
+          <div><dt>Venue</dt><dd>In the Rightime format, shared on the day (not built into this early version yet)</dd></div>
+          <div><dt>Others see</dt><dd>Only a short, de-identified note about you, and only once they've booked this table too.</dd></div>
+        </dl>
+      </div>
+      <aside aria-label="Booking"><div class="panel"><div class="tbl">${miniTable(e.seats,e.attendees_count,isB)}</div>${panel}</div>${earlyNotice("margin-top:1rem")}</aside>
+    </div>
+    ${isB?`<section class="mates" id="mates" aria-labelledby="matesH"><h2 id="matesH">Who's at your table</h2><div id="matesBody" aria-busy="true"><div class="sk" style="height:120px;margin-top:1rem"></div></div></section>`:""}
+  </div>`;
+}
+function bindDetail(e,isB,tok){
+  const bb=$("#bookBtn");
+  if(bb) bb.addEventListener("click",async()=>{
+    bb.disabled=true; bb.innerHTML='<span class="spin"></span> Booking…';
+    const ok=await bookSeat(e.id);
+    if(tok!==renderTok) return;
+    await loadDetail(e.id,tok,"#bookStatus");
+  });
+  const ask=$("#cancelAsk"); if(!ask) return;
+  const box=$("#cancelBox");
+  ask.addEventListener("click",()=>{ box.hidden=false; ask.setAttribute("aria-expanded","true"); $("#cancelNo").focus(); });
+  $("#cancelNo").addEventListener("click",()=>{ box.hidden=true; ask.setAttribute("aria-expanded","false"); ask.focus(); });
+  $("#cancelYes").addEventListener("click",async()=>{
+    if(S.busy) return; S.busy=true;
+    const y=$("#cancelYes"); y.disabled=true; y.innerHTML='<span class="spin"></span> Cancelling…';
+    let error=null;
+    try{ const r=await db.from("bookings").update({status:"cancelled"}).eq("user_id",S.user.id).eq("event_id",e.id).select("event_id"); error=r.error; if(!error&&!(Array.isArray(r.data)&&r.data.length)) error={message:"nothing was changed, so your seat is still booked"}; }
+    catch(ex){ error=ex||{message:"Network problem"}; }
+    S.busy=false;
+    if(error){ toast("We couldn't cancel: "+(error.message||"unknown error"),"error"); y.disabled=false; y.textContent="Yes, cancel my seat"; return; }
+    toast("Seat cancelled. It's back on the table.");
+    if(tok!==renderTok) return;
+    await loadDetail(e.id,tok,"#bookStatus");
+  });
+}
+async function loadMates(e,tok){
+  const body=$("#matesBody"); if(!body) return;
+  try{
+    const {data,error}=await db.rpc("tablemates",{p_event:e.id});
+    if(tok!==renderTok) return;
+    if(error) throw error;
+    const box=$("#matesBody"); if(!box) return;
+    box.setAttribute("aria-busy","false");
+    box.innerHTML=matesHtml(data,e);
+    announce("Your table has loaded.");
+  }catch(_err){
+    if(tok!==renderTok) return;
+    const box=$("#matesBody"); if(!box) return;
+    box.setAttribute("aria-busy","false");
+    box.innerHTML=`<div class="notice" style="margin-top:1rem">${ic("info")}<div>We couldn't load your table just now. <button class="link-btn" type="button" id="matesRetry">Try again</button></div></div>`;
+    $("#matesRetry").addEventListener("click",()=>{ box.setAttribute("aria-busy","true"); box.innerHTML='<div class="sk" style="height:120px;margin-top:1rem"></div>'; loadMates(e,tok); });
+  }
+}
+function blurbText(b){
+  if(b&&typeof b==="object") return String(b.blurb||b.text||b.description||"A guest");
+  return String(b||"A guest");
+}
+function matesHtml(d,e){
+  const blurbs=Array.isArray(d&&d.blurbs)?d.blurbs:[];
+  const seats=(d&&Number(d.seats))||e.seats||6;
+  const total=Math.max(1,(d&&Number(d.total))||1);
+  if(total<=1&&!blurbs.length){
+    return `<div class="first">${miniTable(seats,1,true).replace("<svg",'<svg class="first-art"')}
+      <h3>You're the first to book</h3>
+      <p class="soft">That's a good place to be. The other ${Math.max(seats-1,0)} seats fill as people join, and this panel will show a short, anonymous note about each of them. Check back as the date gets closer.</p>
+      <p class="muted">Seat 1 of ${seats} confirmed: yours.</p></div>`;
+  }
+  const open=Math.max(0,seats-Math.max(total,blurbs.length+1));
+  const items=[`<li><span class="seatno me" aria-hidden="true">1</span><div><div class="who">You</div><div class="sub">Confirmed</div></div></li>`]
+    .concat(blurbs.map((b,i)=>`<li><span class="seatno" aria-hidden="true">${i+2}</span><div><div class="who">${esc(blurbText(b))}</div><div class="sub">Confirmed</div></div></li>`))
+    .concat(Array.from({length:open},(_,i)=>`<li class="open"><span class="seatno open" aria-hidden="true">${blurbs.length+i+2}</span><div><div class="who">Open seat</div></div></li>`));
+  return `<p class="soft">${total} of ${seats} seats confirmed. Names stay private until you meet.</p><ul class="seatlist" style="margin-top:.6rem;max-width:560px">${items.join("")}</ul>`;
+}
+
+/* ============================================================
+   MY EVENTS
+   ============================================================ */
+function viewMyEvents(loc,tok){
+  const html=`<div class="wrap"><header class="app-head"><div><p class="eyebrow">Your seats</p><h1>My events</h1></div></header><div id="myBody" aria-busy="true"><ul class="list">${skeletonCards(3)}</ul></div></div>`;
+  return {title:"My events · Rightime",html,after:t=>loadMyEvents(t)};
+}
+async function loadMyEvents(tok){
+  try{
+    const {data,error}=await db.from("bookings").select("status,created_at,events(*)").eq("user_id",S.user.id).order("created_at",{ascending:false});
+    if(tok!==renderTok) return;
+    if(error) throw error;
+    const rows=(data||[]).filter(b=>b.events);
+    const body=$("#myBody"); if(!body) return; body.setAttribute("aria-busy","false");
+    if(!rows.length){
+      body.innerHTML=`<div class="empty">${miniTable(6,0,false).replace("<svg",'<svg class="big"')}<h2>No seats yet</h2><p>When you book a table it will show up here, with its date and a link to your table.</p><a class="btn" href="#/app/events">Find a table ${ic("arrow")}</a></div>`;
+      return;
+    }
+    const upcoming=rows.filter(b=>b.status==="confirmed"&&!isPast(b.events.starts_at)).sort((a,b)=>new Date(a.events.starts_at)-new Date(b.events.starts_at));
+    const rest=rows.filter(b=>!upcoming.includes(b)).sort((a,b)=>new Date(b.events.starts_at)-new Date(a.events.starts_at));
+    const card=b=>{
+      const e=b.events, conf=b.status==="confirmed";
+      return `<li class="ecard bk"><span class="fmt">${fmtIcon(e.type)} ${esc((FMT[e.type]&&FMT[e.type].name)||e.type)}</span>
+        <h3><a class="bk-link" href="#/app/events/${e.id}">${esc(e.name)}</a></h3>
+        <p class="when">${ic("cal")}<span>${esc(fmtDate(e.starts_at,e.city_id,D_SHORT))} · ${esc(fmtDate(e.starts_at,e.city_id,T_ONLY))} ${esc(timeZoneLabel(e.city_id))}</span></p>
+        <p class="where">${ic("pin")}<span>${esc(e.neighbourhood||"")}${e.neighbourhood?", ":""}${esc(cityName(e.city_id))}</span></p>
+        <div class="tags">${conf?`<span class="tag good">${ic("check")} Confirmed</span>`:`<span class="tag bad">${ic("x")} Cancelled</span>`}${isPast(e.starts_at)?'<span class="tag neutral">Date passed</span>':""}</div></li>`;
+    };
+    body.innerHTML=(upcoming.length?`<h2 class="day-h" style="margin-top:.4rem">Upcoming</h2><ul class="list">${upcoming.map(card).join("")}</ul>`:`<div class="notice info">${ic("info")}<div>No upcoming confirmed seats. <a href="#/app/events">Find a table</a>.</div></div>`)+
+      (rest.length?`<h2 class="day-h">Past and cancelled</h2><ul class="list">${rest.map(card).join("")}</ul>`:"");
+  }catch(err){
+    if(tok!==renderTok) return;
+    const body=$("#myBody"); if(!body) return; body.setAttribute("aria-busy","false");
+    body.innerHTML=`<div class="empty">${ic("info","big")}<h2>We couldn't load your events</h2><p>${esc((err&&err.message)||"Please check your connection.")}</p><button class="btn" type="button" data-act="retry">Try again</button></div>`;
+  }
+}
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+function viewProfile(){
+  const p=S.profile||{}, c=p.characteristics||{};
+  const list=v=>Array.isArray(v)?(v.length?v.join(", "):"Not answered"):(v||"Not answered");
+  const rows=[["You are",c.gender],["Born",c.birthdate],["Children",c.children],["Industry",c.industry],["At the table",c.personality],["Into",c.interests],["Drinks",c.drinks],["Dietary",c.dietary]];
+  const cityOpts=Object.entries(CITIES).map(([id,ci])=>`<label class="opt"><input type="radio" name="city" value="${id}"${p.city_id===id?" checked":""}><span><span style="display:block">${esc(ci.name)}<small>${esc(ci.country)}<span data-city-count="${id}"></span></small></span></span></label>`).join("");
+  const html=`<div class="wrap"><header class="app-head"><div><p class="eyebrow brk">${esc((S.user&&S.user.email)||"")}</p><h1>Your profile</h1></div></header>
+    <div class="profile-grid">
+      <section class="panel" aria-labelledby="nameH"><h2 id="nameH">First name</h2><p class="soft" style="margin:.3rem 0 1rem">Optional. Only used to greet you here. It's never shown to other guests.</p>
+        <form id="nameF" novalidate><div><label class="field" for="fname">First name</label><input id="fname" type="text" maxlength="40" autocomplete="given-name" value="${esc(p.first_name||"")}"></div><div id="nameErr" role="alert"></div><button class="btn ghost" type="submit">Save name</button></form></section>
+      <section class="panel" aria-labelledby="cityH"><h2 id="cityH">Your city</h2><p class="soft" style="margin:.3rem 0 1rem">Currently <strong>${esc(cityName(p.city_id))}</strong>. Moving or travelling? Switch any time.</p>
+        <form id="cityF" novalidate><fieldset><legend class="sr-only">Choose your city</legend><div class="opts two">${cityOpts}</div></fieldset><div id="cityErr" role="alert"></div><button class="btn" type="submit">Save city</button></form></section>
+      <section class="panel full" aria-labelledby="ansH"><h2 id="ansH">Your answers</h2><p class="soft" style="margin:.3rem 0 .6rem">Visible only to you, except for one short line (your table style and industry) that confirmed guests at a table you've booked can see.</p>
+        <dl class="dl">${rows.map(r=>`<div><dt>${esc(r[0])}</dt><dd>${esc(list(r[1]))}</dd></div>`).join("")}</dl>
+        <div class="actions" style="margin-top:1.2rem"><button class="btn ghost" type="button" id="editAns">Update my answers</button></div></section>
+      <section class="panel full" aria-labelledby="sessH"><h2 id="sessH">Session</h2><p class="soft" style="margin:.3rem 0 1rem">Signed in as <span class="brk">${esc((S.user&&S.user.email)||"")}</span>.</p>
+        <div class="hero-cta"><button class="btn ghost" type="button" data-act="signout">Sign out</button><a class="btn ghost" href="#/privacy">Privacy</a></div></section>
+    </div></div>`;
+  return {title:"Your profile · Rightime",html,after:()=>{ fillCityCounts();
+    $("#editAns").addEventListener("click",()=>{ S.mode="edit"; S.qi=0; S.answers=Object.assign({},c); navigate("#/app/onboarding"); });
+    $("#cityF").addEventListener("submit",async e=>{
+      e.preventDefault(); const sel=$("input:checked",e.target); const err=$("#cityErr");
+      if(!sel){ err.innerHTML='<div class="err">Choose a city first.</div>'; return; }
+      const btn=$("button",e.target); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Saving…';
+      const r=await saveProfile({city_id:sel.value});
+      btn.disabled=false; btn.textContent="Save city";
+      if(!r.ok){ err.innerHTML='<div class="err">'+esc(r.msg)+'</div>'; return; }
+      toast("City updated to "+cityName(sel.value)+"."); const tok=++renderTok; present(viewProfile(),tok);
+    });
+    $("#nameF").addEventListener("submit",async e=>{
+      e.preventDefault(); const v=$("#fname").value.trim().slice(0,40); const err=$("#nameErr");
+      const btn=$("button",e.target); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Saving…';
+      const r=await saveProfile({first_name:v||null});
+      btn.disabled=false; btn.textContent="Save name";
+      if(!r.ok){ err.innerHTML='<div class="err">'+esc(r.msg)+'</div>'; return; }
+      err.innerHTML=""; toast(v?("Nice to meet you, "+v+"."):"Name removed.");
+    });
+  }};
+}
+function viewAccountError(){
+  return {title:"Couldn't load your account · Rightime",html:`<div class="wrap narrow"><div class="empty">${ic("info","big")}<h1 style="font-size:2rem">We couldn't load your account</h1><p>This is usually a brief connection problem. Your data is safe.</p><div class="hero-cta" style="justify-content:center"><button class="btn" type="button" data-act="retry-account">Try again</button><button class="btn ghost" type="button" data-act="signout">Sign out</button></div></div></div>`};
+}
+
+/* ---------- go ---------- */
+initAuth();
+route();
 </script>
 </body>
 </html>
+
