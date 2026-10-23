@@ -462,6 +462,7 @@ async function scrReview(id) {
   if (!expired) {
     const end = new Date(b.hold_expires_at).getTime();
     const tick = () => {
+      if (!$("#clock")) return;
       const s = Math.max(0, Math.round((end - Date.now()) / 1000));
       $("#clock").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
       if (s === 120 || s === 30) $("#holdlive").textContent = `${T("holdTimer")} ${$("#clock").textContent}`;
@@ -478,6 +479,7 @@ async function scrReview(id) {
         if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#pay").disabled = false; return; }
         url = c.data.checkout_url;
       }
+      clearTimers();   // the hold clock must not tick into the replaced view while the browser navigates
       main.innerHTML = `<div class="center"><div class="spinner" aria-hidden="true"></div><h1>${esc(T("redirecting"))}</h1></div>`;
       location.assign(url);
     };
