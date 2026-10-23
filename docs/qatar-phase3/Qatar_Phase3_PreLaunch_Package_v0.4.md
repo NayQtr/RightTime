@@ -50,10 +50,10 @@ All commands were run on 2026-10-23 in the project container against a local **P
 
 | # | Command | Result |
 |---|---|---|
-| V1 | `psql -v ON_ERROR_STOP=1 -1 -f qatar/db/migrations/001_init.sql` | Applies cleanly; 33 base tables in schema `app` |
-| V2 | `psql -v ON_ERROR_STOP=1 -1 -f qatar/db/tests/001_init_checks.sql` | `ALL CHECKS PASSED` (checks 1–14) and `CHECK 15 PASSED` |
-| V3 | `cd qatar/matching && python3 -m pytest -q` | `27 passed` |
-| V4 | `qatar/ops/runbook_a/run_simulation.sh` | `RUNBOOK A SIMULATION PASSED` (repeated 5×; booking UUIDs differ each run) |
+| V1 | `psql -v ON_ERROR_STOP=1 -1 -f qatar/db/migrations/001_init.sql` | Applies cleanly; 34 base tables in schema `app` (33 from v0.3 §2 + `app_config`) |
+| V2 | `psql -v ON_ERROR_STOP=1 -1 -f qatar/db/tests/001_init_checks.sql` | `ALL CHECKS PASSED` (checks 1–14), `CHECK 15 PASSED`, `CHECK 16 PASSED` |
+| V3 | `cd qatar/matching && python3 -m pytest -q` | `42 passed` |
+| V4 | `qatar/ops/runbook_a/run_simulation.sh` | `RUNBOOK A SIMULATION PASSED` (repeated 3× after the 2026-10-23 decisions; booking UUIDs differ each run) |
 | V5 | `qatar/ops/runbook_b/run_simulation.sh` | `RUNBOOK B SIMULATION PASSED` (repeated 3×) |
 | V6 | `python3 qatar/design/contrast_check.py qatar/design/tokens.json` | 34 of 34 text/UI pairs meet WCAG 2.1 AA in light and dark |
 
@@ -63,13 +63,14 @@ What was **not** verified: any PSP sandbox, any venue, any legal position, any p
 
 | # | Area | v0.3 | v0.4 | Why |
 |---|---|---|---|---|
-| C9 | Table sizing | §4.4.1 D19 expects 13 bookings → 2 × 6 + 1 leftover | Engine implements **fill-to-capacity**: full tables first; a remainder ≥ 4 forms its own table; a remainder < 4 is a leftover. Full tables are never split to rescue a remainder. | Makes the D19 expectation executable. Note: 9 bookings → 6 + 3 leftovers, not 5 + 4. **[PROPOSED]** product to confirm this trade-off (fuller tables vs. seating everyone). |
+| C9 | Table sizing | §4.4.1 D19 expects 13 bookings → 2 × 6 + 1 leftover | **Decided 2026-10-23.** `PACKING_MODE` [CONFIG] = `min_leftovers` (production default): maximise seated people within the session's bookable venue tables (`max_tables`), then fill tables to 6 first (9 → 5 + 4; 13 with 2 tables → 6 + 6 + 1; 13 unlimited → 5 + 4 + 4). `greedy_6` is kept: 13 → 6 + 6 + 1, 9 → 6 + 3 leftovers. Capacity stays 4–6, quorum 4. | Unit economics: avoid refunding people who could be seated. Runbook A sets S1 to 2 bookable tables, so the D19 expectation (6 + 6 + 1) holds under the production mode. |
 | C10 | Rebook mechanics | SCR-08b says `ننقل رسمك كما هو` (fee transferred as-is); no data model | `bookings.rebooked_from_booking_id` (unique FK) + `rebook_booking()` — the new booking is created as `paid_awaiting_group` with the same price; no second charge, no refund | One payment stays attached to the original booking; the ledger stays one-payment-per-booking. |
 | C11 | Ops functions | Described in prose | `hold_seat`, `release_expired_holds`, `cancel_table_quorum`, `rebook_booking`, `refund_unresolved_organizer_cancels`, `move_booking_table`, `matching_input` | Atomic, testable, audited. |
-| C12 | Appeal independence | "reviewed by someone who did not decide" | Trigger `check_appeal_reviewer` rejects an appeal decided by the case's decider **or second approver**, and allows one appeal decision only | A permanent ban therefore needs **three** distinct T&S people (decider, second approver, appeal reviewer). Staffing implication flagged in Runbook B. |
+| C12 | Appeal independence | "reviewed by someone who did not decide" | **Decided 2026-10-23.** Trigger `check_appeal_reviewer`: one appeal decision per case; reviewer must be `trust_safety` or `owner`; the **decider can never** review. The sanction's second approver may review if they are the **owner**, or whenever `REQUIRE_THREE_DISTINCT_REVIEWERS` [CONFIG] = `false` (MVP default, stored in `app_config`). | A two-person team (T&S + owner) can run the pilot: T&S decides, owner second-approves and reviews the appeal. Setting the flag to `true` restores three-person independence for non-owner reviewers. |
 | C13 | Templates | 8 keys (§4.3) | + `CONDUCT_DECISION`, `APPEAL_DECISION`, `VENUE_TABLE_RELEASED` (AR + EN in §4.3 of this package) | v0.3 flow step 6/7 needed a reported-user notice; venue release was named but not worded. |
 | C14 | API | §3 endpoints | + `POST /bookings/{id}/resolution`, `POST /reports`, and admin endpoints used by the runbooks (§4.0) | Needed to execute the runbooks. |
 | C15 | Matching rule versions | `rule_version` free text | `r1-baseline` → `baseline_random`; `r1-interest` → `interest_opt_v1`; unknown versions are rejected | Reproducibility; no silent fallback. |
+| C16 | Refund window | `full_refund_until_hours` [LEGAL/PRODUCT] | **Approved 2026-10-23 as the [CONFIG] default: 48 h** (also in `app_config.FULL_REFUND_UNTIL_HOURS`). New templates and endpoints approved. All pending final legal sign-off (O04). | — |
 # Track 1 — Commercial, legal and compliance
 
 ## 1.1 Legal counsel briefing memo (gates O03 and O04)
@@ -157,7 +158,7 @@ These durations are engineering defaults **[PROPOSED]**, chosen to meet the purp
 
 ### 1.1.5 Cancellation, quorum and no-show wording for `cancellation_policies`
 
-Version `cxl-qa-1` **[PROPOSED; LEGAL]**. These strings go into `cancellation_policies.text_ar` / `text_en`, appear on SCR-05 before payment, and are stored on every booking (`cancellation_policy_version`). The numbers are the proposed config: `full_refund_until_hours = 48`, `late_cancel_refund_pct = 0`, `organizer_cancel_refund_pct = 100`, `no_show_fee_pct = 0`, choice window 48 h, quorum 4.
+Version `cxl-qa-1` — **48 h window approved by the product owner on 2026-10-23 as the [CONFIG] default; final wording pending legal sign-off (O04) [LEGAL]**. These strings go into `cancellation_policies.text_ar` / `text_en`, appear on SCR-05 before payment, and are stored on every booking (`cancellation_policy_version`). The numbers are the proposed config: `full_refund_until_hours = 48`, `late_cancel_refund_pct = 0`, `organizer_cancel_refund_pct = 100`, `no_show_fee_pct = 0`, choice window 48 h, quorum 4.
 
 **Arabic (text_ar):**
 
@@ -663,10 +664,10 @@ PS3–PS6 follow the Van Westendorp question form, used **qualitatively** here: 
 
 | Path | What it is |
 |---|---|
-| `qatar/db/migrations/001_init.sql` | Complete schema for v0.3 §2 (schema `app`): 34 enums, 33 tables, 3 views + 1 materialised view, 20 functions and their triggers. Full text: Appendix A.1. |
+| `qatar/db/migrations/001_init.sql` | Complete schema for v0.3 §2 (schema `app`): 34 enums, 34 tables (incl. `app_config`), 3 views + 1 materialised view, 20 functions and their triggers. Full text: Appendix A.1. |
 | `qatar/db/tests/001_init_checks.sql` | 15 behaviour checks; each raises if a guard is missing. Appendix A.2. |
 | `qatar/matching/matching_engine.py` | `run_matching()`, standard library only. Appendix A.3. |
-| `qatar/matching/test_matching_engine.py` | pytest suite (27 tests). Appendix A.3. |
+| `qatar/matching/test_matching_engine.py` | pytest suite (42 tests). Appendix A.3. |
 | `qatar/matching/publish_run.py` | Bridge: `app.matching_input()` JSON → engine → SQL that publishes the run. Appendix A.3. |
 | `qatar/ops/…` | Runbook A/B seeds, steps and verifications. Appendix A.5. |
 | `qatar/design/tokens.json`, `contrast_check.py` | Design tokens + WCAG checker. Appendix A.4. |
@@ -677,8 +678,8 @@ Run everything:
 # scratch database (PostgreSQL 15+)
 psql -d postgres -c "CREATE DATABASE qtest"
 psql -d qtest -v ON_ERROR_STOP=1 -1 -f qatar/db/migrations/001_init.sql
-psql -d qtest -v ON_ERROR_STOP=1 -1 -f qatar/db/tests/001_init_checks.sql      # ALL CHECKS PASSED + CHECK 15 PASSED
-(cd qatar/matching && python3 -m pytest -q)                                     # 27 passed
+psql -d qtest -v ON_ERROR_STOP=1 -1 -f qatar/db/tests/001_init_checks.sql      # ALL CHECKS PASSED + CHECK 15/16 PASSED
+(cd qatar/matching && python3 -m pytest -q)                                     # 42 passed
 qatar/ops/runbook_a/run_simulation.sh                                           # RUNBOOK A SIMULATION PASSED
 qatar/ops/runbook_b/run_simulation.sh                                           # RUNBOOK B SIMULATION PASSED
 python3 qatar/design/contrast_check.py qatar/design/tokens.json                 # exit 0
@@ -696,7 +697,8 @@ python3 qatar/design/contrast_check.py qatar/design/tokens.json                 
 | Tables | `capacity BETWEEN 4 AND 6`, `min_quorum = 4`. A table cannot be `locked` below quorum or without a venue. `confirmed_count` is maintained by triggers from current assignments of paid bookings. |
 | Money | One successful payment per booking (partial unique index). The sum of live refunds is ≤ the payment (`REFUND_EXCEEDS_PAYMENT`). Goodwill and dispute refunds need two different admins. |
 | Policy | `no_show_fee_pct CHECK (= 0)`; `organizer_cancel_refund_pct CHECK (= 100)`. |
-| Safety | `report_danger_is_s1`; a ban needs a second approver ≠ actor; the appeal reviewer must be independent of the decider and approver (`check_appeal_reviewer`); blocks are read as mutual (`blocked_pairs`). |
+| Config | `app_config` key/value: `REQUIRE_THREE_DISTINCT_REVIEWERS = false`, `PACKING_MODE = min_leftovers`, `FULL_REFUND_UNTIL_HOURS = 48`. |
+| Safety | `report_danger_is_s1`; a ban needs a second approver ≠ actor; appeal rules in `check_appeal_reviewer` (decider never reviews; owner or, with `REQUIRE_THREE_DISTINCT_REVIEWERS = false`, the second approver may); blocks are read as mutual (`blocked_pairs`). |
 
 **Error codes raised by functions** (the API maps them to v0.3 §3.1 codes):
 
@@ -707,7 +709,7 @@ python3 qatar/design/contrast_check.py qatar/design/tokens.json                 
 | P0012 | ALREADY_BOOKED | 409 `ALREADY_BOOKED` |
 | P0030 / P0031 | NOT_REBOOKABLE / LANGUAGE_CONFLICT | 409 / 422 |
 | P0040–P0046 | move_booking_table guards | admin UI error with reason |
-| P0050 / P0051 | appeal already decided / reviewer conflict | admin UI error |
+| P0050 / P0051 / P0052 | appeal already decided / reviewer conflict (decider, or second approver in strict mode) / reviewer role not T&S or owner | admin UI error |
 | P0001–P0004 | append-only, immutable questionnaire, option mismatch, refund exceeds payment | 500 (should never reach users) / 422 |
 
 ## 3.3 Matching engine contract
@@ -719,7 +721,7 @@ python3 qatar/design/contrast_check.py qatar/design/tokens.json                 
 | Eligibility | Only `paid_awaiting_group`, current consents, age attested, account active, one booking per user. Everything else goes to `ineligible` with a reason. |
 | Partition | Cells by `(conversation_language, budget_tier_rank)`. Languages never mix. |
 | Order | `stable_shuffle` = SHA-256 of `seed:booking_id`. Reproducible across machines and Python versions. |
-| Sizing | Fill-to-capacity (C9): `[cap] * (n // cap)` plus the remainder if ≥ 4. 12 → 6 + 6; 13 → 6 + 6 + 1 leftover; 3 → 3 leftovers. |
+| Sizing | `packing_mode` (C9). **`min_leftovers` (default):** pick the table count k ≤ `max_tables` (session's bookable venue tables; the bridge defaults it to the venues' `tables_available` sum) that seats the most people, fewer tables on a tie; then fill each table to 6 while every remaining table can still reach 4. 9 → 5 + 4; 10 → 6 + 4; 16 → 6 + 6 + 4; 13 → 5 + 4 + 4, or 6 + 6 + 1 with `max_tables = 2`. The table budget is shared across cells in sorted (language, tier) order. **`greedy_6`:** `[6] * (n // 6)` plus the remainder if ≥ 4 (13 → 6 + 6 + 1; 9 → 6 + 3 leftovers). |
 | Blocks | A person is never seated with someone they blocked or who blocked them. If no table fits, the reason is `blocked_conflict`. |
 | Objective | `baseline_random`: seeded order only. `interest_opt_v1`: deterministic pairwise-swap hill-climbing that accepts only strict improvements of Σ score(G), score = 0.6·I + 0.4·C. Missing Q05 (or `no_pref`) is left out of I and C, never scored as 0. |
 | Leftovers | First an open seat at a same-language table whose tier ≤ the person's cap. Then the remaining leftovers of each language are pooled and form tables at the lowest cap among members. Never upward. |
@@ -727,7 +729,7 @@ python3 qatar/design/contrast_check.py qatar/design/tokens.json                 
 | Validation | `validate_tables()` re-checks every hard constraint and raises `MatchingError` if any fails. |
 | Output | Tables, leftovers, ineligible, `inputs_hash` (SHA-256 of canonical inputs and parameters), and `explanations` with pseudonymous `P-xxxxxxxx` seat IDs only. |
 
-Test coverage (`27 passed`): 12 → two tables of 6 (both algorithms); 13 → 6 + 6 + 1; 3 → leftovers; blocked pair separated (5 seeds × 2 algorithms); missing answers not penalised (silent member and `no_pref`); no language mixing and downward-only tiers; never upward; determinism under input reordering; optimiser ≥ baseline; ineligible exclusion; pseudonymous explanations; venue tier and capacity 5; invalid inputs rejected; foreign-session booking rejected.
+Test coverage (`42 passed`): 12 → two tables of 6 (both algorithms); 13 → 6 + 6 + 1 (`greedy_6`, and `min_leftovers` with 2 tables); 13 → 5 + 4 + 4 (`min_leftovers`, unlimited); packing table for 9 / 10 / 16 / 12 / 7 / 3 / 0-table budget; shared table budget across languages; 3 → leftovers; blocked pair separated (5 seeds × 2 algorithms); missing answers not penalised (silent member and `no_pref`); no language mixing and downward-only tiers; never upward; determinism under input reordering; optimiser ≥ baseline; ineligible exclusion; pseudonymous explanations; venue tier and capacity 5; invalid inputs rejected; foreign-session booking rejected.
 # Track 4 — Operations and QA simulations
 
 ## 4.0 Conventions for both runbooks
@@ -756,7 +758,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 | `REPORT_RECEIVED` | وصلنا بلاغك ({case}). لن نكشف هويتك للشخص المُبلَّغ عنه. | We received your report ({case}). We won't reveal your identity to the person reported. |
 | `REPORT_OUTCOME` | راجعنا بلاغك واتخذنا الإجراء المناسب وفق قواعد السلوك. | We reviewed your report and took appropriate action under our conduct rules. |
 | `CONDUCT_DECISION` *(v0.4)* | وصلنا بلاغ بشأن سلوكك في لقاء {date} (الفئة: {category}). بعد المراجعة قررنا: {decision}. يمكنك الاعتراض مرة واحدة قبل {appeal_until}. | We received a report about your conduct at the event on {date} (category: {category}). After review, our decision is: {decision}. You may appeal once before {appeal_until}. |
-| `APPEAL_DECISION` *(v0.4)* | راجع اعتراضَك مراجعٌ مستقل. القرار النهائي: {decision}. | Your appeal was reviewed by an independent reviewer. Final decision: {decision}. |
+| `APPEAL_DECISION` *(v0.4)* | راجع اعتراضَك شخصٌ لم يتخذ القرار الأصلي. القرار النهائي: {decision}. | Your appeal was reviewed by someone who did not make the original decision. Final decision: {decision}. |
 | `VENUE_TABLE_RELEASED` *(v0.4, to the venue contact)* | نعتذر، أُلغيت الطاولة {code} ليوم {date} لعدم اكتمال العدد. الطاولة متاحة لكم. | Sorry — table {code} for {date} is cancelled (minimum not reached). The table is released back to you. |
 
 `CONDUCT_DECISION` and `APPEAL_DECISION` never contain the reporter's identity, the narrative or the names of other tablemates. Runbook B's verification checks this.
@@ -771,7 +773,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 
 | Set | Content | File |
 |---|---|---|
-| Reference | City `doh`; three published budget tiers; three signed test venues (Lusail tier 2, Msheireb tier 1, West Bay tier 3), all with `separate_bills_confirmed = true`; price plan 5900 minor (59 QAR placeholder); policy `cxl-qa-1` (48 h full refund, 0 % after, no-show 0 %); published questionnaire `QA-2026-01` with Q05 options from v0.3; 20 users (AR, tier-2 cap, consents current; u05 left Q05 blank); admins ops / finance / owner / 3 × T&S | `ops/seed_common.sql` |
+| Reference | City `doh`; three published budget tiers; three signed test venues (Lusail tier 2, Msheireb tier 1, West Bay tier 3), all with `separate_bills_confirmed = true`; price plan 5900 minor (59 QAR placeholder); policy `cxl-qa-1` (48 h full refund, 0 % after, no-show 0 %); published questionnaire `QA-2026-01` with Q05 options from v0.3; 20 users (AR, tier-2 cap, consents current; u05 left Q05 blank); admins ops / finance / owner / T&S (the Runbook B drill uses only T&S primary + owner) | `ops/seed_common.sql` |
 | S1 | Arabic dinner at T, Lusail hint, `max_seats 18`. **13 paid bookings** (u01–u13), each saved S2 as a Q02 alternate. Seats bought through `hold_seat()`; payment recorded as a signed `payment.succeeded` webhook + `payments` row. | `runbook_a/01_seed_bookings.sql` |
 | S2 | Arabic dinner at T, West Bay hint. **5 paid bookings** (u14–u18); u14 saved S3 as an alternate. | same |
 | S3 | Arabic dinner at T + 7 days, on sale (rebook target). | `seed_common.sql` |
@@ -781,7 +783,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 | # | Time | Actor | Action (API / admin UI / job) | Expected database state |
 |---|---|---|---|---|
 | A1 | T-14 d … T-48 h | Users | `POST /bookings {session_id, budget_tier_id, alternate_session_ids}` → hosted checkout → PSP webhook `POST /payments/webhooks/test_psp` | 18 bookings `payment_pending` → `paid_awaiting_group`; S1 `seats_sold = 13`, S2 `= 5`; 18 `payments` `succeeded` |
-| A2 | T-48 h | Matching job (or ops: **Matching → Session → Publish**) | `psql -Atc "SELECT app.matching_input('<S>')" \| python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published \| psql -1` for S1, then S2 | S1: `matching_runs` (published, seed, `inputs_hash`), tables **T01 = 6, T02 = 6**, 1 leftover (`cell_below_quorum`, no assignment). S2: T01 = 5. All tables `forming`. |
+| A2 | T-48 h | Matching job (or ops: **Matching → Session → Publish**) | `psql -Atc "SELECT app.matching_input('<S>')" \| python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published --packing-mode min_leftovers --max-tables <n> \| psql -1`: S1 with **2 bookable tables**, S2 with 1 | S1: `matching_runs` (published, seed, `inputs_hash`), tables **T01 = 6, T02 = 6**, 1 leftover (`cell_below_quorum`, no assignment). S2: T01 = 5. All tables `forming`. |
 | A3 | T-25 h | u17, u18 | `POST /bookings/{id}/cancel {reason:"schedule_changed"}` | Both `cancelled_by_user` (`cancel_actor = user`, `cancelled_at = T-25h`). **No refund** (after the 48 h deadline). S2 `seats_sold 5 → 3`; S2-T01 `confirmed_count 5 → 3`. |
 | A4 | T-24 h (`lock_at`) | System + ops on call | **Session board → Decision cards** (`03_lock_t24.sql` §3.1) | Board: S1-T01 LOCK, S1-T02 LOCK, S2-T01 BELOW_QUORUM |
 | A5 | T-24 h | System | Lock tables at quorum. Admin: `POST /admin/v1/tables/{id}:lock` *(v0.4)* | S1-T01/T02 `locked`, `locked_at`, `venue_confirmed_at`; 12 bookings `group_locked`; 12 × `TABLE_LOCKED`; 2 × audit `table_lock` |
@@ -831,7 +833,7 @@ Admin UI: **Matching → Session → Drag seat → Reason** = `POST /admin/v1/bo
 
 ## 4.2 Runbook B — Live S1 safety report (`immediate_danger = true`)
 
-**Objective.** Drill the S1 path end-to-end:
+**Objective.** Drill the S1 path end-to-end with the MVP two-person team:
 
 - authorities first (999 screen);
 - coordinator paged within minutes;
@@ -839,11 +841,11 @@ Admin UI: **Matching → Session → Drag seat → Reason** = `POST /admin/v1/bo
 - the reporter's identity never disclosed;
 - every P4 read audited with a reason;
 - ban with a second approver;
-- appeal reviewed by a third, independent person.
+- appeal reviewed by someone other than the decider (the owner).
 
 **Run:** `qatar/ops/runbook_b/run_simulation.sh` → `RUNBOOK B SIMULATION PASSED`.
 
-**Staffing prerequisite (C12).** A confirmed S1 that ends in a ban needs **three distinct T&S people**: the decider, the second approver and the appeal reviewer. The appeal guard trigger rejects an appeal decided by the decider or the second approver. If only two T&S staff exist at launch, the owner role must be trained and given the `trust_safety` appeal duty.
+**Staffing (C12, decided 2026-10-23).** The drill runs with a **two-person team**: T&S primary (decider) and the owner (second approver of the ban, then appeal reviewer). The trigger always refuses the decider. The owner may review even after approving. With `REQUIRE_THREE_DISTINCT_REVIEWERS = true` a non-owner second approver is refused (schema check 16).
 
 ### 4.2.1 Seed
 
@@ -860,11 +862,11 @@ Session S4: Arabic dinner that started 30 minutes ago (`in_progress`), table T01
 | B5 | T+2 min | Coordinator (ops) | **Live board** pin shows case ref, category, severity, table code, district; **no narrative** for ops. One-click masked call to the venue day-of contact: staff assist, offer a safe exit (quiet space, taxi). In-app check-in with the reporter. | audit `venue_contact_called` (`S1_assist`), `reporter_checkin` (`safe_exit_offered`) |
 | B6 | T+10 min | T&S primary | Opens the case (P4 read) → triage: confirms S1, checks for earlier cases on the same user (count only), assigns to self | audit `read_p4` (reason `case_triage`); status `triaged` → `investigating`; `assigned_to` |
 | B7 | T+10 min | T&S primary | Checks that the suspended user's future bookings are held: the matcher's input shows `account_active = false`, so they are excluded from any run | Query in `03_coordinator_and_triage.sql`. "Hear the other side" (step 4) is **deferred for S1** because notifying could create risk; audit `reported_notice_deferred` (`S1_risk`). |
-| B8 | ≤ 24 h | T&S primary + second approver | Decision: confirmed S1 → **permanent ban**. `POST /admin/v1/cases/{id}/actions {"action":"ban","second_approver":"<admin>"}` *(v0.4)*. The second approver's read is audited. | `report_actions` `ban` (actor ≠ second approver, CHECK); temporary suspension closed (`effective_to`); user `banned`; status `actioned`; held future booking `cancelled_by_organizer` (`account_banned`) with a full refund requested; audit `read_p4` (`second_approval`), `sanction_ban`, `sanction_approve` |
+| B8 | ≤ 24 h | T&S primary (decider) + owner (second approver) | Decision: confirmed S1 → **permanent ban**. `POST /admin/v1/cases/{id}/actions {"action":"ban","second_approver":"<admin>"}` *(v0.4)*. The second approver's read is audited. | `report_actions` `ban` (actor ≠ second approver, CHECK); temporary suspension closed (`effective_to`); user `banned`; status `actioned`; held future booking `cancelled_by_organizer` (`account_banned`) with a full refund requested; audit `read_p4` (`second_approval`, by the owner), `sanction_ban`, `sanction_approve` |
 | B9 | ≤ 24 h | System | Notices | Reporter: `REPORT_OUTCOME` (generic). Reported user: `CONDUCT_DECISION` (date, category, decision, appeal deadline). **No reporter identity.** |
 | B10 | Day +3 | Reported user | Appeals once: `POST /cases/{case_ref}/appeal` *(v0.4)* | status `appealed` |
 | B11 | Day +3 | **Negative test** | The decider tries to review the appeal | Trigger raises `APPEAL_REVIEWER_CONFLICT` (P0051); the simulation asserts the refusal |
-| B12 | ≤ Day +14 | Independent T&S reviewer | Reviews (P4 read audited) → `appeal_rejected` (ban upheld). `POST /admin/v1/cases/{id}/appeal-decision` *(v0.4)* | `report_actions` `appeal_rejected`; status `closed`; `APPEAL_DECISION` to the reported user; audit `read_p4` (`appeal_review`). A second appeal decision would raise `APPEAL_ALREADY_DECIDED`. |
+| B12 | ≤ Day +14 | Owner (appeal reviewer) | Reviews (P4 read audited) → `appeal_rejected` (ban upheld). Allowed: owner role, and `REQUIRE_THREE_DISTINCT_REVIEWERS = false`. `POST /admin/v1/cases/{id}/appeal-decision` *(v0.4)* | `report_actions` `appeal_rejected`; status `closed`; `APPEAL_DECISION` to the reported user; audit `read_p4` (`appeal_review`). A second appeal decision would raise `APPEAL_ALREADY_DECIDED`. |
 | B13 | Close | T&S + ops | Tag the root cause (venue / matching / policy gap) for the D23 risk register | Case tags (outside this schema) |
 
 ### 4.2.3 Pass criteria (asserted in `runbook_b/99_verify.sql`)
@@ -875,6 +877,7 @@ Session S4: Arabic dinner that started 30 minutes ago (`in_progress`), table T01
 | Block | Pair present in `blocked_pairs` (mutual); stays permanent regardless of outcome |
 | Account | Reported user `banned`; temporary suspension closed with `effective_to` |
 | Actions | `interim_block`, `temporary_suspension`, `ban`, `appeal_rejected` |
+| Reviewers | `ban` by T&S primary with owner as second approver; `appeal_rejected` by the owner; decider refused (`APPEAL_REVIEWER_CONFLICT`) |
 | Privacy | No notification to the reported user contains the reporter's id or display name |
 | P4 audit | Exactly three `read_p4` rows: `case_triage`, `second_approval`, `appeal_review`, each with an actor |
 | Bookings | Reported user's future booking cancelled (`account_banned`) with a 5900 refund requested |
@@ -1922,20 +1925,55 @@ CREATE FUNCTION matching_input(p_session uuid) RETURNS json LANGUAGE sql STABLE 
   FROM event_sessions s WHERE s.id = p_session;
 $$;
 
--- Appeals are reviewed by someone who neither decided nor second-approved the case (v0.3 §4.4.2 step 7),
--- and a case gets one appeal decision only.
+-- Runtime configuration flags (key/value). Changing a flag is an audited admin action.
+CREATE TABLE app_config (
+  key         varchar(60) PRIMARY KEY,
+  value       text NOT NULL,
+  description text NOT NULL,
+  updated_by  uuid REFERENCES admin_users(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE TRIGGER app_config_updated_at BEFORE UPDATE ON app_config FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+INSERT INTO app_config (key, value, description) VALUES
+  ('REQUIRE_THREE_DISTINCT_REVIEWERS', 'false',
+   'false (MVP default): the second approver of a sanction may review its appeal; the decider never may. '
+   'true: the appeal reviewer must be neither the decider nor the second approver, unless they hold the owner role.'),
+  ('PACKING_MODE', 'min_leftovers', 'Matching table packing: min_leftovers (default) | greedy_6'),
+  ('FULL_REFUND_UNTIL_HOURS', '48', 'Default for new cancellation_policies; pending legal sign-off (O04)');
+
+-- Appeal reviewer rules (v0.3 §4.4.2 step 7, adjusted 2026-10-23 for a two-person MVP team):
+--   * one appeal decision per case;
+--   * the reviewer must hold the trust_safety or owner role;
+--   * the person who DECIDED the sanction can never review its appeal;
+--   * the sanction's second approver may review it if they hold the owner role, or if
+--     REQUIRE_THREE_DISTINCT_REVIEWERS = false.
 CREATE FUNCTION check_appeal_reviewer() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_role admin_role; v_three boolean;
 BEGIN
   IF NEW.action IN ('appeal_upheld','appeal_rejected') THEN
     IF EXISTS (SELECT 1 FROM report_actions
                 WHERE report_id = NEW.report_id AND action IN ('appeal_upheld','appeal_rejected')) THEN
       RAISE EXCEPTION 'APPEAL_ALREADY_DECIDED' USING ERRCODE = 'P0050';
     END IF;
+    SELECT role INTO v_role FROM admin_users WHERE id = NEW.actor_id AND status = 'active';
+    IF v_role IS NULL OR v_role NOT IN ('trust_safety','owner') THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_ROLE' USING ERRCODE = 'P0052';
+    END IF;
     IF EXISTS (SELECT 1 FROM report_actions
                 WHERE report_id = NEW.report_id
                   AND action IN ('warning','suspension','ban','no_action','referral_authorities')
-                  AND (actor_id = NEW.actor_id OR second_approver = NEW.actor_id)) THEN
-      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT' USING ERRCODE = 'P0051';
+                  AND actor_id = NEW.actor_id) THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT: decider cannot review' USING ERRCODE = 'P0051';
+    END IF;
+    SELECT COALESCE((SELECT value::boolean FROM app_config WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS'), true)
+      INTO v_three;
+    IF v_three AND v_role <> 'owner' AND EXISTS (
+         SELECT 1 FROM report_actions
+          WHERE report_id = NEW.report_id
+            AND action IN ('warning','suspension','ban','no_action','referral_authorities')
+            AND second_approver = NEW.actor_id) THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT: second approver cannot review' USING ERRCODE = 'P0051';
     END IF;
   END IF;
   RETURN NEW;
@@ -2177,6 +2215,53 @@ BEGIN
   END IF;
   RAISE NOTICE 'CHECK 15 PASSED';
 END $$;
+
+-- 16. appeal reviewer rules (MVP staffing): decider never; owner-second-approver always;
+--     a non-owner second approver only when REQUIRE_THREE_DISTINCT_REVIEWERS = false; reviewer role T&S or owner
+INSERT INTO app.admin_users (id, email, name, role, mfa_enabled) VALUES
+  ('00000000-0000-0000-0000-00000000a004', 'ts1@example.test', 'TS One', 'trust_safety', true),
+  ('00000000-0000-0000-0000-00000000a005', 'ts2@example.test', 'TS Two', 'trust_safety', true);
+DO $$
+DECLARE ok boolean;
+  ts1 uuid := '00000000-0000-0000-0000-00000000a004'; ts2 uuid := '00000000-0000-0000-0000-00000000a005';
+  own uuid := '00000000-0000-0000-0000-00000000a003'; ops uuid := '00000000-0000-0000-0000-00000000a001';
+  r1 uuid := '00000000-0000-0000-0000-0000000009a1'; r2 uuid := '00000000-0000-0000-0000-0000000009a2';
+  r3 uuid := '00000000-0000-0000-0000-0000000009a3';
+BEGIN
+  INSERT INTO app.safety_reports (id, case_ref, reporter_user_id, reported_user_id, category, timing, severity)
+  SELECT id, app.next_case_ref(), '00000000-0000-0000-0000-000000000107', '00000000-0000-0000-0000-000000000108',
+         'harassment', 'after', 2 FROM unnest(ARRAY[r1, r2, r3]) id;
+  INSERT INTO app.report_actions (report_id, action, actor_id, second_approver) VALUES
+    (r1, 'ban', ts1, own), (r2, 'ban', ts1, ts2), (r3, 'ban', ts1, ts2);
+
+  -- MVP default (flag false)
+  IF (SELECT value FROM app.app_config WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS') <> 'false' THEN
+    RAISE EXCEPTION 'CHECK 16 failed: MVP default flag is not false'; END IF;
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', ts1);
+  EXCEPTION WHEN SQLSTATE 'P0051' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16a failed: decider reviewed own appeal'; END IF;
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', ops);
+  EXCEPTION WHEN SQLSTATE 'P0052' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16b failed: ops role reviewed an appeal'; END IF;
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', own);   -- owner-approver: allowed
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r2, 'appeal_upheld', ts2);     -- flag false: allowed
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_upheld', own);
+  EXCEPTION WHEN SQLSTATE 'P0050' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16c failed: second appeal decision accepted'; END IF;
+
+  -- strict mode (flag true): a non-owner second approver is refused; the owner still may review
+  UPDATE app.app_config SET value = 'true' WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS';
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r3, 'appeal_rejected', ts2);
+  EXCEPTION WHEN SQLSTATE 'P0051' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16d failed: strict mode let the second approver review'; END IF;
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r3, 'appeal_rejected', own);
+  UPDATE app.app_config SET value = 'false' WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS';
+  RAISE NOTICE 'CHECK 16 PASSED';
+END $$;
 ```
 
 ## A.3 Matching engine, tests, bridge
@@ -2228,6 +2313,13 @@ W_INTEREST = 0.6
 W_COHESION = 0.4
 NO_PREF = "no_pref"
 MAX_OPT_PASSES = 50
+
+# Packing modes (decision 2026-10-23):
+#   "min_leftovers" (production default): seat as many people as possible within the session's table
+#                    budget (total bookable venue tables), then fill tables to 6 first. 9 -> 5 + 4.
+#   "greedy_6": full tables of 6 first; a remainder below 4 is left over. 13 -> 6 + 6 + 1.
+PACKING_MODES = ("min_leftovers", "greedy_6")
+PACKING_MODE = "min_leftovers"
 
 # Rule versions map to an objective. Unknown versions are rejected rather than guessed.
 RULE_OBJECTIVES = {
@@ -2358,12 +2450,28 @@ def _total(groups: Sequence[Sequence[BookingInput]]) -> float:
     return sum((score_group(g)[2] or 0.0) for g in groups)
 
 
-def _table_sizes(n: int, max_size: int) -> List[int]:
-    """Fill-to-capacity rule (v0.3 §4.4.1 D19: 13 bookings, capacity 6 -> 6 + 6 + 1 leftover).
-    Full tables first; a remainder of 4+ forms its own table; a remainder below 4 is left over for
-    down-tier placement, waitlist, rebook or refund. Full tables are never split to rescue a remainder."""
-    full, rest = divmod(n, max_size)
-    return [max_size] * full + ([rest] if rest >= MIN_TABLE else [])
+def _table_sizes(n: int, max_size: int, packing: str = PACKING_MODE, max_tables: Optional[int] = None) -> List[int]:
+    """Target table sizes for n people (each 4..max_size, at most max_tables tables; None = no limit).
+
+    greedy_6:      full tables first; a remainder of 4+ forms its own table, a smaller one is left over
+                   (v0.3 §4.4.1 D19: 13 -> 6 + 6 + 1). Full tables are never split to rescue a remainder.
+    min_leftovers: choose the table count k that seats the most people (k * 4 <= n, seated = min(n, k * max)),
+                   preferring fewer tables on a tie; then fill each table to max_size while every remaining
+                   table can still reach 4 (9 -> 5 + 4, 13 -> 5 + 4 + 4, 16 -> 6 + 6 + 4)."""
+    limit = n // MIN_TABLE if max_tables is None else min(max_tables, n // MIN_TABLE)
+    if limit <= 0:
+        return []
+    if packing == "greedy_6":
+        full, rest = divmod(n, max_size)
+        sizes = [max_size] * full + ([rest] if rest >= MIN_TABLE else [])
+        return sizes[:limit]
+    k = max(range(1, limit + 1), key=lambda k: (min(n, k * max_size), -k))
+    left, sizes = min(n, k * max_size), []
+    for i in range(k, 0, -1):
+        size = min(max_size, left - MIN_TABLE * (i - 1))
+        sizes.append(size)
+        left -= size
+    return sizes
 
 
 # ----------------------------------------------------------------------------- group formation
@@ -2421,9 +2529,13 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]]) -> 
     return groups
 
 
-def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int):
+def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int,
+                packing: str = PACKING_MODE, budget: Optional[dict] = None):
+    """budget = {"left": int | None}: tables still available in the session; consumed by the tables formed."""
     ordered = stable_shuffle(cell, seed)
-    sizes = _table_sizes(len(ordered), max_size)
+    sizes = _table_sizes(len(ordered), max_size, packing, None if budget is None else budget["left"])
+    if budget is not None and budget["left"] is not None:
+        budget["left"] -= len(sizes)
     if not sizes:
         return [], [(m, "cell_below_quorum") for m in ordered]
     groups, unseated = _seat_greedy(ordered, sizes, blocks)
@@ -2433,7 +2545,8 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
 
 
 def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max_size: int,
-                             blocks: Set[FrozenSet[str]], algorithm: str, seed: int, next_code) -> Tuple[List[Table], List[Leftover]]:
+                             blocks: Set[FrozenSet[str]], algorithm: str, seed: int, next_code,
+                             packing: str = PACKING_MODE, budget: Optional[dict] = None) -> Tuple[List[Table], List[Leftover]]:
     """Seat leftovers at an existing table of the SAME language whose tier <= their cap (never higher);
     then pool what remains per language and form new tables at the lowest cap among members."""
     remaining: List[Leftover] = []
@@ -2452,7 +2565,7 @@ def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max
     for lang in LANGUAGES:
         pool = [lo.booking for lo in remaining if lo.booking.conversation_language == lang]
         reasons = {lo.booking.booking_id: lo.reason for lo in remaining}
-        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed)
+        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed, packing, budget)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang,
                                 tier_rank=min(m.budget_tier_rank for m in g), members=list(g)))
@@ -2512,7 +2625,10 @@ def validate_tables(tables: Sequence[Table], max_size: int, blocks: Set[FrozenSe
 # ----------------------------------------------------------------------------- entry point
 def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
                  bookings: Sequence[BookingInput], block_rows: Iterable[Tuple[str, str]] = (),
-                 venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None) -> MatchResult:
+                 venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None,
+                 packing_mode: str = PACKING_MODE, max_tables: Optional[int] = None) -> MatchResult:
+    """max_tables = bookable venue tables for the session (None = unlimited). Cells are filled in sorted
+    (language, tier) order, so when tables are scarce earlier cells are served first."""
     if mode not in MODES:
         raise MatchingError(f"mode must be one of {MODES}")
     if rule_version not in RULE_OBJECTIVES:
@@ -2521,6 +2637,11 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         raise MatchingError("venue_capacity must be between 4 and 6")
     if not isinstance(seed, int):
         raise MatchingError("seed must be an integer")
+    if packing_mode not in PACKING_MODES:
+        raise MatchingError(f"packing_mode must be one of {PACKING_MODES}")
+    if max_tables is not None and max_tables < 0:
+        raise MatchingError("max_tables must be >= 0")
+    budget = {"left": max_tables}
     algorithm = RULE_OBJECTIVES[rule_version]
     blocks = blocked_pairs(block_rows)
 
@@ -2557,12 +2678,14 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
     tables: List[Table] = []
     leftovers: List[Leftover] = []
     for (lang, tier) in sorted(cells):
-        groups, unseated = form_groups(cells[(lang, tier)], venue_capacity, blocks, algorithm, seed)
+        groups, unseated = form_groups(cells[(lang, tier)], venue_capacity, blocks, algorithm, seed,
+                                       packing_mode, budget)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang, tier_rank=tier, members=list(g)))
         leftovers.extend(Leftover(m, r) for m, r in unseated)
 
-    tables, leftovers = place_leftovers_downward(tables, leftovers, venue_capacity, blocks, algorithm, seed, next_code)
+    tables, leftovers = place_leftovers_downward(tables, leftovers, venue_capacity, blocks, algorithm,
+                                                 seed, next_code, packing_mode, budget)
     venue_warnings = assign_venues(tables, venues)
 
     for t in tables:
@@ -2573,7 +2696,8 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
     if errors:
         raise MatchingError("hard constraint violated: " + "; ".join(errors))
 
-    params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity}
+    params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity,
+              "packing_mode": packing_mode, "max_tables": max_tables}
     h = inputs_hash(pool, blocks, params)
     explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings)
     return MatchResult(session_id, mode, rule_version, algorithm, seed, h, tables, leftovers, ineligible, explanations)
@@ -2663,11 +2787,46 @@ def test_twelve_users_make_two_tables_of_six(rule):
     assert len(seated) == 12
 
 
-def test_thirteen_users_make_two_full_tables_and_one_leftover():
+def test_thirteen_users_greedy_6_make_two_full_tables_and_one_leftover():
     # v0.3 §4.4.1 D19 step 2: never a table of 7
-    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13))
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13), packing_mode="greedy_6")
     assert sorted(t.size for t in r.tables) == [6, 6]
     assert len(r.leftovers) == 1 and r.leftovers[0].reason == "cell_below_quorum"
+
+
+def test_thirteen_users_min_leftovers_with_two_venue_tables():
+    # Runbook A setting: the session has 2 bookable tables (12 seats)
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13), max_tables=2)
+    assert sorted(t.size for t in r.tables) == [6, 6]
+    assert len(r.leftovers) == 1
+
+
+def test_thirteen_users_min_leftovers_unlimited_tables_seats_everyone():
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13))
+    assert sorted(t.size for t in r.tables) == [4, 4, 5]
+    assert r.leftovers == []
+
+
+@pytest.mark.parametrize("n, max_tables, expected, left", [
+    (9, None, [4, 5], 0), (9, 2, [4, 5], 0), (9, 1, [6], 3), (10, None, [4, 6], 0),
+    (16, None, [4, 6, 6], 0), (12, None, [6, 6], 0), (7, None, [6], 1), (3, None, [], 3), (8, 0, [], 8),
+])
+def test_min_leftovers_packing(n, max_tables, expected, left):
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 21, make(n), max_tables=max_tables)
+    assert sorted(t.size for t in r.tables) == expected
+    assert len(r.leftovers) == left
+    assert all(4 <= t.size <= 6 for t in r.tables)
+
+
+def test_greedy_6_nine_users_leaves_three():
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 21, make(9), packing_mode="greedy_6")
+    assert [t.size for t in r.tables] == [6] and len(r.leftovers) == 3
+
+
+def test_table_budget_is_shared_across_cells():
+    pool = make(6, lang="ar") + make(6, lang="en", start=20)
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 2, pool, max_tables=1)
+    assert len(r.tables) == 1 and len(r.leftovers) == 6
 
 
 def test_three_users_become_leftovers_for_waitlist():
@@ -2765,6 +2924,7 @@ def test_capacity_and_venue_assignment():
 
 @pytest.mark.parametrize("kwargs", [
     {"mode": "live"}, {"rule_version": "r9"}, {"venue_capacity": 7}, {"venue_capacity": 3},
+    {"packing_mode": "balanced"}, {"max_tables": -1},
 ])
 def test_invalid_input_rejected(kwargs):
     args = {"session_id": SESSION, "mode": "dry_run", "rule_version": "r1-baseline", "seed": 1, "bookings": make(4)}
@@ -2815,6 +2975,9 @@ def main(argv=None):
     ap.add_argument("--mode", choices=["dry_run", "published"], required=True)
     ap.add_argument("--actor", default=None, help="admin_users.id; omit for the system job")
     ap.add_argument("--venue-capacity", type=int, default=6)
+    ap.add_argument("--packing-mode", choices=["min_leftovers", "greedy_6"], default="min_leftovers")
+    ap.add_argument("--max-tables", type=int, default=None,
+                    help="bookable tables for this session; default = sum of venues' tables_available")
     args = ap.parse_args(argv)
 
     data = json.load(sys.stdin)
@@ -2826,9 +2989,10 @@ def main(argv=None):
         account_active=bool(b["account_active"])) for b in data["bookings"]]
     venues = [VenueInput(v["venue_id"], int(v["tier_rank"]), int(v["capacity"]), int(v["tables_available"]))
               for v in data["venues"]]
+    max_tables = args.max_tables if args.max_tables is not None else sum(v.tables_available for v in venues)
     res = run_matching(data["session_id"], args.mode, args.rule_version, args.seed, bookings,
                        block_rows=[tuple(x) for x in data["blocks"]], venue_capacity=args.venue_capacity,
-                       venues=venues)
+                       venues=venues, packing_mode=args.packing_mode, max_tables=max_tables)
 
     run_id = str(uuid.uuid4())
     summary = {"tables": len(res.tables), "seated": sum(t.size for t in res.tables),
@@ -3489,13 +3653,14 @@ VALUES ('00000000-0000-0000-0000-00000000a004', 'reported_notice_deferred', 'saf
 
 ```sql
 -- Within 24 h: decision. Confirmed S1 -> permanent ban (sanction ladder) with a second approver.
+-- MVP two-person team: T&S primary (a004) decides; the owner (a003) second-approves and later reviews the appeal.
 SET search_path = app, public;
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code)
-VALUES ('00000000-0000-0000-0000-00000000a005', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'second_approval');
+VALUES ('00000000-0000-0000-0000-00000000a003', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'second_approval');
 
 INSERT INTO report_actions (report_id, action, actor_id, second_approver, rationale_enc)
 VALUES ('00000000-0000-0000-0000-0000000007c1', 'ban', '00000000-0000-0000-0000-00000000a004',
-        '00000000-0000-0000-0000-00000000a005', '\x454e43525950544544'::bytea);
+        '00000000-0000-0000-0000-00000000a003', '\x454e43525950544544'::bytea);
 UPDATE report_actions SET effective_to = now()
  WHERE report_id = '00000000-0000-0000-0000-0000000007c1' AND action = 'temporary_suspension';
 UPDATE users SET status = 'banned' WHERE id = '00000000-0000-0000-0000-000000000102';
@@ -3527,7 +3692,7 @@ SELECT '00000000-0000-0000-0000-000000000102', 'email', 'CONDUCT_DECISION', 'ar'
 FROM safety_reports s WHERE s.id = '00000000-0000-0000-0000-0000000007c1';
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code) VALUES
   ('00000000-0000-0000-0000-00000000a004', 'sanction_ban',  'users', '00000000-0000-0000-0000-000000000102', 'S1_confirmed'),
-  ('00000000-0000-0000-0000-00000000a005', 'sanction_approve', 'report_actions', '00000000-0000-0000-0000-0000000007c1', 'second_approver');
+  ('00000000-0000-0000-0000-00000000a003', 'sanction_approve', 'report_actions', '00000000-0000-0000-0000-0000000007c1', 'second_approver');
 
 -- Day +3: the reported user appeals (one appeal within 14 days)
 UPDATE safety_reports SET status = 'appealed' WHERE id = '00000000-0000-0000-0000-0000000007c1';
@@ -3540,11 +3705,12 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0051' THEN RAISE NOTICE 'appeal guard OK: decider refused';
 END $$;
 
--- an independent reviewer (a006) decides; the decision is final
+-- the owner (a003) reviews the appeal: allowed although they second-approved the ban (owner role, and
+-- REQUIRE_THREE_DISTINCT_REVIEWERS = false in the MVP); the decision is final
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code)
-VALUES ('00000000-0000-0000-0000-00000000a006', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'appeal_review');
+VALUES ('00000000-0000-0000-0000-00000000a003', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'appeal_review');
 INSERT INTO report_actions (report_id, action, actor_id, rationale_enc)
-VALUES ('00000000-0000-0000-0000-0000000007c1', 'appeal_rejected', '00000000-0000-0000-0000-00000000a006', '\x454e43525950544544'::bytea);
+VALUES ('00000000-0000-0000-0000-0000000007c1', 'appeal_rejected', '00000000-0000-0000-0000-00000000a003', '\x454e43525950544544'::bytea);
 UPDATE safety_reports SET status = 'closed' WHERE id = '00000000-0000-0000-0000-0000000007c1';
 INSERT INTO notifications_outbox (user_id, channel, template_key, locale, payload)
 VALUES ('00000000-0000-0000-0000-000000000102', 'email', 'APPEAL_DECISION', 'ar',
@@ -3585,6 +3751,10 @@ BEGIN
   SELECT string_agg(template_key, ',' ORDER BY template_key) INTO v FROM notifications_outbox
    WHERE template_key IN ('REPORT_RECEIVED','REPORT_OUTCOME','CONDUCT_DECISION','APPEAL_DECISION');
   IF v <> 'APPEAL_DECISION,CONDUCT_DECISION,REPORT_OUTCOME,REPORT_RECEIVED' THEN RAISE EXCEPTION 'notices: %', v; END IF;
+  -- two-person team: decider (a004) never reviews; owner (a003) approved the ban and reviewed the appeal
+  SELECT string_agg(action || ':' || right(actor_id::text, 4) || ':' || COALESCE(right(second_approver::text, 4), '-'), ',' ORDER BY action) INTO v
+    FROM report_actions WHERE report_id = '00000000-0000-0000-0000-0000000007c1' AND actor_id IS NOT NULL;
+  IF v <> 'ban:a004:a003,appeal_rejected:a003:-' THEN RAISE EXCEPTION 'reviewers: %', v; END IF;
   RAISE NOTICE 'RUNBOOK B SIMULATION PASSED';
 END $$;
 ```
@@ -3604,10 +3774,12 @@ psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/001_init.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 "${PSQL[@]}" -1 -f "$HERE/01_seed_bookings.sql"
-# T-48h: matching publishes S1 and S2 (seeded, reproducible)
-for S in 00000000-0000-0000-0000-00000000f001 00000000-0000-0000-0000-00000000f002; do
-  "${PSQL[@]}" -At -c "SELECT app.matching_input('$S')" \
-    | (cd "$ROOT/matching" && python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published) \
+# T-48h: matching publishes S1 and S2 (seeded, reproducible; production packing mode min_leftovers).
+# S1 has 2 bookable venue tables (12 seats) -> 6 + 6 + 1 leftover; S2 has 1 table.
+for ST in 00000000-0000-0000-0000-00000000f001:2 00000000-0000-0000-0000-00000000f002:1; do
+  "${PSQL[@]}" -At -c "SELECT app.matching_input('${ST%%:*}')" \
+    | (cd "$ROOT/matching" && python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published \
+         --packing-mode min_leftovers --max-tables "${ST##*:}") \
     | "${PSQL[@]}" -1
 done
 "${PSQL[@]}" -1 -f "$HERE/02_cancellations_t25.sql"

@@ -32,6 +32,9 @@ def main(argv=None):
     ap.add_argument("--mode", choices=["dry_run", "published"], required=True)
     ap.add_argument("--actor", default=None, help="admin_users.id; omit for the system job")
     ap.add_argument("--venue-capacity", type=int, default=6)
+    ap.add_argument("--packing-mode", choices=["min_leftovers", "greedy_6"], default="min_leftovers")
+    ap.add_argument("--max-tables", type=int, default=None,
+                    help="bookable tables for this session; default = sum of venues' tables_available")
     args = ap.parse_args(argv)
 
     data = json.load(sys.stdin)
@@ -43,9 +46,10 @@ def main(argv=None):
         account_active=bool(b["account_active"])) for b in data["bookings"]]
     venues = [VenueInput(v["venue_id"], int(v["tier_rank"]), int(v["capacity"]), int(v["tables_available"]))
               for v in data["venues"]]
+    max_tables = args.max_tables if args.max_tables is not None else sum(v.tables_available for v in venues)
     res = run_matching(data["session_id"], args.mode, args.rule_version, args.seed, bookings,
                        block_rows=[tuple(x) for x in data["blocks"]], venue_capacity=args.venue_capacity,
-                       venues=venues)
+                       venues=venues, packing_mode=args.packing_mode, max_tables=max_tables)
 
     run_id = str(uuid.uuid4())
     summary = {"tables": len(res.tables), "seated": sum(t.size for t in res.tables),

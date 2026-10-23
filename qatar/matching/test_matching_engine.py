@@ -27,11 +27,46 @@ def test_twelve_users_make_two_tables_of_six(rule):
     assert len(seated) == 12
 
 
-def test_thirteen_users_make_two_full_tables_and_one_leftover():
+def test_thirteen_users_greedy_6_make_two_full_tables_and_one_leftover():
     # v0.3 §4.4.1 D19 step 2: never a table of 7
-    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13))
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13), packing_mode="greedy_6")
     assert sorted(t.size for t in r.tables) == [6, 6]
     assert len(r.leftovers) == 1 and r.leftovers[0].reason == "cell_below_quorum"
+
+
+def test_thirteen_users_min_leftovers_with_two_venue_tables():
+    # Runbook A setting: the session has 2 bookable tables (12 seats)
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13), max_tables=2)
+    assert sorted(t.size for t in r.tables) == [6, 6]
+    assert len(r.leftovers) == 1
+
+
+def test_thirteen_users_min_leftovers_unlimited_tables_seats_everyone():
+    r = run_matching(SESSION, "dry_run", "r1-interest", 13, make(13))
+    assert sorted(t.size for t in r.tables) == [4, 4, 5]
+    assert r.leftovers == []
+
+
+@pytest.mark.parametrize("n, max_tables, expected, left", [
+    (9, None, [4, 5], 0), (9, 2, [4, 5], 0), (9, 1, [6], 3), (10, None, [4, 6], 0),
+    (16, None, [4, 6, 6], 0), (12, None, [6, 6], 0), (7, None, [6], 1), (3, None, [], 3), (8, 0, [], 8),
+])
+def test_min_leftovers_packing(n, max_tables, expected, left):
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 21, make(n), max_tables=max_tables)
+    assert sorted(t.size for t in r.tables) == expected
+    assert len(r.leftovers) == left
+    assert all(4 <= t.size <= 6 for t in r.tables)
+
+
+def test_greedy_6_nine_users_leaves_three():
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 21, make(9), packing_mode="greedy_6")
+    assert [t.size for t in r.tables] == [6] and len(r.leftovers) == 3
+
+
+def test_table_budget_is_shared_across_cells():
+    pool = make(6, lang="ar") + make(6, lang="en", start=20)
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 2, pool, max_tables=1)
+    assert len(r.tables) == 1 and len(r.leftovers) == 6
 
 
 def test_three_users_become_leftovers_for_waitlist():
@@ -129,6 +164,7 @@ def test_capacity_and_venue_assignment():
 
 @pytest.mark.parametrize("kwargs", [
     {"mode": "live"}, {"rule_version": "r9"}, {"venue_capacity": 7}, {"venue_capacity": 3},
+    {"packing_mode": "balanced"}, {"max_tables": -1},
 ])
 def test_invalid_input_rejected(kwargs):
     args = {"session_id": SESSION, "mode": "dry_run", "rule_version": "r1-baseline", "seed": 1, "bookings": make(4)}

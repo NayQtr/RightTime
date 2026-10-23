@@ -29,5 +29,9 @@ BEGIN
   SELECT string_agg(template_key, ',' ORDER BY template_key) INTO v FROM notifications_outbox
    WHERE template_key IN ('REPORT_RECEIVED','REPORT_OUTCOME','CONDUCT_DECISION','APPEAL_DECISION');
   IF v <> 'APPEAL_DECISION,CONDUCT_DECISION,REPORT_OUTCOME,REPORT_RECEIVED' THEN RAISE EXCEPTION 'notices: %', v; END IF;
+  -- two-person team: decider (a004) never reviews; owner (a003) approved the ban and reviewed the appeal
+  SELECT string_agg(action || ':' || right(actor_id::text, 4) || ':' || COALESCE(right(second_approver::text, 4), '-'), ',' ORDER BY action) INTO v
+    FROM report_actions WHERE report_id = '00000000-0000-0000-0000-0000000007c1' AND actor_id IS NOT NULL;
+  IF v <> 'ban:a004:a003,appeal_rejected:a003:-' THEN RAISE EXCEPTION 'reviewers: %', v; END IF;
   RAISE NOTICE 'RUNBOOK B SIMULATION PASSED';
 END $$;

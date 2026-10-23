@@ -226,3 +226,50 @@ BEGIN
   END IF;
   RAISE NOTICE 'CHECK 15 PASSED';
 END $$;
+
+-- 16. appeal reviewer rules (MVP staffing): decider never; owner-second-approver always;
+--     a non-owner second approver only when REQUIRE_THREE_DISTINCT_REVIEWERS = false; reviewer role T&S or owner
+INSERT INTO app.admin_users (id, email, name, role, mfa_enabled) VALUES
+  ('00000000-0000-0000-0000-00000000a004', 'ts1@example.test', 'TS One', 'trust_safety', true),
+  ('00000000-0000-0000-0000-00000000a005', 'ts2@example.test', 'TS Two', 'trust_safety', true);
+DO $$
+DECLARE ok boolean;
+  ts1 uuid := '00000000-0000-0000-0000-00000000a004'; ts2 uuid := '00000000-0000-0000-0000-00000000a005';
+  own uuid := '00000000-0000-0000-0000-00000000a003'; ops uuid := '00000000-0000-0000-0000-00000000a001';
+  r1 uuid := '00000000-0000-0000-0000-0000000009a1'; r2 uuid := '00000000-0000-0000-0000-0000000009a2';
+  r3 uuid := '00000000-0000-0000-0000-0000000009a3';
+BEGIN
+  INSERT INTO app.safety_reports (id, case_ref, reporter_user_id, reported_user_id, category, timing, severity)
+  SELECT id, app.next_case_ref(), '00000000-0000-0000-0000-000000000107', '00000000-0000-0000-0000-000000000108',
+         'harassment', 'after', 2 FROM unnest(ARRAY[r1, r2, r3]) id;
+  INSERT INTO app.report_actions (report_id, action, actor_id, second_approver) VALUES
+    (r1, 'ban', ts1, own), (r2, 'ban', ts1, ts2), (r3, 'ban', ts1, ts2);
+
+  -- MVP default (flag false)
+  IF (SELECT value FROM app.app_config WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS') <> 'false' THEN
+    RAISE EXCEPTION 'CHECK 16 failed: MVP default flag is not false'; END IF;
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', ts1);
+  EXCEPTION WHEN SQLSTATE 'P0051' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16a failed: decider reviewed own appeal'; END IF;
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', ops);
+  EXCEPTION WHEN SQLSTATE 'P0052' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16b failed: ops role reviewed an appeal'; END IF;
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_rejected', own);   -- owner-approver: allowed
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r2, 'appeal_upheld', ts2);     -- flag false: allowed
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r1, 'appeal_upheld', own);
+  EXCEPTION WHEN SQLSTATE 'P0050' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16c failed: second appeal decision accepted'; END IF;
+
+  -- strict mode (flag true): a non-owner second approver is refused; the owner still may review
+  UPDATE app.app_config SET value = 'true' WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS';
+  ok := false;
+  BEGIN INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r3, 'appeal_rejected', ts2);
+  EXCEPTION WHEN SQLSTATE 'P0051' THEN ok := true; END;
+  IF NOT ok THEN RAISE EXCEPTION 'CHECK 16d failed: strict mode let the second approver review'; END IF;
+  INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (r3, 'appeal_rejected', own);
+  UPDATE app.app_config SET value = 'false' WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS';
+  RAISE NOTICE 'CHECK 16 PASSED';
+END $$;

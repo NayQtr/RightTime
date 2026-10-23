@@ -1019,20 +1019,55 @@ CREATE FUNCTION matching_input(p_session uuid) RETURNS json LANGUAGE sql STABLE 
   FROM event_sessions s WHERE s.id = p_session;
 $$;
 
--- Appeals are reviewed by someone who neither decided nor second-approved the case (v0.3 §4.4.2 step 7),
--- and a case gets one appeal decision only.
+-- Runtime configuration flags (key/value). Changing a flag is an audited admin action.
+CREATE TABLE app_config (
+  key         varchar(60) PRIMARY KEY,
+  value       text NOT NULL,
+  description text NOT NULL,
+  updated_by  uuid REFERENCES admin_users(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE TRIGGER app_config_updated_at BEFORE UPDATE ON app_config FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+INSERT INTO app_config (key, value, description) VALUES
+  ('REQUIRE_THREE_DISTINCT_REVIEWERS', 'false',
+   'false (MVP default): the second approver of a sanction may review its appeal; the decider never may. '
+   'true: the appeal reviewer must be neither the decider nor the second approver, unless they hold the owner role.'),
+  ('PACKING_MODE', 'min_leftovers', 'Matching table packing: min_leftovers (default) | greedy_6'),
+  ('FULL_REFUND_UNTIL_HOURS', '48', 'Default for new cancellation_policies; pending legal sign-off (O04)');
+
+-- Appeal reviewer rules (v0.3 §4.4.2 step 7, adjusted 2026-10-23 for a two-person MVP team):
+--   * one appeal decision per case;
+--   * the reviewer must hold the trust_safety or owner role;
+--   * the person who DECIDED the sanction can never review its appeal;
+--   * the sanction's second approver may review it if they hold the owner role, or if
+--     REQUIRE_THREE_DISTINCT_REVIEWERS = false.
 CREATE FUNCTION check_appeal_reviewer() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE v_role admin_role; v_three boolean;
 BEGIN
   IF NEW.action IN ('appeal_upheld','appeal_rejected') THEN
     IF EXISTS (SELECT 1 FROM report_actions
                 WHERE report_id = NEW.report_id AND action IN ('appeal_upheld','appeal_rejected')) THEN
       RAISE EXCEPTION 'APPEAL_ALREADY_DECIDED' USING ERRCODE = 'P0050';
     END IF;
+    SELECT role INTO v_role FROM admin_users WHERE id = NEW.actor_id AND status = 'active';
+    IF v_role IS NULL OR v_role NOT IN ('trust_safety','owner') THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_ROLE' USING ERRCODE = 'P0052';
+    END IF;
     IF EXISTS (SELECT 1 FROM report_actions
                 WHERE report_id = NEW.report_id
                   AND action IN ('warning','suspension','ban','no_action','referral_authorities')
-                  AND (actor_id = NEW.actor_id OR second_approver = NEW.actor_id)) THEN
-      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT' USING ERRCODE = 'P0051';
+                  AND actor_id = NEW.actor_id) THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT: decider cannot review' USING ERRCODE = 'P0051';
+    END IF;
+    SELECT COALESCE((SELECT value::boolean FROM app_config WHERE key = 'REQUIRE_THREE_DISTINCT_REVIEWERS'), true)
+      INTO v_three;
+    IF v_three AND v_role <> 'owner' AND EXISTS (
+         SELECT 1 FROM report_actions
+          WHERE report_id = NEW.report_id
+            AND action IN ('warning','suspension','ban','no_action','referral_authorities')
+            AND second_approver = NEW.actor_id) THEN
+      RAISE EXCEPTION 'APPEAL_REVIEWER_CONFLICT: second approver cannot review' USING ERRCODE = 'P0051';
     END IF;
   END IF;
   RETURN NEW;

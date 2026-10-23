@@ -26,7 +26,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 | `REPORT_RECEIVED` | وصلنا بلاغك ({case}). لن نكشف هويتك للشخص المُبلَّغ عنه. | We received your report ({case}). We won't reveal your identity to the person reported. |
 | `REPORT_OUTCOME` | راجعنا بلاغك واتخذنا الإجراء المناسب وفق قواعد السلوك. | We reviewed your report and took appropriate action under our conduct rules. |
 | `CONDUCT_DECISION` *(v0.4)* | وصلنا بلاغ بشأن سلوكك في لقاء {date} (الفئة: {category}). بعد المراجعة قررنا: {decision}. يمكنك الاعتراض مرة واحدة قبل {appeal_until}. | We received a report about your conduct at the event on {date} (category: {category}). After review, our decision is: {decision}. You may appeal once before {appeal_until}. |
-| `APPEAL_DECISION` *(v0.4)* | راجع اعتراضَك مراجعٌ مستقل. القرار النهائي: {decision}. | Your appeal was reviewed by an independent reviewer. Final decision: {decision}. |
+| `APPEAL_DECISION` *(v0.4)* | راجع اعتراضَك شخصٌ لم يتخذ القرار الأصلي. القرار النهائي: {decision}. | Your appeal was reviewed by someone who did not make the original decision. Final decision: {decision}. |
 | `VENUE_TABLE_RELEASED` *(v0.4, to the venue contact)* | نعتذر، أُلغيت الطاولة {code} ليوم {date} لعدم اكتمال العدد. الطاولة متاحة لكم. | Sorry — table {code} for {date} is cancelled (minimum not reached). The table is released back to you. |
 
 `CONDUCT_DECISION` and `APPEAL_DECISION` never contain the reporter's identity, the narrative or the names of other tablemates. Runbook B's verification checks this.
@@ -41,7 +41,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 
 | Set | Content | File |
 |---|---|---|
-| Reference | City `doh`; three published budget tiers; three signed test venues (Lusail tier 2, Msheireb tier 1, West Bay tier 3), all with `separate_bills_confirmed = true`; price plan 5900 minor (59 QAR placeholder); policy `cxl-qa-1` (48 h full refund, 0 % after, no-show 0 %); published questionnaire `QA-2026-01` with Q05 options from v0.3; 20 users (AR, tier-2 cap, consents current; u05 left Q05 blank); admins ops / finance / owner / 3 × T&S | `ops/seed_common.sql` |
+| Reference | City `doh`; three published budget tiers; three signed test venues (Lusail tier 2, Msheireb tier 1, West Bay tier 3), all with `separate_bills_confirmed = true`; price plan 5900 minor (59 QAR placeholder); policy `cxl-qa-1` (48 h full refund, 0 % after, no-show 0 %); published questionnaire `QA-2026-01` with Q05 options from v0.3; 20 users (AR, tier-2 cap, consents current; u05 left Q05 blank); admins ops / finance / owner / T&S (the Runbook B drill uses only T&S primary + owner) | `ops/seed_common.sql` |
 | S1 | Arabic dinner at T, Lusail hint, `max_seats 18`. **13 paid bookings** (u01–u13), each saved S2 as a Q02 alternate. Seats bought through `hold_seat()`; payment recorded as a signed `payment.succeeded` webhook + `payments` row. | `runbook_a/01_seed_bookings.sql` |
 | S2 | Arabic dinner at T, West Bay hint. **5 paid bookings** (u14–u18); u14 saved S3 as an alternate. | same |
 | S3 | Arabic dinner at T + 7 days, on sale (rebook target). | `seed_common.sql` |
@@ -51,7 +51,7 @@ v0.3 §4.3 templates are used unchanged. The three marked *(v0.4)* are new (C13)
 | # | Time | Actor | Action (API / admin UI / job) | Expected database state |
 |---|---|---|---|---|
 | A1 | T-14 d … T-48 h | Users | `POST /bookings {session_id, budget_tier_id, alternate_session_ids}` → hosted checkout → PSP webhook `POST /payments/webhooks/test_psp` | 18 bookings `payment_pending` → `paid_awaiting_group`; S1 `seats_sold = 13`, S2 `= 5`; 18 `payments` `succeeded` |
-| A2 | T-48 h | Matching job (or ops: **Matching → Session → Publish**) | `psql -Atc "SELECT app.matching_input('<S>')" \| python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published \| psql -1` for S1, then S2 | S1: `matching_runs` (published, seed, `inputs_hash`), tables **T01 = 6, T02 = 6**, 1 leftover (`cell_below_quorum`, no assignment). S2: T01 = 5. All tables `forming`. |
+| A2 | T-48 h | Matching job (or ops: **Matching → Session → Publish**) | `psql -Atc "SELECT app.matching_input('<S>')" \| python3 publish_run.py --rule-version r1-interest --seed 20261023 --mode published --packing-mode min_leftovers --max-tables <n> \| psql -1`: S1 with **2 bookable tables**, S2 with 1 | S1: `matching_runs` (published, seed, `inputs_hash`), tables **T01 = 6, T02 = 6**, 1 leftover (`cell_below_quorum`, no assignment). S2: T01 = 5. All tables `forming`. |
 | A3 | T-25 h | u17, u18 | `POST /bookings/{id}/cancel {reason:"schedule_changed"}` | Both `cancelled_by_user` (`cancel_actor = user`, `cancelled_at = T-25h`). **No refund** (after the 48 h deadline). S2 `seats_sold 5 → 3`; S2-T01 `confirmed_count 5 → 3`. |
 | A4 | T-24 h (`lock_at`) | System + ops on call | **Session board → Decision cards** (`03_lock_t24.sql` §3.1) | Board: S1-T01 LOCK, S1-T02 LOCK, S2-T01 BELOW_QUORUM |
 | A5 | T-24 h | System | Lock tables at quorum. Admin: `POST /admin/v1/tables/{id}:lock` *(v0.4)* | S1-T01/T02 `locked`, `locked_at`, `venue_confirmed_at`; 12 bookings `group_locked`; 12 × `TABLE_LOCKED`; 2 × audit `table_lock` |
@@ -101,7 +101,7 @@ Admin UI: **Matching → Session → Drag seat → Reason** = `POST /admin/v1/bo
 
 ## 4.2 Runbook B — Live S1 safety report (`immediate_danger = true`)
 
-**Objective.** Drill the S1 path end-to-end:
+**Objective.** Drill the S1 path end-to-end with the MVP two-person team:
 
 - authorities first (999 screen);
 - coordinator paged within minutes;
@@ -109,11 +109,11 @@ Admin UI: **Matching → Session → Drag seat → Reason** = `POST /admin/v1/bo
 - the reporter's identity never disclosed;
 - every P4 read audited with a reason;
 - ban with a second approver;
-- appeal reviewed by a third, independent person.
+- appeal reviewed by someone other than the decider (the owner).
 
 **Run:** `qatar/ops/runbook_b/run_simulation.sh` → `RUNBOOK B SIMULATION PASSED`.
 
-**Staffing prerequisite (C12).** A confirmed S1 that ends in a ban needs **three distinct T&S people**: the decider, the second approver and the appeal reviewer. The appeal guard trigger rejects an appeal decided by the decider or the second approver. If only two T&S staff exist at launch, the owner role must be trained and given the `trust_safety` appeal duty.
+**Staffing (C12, decided 2026-10-23).** The drill runs with a **two-person team**: T&S primary (decider) and the owner (second approver of the ban, then appeal reviewer). The trigger always refuses the decider. The owner may review even after approving. With `REQUIRE_THREE_DISTINCT_REVIEWERS = true` a non-owner second approver is refused (schema check 16).
 
 ### 4.2.1 Seed
 
@@ -130,11 +130,11 @@ Session S4: Arabic dinner that started 30 minutes ago (`in_progress`), table T01
 | B5 | T+2 min | Coordinator (ops) | **Live board** pin shows case ref, category, severity, table code, district; **no narrative** for ops. One-click masked call to the venue day-of contact: staff assist, offer a safe exit (quiet space, taxi). In-app check-in with the reporter. | audit `venue_contact_called` (`S1_assist`), `reporter_checkin` (`safe_exit_offered`) |
 | B6 | T+10 min | T&S primary | Opens the case (P4 read) → triage: confirms S1, checks for earlier cases on the same user (count only), assigns to self | audit `read_p4` (reason `case_triage`); status `triaged` → `investigating`; `assigned_to` |
 | B7 | T+10 min | T&S primary | Checks that the suspended user's future bookings are held: the matcher's input shows `account_active = false`, so they are excluded from any run | Query in `03_coordinator_and_triage.sql`. "Hear the other side" (step 4) is **deferred for S1** because notifying could create risk; audit `reported_notice_deferred` (`S1_risk`). |
-| B8 | ≤ 24 h | T&S primary + second approver | Decision: confirmed S1 → **permanent ban**. `POST /admin/v1/cases/{id}/actions {"action":"ban","second_approver":"<admin>"}` *(v0.4)*. The second approver's read is audited. | `report_actions` `ban` (actor ≠ second approver, CHECK); temporary suspension closed (`effective_to`); user `banned`; status `actioned`; held future booking `cancelled_by_organizer` (`account_banned`) with a full refund requested; audit `read_p4` (`second_approval`), `sanction_ban`, `sanction_approve` |
+| B8 | ≤ 24 h | T&S primary (decider) + owner (second approver) | Decision: confirmed S1 → **permanent ban**. `POST /admin/v1/cases/{id}/actions {"action":"ban","second_approver":"<admin>"}` *(v0.4)*. The second approver's read is audited. | `report_actions` `ban` (actor ≠ second approver, CHECK); temporary suspension closed (`effective_to`); user `banned`; status `actioned`; held future booking `cancelled_by_organizer` (`account_banned`) with a full refund requested; audit `read_p4` (`second_approval`, by the owner), `sanction_ban`, `sanction_approve` |
 | B9 | ≤ 24 h | System | Notices | Reporter: `REPORT_OUTCOME` (generic). Reported user: `CONDUCT_DECISION` (date, category, decision, appeal deadline). **No reporter identity.** |
 | B10 | Day +3 | Reported user | Appeals once: `POST /cases/{case_ref}/appeal` *(v0.4)* | status `appealed` |
 | B11 | Day +3 | **Negative test** | The decider tries to review the appeal | Trigger raises `APPEAL_REVIEWER_CONFLICT` (P0051); the simulation asserts the refusal |
-| B12 | ≤ Day +14 | Independent T&S reviewer | Reviews (P4 read audited) → `appeal_rejected` (ban upheld). `POST /admin/v1/cases/{id}/appeal-decision` *(v0.4)* | `report_actions` `appeal_rejected`; status `closed`; `APPEAL_DECISION` to the reported user; audit `read_p4` (`appeal_review`). A second appeal decision would raise `APPEAL_ALREADY_DECIDED`. |
+| B12 | ≤ Day +14 | Owner (appeal reviewer) | Reviews (P4 read audited) → `appeal_rejected` (ban upheld). Allowed: owner role, and `REQUIRE_THREE_DISTINCT_REVIEWERS = false`. `POST /admin/v1/cases/{id}/appeal-decision` *(v0.4)* | `report_actions` `appeal_rejected`; status `closed`; `APPEAL_DECISION` to the reported user; audit `read_p4` (`appeal_review`). A second appeal decision would raise `APPEAL_ALREADY_DECIDED`. |
 | B13 | Close | T&S + ops | Tag the root cause (venue / matching / policy gap) for the D23 risk register | Case tags (outside this schema) |
 
 ### 4.2.3 Pass criteria (asserted in `runbook_b/99_verify.sql`)
@@ -145,6 +145,7 @@ Session S4: Arabic dinner that started 30 minutes ago (`in_progress`), table T01
 | Block | Pair present in `blocked_pairs` (mutual); stays permanent regardless of outcome |
 | Account | Reported user `banned`; temporary suspension closed with `effective_to` |
 | Actions | `interim_block`, `temporary_suspension`, `ban`, `appeal_rejected` |
+| Reviewers | `ban` by T&S primary with owner as second approver; `appeal_rejected` by the owner; decider refused (`APPEAL_REVIEWER_CONFLICT`) |
 | Privacy | No notification to the reported user contains the reporter's id or display name |
 | P4 audit | Exactly three `read_p4` rows: `case_triage`, `second_approval`, `appeal_review`, each with an actor |
 | Bookings | Reported user's future booking cancelled (`account_banned`) with a 5900 refund requested |

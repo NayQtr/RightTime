@@ -85,7 +85,7 @@ These durations are engineering defaults **[PROPOSED]**, chosen to meet the purp
 
 ### 1.1.5 Cancellation, quorum and no-show wording for `cancellation_policies`
 
-Version `cxl-qa-1` **[PROPOSED; LEGAL]**. These strings go into `cancellation_policies.text_ar` / `text_en`, appear on SCR-05 before payment, and are stored on every booking (`cancellation_policy_version`). The numbers are the proposed config: `full_refund_until_hours = 48`, `late_cancel_refund_pct = 0`, `organizer_cancel_refund_pct = 100`, `no_show_fee_pct = 0`, choice window 48 h, quorum 4.
+Version `cxl-qa-1` — **48 h window approved by the product owner on 2026-10-23 as the [CONFIG] default; final wording pending legal sign-off (O04) [LEGAL]**. These strings go into `cancellation_policies.text_ar` / `text_en`, appear on SCR-05 before payment, and are stored on every booking (`cancellation_policy_version`). The numbers are the proposed config: `full_refund_until_hours = 48`, `late_cancel_refund_pct = 0`, `organizer_cancel_refund_pct = 100`, `no_show_fee_pct = 0`, choice window 48 h, quorum 4.
 
 **Arabic (text_ar):**
 

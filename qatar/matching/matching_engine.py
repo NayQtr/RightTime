@@ -43,6 +43,13 @@ W_COHESION = 0.4
 NO_PREF = "no_pref"
 MAX_OPT_PASSES = 50
 
+# Packing modes (decision 2026-10-23):
+#   "min_leftovers" (production default): seat as many people as possible within the session's table
+#                    budget (total bookable venue tables), then fill tables to 6 first. 9 -> 5 + 4.
+#   "greedy_6": full tables of 6 first; a remainder below 4 is left over. 13 -> 6 + 6 + 1.
+PACKING_MODES = ("min_leftovers", "greedy_6")
+PACKING_MODE = "min_leftovers"
+
 # Rule versions map to an objective. Unknown versions are rejected rather than guessed.
 RULE_OBJECTIVES = {
     "r1-baseline": "baseline_random",
@@ -172,12 +179,28 @@ def _total(groups: Sequence[Sequence[BookingInput]]) -> float:
     return sum((score_group(g)[2] or 0.0) for g in groups)
 
 
-def _table_sizes(n: int, max_size: int) -> List[int]:
-    """Fill-to-capacity rule (v0.3 §4.4.1 D19: 13 bookings, capacity 6 -> 6 + 6 + 1 leftover).
-    Full tables first; a remainder of 4+ forms its own table; a remainder below 4 is left over for
-    down-tier placement, waitlist, rebook or refund. Full tables are never split to rescue a remainder."""
-    full, rest = divmod(n, max_size)
-    return [max_size] * full + ([rest] if rest >= MIN_TABLE else [])
+def _table_sizes(n: int, max_size: int, packing: str = PACKING_MODE, max_tables: Optional[int] = None) -> List[int]:
+    """Target table sizes for n people (each 4..max_size, at most max_tables tables; None = no limit).
+
+    greedy_6:      full tables first; a remainder of 4+ forms its own table, a smaller one is left over
+                   (v0.3 §4.4.1 D19: 13 -> 6 + 6 + 1). Full tables are never split to rescue a remainder.
+    min_leftovers: choose the table count k that seats the most people (k * 4 <= n, seated = min(n, k * max)),
+                   preferring fewer tables on a tie; then fill each table to max_size while every remaining
+                   table can still reach 4 (9 -> 5 + 4, 13 -> 5 + 4 + 4, 16 -> 6 + 6 + 4)."""
+    limit = n // MIN_TABLE if max_tables is None else min(max_tables, n // MIN_TABLE)
+    if limit <= 0:
+        return []
+    if packing == "greedy_6":
+        full, rest = divmod(n, max_size)
+        sizes = [max_size] * full + ([rest] if rest >= MIN_TABLE else [])
+        return sizes[:limit]
+    k = max(range(1, limit + 1), key=lambda k: (min(n, k * max_size), -k))
+    left, sizes = min(n, k * max_size), []
+    for i in range(k, 0, -1):
+        size = min(max_size, left - MIN_TABLE * (i - 1))
+        sizes.append(size)
+        left -= size
+    return sizes
 
 
 # ----------------------------------------------------------------------------- group formation
@@ -235,9 +258,13 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]]) -> 
     return groups
 
 
-def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int):
+def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int,
+                packing: str = PACKING_MODE, budget: Optional[dict] = None):
+    """budget = {"left": int | None}: tables still available in the session; consumed by the tables formed."""
     ordered = stable_shuffle(cell, seed)
-    sizes = _table_sizes(len(ordered), max_size)
+    sizes = _table_sizes(len(ordered), max_size, packing, None if budget is None else budget["left"])
+    if budget is not None and budget["left"] is not None:
+        budget["left"] -= len(sizes)
     if not sizes:
         return [], [(m, "cell_below_quorum") for m in ordered]
     groups, unseated = _seat_greedy(ordered, sizes, blocks)
@@ -247,7 +274,8 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
 
 
 def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max_size: int,
-                             blocks: Set[FrozenSet[str]], algorithm: str, seed: int, next_code) -> Tuple[List[Table], List[Leftover]]:
+                             blocks: Set[FrozenSet[str]], algorithm: str, seed: int, next_code,
+                             packing: str = PACKING_MODE, budget: Optional[dict] = None) -> Tuple[List[Table], List[Leftover]]:
     """Seat leftovers at an existing table of the SAME language whose tier <= their cap (never higher);
     then pool what remains per language and form new tables at the lowest cap among members."""
     remaining: List[Leftover] = []
@@ -266,7 +294,7 @@ def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max
     for lang in LANGUAGES:
         pool = [lo.booking for lo in remaining if lo.booking.conversation_language == lang]
         reasons = {lo.booking.booking_id: lo.reason for lo in remaining}
-        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed)
+        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed, packing, budget)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang,
                                 tier_rank=min(m.budget_tier_rank for m in g), members=list(g)))
@@ -326,7 +354,10 @@ def validate_tables(tables: Sequence[Table], max_size: int, blocks: Set[FrozenSe
 # ----------------------------------------------------------------------------- entry point
 def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
                  bookings: Sequence[BookingInput], block_rows: Iterable[Tuple[str, str]] = (),
-                 venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None) -> MatchResult:
+                 venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None,
+                 packing_mode: str = PACKING_MODE, max_tables: Optional[int] = None) -> MatchResult:
+    """max_tables = bookable venue tables for the session (None = unlimited). Cells are filled in sorted
+    (language, tier) order, so when tables are scarce earlier cells are served first."""
     if mode not in MODES:
         raise MatchingError(f"mode must be one of {MODES}")
     if rule_version not in RULE_OBJECTIVES:
@@ -335,6 +366,11 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         raise MatchingError("venue_capacity must be between 4 and 6")
     if not isinstance(seed, int):
         raise MatchingError("seed must be an integer")
+    if packing_mode not in PACKING_MODES:
+        raise MatchingError(f"packing_mode must be one of {PACKING_MODES}")
+    if max_tables is not None and max_tables < 0:
+        raise MatchingError("max_tables must be >= 0")
+    budget = {"left": max_tables}
     algorithm = RULE_OBJECTIVES[rule_version]
     blocks = blocked_pairs(block_rows)
 
@@ -371,12 +407,14 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
     tables: List[Table] = []
     leftovers: List[Leftover] = []
     for (lang, tier) in sorted(cells):
-        groups, unseated = form_groups(cells[(lang, tier)], venue_capacity, blocks, algorithm, seed)
+        groups, unseated = form_groups(cells[(lang, tier)], venue_capacity, blocks, algorithm, seed,
+                                       packing_mode, budget)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang, tier_rank=tier, members=list(g)))
         leftovers.extend(Leftover(m, r) for m, r in unseated)
 
-    tables, leftovers = place_leftovers_downward(tables, leftovers, venue_capacity, blocks, algorithm, seed, next_code)
+    tables, leftovers = place_leftovers_downward(tables, leftovers, venue_capacity, blocks, algorithm,
+                                                 seed, next_code, packing_mode, budget)
     venue_warnings = assign_venues(tables, venues)
 
     for t in tables:
@@ -387,7 +425,8 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
     if errors:
         raise MatchingError("hard constraint violated: " + "; ".join(errors))
 
-    params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity}
+    params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity,
+              "packing_mode": packing_mode, "max_tables": max_tables}
     h = inputs_hash(pool, blocks, params)
     explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings)
     return MatchResult(session_id, mode, rule_version, algorithm, seed, h, tables, leftovers, ineligible, explanations)

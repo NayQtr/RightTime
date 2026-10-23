@@ -1,11 +1,12 @@
 -- Within 24 h: decision. Confirmed S1 -> permanent ban (sanction ladder) with a second approver.
+-- MVP two-person team: T&S primary (a004) decides; the owner (a003) second-approves and later reviews the appeal.
 SET search_path = app, public;
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code)
-VALUES ('00000000-0000-0000-0000-00000000a005', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'second_approval');
+VALUES ('00000000-0000-0000-0000-00000000a003', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'second_approval');
 
 INSERT INTO report_actions (report_id, action, actor_id, second_approver, rationale_enc)
 VALUES ('00000000-0000-0000-0000-0000000007c1', 'ban', '00000000-0000-0000-0000-00000000a004',
-        '00000000-0000-0000-0000-00000000a005', '\x454e43525950544544'::bytea);
+        '00000000-0000-0000-0000-00000000a003', '\x454e43525950544544'::bytea);
 UPDATE report_actions SET effective_to = now()
  WHERE report_id = '00000000-0000-0000-0000-0000000007c1' AND action = 'temporary_suspension';
 UPDATE users SET status = 'banned' WHERE id = '00000000-0000-0000-0000-000000000102';
@@ -37,7 +38,7 @@ SELECT '00000000-0000-0000-0000-000000000102', 'email', 'CONDUCT_DECISION', 'ar'
 FROM safety_reports s WHERE s.id = '00000000-0000-0000-0000-0000000007c1';
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code) VALUES
   ('00000000-0000-0000-0000-00000000a004', 'sanction_ban',  'users', '00000000-0000-0000-0000-000000000102', 'S1_confirmed'),
-  ('00000000-0000-0000-0000-00000000a005', 'sanction_approve', 'report_actions', '00000000-0000-0000-0000-0000000007c1', 'second_approver');
+  ('00000000-0000-0000-0000-00000000a003', 'sanction_approve', 'report_actions', '00000000-0000-0000-0000-0000000007c1', 'second_approver');
 
 -- Day +3: the reported user appeals (one appeal within 14 days)
 UPDATE safety_reports SET status = 'appealed' WHERE id = '00000000-0000-0000-0000-0000000007c1';
@@ -50,11 +51,12 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0051' THEN RAISE NOTICE 'appeal guard OK: decider refused';
 END $$;
 
--- an independent reviewer (a006) decides; the decision is final
+-- the owner (a003) reviews the appeal: allowed although they second-approved the ban (owner role, and
+-- REQUIRE_THREE_DISTINCT_REVIEWERS = false in the MVP); the decision is final
 INSERT INTO audit_logs (actor_id, action, entity, entity_id, reason_code)
-VALUES ('00000000-0000-0000-0000-00000000a006', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'appeal_review');
+VALUES ('00000000-0000-0000-0000-00000000a003', 'read_p4', 'safety_reports', '00000000-0000-0000-0000-0000000007c1', 'appeal_review');
 INSERT INTO report_actions (report_id, action, actor_id, rationale_enc)
-VALUES ('00000000-0000-0000-0000-0000000007c1', 'appeal_rejected', '00000000-0000-0000-0000-00000000a006', '\x454e43525950544544'::bytea);
+VALUES ('00000000-0000-0000-0000-0000000007c1', 'appeal_rejected', '00000000-0000-0000-0000-00000000a003', '\x454e43525950544544'::bytea);
 UPDATE safety_reports SET status = 'closed' WHERE id = '00000000-0000-0000-0000-0000000007c1';
 INSERT INTO notifications_outbox (user_id, channel, template_key, locale, payload)
 VALUES ('00000000-0000-0000-0000-000000000102', 'email', 'APPEAL_DECISION', 'ar',
