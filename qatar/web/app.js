@@ -2,6 +2,8 @@
 import { STRINGS } from "./strings.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
+// Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
+const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem("q_" + k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem("q_" + k, JSON.stringify(v)); } catch { /* private mode */ } },
@@ -60,12 +62,12 @@ async function api(method, path, body, opts = {}) {
   if (method !== "GET") headers["Idempotency-Key"] = opts.idem || uuid();
   let res;
   try {
-    res = await fetch(CFG.apiBase + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(apiUrl(path), { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     return { ok: false, status: 0, data: { code: "OFFLINE", message: T("offline") } };
   }
   if (res.status === 401 && tok && tok.refresh_token && !opts.retried && !opts.noAuth) {
-    const r = await fetch(CFG.apiBase + "/api/v1/auth/token:refresh", { method: "POST", headers: { "Content-Type": "application/json" },
+    const r = await fetch(apiUrl("/api/v1/auth/token:refresh"), { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: tok.refresh_token }) }).catch(() => null);
     if (r && r.ok) {
       store.set("tokens", await r.json());

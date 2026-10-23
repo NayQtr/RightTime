@@ -1,5 +1,7 @@
 // {BRAND} admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
 const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
+// Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
+const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const A = "/api/admin/v1";
 const ss = {
   get: (k) => { try { return JSON.parse(sessionStorage.getItem("qa_" + k)); } catch { return null; } },
@@ -23,7 +25,7 @@ async function api(method, path, body) {
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") headers["Idempotency-Key"] = uuid();
   let res;
-  try { res = await fetch(CFG.apiBase + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try { res = await fetch(apiUrl(path), { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch { return { ok: false, status: 0, data: { message: "Network error" } }; }
   const text = await res.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
