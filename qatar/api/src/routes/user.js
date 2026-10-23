@@ -772,12 +772,26 @@ async function notifications(ctx) {
     booking_id: (n.payload || {}).booking_id || null, text: renderTemplate(n.template_key, ctx.locale, fmt(n.payload)) })) });
 }
 
+// Health probe: confirms the API, database and server keys load; reports where the keys come from (audit F6).
+const health = async (ctx) => json(200, { status: "ok", key_source: ctx.keys.source });
+
+// Coordinator on duty (audit F10): a real channel the app can show as call / WhatsApp buttons. Empty when not configured.
+function supportContact(ctx) {
+  const phone = ctx.cfg.coordinatorPhone;
+  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) return json(200, { coordinator: null });
+  const local = phone.startsWith("+974") ? `+974 ${phone.slice(4, 8)} ${phone.slice(8)}` : phone;
+  return json(200, { coordinator: { phone_e164: phone, phone_display: local, tel_url: `tel:${phone}`,
+    whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null } }, { "Cache-Control": "public, max-age=300" });
+}
+
 export const userRoutes = [
   { method: "POST", path: "/api/v1/auth/otp:request", auth: "none", idem: true, handler: otpRequest },
   { method: "POST", path: "/api/v1/auth/otp:verify", auth: "none", handler: otpVerify },
   { method: "POST", path: "/api/v1/auth/token:refresh", auth: "none", handler: (ctx) => refreshTokens(ctx, "user") },
   { method: "POST", path: "/api/v1/auth/logout", auth: "user_any", handler: logout },
   { method: "GET", path: "/api/v1/legal/current", auth: "none", handler: legalCurrent },
+  { method: "GET", path: "/api/v1/health", auth: "none", handler: health },
+  { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
   { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },

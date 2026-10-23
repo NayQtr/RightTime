@@ -75,7 +75,7 @@ async function enroll(ctx) {
     return true;
   });
   if (!ok) fail(401, "ENROLLMENT_INVALID");
-  return json(200, { secret, otpauth_uri: `otpauth://totp/%7BBRAND%7D%20Admin:${encodeURIComponent(admin.email)}?secret=${secret}&issuer=%7BBRAND%7D&digits=6&period=30` });
+  return json(200, { secret, otpauth_uri: `otpauth://totp/Rightime%20Admin:${encodeURIComponent(admin.email)}?secret=${secret}&issuer=Rightime&digits=6&period=30` });
 }
 
 async function login(ctx) {

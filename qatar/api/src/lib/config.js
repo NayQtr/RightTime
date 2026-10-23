@@ -23,6 +23,8 @@ export async function loadConfig(sql, getEnv) {
     adminMaxFailsPerEmail: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL", "5")),
     adminMaxFailsPerIp: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_IP", "20")),
     adminLoginWindowMinutes: Number(get("ADMIN_LOGIN_WINDOW_MINUTES", "15")),
+    coordinatorPhone: get("COORDINATOR_PHONE_E164", "").trim(),
+    coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
   };
   loadedAt = Date.now();

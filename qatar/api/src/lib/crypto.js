@@ -5,7 +5,7 @@ import {
   generateKeyPairSync, randomBytes, randomInt, randomUUID, sign, timingSafeEqual, verify,
 } from "node:crypto";
 
-export { Buffer, randomUUID };
+export { Buffer, createHash, randomUUID };
 
 export const sha256hex = (s) => createHash("sha256").update(s).digest("hex");
 export const hmacHex = (key, s) => createHmac("sha256", key).update(s).digest("hex");

@@ -18,6 +18,7 @@ Everything here is **staging**: OTP codes come back in the API response and paym
 | `qatar/db/migrations/003_otp_phone.sql` | Encrypted phone on OTP challenges, OTP purge, `captured_payment_for` (follows a rebook chain), chain-aware auto refunds |
 | `qatar/db/migrations/004_cron_and_indexes.sql` | 47 covering foreign-key indexes; pg_cron jobs (hold release, unresolved organizer-cancel refunds) where pg_cron exists |
 | `qatar/db/migrations/005_late_ack_and_admin_throttle.sql` | Audit F1: `bookings.late_no_refund_ack_at` (no-refund acknowledgement before paying after the refund cut-off). Audit F5: `admin_auth_attempts` + `ADMIN_LOGIN_*` config for admin sign-in/enrolment lockout (429 + Retry-After); daily purge job |
+| `qatar/db/migrations/006_support_contact.sql` | Audit F10: `COORDINATOR_PHONE_E164` / `COORDINATOR_WHATSAPP` config for the coordinator call / WhatsApp buttons (`GET /api/v1/support/contact`) |
 | `qatar/ops/seed_common.sql` | Staging seed: admins, tiers, venues, full v0.3 questionnaire, legal docs, 3 Arabic sessions on sale, `sim` helpers |
 | `qatar/api/src/` | Framework-free API: `handle(Request) → Response`, the same code on Node and Deno |
 | `qatar/api/edge-index.ts` | Supabase Edge Function entry point (deployed as `index.ts`) |
@@ -63,7 +64,7 @@ Prerequisites: Node 22 and PostgreSQL 16+.
 
 ```bash
 createdb qatar_dev
-for f in qatar/db/migrations/00{1,2,3,4,5}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
+for f in qatar/db/migrations/00{1,2,3,4,5,6}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
 cd qatar/api && npm ci
 DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 # user app: http://localhost:8787/   admin: http://localhost:8787/admin/
@@ -107,7 +108,11 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 | `SEAT_HOLD_MINUTES` / `REBOOK_CHOICE_HOURS` / `FEEDBACK_WINDOW_DAYS` | 10 / 48 / 7 | per policy |
 | `PACKING_MODE` | `min_leftovers` (`greedy_6` also available) | per v0.4 decision |
 
-**Server keys.** If the Edge Function secrets `JWT_PRIVATE_PEM`, `DATA_KEY` (64 hex), `PHONE_PEPPER`, `PSP_WEBHOOK_SECRET` and `SEAT_TOKEN_KEY` are not set, the API generates each key once. It stores them in `app.server_keys`, which only the database owner can read. That fallback is acceptable for staging only. Before production, set all five as Edge Function secrets in the Supabase dashboard. `GET /api/admin/v1/config` (owner role) reports `key_source`.
+**Server keys (audit F6).** The five keys (`JWT_PRIVATE_PEM`, `DATA_KEY`, `PHONE_PEPPER`, `PSP_WEBHOOK_SECRET`, `SEAT_TOKEN_KEY`) can each be set as an Edge Function secret. A key that is not set is generated once and kept in `app.server_keys`.
+- With the Edge Function secret `SERVER_KEYS_KEK` set (any random text of 40+ characters, entered only in the Supabase dashboard), every row in `app.server_keys` is stored encrypted (AES-256-GCM, `enc:v1:` prefix). Existing plaintext rows are encrypted in place on first use, keeping their values, so encrypted phone numbers and admin TOTP secrets stay readable.
+- A missing or wrong KEK fails closed (HTTP 500). The keys are never regenerated over existing data.
+- `GET /api/v1/health` reports `key_source`: `env`, `db-encrypted`, `db-fallback` (plaintext) or `mixed`.
+- Never change or delete `SERVER_KEYS_KEK` once rows are encrypted. Without it the keys cannot be decrypted.
 
 ## Not built yet / before real users
 

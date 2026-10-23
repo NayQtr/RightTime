@@ -127,6 +127,9 @@ test("user journey in Arabic (RTL, 360px): SCR-01 -> SCR-07 with mock payment", 
   // SCR-06
   await page.waitForSelector(".hero");
   assert.ok((await page.locator(".hero").innerText()).includes("نجمع طاولتك الآن"));
+  // coordinator on duty is a real channel (audit F10)
+  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006");
+  assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
   await oneH1(page);
   await page.screenshot({ path: `${SHOTS}/10-dashboard-ar.png`, fullPage: true });
   // SCR-07

@@ -12,6 +12,7 @@ psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/003_otp_phone.sql"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/004_cron_and_indexes.sql"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/005_late_ack_and_admin_throttle.sql"
+"${PSQL[@]}" -1 -f "$ROOT/db/migrations/006_support_contact.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 "${PSQL[@]}" -1 -f "$HERE/01_seed_bookings.sql"
 # T-48h: matching publishes S1 and S2 (seeded, reproducible; production packing mode min_leftovers).

@@ -174,3 +174,8 @@ legend { padding: 0; font-weight: var(--t-h2-weight); font-size: var(--t-h2-size
   .brand > span:last-child { display: none; }
   .env-badge { font-size: 12px; }
 }
+
+/* app busy between screens (audit F7): the previous view is inert until the next one renders */
+main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.15s ease-in; }
+@media (prefers-reduced-motion: reduce) { main[aria-busy="true"] { transition: none; } }
+.contact-actions .btn { flex: 1 1 auto; }

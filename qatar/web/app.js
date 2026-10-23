@@ -1,4 +1,4 @@
-// {BRAND} user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
+// Rightime user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
@@ -39,6 +39,8 @@ function toast(msg) {
 }
 
 function view(title, html) {
+  main.inert = false;
+  main.removeAttribute("aria-busy");
   main.innerHTML = html;
   document.title = `${title} · ${T("brand")}`;
   const h = main.querySelector("h1");
@@ -106,10 +108,16 @@ function setLocale(l) {
   route();
 }
 
-async function loadMe() {
+// The signed-in user is cached per access token for 60 s (audit F7): every screen's guard used to refetch it.
+// The server still enforces status and registration on every call, so a short cache cannot widen access.
+async function loadMe(force = false) {
+  const tok = (store.get("tokens") || {}).access_token;
+  if (!force && state.me && state.meToken === tok && Date.now() - state.meAt < 60000) return state.me;
   const r = await api("GET", "/api/v1/users/me");
   if (!r.ok) return null;
   state.me = r.data.user;
+  state.meToken = (store.get("tokens") || {}).access_token;
+  state.meAt = Date.now();
   return state.me;
 }
 
@@ -487,6 +495,19 @@ async function scrReview(id) {
   $("#change").onclick = async () => { await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
 }
 
+// Coordinator on duty (audit F10): real call / WhatsApp buttons when configured, loaded once per page load.
+async function loadContact() {
+  if (state.contact !== undefined) return state.contact;
+  const r = await api("GET", "/api/v1/support/contact", undefined, { noAuth: true });
+  state.contact = r.ok ? r.data.coordinator : null;
+  return state.contact;
+}
+function contactButtons(c) {
+  if (!c) return "";
+  return `<div class="row contact-actions"><a class="btn btn-secondary" id="call-coord" href="${esc(c.tel_url)}"><span aria-hidden="true">📞</span> ${esc(T("callCoordinator"))} <bdi dir="ltr">${esc(c.phone_display)}</bdi></a>
+    ${c.whatsapp_url ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(c.whatsapp_url)}" target="_blank" rel="noopener noreferrer">${esc(T("whatsappCoordinator"))}</a>` : ""}</div>`;
+}
+
 // Cancellation terms before paying (audit F1): never promise a refund deadline that has already passed.
 function policyHtml(c, fee) {
   if (c.full_refund_window_open !== false) {
@@ -549,7 +570,7 @@ function countdown(iso) {
 async function scrHome() {
   if (!(await guard())) return;
   loadingView();
-  const r = await api("GET", "/api/v1/bookings");
+  const [r, contact] = await Promise.all([api("GET", "/api/v1/bookings"), loadContact()]);
   const bookings = r.ok ? r.data.bookings : [];
   const upcoming = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   const choice = bookings.find((b) => b.status === "cancelled_by_organizer" && new Date(b.starts_at) > new Date(Date.now() - 2 * 86400000));
@@ -581,14 +602,14 @@ async function scrHome() {
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/sessions">${esc(T("bookAnother"))}</a>` : ""}
-    <section class="card sunken"><p class="caption">${esc(T("help"))}</p></section>`);
+    <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
 }
 
 // ------------------------------------------------------------------ SCR-07 event details
 async function scrDetails(id) {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
-  const r = await api("GET", `/api/v1/bookings/${id}/event-details`);
+  const [r, contact] = await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadContact()]);
   if (!r.ok) { view(T("detailsTitle"), `<h1>${esc(T("detailsTitle"))}</h1>${errorBanner(r.data)}`); return; }
   const e = r.data, ph = e.reveal.phase, act = (t) => e.actions.find((a) => a.type === t);
   if (ph === "pending_payment") { go(`#/booking/${id}/review`); return; }
@@ -618,7 +639,7 @@ async function scrDetails(id) {
     ${act("feedback") ? `<a class="btn btn-primary btn-block" href="#/booking/${id}/feedback">${esc(T("rateIt"))}</a>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
-    <section class="card sunken stack"><p class="caption">${esc(T("support"))}</p>
+    <section class="card sunken stack"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
       ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary" href="#/report/${id}">${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
@@ -847,6 +868,9 @@ const ROUTES = [
 async function route() {
   clearTimers();
   const hash = location.hash || (store.get("tokens") ? "#/home" : "#/welcome");
+  // the old screen must not take taps while the next one loads (audit F7/F16); view() re-enables it
+  main.inert = true;
+  main.setAttribute("aria-busy", "true");
   for (const [re, fn] of ROUTES) {
     const m = re.exec(hash);
     if (m) {

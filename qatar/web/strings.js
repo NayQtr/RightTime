@@ -1,7 +1,7 @@
 // UI strings (ar default, en). Arabic copy follows Qatar_Phase2_Completion_v0.3 §1 where the spec gives exact wording.
 export const STRINGS = {
   ar: {
-    brand: "{BRAND}", staging: "نسخة تجريبية", skip: "تخطَّ إلى المحتوى", langToggle: "English", back: "رجوع", next: "التالي", continue: "متابعة",
+    brand: "Rightime", staging: "نسخة تجريبية", skip: "تخطَّ إلى المحتوى", langToggle: "English", back: "رجوع", next: "التالي", continue: "متابعة",
     loading: "جارٍ التحميل…", retry: "حاول مرة أخرى", close: "إغلاق", save: "حفظ", edit: "تعديل", signOut: "تسجيل الخروج",
     // SCR-01
     ob1Title: "طاولة لستة أشخاص لا تعرفهم… بعد", ob1Body: "نجمع من 4 إلى 6 أشخاص يتحدثون لغتك وضمن ميزانيتك، على قهوة أو عشاء في مكان مختار في الدوحة.",
@@ -41,7 +41,7 @@ export const STRINGS = {
     paidTitle: "تم الدفع. نجمع طاولتك الآن.", bookingRef: "رقم الحجز", goDashboard: "الذهاب إلى لوحتي",
     // SCR-06
     hi: "أهلًا {name}", hiAnon: "أهلًا بك", nextEvent: "لقاؤك القادم", noBookings: "لا حجوزات بعد. احجز طاولتك الأولى.", bookFirst: "احجز طاولتك",
-    bookAnother: "احجز موعدًا آخر", otherBookings: "حجوزاتك الأخرى", viewDetails: "عرض التفاصيل", help: "تحتاج مساعدة؟ تواصل مع المنسق المناوب", conduct: "قواعد السلوك",
+    bookAnother: "احجز موعدًا آخر", otherBookings: "حجوزاتك الأخرى", viewDetails: "عرض التفاصيل", help: "تحتاج مساعدة؟ تواصل مع المنسق المناوب", callCoordinator: "اتصل بالمنسق", whatsappCoordinator: "واتساب المنسق", conduct: "قواعد السلوك",
     stPending: "بانتظار الدفع", stForming: "نجمع طاولتك الآن. نؤكد لك قبل {lock_at}.", stLocked: "طاولتك مكتملة ({n} أشخاص). نكشف المكان في {reveal_at}.",
     stRevealed: "المكان: {venue} · {district}", stDayOf: "هل وصلت؟", stCompleted: "كيف كانت التجربة؟", stCancelled: "أُلغي الحجز",
     stOrganizer: "ألغينا هذه الطاولة. اختر: استرداد أو موعد آخر.", chooseNow: "اختر الآن", rateIt: "قيّم اللقاء", directions: "الاتجاهات", imHere: "أنا هنا",
@@ -49,7 +49,7 @@ export const STRINGS = {
     inbox: "الإشعارات", profile: "حسابي", noNotifications: "لا إشعارات بعد.",
     // SCR-07
     detailsTitle: "تفاصيل اللقاء", essentials: "الأساسيات", yourTable: "طاولتك", confirmedCount: "{n} أشخاص مؤكدون", introTip: "نصيحة: قدّم نفسك باسمك الأول.",
-    venue: "المكان", openMaps: "فتح في الخرائط", arrival: "تعليمات الوصول", tableCode: "رمز طاولتك", mentionCode: "اذكر \"{BRAND}\" ورمز الطاولة لموظف الاستقبال.",
+    venue: "المكان", openMaps: "فتح في الخرائط", arrival: "تعليمات الوصول", tableCode: "رمز طاولتك", mentionCode: "اذكر \"Rightime\" ورمز الطاولة لموظف الاستقبال.",
     checkedIn: "تم تسجيل وصولك", support: "تواصل مع المنسق المناوب", privateReport: "إبلاغ خاص", cancelBooking: "إلغاء الحجز",
     venueHidden: "نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في {reveal_at}.", tablemates: "زملاء الطاولة اليوم", unnamed: "ضيف",
     foodBandLabel: "ميزانية الطعام", afterEvent: "بعد اللقاء", accessibility: "سهولة الوصول",
@@ -81,7 +81,7 @@ export const STRINGS = {
     errGeneric: "حدث خطأ. حاول مرة أخرى.", offline: "لا يوجد اتصال بالإنترنت.",
   },
   en: {
-    brand: "{BRAND}", staging: "Staging", skip: "Skip to content", langToggle: "العربية", back: "Back", next: "Next", continue: "Continue",
+    brand: "Rightime", staging: "Staging", skip: "Skip to content", langToggle: "العربية", back: "Back", next: "Next", continue: "Continue",
     loading: "Loading…", retry: "Try again", close: "Close", save: "Save", edit: "Edit", signOut: "Sign out",
     ob1Title: "A table of six people you don't know… yet", ob1Body: "We bring together 4 to 6 people who share your language and budget, over coffee or dinner at a chosen place in Doha.",
     ob2Title: "How it works", ob2Body: "Answer a few short questions, pick a session and pay the organising fee. We form the table and reveal the venue a day before.",
@@ -114,14 +114,14 @@ export const STRINGS = {
     slowConfirm: "This is taking longer than usual. We'll notify you when it's confirmed. You won't be charged twice.", backHome: "Back to home",
     paidTitle: "Payment confirmed. We're forming your table now.", bookingRef: "Booking ref", goDashboard: "Go to my dashboard",
     hi: "Hi {name}", hiAnon: "Welcome", nextEvent: "Your next event", noBookings: "No bookings yet. Book your first table.", bookFirst: "Book a table",
-    bookAnother: "Book another session", otherBookings: "Your other bookings", viewDetails: "View details", help: "Need help? Contact the coordinator on duty", conduct: "Code of conduct",
+    bookAnother: "Book another session", otherBookings: "Your other bookings", viewDetails: "View details", help: "Need help? Contact the coordinator on duty", callCoordinator: "Call the coordinator", whatsappCoordinator: "WhatsApp the coordinator", conduct: "Code of conduct",
     stPending: "Awaiting payment", stForming: "We're forming your table. We'll confirm by {lock_at}.", stLocked: "Your table is complete ({n} people). We'll reveal the venue at {reveal_at}.",
     stRevealed: "Venue: {venue} · {district}", stDayOf: "Have you arrived?", stCompleted: "How was it?", stCancelled: "Booking cancelled",
     stOrganizer: "We cancelled this table. Choose: refund or another session.", chooseNow: "Choose now", rateIt: "Rate the event", directions: "Directions", imHere: "I'm here",
     step1: "Paid", step2: "Forming the table", step3: "Table confirmed", step4: "Venue revealed", step5: "Event day", inDays: "in {d} d {h} h", inHours: "in {h} h {m} min",
     inbox: "Notifications", profile: "Account", noNotifications: "No notifications yet.",
     detailsTitle: "Event details", essentials: "Essentials", yourTable: "Your table", confirmedCount: "{n} people confirmed", introTip: "Tip: introduce yourself with your first name.",
-    venue: "Venue", openMaps: "Open in maps", arrival: "Arrival instructions", tableCode: "Your table code", mentionCode: "Mention \"{BRAND}\" and the table code at reception.",
+    venue: "Venue", openMaps: "Open in maps", arrival: "Arrival instructions", tableCode: "Your table code", mentionCode: "Mention \"Rightime\" and the table code at reception.",
     checkedIn: "You're checked in", support: "Contact the coordinator on duty", privateReport: "Private report", cancelBooking: "Cancel booking",
     venueHidden: "We reveal the venue name and address after the table is confirmed, at {reveal_at}.", tablemates: "Your tablemates today", unnamed: "Guest",
     foodBandLabel: "Food budget", afterEvent: "After the event", accessibility: "Accessibility",

@@ -516,3 +516,13 @@ test("F5: admin sign-in and enrolment brute force get 429 + Retry-After per e-ma
   assert.deepEqual(scopes, ["email", "ip"]);
   await sql`DELETE FROM app.admin_auth_attempts`;
 });
+
+test("F10 + F6 probes: coordinator contact from config, health reports the key source", async () => {
+  const c = await call("GET", "/api/v1/support/contact");
+  assert.equal(c.status, 200);
+  assert.deepEqual(c.body.coordinator, { phone_e164: "+97460053006", phone_display: "+974 6005 3006", tel_url: "tel:+97460053006",
+    whatsapp_url: "https://wa.me/97460053006" });
+  await sql`UPDATE app.app_config SET value = 'false' WHERE key = 'COORDINATOR_WHATSAPP'`;
+  const h = await call("GET", "/api/v1/health");
+  assert.deepEqual(h.body, { status: "ok", key_source: "db-fallback" });
+});
