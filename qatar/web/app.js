@@ -27,11 +27,13 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
 function clearTimers() { state.timers.forEach((t) => clearInterval(t)); state.timers = []; }
 function every(ms, fn) { const t = setInterval(fn, ms); state.timers.push(t); return t; }
 
+// Toasts hide after 4 s and can be dismissed by tapping so they never keep covering content.
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
+  el.onclick = () => { clearTimeout(toast.t); el.textContent = ""; };
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => { el.textContent = ""; }, 5000);
+  toast.t = setTimeout(() => { el.textContent = ""; }, 4000);
 }
 
 function view(title, html) {

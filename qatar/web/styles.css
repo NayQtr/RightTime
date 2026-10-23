@@ -160,7 +160,7 @@ legend { padding: 0; font-weight: var(--t-h2-weight); font-size: var(--t-h2-size
 .center { display: grid; justify-items: center; text-align: center; gap: var(--s-3); padding-block: var(--s-8); }
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-3); }
 .toast { position: fixed; inset-inline: var(--s-4); bottom: calc(var(--s-4) + 72px); z-index: 60; max-width: 520px; margin: 0 auto;
-  background: var(--c-text); color: var(--c-bg); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); box-shadow: var(--e-2); }
+  background: var(--c-text); color: var(--c-bg); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); box-shadow: var(--e-2); cursor: pointer; }
 .toast:empty { display: none; }
 .kv { display: flex; justify-content: space-between; gap: var(--s-3); padding: var(--s-2) 0; border-block-end: 1px solid var(--c-border); }
 .kv:last-child { border-block-end: 0; }

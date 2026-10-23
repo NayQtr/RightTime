@@ -262,8 +262,10 @@ test("S1 report: 999 flag, interim block + suspension, P4 reason gate, ban by T&
     if (mine.table_id !== theirs.table_id) {
       const [swap] = await sql`SELECT a.booking_id FROM app.table_assignments a JOIN app.bookings b ON b.id = a.booking_id
                                WHERE a.table_id = ${mine.table_id} AND a.is_current AND b.id <> ${S.b1} LIMIT 1`;
-      await sql`UPDATE app.table_assignments SET table_id = ${theirs.table_id} WHERE booking_id = ${swap.booking_id} AND is_current`;
+      // both tables are full: take the swapped seat out first so neither table ever exceeds capacity
+      const [moved] = await sql`UPDATE app.table_assignments SET is_current = false WHERE booking_id = ${swap.booking_id} AND is_current RETURNING id`;
       await sql`UPDATE app.table_assignments SET table_id = ${mine.table_id} WHERE booking_id = ${theirs.id} AND is_current`;
+      await sql`UPDATE app.table_assignments SET table_id = ${theirs.table_id}, is_current = true WHERE id = ${moved.id}`;
     }
     const ev = (await call("GET", `/api/v1/bookings/${S.b1}/event-details`, { token: S.first.token })).body;
     return ev.table.members.find((m) => m.display_name === "Omar").seat;

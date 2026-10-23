@@ -89,8 +89,19 @@ test("user journey in Arabic (RTL, 360px): SCR-01 -> SCR-07 with mock payment", 
   // SCR-04
   await page.waitForSelector("input[name=s]");
   await noHorizontalScroll(page);
+  // Q07 private-contact toast: dismissible by tap
+  const toastEl = page.locator("#toast");
+  assert.ok((await toastEl.innerText()).includes("سيتواصل معك فريقنا"));
+  await toastEl.click();
+  assert.equal((await toastEl.innerText()).trim(), "", "toast dismissed on tap");
   await page.locator("label.option.radio").first().click();
-  await page.screenshot({ path: `${SHOTS}/06-sessions-ar.png`, fullPage: true });
+  // Real viewport (not full-page): the pay bar stays fixed at the bottom, alternates scroll above it
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const geo = await page.evaluate(() => ({ vh: innerHeight, bar: document.querySelector(".sticky-bar").getBoundingClientRect(),
+    alts: document.querySelector("#alts").getBoundingClientRect() }));
+  assert.ok(Math.abs(geo.bar.bottom - geo.vh) < 1, "pay bar pinned to the bottom of the viewport");
+  assert.ok(geo.alts.bottom <= geo.bar.top, "alternates sit above the pay bar");
+  await page.screenshot({ path: `${SHOTS}/06-sessions-ar.png` });
   await page.click("#go");
   // SCR-05
   await page.waitForSelector("#pay");
