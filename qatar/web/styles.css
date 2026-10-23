@@ -24,7 +24,7 @@ img, svg { max-width: 100%; }
 .brand-mark { width: 28px; height: 28px; border-radius: var(--r-md); background: var(--c-primary); color: var(--c-onPrimary); display: grid; place-items: center; font-size: 15px; }
 .topbar .spacer { flex: 1; }
 .env-badge { font-size: var(--t-caption-size); color: var(--c-warning); border: 1px solid currentColor; padding: 0 var(--s-2); border-radius: var(--r-pill); }
-main { max-width: 560px; margin: 0 auto; padding: var(--s-4) var(--s-4) calc(var(--s-12) * 2); }
+main { max-width: 560px; margin: 0 auto; padding: var(--s-4) var(--s-4) calc(var(--s-12) * 3.5); }
 main:focus { outline: none; }
 .stack > * + * { margin-block-start: var(--s-4); }
 .row { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; }

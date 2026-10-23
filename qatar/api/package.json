@@ -5,7 +5,7 @@
   "description": "{BRAND} Qatar MVP API — runs on Node (local/tests) and Supabase Edge (Deno)",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test --test-concurrency=1 test/"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
   },
   "dependencies": {
     "postgres": "3.4.5"

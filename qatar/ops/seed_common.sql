@@ -151,7 +151,7 @@ FROM sim.clock c CROSS JOIN (VALUES
 
 -- helper used by the seeds: hold a seat through the real function, then record a successful hosted-checkout payment
 CREATE FUNCTION sim.book_and_pay(p_user int, p_session uuid, p_alternates uuid[] DEFAULT '{}') RETURNS uuid
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql SET search_path = app, pg_temp AS $$
 DECLARE b app.bookings; uid uuid := ('00000000-0000-0000-0000-0000000001' || lpad(p_user::text, 2, '0'))::uuid;
 BEGIN
   b := app.hold_seat(uid, p_session, '00000000-0000-0000-0000-0000000000b2',

@@ -599,7 +599,8 @@ async function scrDetails(id) {
     <section class="card sunken stack"><p class="caption">${esc(T("support"))}</p>
       ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary" href="#/report/${id}">${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
-      <p class="caption">${esc(T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
+      <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
+        : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
   const ci = $("#ci");
   if (ci) ci.onclick = async () => { ci.disabled = true; const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); ci.disabled = false; } };
 }

@@ -118,7 +118,7 @@ test("user journey in Arabic (RTL, 360px): SCR-01 -> SCR-07 with mock payment", 
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });
   // SCR-08a outcome panel
   await page.click("a[href$='/cancel']");
-  await page.waitForSelector("text=ستسترد");
+  await page.waitForSelector("text=تأكيد الإلغاء");
   await page.screenshot({ path: `${SHOTS}/12-cancel-ar.png`, fullPage: true });
   // language toggle -> English, LTR
   await page.click("#lang");
@@ -167,11 +167,11 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   await page.fill("#tok", token);
   await page.click("button[type=submit]");
   const secret = (await page.locator("code.num").innerText()).trim();
-  await page.click("a[href='#/login']");
+  await page.click("a[href='#/login']"); await page.waitForSelector("#code");
   await page.fill("#em", "ops.oncall@example.test");
   await page.fill("#code", totpAt(secret, Date.now()));
   await page.click("button[type=submit]");
-  await page.waitForSelector("text=Sessions & Matching");
+  await page.waitForSelector("text=Sessions & Matching", { timeout: 10000 }).catch(async (e) => { throw new Error(e.message + " | page: " + (await page.locator("body").innerText()).slice(0, 400)); });
   await page.screenshot({ path: `${SHOTS}/20-admin-sessions.png`, fullPage: true });
   assert.equal(await page.locator("#nav a", { hasText: "Trust & Safety" }).count(), 0, "ops has no T&S navigation");
   await page.locator("a", { hasText: "Open" }).first().click();
@@ -188,7 +188,7 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   await page.goto(env.base + "/admin/#/enroll");
   await page.fill("#em", "ts.primary@example.test"); await page.fill("#tok", ts); await page.click("button[type=submit]");
   const s2 = (await page.locator("code.num").innerText()).trim();
-  await page.click("a[href='#/login']");
+  await page.click("a[href='#/login']"); await page.waitForSelector("#code");
   await page.fill("#em", "ts.primary@example.test"); await page.fill("#code", totpAt(s2, Date.now())); await page.click("button[type=submit]");
   await page.waitForSelector("text=Trust & Safety queue");
   await page.screenshot({ path: `${SHOTS}/22-admin-ts-queue.png`, fullPage: true });
