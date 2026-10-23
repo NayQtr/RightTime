@@ -438,6 +438,7 @@ async function scrReview(id) {
   const b = bR.data, e = eR.data;
   if (b.status !== "payment_pending") { go(`#/booking/${id}`); return; }
   const expired = !b.hold_expires_at || new Date(b.hold_expires_at) <= new Date();
+  const needAck = e.booking.cancellation.acknowledgement_required === "late_no_refund";
   view(T("reviewTitle"), `
     <h1>${esc(T("reviewTitle"))}</h1>
     <section class="card"><dl class="facts">
@@ -450,13 +451,13 @@ async function scrReview(id) {
       <div class="kv"><span>${esc(T("feeNow"))}</span><strong>${esc(b.amount.display)}</strong></div>
       <div class="kv"><span>${esc(T("foodAtVenue"))}</span><span class="muted">${esc(T("foodBand", { band: e.session.food_price_band.display }))}</span></div>
     </section>
-    <div class="banner banner-info"><span class="icon" aria-hidden="true">ℹ️</span><div>${esc(T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</div></div>
+    ${policyHtml(e.booking.cancellation, b.amount.display)}
     ${b.payment && b.payment.status === "failed" ? `<div class="banner banner-warning" role="alert"><div>${esc(T("paymentFailed"))} ${esc(T("noDoubleCharge"))}</div></div>` : ""}
     <p class="label" id="hold">${expired ? "" : `${esc(T("holdTimer"))} <span class="num" id="clock"></span>`}</p>
     <p class="sr-only" aria-live="polite" id="holdlive"></p>
     <div id="err" role="alert">${expired ? errorBanner({ message: T("holdExpired") }) : ""}</div>
     ${expired ? `<a class="btn btn-primary btn-block" href="#/sessions">${esc(T("chooseAgain"))}</a>`
-      : `<button class="btn btn-primary btn-block" id="pay">${esc(T("pay", { fee: b.amount.display }))}</button>`}
+      : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? "disabled" : ""}>${esc(T("pay", { fee: b.amount.display }))}</button>`}
     <button class="link-btn" id="change">${esc(T("changeSession"))}</button>`);
   if (!expired) {
     const end = new Date(b.hold_expires_at).getTime();
@@ -467,11 +468,13 @@ async function scrReview(id) {
       if (s === 0) { clearTimers(); scrReview(id); }
     };
     tick(); every(1000, tick);
+    if (needAck) $("#ack").onchange = () => { $("#pay").disabled = !$("#ack").checked; };
     $("#pay").onclick = async () => {
+      if (needAck && !$("#ack").checked) return;
       $("#pay").disabled = true;
       let url = b.checkout_url;
       if (!url) {
-        const c = await api("POST", `/api/v1/bookings/${id}/checkout`);
+        const c = await api("POST", `/api/v1/bookings/${id}/checkout`, needAck ? { acknowledge_late_no_refund: true } : undefined);
         if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#pay").disabled = false; return; }
         url = c.data.checkout_url;
       }
@@ -480,6 +483,19 @@ async function scrReview(id) {
     };
   }
   $("#change").onclick = async () => { await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
+}
+
+// Cancellation terms before paying (audit F1): never promise a refund deadline that has already passed.
+function policyHtml(c, fee) {
+  if (c.full_refund_window_open !== false) {
+    return `<div class="banner banner-info"><span class="icon" aria-hidden="true">ℹ️</span><div>${esc(T("policyBox", { deadline: fmtDate(c.full_refund_until) }))}</div></div>`;
+  }
+  const partial = c.refund_if_cancelled_after_payment === "partial";
+  return `<div class="banner banner-warning" id="late"><span class="icon" aria-hidden="true">⚠️</span><div>
+      <strong>${esc(T("lateTitle", { hours: c.full_refund_until_hours }))}</strong><br>
+      ${esc(T(partial ? "latePartial" : "lateNone", { fee, pct: c.late_cancel_refund_pct }))} ${esc(T("lateQuorum"))}</div></div>
+    ${c.acknowledgement_required === "late_no_refund" ? `<label class="option"><input type="checkbox" id="ack" aria-describedby="late"><span class="tick" aria-hidden="true"></span>
+      <span>${esc(T(partial ? "lateAckPartial" : "lateAck", { pct: c.late_cancel_refund_pct }))}</span></label>` : ""}`;
 }
 
 async function scrPayReturn(id) {

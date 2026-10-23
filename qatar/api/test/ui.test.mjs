@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { buildTemplate, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
 import { sha256hex, totpAt } from "../src/lib/crypto.js";
 
 const SHOTS = process.env.UI_SHOTS || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/qatar-phase4/screens");
@@ -107,6 +107,13 @@ test("user journey in Arabic (RTL, 360px): SCR-01 -> SCR-07 with mock payment", 
   await page.waitForSelector("#pay");
   assert.ok((await page.locator("main").innerText()).includes("59 ر.ق"));
   assert.match(await page.locator("#clock").innerText(), /^\d\d:\d\d$/);
+  // the seeded session starts in ~24 h: past the 48 h cut-off -> no-refund warning + required acknowledgement (audit F1)
+  const late = await page.locator("#late").innerText();
+  assert.ok(late.includes("يبدأ هذا الموعد خلال أقل من 48 ساعة") && late.includes("فلن يُسترد رسم التنظيم"), late);
+  assert.ok(!(await page.locator("main").innerText()).includes("يمكنك الإلغاء مع استرداد كامل"), "no stale full-refund promise");
+  assert.equal(await page.locator("#pay").isDisabled(), true, "pay disabled until acknowledged");
+  await page.check("#ack");
+  assert.equal(await page.locator("#pay").isDisabled(), false);
   await page.screenshot({ path: `${SHOTS}/07-review-ar.png`, fullPage: true });
   await page.click("#pay");
   // mock hosted checkout
@@ -144,7 +151,7 @@ test("SCR-10 private report: 'I'm in danger now' opens the 999 screen before sub
   const u = await signUp(call, { name: "Lina" });
   const [s] = await env.sql`SELECT id FROM app.event_sessions WHERE status = 'on_sale' ORDER BY starts_at LIMIT 1`;
   const b = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: s.id } });
-  await payViaMock(call, b.body.checkout_url);
+  await payViaMock(call, await checkoutUrlFor(call, u.token, b.body));
   const { page, errors } = await newPage();
   await page.goto(env.base + "/");
   await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },

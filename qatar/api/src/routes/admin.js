@@ -11,26 +11,82 @@ const ANY = ["owner", "ops", "finance", "trust_safety", "analyst", "researcher",
 const P4_REASONS = ["case_triage", "investigation", "second_approval", "appeal_review", "legal_request"];
 
 // ------------------------------------------------------------------ auth
+// Brute-force protection (audit F5): failed sign-ins / enrolments are recorded per e-mail hash and IP prefix.
+// Too many failures inside the window -> 429 + Retry-After, checked before the secret is verified.
+async function lockedFor(tx, kind, emailHash, ipTrunc, cfg) {
+  const win = cfg.adminLoginWindowMinutes;
+  const retry = async (rows, max) => {
+    if (rows.length < max) return 0;
+    const oldest = new Date(rows[rows.length - 1].attempted_at).getTime();
+    return Math.max(1, Math.ceil((oldest + win * 60000 - Date.now()) / 1000));
+  };
+  // per e-mail: failures since the last success, inside the window
+  const byEmail = await tx`
+    SELECT attempted_at FROM app.admin_auth_attempts
+     WHERE kind = ${kind} AND email_hash = ${emailHash} AND NOT succeeded AND attempted_at > now() - make_interval(mins => ${win})
+       AND attempted_at > COALESCE((SELECT max(attempted_at) FROM app.admin_auth_attempts
+                                     WHERE kind = ${kind} AND email_hash = ${emailHash} AND succeeded), '-infinity')
+     ORDER BY attempted_at DESC LIMIT ${cfg.adminMaxFailsPerEmail}`;
+  const e = await retry(byEmail, cfg.adminMaxFailsPerEmail);
+  if (e) return { retryAfter: e, scope: "email" };
+  if (!ipTrunc) return null;
+  // per IP prefix: all failed sign-ins and enrolments, any e-mail
+  const byIp = await tx`
+    SELECT attempted_at FROM app.admin_auth_attempts
+     WHERE ip_trunc = ${ipTrunc}::inet AND NOT succeeded AND attempted_at > now() - make_interval(mins => ${win})
+     ORDER BY attempted_at DESC LIMIT ${cfg.adminMaxFailsPerIp}`;
+  const i = await retry(byIp, cfg.adminMaxFailsPerIp);
+  return i ? { retryAfter: i, scope: "ip" } : null;
+}
+
+// Runs check -> verify -> record in one transaction, serialised per e-mail so parallel guesses cannot overshoot the limit.
+async function throttledAttempt(ctx, kind, email, verify) {
+  const emailHash = sha256hex(email);
+  const out = await ctx.sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${`admin-auth:${kind}:${emailHash}`}))`;
+    const locked = await lockedFor(tx, kind, emailHash, ctx.ipTrunc, ctx.cfg);
+    if (locked) return { locked };
+    const ok = await verify(tx);
+    await tx`INSERT INTO app.admin_auth_attempts (kind, email_hash, ip_trunc, succeeded)
+             VALUES (${kind}, ${emailHash}, ${ctx.ipTrunc}::inet, ${!!ok})`;
+    return { ok };
+  });
+  if (out.locked) {
+    await audit(ctx.sql, null, `admin_${kind}_locked`, "admin_users", null, out.locked.scope, ctx.ipTrunc);
+    fail(429, "ADMIN_LOGIN_LOCKED", null, { retry_after: out.locked.retryAfter });
+  }
+  if (!out.ok) await new Promise((r) => setTimeout(r, 300));
+  return out.ok;
+}
+
 async function enroll(ctx) {
-  const { sql, body, keys } = ctx;
-  const email = String(body.email || "").toLowerCase();
-  const [a] = await sql`SELECT * FROM app.admin_users WHERE lower(email) = ${email} AND status = 'active'`;
-  if (!a || !a.enroll_token_hash || a.enroll_token_hash.trim() !== sha256hex(String(body.enroll_token || "")) || new Date(a.enroll_expires_at) < new Date())
-    fail(401, "ENROLLMENT_INVALID");
+  const { body, keys } = ctx;
+  const email = String(body.email || "").trim().toLowerCase();
+  let admin = null;
   const secret = newTotpSecret();
-  await sql`UPDATE app.admin_users SET totp_secret_enc = ${encrypt(keys.dataKey, secret)}, mfa_enabled = true,
-                   enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = ${a.id}`;
-  await audit(sql, a.id, "admin_mfa_enrolled", "admin_users", a.id, "totp");
-  return json(200, { secret, otpauth_uri: `otpauth://totp/%7BBRAND%7D%20Admin:${encodeURIComponent(a.email)}?secret=${secret}&issuer=%7BBRAND%7D&digits=6&period=30` });
+  const ok = await throttledAttempt(ctx, "enroll", email, async (tx) => {
+    const [a] = await tx`SELECT * FROM app.admin_users WHERE lower(email) = ${email} AND status = 'active'`;
+    if (!a || !a.enroll_token_hash || a.enroll_token_hash.trim() !== sha256hex(String(body.enroll_token || "")) || new Date(a.enroll_expires_at) < new Date())
+      return false;
+    await tx`UPDATE app.admin_users SET totp_secret_enc = ${encrypt(keys.dataKey, secret)}, mfa_enabled = true,
+                    enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = ${a.id}`;
+    await audit(tx, a.id, "admin_mfa_enrolled", "admin_users", a.id, "totp");
+    admin = a;
+    return true;
+  });
+  if (!ok) fail(401, "ENROLLMENT_INVALID");
+  return json(200, { secret, otpauth_uri: `otpauth://totp/%7BBRAND%7D%20Admin:${encodeURIComponent(admin.email)}?secret=${secret}&issuer=%7BBRAND%7D&digits=6&period=30` });
 }
 
 async function login(ctx) {
   const { sql, body, keys } = ctx;
-  const [a] = await sql`SELECT * FROM app.admin_users WHERE lower(email) = ${String(body.email || "").toLowerCase()} AND status = 'active'`;
-  if (!a || !a.totp_secret_enc || !totpVerify(decrypt(keys.dataKey, a.totp_secret_enc), String(body.totp_code || ""))) {
-    await new Promise((r) => setTimeout(r, 300));
-    fail(401, "LOGIN_FAILED");
-  }
+  const email = String(body.email || "").trim().toLowerCase();
+  let a = null;
+  const ok = await throttledAttempt(ctx, "login", email, async (tx) => {
+    [a] = await tx`SELECT * FROM app.admin_users WHERE lower(email) = ${email} AND status = 'active'`;
+    return !!(a && a.totp_secret_enc && totpVerify(decrypt(keys.dataKey, a.totp_secret_enc), String(body.totp_code || "")));
+  });
+  if (!ok) fail(401, "LOGIN_FAILED");
   await sql`UPDATE app.admin_users SET last_login_at = now() WHERE id = ${a.id}`;
   await audit(sql, a.id, "admin_login", "admin_users", a.id, "totp", ctx.ipTrunc);
   const tokens = await issueTokens(ctx, "admin", a.id);

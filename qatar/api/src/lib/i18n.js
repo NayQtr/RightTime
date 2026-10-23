@@ -56,6 +56,8 @@ export const ERRORS = {
   CONFLICT: ["تعارض مع حالة البيانات الحالية.", "This conflicts with the current state."],
   ENROLLMENT_INVALID: ["رمز التسجيل غير صالح أو منتهي.", "The enrolment token is invalid or expired."],
   LOGIN_FAILED: ["البريد أو الرمز غير صحيح.", "Email or code is incorrect."],
+  ADMIN_LOGIN_LOCKED: ["محاولات دخول كثيرة. انتظر قليلًا ثم حاول مجددًا.", "Too many sign-in attempts. Please wait and try again."],
+  LATE_ACK_REQUIRED: ["أكّد أنك تفهم أن رسم التنظيم لهذا الموعد لا يُسترد عند الإلغاء.", "Please confirm you understand the organising fee for this session isn't refunded if you cancel."],
 };
 
 export function errorMessage(code, locale) {

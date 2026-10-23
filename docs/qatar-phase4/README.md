@@ -16,6 +16,8 @@ Everything here is **staging**: OTP codes come back in the API response and paym
 | `qatar/db/migrations/001_init.sql` | Schema: 34 tables, enums, functions (`hold_seat`, `rebook_booking`, `cancel_table_quorum`, …) |
 | `qatar/db/migrations/002_api_support.sql` | Admin TOTP columns; `refresh_tokens`, `idempotency_keys`, `server_keys`, `admin_approvals`; staging `app_config`; pinned function `search_path`; RLS on every table; revokes for client roles |
 | `qatar/db/migrations/003_otp_phone.sql` | Encrypted phone on OTP challenges, OTP purge, `captured_payment_for` (follows a rebook chain), chain-aware auto refunds |
+| `qatar/db/migrations/004_cron_and_indexes.sql` | 47 covering foreign-key indexes; pg_cron jobs (hold release, unresolved organizer-cancel refunds) where pg_cron exists |
+| `qatar/db/migrations/005_late_ack_and_admin_throttle.sql` | Audit F1: `bookings.late_no_refund_ack_at` (no-refund acknowledgement before paying after the refund cut-off). Audit F5: `admin_auth_attempts` + `ADMIN_LOGIN_*` config for admin sign-in/enrolment lockout (429 + Retry-After); daily purge job |
 | `qatar/ops/seed_common.sql` | Staging seed: admins, tiers, venues, full v0.3 questionnaire, legal docs, 3 Arabic sessions on sale, `sim` helpers |
 | `qatar/api/src/` | Framework-free API: `handle(Request) → Response`, the same code on Node and Deno |
 | `qatar/api/edge-index.ts` | Supabase Edge Function entry point (deployed as `index.ts`) |
@@ -61,7 +63,7 @@ Prerequisites: Node 22 and PostgreSQL 16+.
 
 ```bash
 createdb qatar_dev
-for f in qatar/db/migrations/00{1,2,3,4}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
+for f in qatar/db/migrations/00{1,2,3,4,5}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
 cd qatar/api && npm ci
 DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 # user app: http://localhost:8787/   admin: http://localhost:8787/admin/

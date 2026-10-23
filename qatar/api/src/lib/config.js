@@ -20,6 +20,9 @@ export async function loadConfig(sql, getEnv) {
     refreshTtlDays: Number(get("REFRESH_TOKEN_TTL_DAYS", "30")),
     adminTtl: Number(get("ADMIN_TOKEN_TTL_SECONDS", "3600")),
     packingMode: get("PACKING_MODE", "min_leftovers"),
+    adminMaxFailsPerEmail: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL", "5")),
+    adminMaxFailsPerIp: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_IP", "20")),
+    adminLoginWindowMinutes: Number(get("ADMIN_LOGIN_WINDOW_MINUTES", "15")),
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
   };
   loadedAt = Date.now();

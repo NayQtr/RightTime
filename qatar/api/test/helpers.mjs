@@ -18,7 +18,7 @@ function psql(db, args) {
 
 export function buildTemplate() {
   psql("postgres", ["-c", `DROP DATABASE IF EXISTS ${TEMPLATE}`, "-c", `CREATE DATABASE ${TEMPLATE}`]);
-  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "ops/seed_common.sql"]) {
+  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "ops/seed_common.sql"]) {
     psql(TEMPLATE, ["-1", "-f", path.join(ROOT, f)]);
   }
 }
@@ -78,6 +78,14 @@ export async function adminLogin(call, sql, email) {
   const en = await call("POST", "/api/admin/v1/auth/enroll", { body: { email, enroll_token: token } });
   const lg = await call("POST", "/api/admin/v1/auth/login", { body: { email, totp_code: totpAt(en.body.secret, Date.now()) } });
   return { token: lg.body.access_token, secret: en.body.secret, admin: lg.body.admin };
+}
+
+// Checkout URL of a new booking; a booking after the full-refund cut-off first needs the no-refund acknowledgement (audit F1).
+export async function checkoutUrlFor(call, token, booking) {
+  if (booking.checkout_url) return booking.checkout_url;
+  const c = await call("POST", `/api/v1/bookings/${booking.booking_id}/checkout`, { token, body: { acknowledge_late_no_refund: true } });
+  if (c.status !== 200) throw new Error("checkout failed: " + JSON.stringify(c.body));
+  return c.body.checkout_url;
 }
 
 // Pays a pending booking through the mock hosted checkout (the real signed-webhook path).

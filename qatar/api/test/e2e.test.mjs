@@ -2,8 +2,9 @@
 // Steps share state and run in order; time is moved forward by rewriting session timestamps.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { adminLogin, buildTemplate, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
 import { signWebhook } from "../src/services/psp.js";
+import { totpAt } from "../src/lib/crypto.js";
 
 let env, call, sql;
 const S = {};   // shared state across steps
@@ -31,7 +32,7 @@ async function newSession({ admin, startsInDays = 4, language = "ar", district =
 async function bookAndPay(token, sessionId, extra = {}) {
   const b = await call("POST", "/api/v1/bookings", { token, body: { session_id: sessionId, ...extra } });
   assert.equal(b.status, 201, JSON.stringify(b.body));
-  const p = await payViaMock(call, b.body.checkout_url);
+  const p = await payViaMock(call, await checkoutUrlFor(call, token, b.body));
   assert.equal(p.status, 200, JSON.stringify(p.body));
   return b.body;
 }
@@ -163,6 +164,9 @@ test("sessions list, LANGUAGE_CONFLICT, booking hold, mock checkout decline then
   assert.match(b.body.ref, /^RT-[A-HJ-NP-Z2-9]{6}$/);
   assert.equal((await call("POST", "/api/v1/bookings", { token: S.first.token, idem: "book-1", body })).body.booking_id, b.body.booking_id, "replay");
   assert.equal((await call("POST", "/api/v1/bookings", { token: S.first.token, body })).body.code, "ALREADY_BOOKED");
+  // S1 is 4 days away, inside the full-refund window: pay straight away, no acknowledgement (audit F1)
+  assert.ok(b.body.checkout_url);
+  assert.deepEqual({ open: b.body.cancellation.full_refund_window_open, ack: b.body.cancellation.acknowledgement_required }, { open: true, ack: null });
   // decline
   assert.equal((await payViaMock(call, b.body.checkout_url, "declined")).status, 200);
   let g = await call("GET", `/api/v1/bookings/${b.body.booking_id}`, { token: S.first.token });
@@ -440,4 +444,75 @@ test("errors use the v0.3 problem envelope with localised messages", async () =>
   assert.equal(ar.body.message, "الحجز غير موجود.");
   assert.equal((await call("GET", "/api/v1/nope")).status, 404);
   assert.equal((await call("GET", "/api/v1/sessions")).body.code, "UNAUTHENTICATED");
+});
+
+// ===================================================================== audit remediation
+test("F1: inside the refund window no acknowledgement is needed; after the cut-off checkout requires it and records it", async () => {
+  const u = await signUp(call, { name: "Window" });
+  const early = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: S.s3 } });
+  assert.equal(early.status, 201, JSON.stringify(early.body));
+  assert.ok(early.body.checkout_url, "S3 is a week away: pay straight away");
+  assert.equal(early.body.cancellation.full_refund_window_open, true);
+  assert.equal(early.body.cancellation.acknowledgement_required, null);
+  const edEarly = (await call("GET", `/api/v1/bookings/${early.body.booking_id}/event-details`, { token: u.token })).body;
+  assert.equal(edEarly.booking.cancellation.refund_if_cancelled_after_payment, "full");
+
+  const lateSession = await newSession({ admin: S.ops.token, startsInDays: 1.1 });   // ~26 h away: past the 48 h cut-off
+  const b = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: lateSession } });
+  assert.equal(b.status, 201, JSON.stringify(b.body));
+  assert.equal(b.body.checkout_url, null, "no checkout before the acknowledgement");
+  assert.deepEqual({ open: b.body.cancellation.full_refund_window_open, after: b.body.cancellation.refund_if_cancelled_after_payment,
+    ack: b.body.cancellation.acknowledgement_required, hours: b.body.cancellation.full_refund_until_hours },
+    { open: false, after: "none", ack: "late_no_refund", hours: 48 });
+  assert.ok(new Date(b.body.cancellation.full_refund_until) < new Date(), "the deadline is reported as already passed");
+  assert.equal((await call("GET", `/api/v1/bookings/${b.body.booking_id}`, { token: u.token })).body.checkout_url, null);
+  const ed = (await call("GET", `/api/v1/bookings/${b.body.booking_id}/event-details`, { token: u.token })).body;
+  assert.equal(ed.booking.cancellation.acknowledgement_required, "late_no_refund");
+
+  const noAck = await call("POST", `/api/v1/bookings/${b.body.booking_id}/checkout`, { token: u.token, body: {} });
+  assert.equal(noAck.status, 422);
+  assert.equal(noAck.body.code, "LATE_ACK_REQUIRED");
+  const ok = await call("POST", `/api/v1/bookings/${b.body.booking_id}/checkout`, { token: u.token, body: { acknowledge_late_no_refund: true } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const [row] = await sql`SELECT late_no_refund_ack_at FROM app.bookings WHERE id = ${b.body.booking_id}`;
+  assert.ok(row.late_no_refund_ack_at, "acknowledgement time stored on the booking");
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'late_no_refund_ack' AND entity_id = ${b.body.booking_id}`;
+  assert.equal(n, 1);
+  const g = (await call("GET", `/api/v1/bookings/${b.body.booking_id}`, { token: u.token })).body;
+  assert.ok(g.checkout_url);
+  assert.equal(g.cancellation.acknowledgement_required, null);
+  assert.equal((await payViaMock(call, ok.body.checkout_url)).status, 200);
+  assert.equal((await call("GET", `/api/v1/bookings/${b.body.booking_id}`, { token: u.token })).body.status, "paid_awaiting_group");
+});
+
+test("F5: admin sign-in and enrolment brute force get 429 + Retry-After per e-mail and per IP", async () => {
+  await sql`DELETE FROM app.admin_auth_attempts`;
+  const from = (n) => ({ "x-forwarded-for": `198.51.${n}.7` });
+  const login = (email, code, n) => call("POST", "/api/admin/v1/auth/login", { headers: from(n), body: { email, totp_code: code } });
+  const owner = "owner@example.test";
+  const good = () => totpAt(S.owner.secret, Date.now());
+  const wrong = () => String((Number(good()) + 500000) % 1000000).padStart(6, "0");
+  for (let i = 0; i < 5; i++) assert.equal((await login(owner, wrong(), 1)).status, 401);
+  const locked = await login(owner, wrong(), 1);
+  assert.equal(locked.status, 429);
+  assert.equal(locked.body.code, "ADMIN_LOGIN_LOCKED");
+  const ra = Number(locked.headers.get("retry-after"));
+  assert.ok(ra > 0 && ra <= 900, `Retry-After ${ra}`);
+  assert.equal((await login(owner, good(), 2)).status, 429, "the right code is not even checked while the e-mail is locked");
+  assert.equal((await login("nobody@example.test", wrong(), 1)).status, 401, "other e-mails from that IP are not locked yet");
+  await sql`UPDATE app.admin_auth_attempts SET attempted_at = attempted_at - interval '16 minutes'`;
+  assert.equal((await login(owner, good(), 1)).status, 200, "lock lifts after the window");
+  assert.equal((await login(owner, wrong(), 1)).status, 401, "counter restarts after a success");
+  // per IP prefix: 20 failures with any e-mail lock the prefix, other prefixes are unaffected
+  await sql`DELETE FROM app.admin_auth_attempts`;
+  for (let i = 0; i < 20; i++) assert.equal((await login(`guess${i}@example.test`, "000000", 3)).status, 401);
+  assert.equal((await login(owner, good(), 3)).status, 429, "IP prefix locked");
+  assert.equal((await login(owner, good(), 4)).status, 200, "another prefix signs in");
+  // enrolment tokens are throttled the same way
+  await sql`DELETE FROM app.admin_auth_attempts`;
+  for (let i = 0; i < 5; i++) assert.equal((await call("POST", "/api/admin/v1/auth/enroll", { headers: from(5), body: { email: "ts.second@example.test", enroll_token: `enr_bad_${i}` } })).status, 401);
+  assert.equal((await call("POST", "/api/admin/v1/auth/enroll", { headers: from(5), body: { email: "ts.second@example.test", enroll_token: "enr_bad_x" } })).status, 429);
+  const scopes = (await sql`SELECT DISTINCT reason_code FROM app.audit_logs WHERE action IN ('admin_login_locked','admin_enroll_locked')`).map((r) => r.reason_code).sort();
+  assert.deepEqual(scopes, ["email", "ip"]);
+  await sql`DELETE FROM app.admin_auth_attempts`;
 });

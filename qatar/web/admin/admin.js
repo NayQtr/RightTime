@@ -40,7 +40,7 @@ function view(title, html) {
   if (h) { h.tabIndex = -1; h.focus(); }
 }
 const msg = (r, okText) => r.ok ? `<div class="banner banner-success" role="status"><div>${esc(okText || "Done")}${r.status === 202 ? " — sent for approval (maker-checker)." : ""}</div></div>`
-  : `<div class="banner banner-danger" role="alert"><div><strong>${esc(r.data.code || "Error")}</strong> ${esc(r.data.message || "")} ${r.data.details ? `<code>${esc(JSON.stringify(r.data.details))}</code>` : ""}</div></div>`;
+  : `<div class="banner banner-danger" role="alert"><div><strong>${esc(r.data.code || "Error")}</strong> ${esc(r.data.message || "")}${r.data.retry_after ? ` Try again in ${Math.ceil(r.data.retry_after / 60)} min.` : ""} ${r.data.details ? `<code>${esc(JSON.stringify(r.data.details))}</code>` : ""}</div></div>`;
 function flash(html) { const el = document.getElementById("flash"); el.innerHTML = html; el.scrollIntoView({ block: "nearest" }); }
 
 const NAV = [

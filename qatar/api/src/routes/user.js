@@ -64,6 +64,20 @@ async function ownedBooking(sql, ctx, id, lock = false) {
 const district = (s, locale) => (locale === "en" ? s.district_hint_en : s.district_hint_ar);
 const hoursBefore = (ts, h) => new Date(new Date(ts).getTime() - h * 3600 * 1000);
 
+// Refund terms that apply to a booking right now (audit F1): after the full-refund cut-off the fee is not refunded
+// (or only late_cancel_refund_pct), so an unpaid booking must carry an explicit acknowledgement before checkout.
+async function refundTerms(sql, b, s = null) {
+  const [cp] = await sql`SELECT full_refund_until_hours, late_cancel_refund_pct FROM app.cancellation_policies WHERE version = ${b.cancellation_policy_version}`;
+  if (!s) [s] = await sql`SELECT starts_at FROM app.event_sessions WHERE id = ${b.session_id}`;
+  const fullUntil = hoursBefore(s.starts_at, cp.full_refund_until_hours);
+  const windowOpen = new Date() <= fullUntil;
+  return { fullUntil, windowOpen, hours: cp.full_refund_until_hours, pct: cp.late_cancel_refund_pct,
+    afterPayment: windowOpen ? "full" : cp.late_cancel_refund_pct > 0 ? "partial" : "none",
+    ackRequired: b.status === "payment_pending" && !windowOpen && !b.late_no_refund_ack_at };
+}
+const termsView = (t) => ({ full_refund_until: qa(t.fullUntil), full_refund_until_hours: t.hours, full_refund_window_open: t.windowOpen,
+  refund_if_cancelled_after_payment: t.afterPayment, late_cancel_refund_pct: t.pct, acknowledgement_required: t.ackRequired ? "late_no_refund" : null });
+
 async function tableMembers(sql, tableId) {
   return sql`
     SELECT b.id AS booking_id, b.user_id, u.display_name FROM app.table_assignments a
@@ -412,8 +426,10 @@ async function createBooking(ctx) {
     throw e;
   }
   const { b, p } = result;
+  const terms = await refundTerms(sql, b, s);
   return json(201, { booking_id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
-    checkout_url: ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id), amount: money(b.price_minor, locale) });
+    checkout_url: terms.ackRequired ? null : ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id), amount: money(b.price_minor, locale),
+    cancellation: termsView(terms) });
 }
 
 async function listBookings(ctx) {
@@ -440,10 +456,12 @@ async function getBooking(ctx) {
   const b = await ownedBooking(sql, ctx, ctx.params.id);
   const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
   const holdValid = b.status === "payment_pending" && b.hold_expires_at && new Date(b.hold_expires_at) > new Date();
+  const terms = await refundTerms(sql, b);
   return json(200, { id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
     amount: money(b.price_minor, locale),
     payment: p ? { status: p.status, failure_code: p.failure_code } : null,
-    checkout_url: holdValid && p && p.status === "created" ? ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id) : null });
+    checkout_url: holdValid && !terms.ackRequired && p && p.status === "created" ? ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id) : null,
+    cancellation: termsView(terms) });
 }
 
 async function newCheckout(ctx) {
@@ -452,6 +470,12 @@ async function newCheckout(ctx) {
     const b = await ownedBooking(tx, ctx, ctx.params.id, true);
     if (b.status !== "payment_pending") fail(409, "PAYMENT_NOT_PENDING");
     if (!b.hold_expires_at || new Date(b.hold_expires_at) <= new Date()) fail(409, "HOLD_EXPIRED");
+    const terms = await refundTerms(tx, b);
+    if (terms.ackRequired) {
+      if (ctx.body.acknowledge_late_no_refund !== true) fail(422, "LATE_ACK_REQUIRED", [{ field: "acknowledge_late_no_refund", code: "REQUIRED" }]);
+      await tx`UPDATE app.bookings SET late_no_refund_ack_at = now() WHERE id = ${b.id}`;
+      await audit(tx, null, "late_no_refund_ack", "bookings", b.id, terms.afterPayment);
+    }
     const pays = await tx`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC`;
     if (pays[0] && pays[0].status === "created") return { b, p: pays[0] };
     return { b, p: await createPayment(tx, ctx, b, pays.length) };
@@ -495,11 +519,14 @@ async function eventDetails(ctx) {
   const now = new Date();
   const fullUntil = hoursBefore(s.starts_at, cp.full_refund_until_hours);
   const cancellable = ["payment_pending", "paid_awaiting_group", "group_locked", "revealed"].includes(b.status) && now < new Date(s.starts_at);
+  const terms = await refundTerms(sql, b, s);
   const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY (status IN ('succeeded','refunded','partially_refunded')) DESC, created_at DESC LIMIT 1`;
   const out = {
     booking: { id: b.id, ref: b.booking_ref, status: b.status, ...(b.cancel_reason_code ? { cancel_reason: b.cancel_reason_code } : {}),
       cancellation: { policy_version: cp.version, full_refund_until: qa(fullUntil), can_cancel: cancellable,
-        refund_if_cancelled_now: cancellable && b.status !== "payment_pending" ? (now <= fullUntil ? "full" : (cp.late_cancel_refund_pct > 0 ? "partial" : "none")) : null } },
+        refund_if_cancelled_now: cancellable && b.status !== "payment_pending" ? (now <= fullUntil ? "full" : (cp.late_cancel_refund_pct > 0 ? "partial" : "none")) : null,
+        full_refund_until_hours: terms.hours, full_refund_window_open: terms.windowOpen, refund_if_cancelled_after_payment: terms.afterPayment, late_cancel_refund_pct: terms.pct,
+        acknowledgement_required: terms.ackRequired ? "late_no_refund" : null, late_no_refund_ack_at: qa(b.late_no_refund_ack_at) } },
     session: { experience: s.experience, conversation_language: s.conversation_language.trim(), starts_at: qa(s.starts_at), ends_at: qa(s.ends_at),
       timezone: "Asia/Qatar", district: district(s, locale),
       food_price_band: { max_minor: tier.max_spend_minor, display: locale === "en" ? tier.label_en : tier.label_ar },
