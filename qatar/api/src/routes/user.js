@@ -1,0 +1,775 @@
+// User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
+import { encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
+import { fail, json, money, qa, requireUuid } from "../lib/http.js";
+import { decisionLabel, renderTemplate } from "../lib/i18n.js";
+import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
+import { dispatchRefund } from "../services/payments.js";
+import { newPaymentIntentId } from "../services/psp.js";
+
+const CONSENT_DOC = { terms: "terms", conduct: "conduct", privacy_notice: "privacy", marketing: "marketing" };
+const REQUIRED_CONSENTS = ["terms", "conduct", "privacy_notice"];
+const SINGLE_TYPES = ["single", "tier", "contact_request"];
+const REPORT_CATEGORIES = ["harassment", "threat_violence", "photo_without_consent", "stalking_unwanted_contact", "fraud", "disruptive"];
+const SEVERITY_BY_CATEGORY = { threat_violence: 1, harassment: 2, stalking_unwanted_contact: 2, photo_without_consent: 2, fraud: 2, disruptive: 3 };
+const SLA_HOURS = { 1: 24, 2: 72, 3: 168, 4: 336 };
+
+// ------------------------------------------------------------------ tokens
+async function issueTokens(ctx, subjectType, subjectId, familyId = randomUUID()) {
+  const now = Math.floor(Date.now() / 1000);
+  const ttl = subjectType === "admin" ? ctx.cfg.adminTtl : ctx.cfg.accessTtl;
+  const access = jwtSign(ctx.keys.jwt.privateKey, ctx.keys.jwt.kid, { sub: subjectId, typ: subjectType, iat: now, exp: now + ttl, jti: randomToken(8) });
+  const refresh = "rt_" + randomToken(32);
+  await ctx.sql`
+    INSERT INTO app.refresh_tokens (subject_type, subject_id, family_id, token_hash, expires_at)
+    VALUES (${subjectType}, ${subjectId}, ${familyId}, ${sha256hex(refresh)}, now() + make_interval(days => ${ctx.cfg.refreshTtlDays}))`;
+  return { access_token: access, refresh_token: refresh, token_type: "Bearer", expires_in: ttl };
+}
+export { issueTokens };
+
+const registrationStatus = (u) => (u.registration_completed_at ? "complete" : "consents_required");
+const userView = (u) => ({ id: u.id, display_name: u.display_name, locale: u.locale, status: u.status, registration_status: registrationStatus(u) });
+
+// ------------------------------------------------------------------ profile helpers
+async function submittedResponse(sql, userId) {
+  const [r] = await sql`SELECT * FROM app.questionnaire_responses WHERE user_id = ${userId} AND status = 'submitted'`;
+  return r || null;
+}
+
+async function profileOf(sql, responseId) {
+  const rows = await sql`
+    SELECT q.key, o.key AS option_key, o.maps_to FROM app.answers a
+      JOIN app.questions q ON q.id = a.question_id JOIN app.question_options o ON o.id = a.option_id
+     WHERE a.response_id = ${responseId}`;
+  const languages = rows.filter((r) => r.key === "Q01" && r.maps_to && r.maps_to.language).map((r) => r.maps_to.language);
+  const tierRow = rows.find((r) => r.key === "Q04" && r.maps_to && r.maps_to.budget_tier_id);
+  let tier = null;
+  if (tierRow) [tier] = await sql`SELECT id, rank, label_ar, label_en, max_spend_minor FROM app.budget_tiers WHERE id = ${tierRow.maps_to.budget_tier_id}`;
+  return {
+    languages, tier,
+    onlyOther: rows.some((r) => r.key === "Q01" && r.option_key === "lang_other") && languages.length === 0,
+    q07Private: rows.some((r) => r.key === "Q07" && r.option_key === "private_contact"),
+    q08Mutual: rows.some((r) => r.key === "Q08" && r.option_key === "mutual_consent"),
+  };
+}
+
+async function ownedBooking(sql, ctx, id, lock = false) {
+  requireUuid(id, "booking_id");
+  const [b] = lock
+    ? await sql`SELECT * FROM app.bookings WHERE id = ${id} AND user_id = ${ctx.user.id} FOR UPDATE`
+    : await sql`SELECT * FROM app.bookings WHERE id = ${id} AND user_id = ${ctx.user.id}`;
+  if (!b) fail(404, "BOOKING_NOT_FOUND");
+  return b;
+}
+
+const district = (s, locale) => (locale === "en" ? s.district_hint_en : s.district_hint_ar);
+const hoursBefore = (ts, h) => new Date(new Date(ts).getTime() - h * 3600 * 1000);
+
+async function tableMembers(sql, tableId) {
+  return sql`
+    SELECT b.id AS booking_id, b.user_id, u.display_name FROM app.table_assignments a
+      JOIN app.bookings b ON b.id = a.booking_id JOIN app.users u ON u.id = b.user_id
+     WHERE a.table_id = ${tableId} AND a.is_current AND b.status IN ('paid_awaiting_group','group_locked','revealed','checked_in','completed')
+     ORDER BY b.created_at`;
+}
+
+// ------------------------------------------------------------------ auth
+async function otpRequest(ctx) {
+  const { sql, cfg, keys, body } = ctx;
+  const phone = String(body.phone_e164 || "").trim();
+  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
+  if (!phone.startsWith("+974")) fail(422, "UNSUPPORTED_COUNTRY", [{ field: "phone_e164", code: "UNSUPPORTED_COUNTRY" }]);
+  if (!/^\+974[3-7][0-9]{7}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
+  const lookup = hmacHex(keys.phonePepper, phone);
+  await sql`SELECT app.purge_otp_challenges()`;
+  const [last] = await sql`SELECT created_at FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} ORDER BY created_at DESC LIMIT 1`;
+  if (last) {
+    const age = (Date.now() - new Date(last.created_at).getTime()) / 1000;
+    if (age < cfg.otpResendAfter) fail(429, "OTP_RATE_LIMITED", null, { retry_after: Math.ceil(cfg.otpResendAfter - age) });
+  }
+  const [{ n_phone }] = await sql`SELECT count(*)::int AS n_phone FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} AND created_at > now() - interval '1 hour'`;
+  if (n_phone >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
+  if (ctx.ipTrunc) {
+    const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipTrunc}::inet AND created_at > now() - interval '1 hour'`;
+    if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
+  }
+  if (!cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
+  const id = randomUUID();
+  const code = randomDigits(6);
+  await sql`
+    INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc)
+    VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
+            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipTrunc}::inet)`;
+  return json(202, { challenge_id: id, expires_in: cfg.otpTtl, resend_after: cfg.otpResendAfter, code_length: 6,
+    ...(cfg.otpDevMode ? { dev_code: code } : {}) });
+}
+
+async function otpVerify(ctx) {
+  const { sql, cfg, keys, body } = ctx;
+  requireUuid(body.challenge_id, "challenge_id");
+  if (!/^[0-9]{6}$/.test(String(body.code || ""))) fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: null }]);
+  const [ch] = await sql`SELECT * FROM app.otp_challenges WHERE id = ${body.challenge_id}`;
+  if (!ch) fail(404, "CHALLENGE_NOT_FOUND");
+  if (ch.consumed_at || new Date(ch.expires_at) < new Date()) fail(410, "OTP_EXPIRED");
+  if (ch.attempts >= cfg.otpMaxAttempts) fail(423, "OTP_LOCKED", null, { retry_after: cfg.otpResendAfter });
+  if (!safeEqual(hmacB64(keys.phonePepper, `${ch.id}:${body.code}`), ch.code_hash.trim())) {
+    const [u] = await sql`UPDATE app.otp_challenges SET attempts = attempts + 1 WHERE id = ${ch.id} RETURNING attempts`;
+    fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: Math.max(0, cfg.otpMaxAttempts - u.attempts) }]);
+  }
+  const consumed = await sql`UPDATE app.otp_challenges SET consumed_at = now() WHERE id = ${ch.id} AND consumed_at IS NULL RETURNING id`;
+  if (!consumed.length) fail(410, "OTP_EXPIRED");
+  let isNew = false;
+  let [user] = await sql`SELECT * FROM app.users WHERE phone_lookup_hash = ${ch.phone_lookup_hash}`;
+  if (!user) {
+    const locale = body.locale === "en" ? "en" : "ar";
+    [user] = await sql`
+      INSERT INTO app.users (phone_e164_enc, phone_lookup_hash, locale) VALUES (${ch.phone_e164_enc}, ${ch.phone_lookup_hash}, ${locale})
+      ON CONFLICT (phone_lookup_hash) DO UPDATE SET last_login_at = now() RETURNING *`;
+    isNew = true;
+  }
+  await sql`UPDATE app.users SET last_login_at = now() WHERE id = ${user.id}`;
+  const tokens = await issueTokens(ctx, "user", user.id);
+  return json(200, { ...tokens, user: { id: user.id, is_new: isNew, registration_status: registrationStatus(user), locale: user.locale, status: user.status } });
+}
+
+async function refreshTokens(ctx, subjectType) {
+  const { sql, body } = ctx;
+  const token = String(body.refresh_token || "");
+  const [rt] = await sql`SELECT * FROM app.refresh_tokens WHERE token_hash = ${sha256hex(token)} AND subject_type = ${subjectType}`;
+  if (!rt) fail(401, "UNAUTHENTICATED");
+  if (rt.revoked_at) {
+    await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${rt.family_id} AND revoked_at IS NULL`;
+    fail(401, "UNAUTHENTICATED");
+  }
+  if (new Date(rt.expires_at) < new Date()) fail(401, "UNAUTHENTICATED");
+  const tokens = await issueTokens(ctx, subjectType, rt.subject_id, rt.family_id);
+  await sql`UPDATE app.refresh_tokens SET revoked_at = now(),
+              replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
+             WHERE id = ${rt.id}`;
+  return json(200, tokens);
+}
+export { refreshTokens };
+
+async function logout(ctx) {
+  const token = String(ctx.body.refresh_token || "");
+  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE token_hash = ${sha256hex(token)} AND subject_id = ${ctx.user.id} AND revoked_at IS NULL`;
+  return json(204, null);
+}
+
+async function legalCurrent(ctx) {
+  const rows = await ctx.sql`
+    SELECT DISTINCT ON (type) type, version, text_ar, text_en FROM app.legal_documents
+     WHERE published_at <= now() ORDER BY type, published_at DESC`;
+  const byType = Object.fromEntries(rows.map((r) => [r.type, r]));
+  const out = {};
+  for (const [consent, doc] of Object.entries(CONSENT_DOC)) {
+    if (byType[doc]) out[consent] = { document_version: byType[doc].version, required: REQUIRED_CONSENTS.includes(consent),
+      text: ctx.locale === "en" ? byType[doc].text_en : byType[doc].text_ar };
+  }
+  if (byType.cancellation) out.cancellation = { document_version: byType.cancellation.version, text: ctx.locale === "en" ? byType.cancellation.text_en : byType.cancellation.text_ar };
+  return json(200, out);
+}
+
+async function register(ctx) {
+  const { sql, body, user } = ctx;
+  if (user.registration_completed_at) fail(409, "ALREADY_REGISTERED");
+  const details = [];
+  if (body.display_name !== undefined && body.display_name !== null &&
+      !/^[\p{L} \-]{1,30}$/u.test(String(body.display_name))) details.push({ field: "display_name", code: "INVALID" });
+  if (!["ar", "en"].includes(body.locale)) details.push({ field: "locale", code: "REQUIRED" });
+  if (details.length) fail(422, "VALIDATION_FAILED", details);
+  if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
+  const consents = Array.isArray(body.consents) ? body.consents : [];
+  const docs = await sql`
+    SELECT DISTINCT ON (type) type, version FROM app.legal_documents WHERE published_at <= now() ORDER BY type, published_at DESC`;
+  const current = Object.fromEntries(docs.map((d) => [d.type, d.version]));
+  const missing = REQUIRED_CONSENTS.filter((t) => !consents.some((c) => c.type === t && c.granted === true));
+  if (missing.length) fail(422, "CONSENT_REQUIRED", missing.map((t) => ({ field: `consents.${t}`, code: "REQUIRED" })));
+  for (const c of consents) {
+    if (!(c.type in CONSENT_DOC) || typeof c.granted !== "boolean") fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "INVALID" }]);
+    const cur = current[CONSENT_DOC[c.type]];
+    if (!cur || c.document_version !== cur) fail(422, "DOCUMENT_VERSION_OUTDATED", [{ field: `consents.${c.type}`, current_version: cur || null }]);
+  }
+  const [u] = await sql.begin(async (tx) => {
+    for (const c of consents) {
+      await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
+               VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
+    }
+    return tx`UPDATE app.users SET display_name = ${body.display_name || null}, locale = ${body.locale},
+                     age_eligibility_confirmed_at = now(), registration_completed_at = now()
+               WHERE id = ${user.id} RETURNING *`;
+  });
+  return json(201, { user: userView(u), next: "questionnaire" });
+}
+
+const me = async (ctx) => json(200, { user: userView(ctx.user) });
+
+async function deleteMe(ctx) {
+  await ctx.sql`UPDATE app.users SET status = 'deletion_requested' WHERE id = ${ctx.user.id} AND status = 'active'`;
+  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE subject_id = ${ctx.user.id} AND revoked_at IS NULL`;
+  return json(202, { status: "deletion_requested" });
+}
+
+// ------------------------------------------------------------------ questionnaire
+async function questionnaireCurrent(ctx) {
+  const { sql, locale, user } = ctx;
+  const [v] = await sql`SELECT * FROM app.questionnaire_versions WHERE status = 'published'`;
+  if (!v) fail(404, "QUESTIONNAIRE_VERSION_NOT_FOUND");
+  const qs = await sql`SELECT * FROM app.questions WHERE questionnaire_version_id = ${v.id} ORDER BY sort_order`;
+  const opts = await sql`SELECT o.* FROM app.question_options o JOIN app.questions q ON q.id = o.question_id
+                          WHERE q.questionnaire_version_id = ${v.id} ORDER BY o.sort_order`;
+  const answersOf = async (status) => {
+    const [r] = await sql`SELECT id FROM app.questionnaire_responses WHERE user_id = ${user.id} AND questionnaire_version_id = ${v.id} AND status = ${status}`;
+    if (!r) return null;
+    const rows = await sql`SELECT question_id, array_agg(option_id ORDER BY option_id) AS option_ids FROM app.answers WHERE response_id = ${r.id} GROUP BY question_id`;
+    return { response_id: r.id, answers: rows.map((x) => ({ question_id: x.question_id, option_ids: x.option_ids })) };
+  };
+  return json(200, {
+    questionnaire_version_id: v.id, code: v.code,
+    questions: qs.map((q) => ({
+      id: q.id, key: q.key, scope: q.scope, answer_type: q.answer_type, is_required: q.is_required, max_selections: q.max_selections,
+      text: locale === "en" ? q.text_en : q.text_ar, purpose: locale === "en" ? q.purpose_en : q.purpose_ar,
+      options: opts.filter((o) => o.question_id === q.id).map((o) => ({ id: o.id, key: o.key, label: locale === "en" ? o.label_en : o.label_ar, is_exclusive: o.is_exclusive })),
+    })),
+    draft: await answersOf("draft"),
+    submitted: await answersOf("submitted"),
+  });
+}
+
+async function submitQuestionnaire(ctx) {
+  const { sql, body, user } = ctx;
+  requireUuid(body.questionnaire_version_id, "questionnaire_version_id");
+  if (!["draft", "submitted"].includes(body.status)) fail(400, "MALFORMED_REQUEST", [{ field: "status" }]);
+  if (!Array.isArray(body.answers)) fail(400, "MALFORMED_REQUEST", [{ field: "answers" }]);
+  const [v] = await sql`SELECT * FROM app.questionnaire_versions WHERE id = ${body.questionnaire_version_id}`;
+  if (!v) fail(404, "QUESTIONNAIRE_VERSION_NOT_FOUND");
+  if (v.status !== "published") {
+    const [cur] = await sql`SELECT id FROM app.questionnaire_versions WHERE status = 'published'`;
+    fail(409, "QUESTIONNAIRE_VERSION_RETIRED", null, { current_version_id: cur ? cur.id : null });
+  }
+  const qs = await sql`SELECT * FROM app.questions WHERE questionnaire_version_id = ${v.id}`;
+  const opts = await sql`SELECT o.* FROM app.question_options o JOIN app.questions q ON q.id = o.question_id WHERE q.questionnaire_version_id = ${v.id}`;
+  const qById = Object.fromEntries(qs.map((q) => [q.id, q]));
+  const details = [];
+  const seen = new Set();
+  const answers = [];
+  for (const a of body.answers) {
+    const q = qById[a && a.question_id];
+    if (!q) { details.push({ question_id: a && a.question_id, code: "QUESTION_NOT_IN_VERSION" }); continue; }
+    if (seen.has(q.id) || !Array.isArray(a.option_ids)) fail(400, "MALFORMED_REQUEST", [{ question_key: q.key }]);
+    seen.add(q.id);
+    const chosen = [...new Set(a.option_ids)];
+    const own = chosen.map((id) => opts.find((o) => o.id === id && o.question_id === q.id));
+    if (own.some((o) => !o)) { details.push({ question_key: q.key, code: "OPTION_NOT_IN_QUESTION" }); continue; }
+    if (SINGLE_TYPES.includes(q.answer_type) && chosen.length > 1) details.push({ question_key: q.key, code: "SINGLE_CHOICE_EXPECTED" });
+    if (q.max_selections && chosen.length > q.max_selections) details.push({ question_key: q.key, code: "TOO_MANY_SELECTIONS", max: q.max_selections });
+    const excl = own.find((o) => o.is_exclusive);
+    if (excl && chosen.length > 1) details.push({ question_key: q.key, code: "EXCLUSIVE_OPTION_CONFLICT", option_key: excl.key });
+    answers.push({ q, options: own });
+  }
+  const answeredIds = new Set(answers.filter((a) => a.options.length > 0).map((a) => a.q.id));
+  if (body.status === "submitted") {
+    for (const q of qs) if (q.is_required && !answeredIds.has(q.id)) details.push({ question_key: q.key, code: "REQUIRED_MISSING" });
+  }
+  if (details.length) fail(422, "VALIDATION_FAILED", details);
+  const reqTotal = qs.filter((q) => q.is_required).length;
+  const optTotal = qs.length - reqTotal;
+  const reqAnswered = qs.filter((q) => q.is_required && answeredIds.has(q.id)).length;
+  const optAnswered = qs.filter((q) => !q.is_required && answeredIds.has(q.id)).length;
+  const idemKey = ctx.req.headers.get("idempotency-key");
+
+  const result = await sql.begin(async (tx) => {
+    const [draft] = await tx`SELECT * FROM app.questionnaire_responses WHERE user_id = ${user.id} AND questionnaire_version_id = ${v.id} AND status = 'draft' FOR UPDATE`;
+    let response;
+    let created = false;
+    if (body.status === "draft") {
+      if (draft) [response] = await tx`UPDATE app.questionnaire_responses SET completeness_required = ${reqAnswered}, completeness_optional = ${optAnswered} WHERE id = ${draft.id} RETURNING *`;
+      else { [response] = await tx`INSERT INTO app.questionnaire_responses (user_id, questionnaire_version_id, status, completeness_required, completeness_optional)
+                                   VALUES (${user.id}, ${v.id}, 'draft', ${reqAnswered}, ${optAnswered}) RETURNING *`; created = true; }
+    } else {
+      await tx`UPDATE app.questionnaire_responses SET status = 'superseded' WHERE user_id = ${user.id} AND status = 'submitted'`;
+      if (draft) [response] = await tx`UPDATE app.questionnaire_responses SET status = 'submitted', submitted_at = now(), completeness_required = ${reqAnswered},
+                                         completeness_optional = ${optAnswered}, idempotency_key = ${idemKey} WHERE id = ${draft.id} RETURNING *`;
+      else [response] = await tx`INSERT INTO app.questionnaire_responses (user_id, questionnaire_version_id, status, submitted_at, completeness_required, completeness_optional, idempotency_key)
+                                 VALUES (${user.id}, ${v.id}, 'submitted', now(), ${reqAnswered}, ${optAnswered}, ${idemKey}) RETURNING *`;
+      created = true;
+    }
+    await tx`DELETE FROM app.answers WHERE response_id = ${response.id}`;
+    for (const a of answers) for (const o of a.options) {
+      await tx`INSERT INTO app.answers (response_id, question_id, option_id) VALUES (${response.id}, ${a.q.id}, ${o.id})`;
+    }
+    let caseId = null;
+    if (body.status === "submitted" && answers.some((a) => a.q.key === "Q07" && a.options.some((o) => o.key === "private_contact"))) {
+      const [open] = await tx`SELECT id FROM app.support_cases WHERE user_id = ${user.id} AND type = 'practical_arrangement_Q07' AND status IN ('new','in_progress','waiting_user')`;
+      if (open) caseId = open.id;
+      else { const [c] = await tx`INSERT INTO app.support_cases (user_id, type) VALUES (${user.id}, 'practical_arrangement_Q07') RETURNING id`; caseId = c.id; }
+    }
+    return { response, created, caseId };
+  });
+  const out = { response_id: result.response.id, status: result.response.status, submitted_at: qa(result.response.submitted_at),
+    completeness: { required_answered: reqAnswered, required_total: reqTotal, optional_answered: optAnswered, optional_total: optTotal } };
+  if (body.status === "submitted") {
+    const p = await profileOf(sql, result.response.id);
+    out.derived = { conversation_languages: p.languages,
+      budget_tier: p.tier ? { id: p.tier.id, label: ctx.locale === "en" ? p.tier.label_en : p.tier.label_ar } : null,
+      supported_languages_note: p.onlyOther ? "only_ar_en_available" : null, private_contact_case_id: result.caseId };
+    out.next = "choose_session";
+  }
+  return json(result.created ? 201 : 200, out);
+}
+
+// ------------------------------------------------------------------ sessions
+async function listSessions(ctx) {
+  const { sql, user, locale, url } = ctx;
+  await sql`SELECT app.release_expired_holds()`;
+  const resp = await submittedResponse(sql, user.id);
+  const prof = resp ? await profileOf(sql, resp.id) : null;
+  const exp = url.searchParams.get("experience");
+  const rows = await sql`
+    SELECT s.*, pp.service_fee_minor, cp.full_refund_until_hours,
+           (SELECT b.id FROM app.bookings b WHERE b.session_id = s.id AND b.user_id = ${user.id}
+              AND b.status IN ('payment_pending','paid_awaiting_group','group_locked','revealed','checked_in') LIMIT 1) AS my_booking_id
+      FROM app.event_sessions s JOIN app.price_plans pp ON pp.id = s.price_plan_id JOIN app.cancellation_policies cp ON cp.id = s.cancellation_policy_id
+     WHERE s.status IN ('on_sale','sold_out') AND s.booking_closes_at > now() AND s.booking_opens_at <= now()
+       AND (${exp}::text IS NULL OR s.experience::text = ${exp})
+     ORDER BY s.starts_at`;
+  return json(200, {
+    profile_languages: prof ? prof.languages : [],
+    sessions: rows.map((s) => ({
+      id: s.id, experience: s.experience, conversation_language: s.conversation_language.trim(),
+      language_match: prof ? prof.languages.includes(s.conversation_language.trim()) : null,
+      starts_at: qa(s.starts_at), ends_at: qa(s.ends_at), district: district(s, locale),
+      seats_left: s.max_seats - s.seats_sold, is_full: s.status === "sold_out" || s.seats_sold >= s.max_seats,
+      price: money(s.service_fee_minor, locale), group_size: "4–6",
+      full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), booking_closes_at: qa(s.booking_closes_at),
+      my_booking_id: s.my_booking_id,
+    })),
+  });
+}
+
+async function joinWaitlist(ctx) {
+  const { sql, user, params } = ctx;
+  requireUuid(params.id, "session_id");
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${params.id}`;
+  if (!s) fail(404, "SESSION_NOT_FOUND");
+  if (s.seats_sold < s.max_seats) fail(409, "CONFLICT", [{ reason: "session has seats; book instead" }]);
+  const [row] = await sql`
+    INSERT INTO app.waitlist_entries (user_id, session_id, position)
+    SELECT ${user.id}, ${s.id}, COALESCE(max(position), 0) + 1 FROM app.waitlist_entries WHERE session_id = ${s.id}
+    ON CONFLICT DO NOTHING RETURNING position`;
+  if (!row) fail(409, "CONFLICT", [{ reason: "already on the waitlist" }]);
+  return json(201, { session_id: s.id, position: row.position, status: "waiting" });
+}
+
+// ------------------------------------------------------------------ bookings
+async function createPayment(tx, ctx, booking, attempt = 0) {
+  const intent = newPaymentIntentId();
+  const [p] = await tx`
+    INSERT INTO app.payments (booking_id, user_id, psp, psp_payment_intent_id, amount_minor, idempotency_key)
+    VALUES (${booking.id}, ${booking.user_id}, 'test_psp', ${intent}, ${booking.price_minor}, ${`pay-${booking.id}${attempt ? "-" + attempt : ""}`})
+    RETURNING *`;
+  return p;
+}
+
+async function createBooking(ctx) {
+  const { sql, body, user, cfg, locale } = ctx;
+  requireUuid(body.session_id, "session_id");
+  const alternates = Array.isArray(body.alternate_session_ids) ? [...new Set(body.alternate_session_ids)] : [];
+  alternates.forEach((a) => requireUuid(a, "alternate_session_ids"));
+  if (alternates.length > 3 || alternates.includes(body.session_id)) fail(422, "VALIDATION_FAILED", [{ field: "alternate_session_ids", code: "INVALID" }]);
+  const resp = await submittedResponse(sql, user.id);
+  if (!resp) fail(422, "QUESTIONNAIRE_INCOMPLETE");
+  const prof = await profileOf(sql, resp.id);
+  if (!prof.tier) fail(422, "QUESTIONNAIRE_INCOMPLETE", [{ question_key: "Q04", code: "REQUIRED_MISSING" }]);
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${body.session_id}`;
+  if (!s) fail(404, "SESSION_NOT_FOUND");
+  const lang = s.conversation_language.trim();
+  if (!prof.languages.includes(lang)) fail(422, "LANGUAGE_CONFLICT", [{ field: "session_id", session_language: lang }]);
+  const [venueOk] = await sql`
+    SELECT 1 FROM app.venues v JOIN app.budget_tiers bt ON bt.id = v.budget_tier_id
+     WHERE v.city_id = ${s.city_id} AND v.is_active AND ${s.experience} = ANY (v.supported_experiences) AND bt.rank <= ${prof.tier.rank} LIMIT 1`;
+  if (!venueOk) fail(422, "BUDGET_CONFLICT");
+  if (alternates.length) {
+    const alts = await sql`SELECT id, conversation_language, status FROM app.event_sessions WHERE id IN ${sql(alternates)}`;
+    if (alts.length !== alternates.length || alts.some((a) => a.conversation_language.trim() !== lang || !["on_sale", "sold_out"].includes(a.status)))
+      fail(422, "VALIDATION_FAILED", [{ field: "alternate_session_ids", code: "NOT_ELIGIBLE" }]);
+  }
+  await sql`SELECT app.release_expired_holds()`;
+  const [fresh] = await sql`SELECT status, seats_sold, max_seats FROM app.event_sessions WHERE id = ${s.id}`;
+  if (fresh.status === "sold_out" || fresh.seats_sold >= fresh.max_seats)
+    fail(409, "SESSION_FULL", [{ field: "session_id", code: "SESSION_FULL" }], { waitlist_href: `/api/v1/sessions/${s.id}/waitlist` });
+  const idemKey = ctx.req.headers.get("idempotency-key");
+  let result;
+  try {
+    result = await sql.begin(async (tx) => {
+      const [b] = await tx`
+        SELECT (h).* FROM (SELECT app.hold_seat(${user.id}, ${s.id}, ${prof.tier.id}, ${resp.id}, ${alternates}::uuid[], ${idemKey}, ${cfg.seatHoldMinutes}) AS h) x`;
+      const [existing] = await tx`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
+      const p = existing || await createPayment(tx, ctx, b);
+      return { b, p };
+    });
+  } catch (e) {
+    if (e && e.code === "P0010") fail(409, "SESSION_FULL", [{ field: "session_id", code: "SESSION_FULL" }], { waitlist_href: `/api/v1/sessions/${s.id}/waitlist` });
+    throw e;
+  }
+  const { b, p } = result;
+  return json(201, { booking_id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
+    checkout_url: ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id), amount: money(b.price_minor, locale) });
+}
+
+async function listBookings(ctx) {
+  const { sql, user, locale } = ctx;
+  const rows = await sql`
+    SELECT b.*, s.experience, s.starts_at, s.ends_at, s.reveal_at, s.check_in_opens_at, s.lock_at, s.district_hint_ar, s.district_hint_en,
+           t.status AS table_status, t.confirmed_count
+      FROM app.bookings b JOIN app.event_sessions s ON s.id = b.session_id
+      LEFT JOIN app.table_assignments a ON a.booking_id = b.id AND a.is_current
+      LEFT JOIN app.event_tables t ON t.id = a.table_id
+     WHERE b.user_id = ${user.id} ORDER BY s.starts_at DESC`;
+  return json(200, { bookings: rows.map((r) => ({
+    id: r.id, ref: r.booking_ref, status: r.status,
+    phase: computePhase(r, r, r.table_status ? { status: r.table_status } : null),
+    experience: r.experience, starts_at: qa(r.starts_at), ends_at: qa(r.ends_at), lock_at: qa(r.lock_at), reveal_at: qa(r.reveal_at),
+    district: locale === "en" ? r.district_hint_en : r.district_hint_ar,
+    confirmed_count: r.table_status === "locked" ? r.confirmed_count : null,
+    hold_expires_at: qa(r.hold_expires_at),
+  })) });
+}
+
+async function getBooking(ctx) {
+  const { sql, locale } = ctx;
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
+  const holdValid = b.status === "payment_pending" && b.hold_expires_at && new Date(b.hold_expires_at) > new Date();
+  return json(200, { id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
+    amount: money(b.price_minor, locale),
+    payment: p ? { status: p.status, failure_code: p.failure_code } : null,
+    checkout_url: holdValid && p && p.status === "created" ? ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id) : null });
+}
+
+async function newCheckout(ctx) {
+  const { sql } = ctx;
+  const out = await sql.begin(async (tx) => {
+    const b = await ownedBooking(tx, ctx, ctx.params.id, true);
+    if (b.status !== "payment_pending") fail(409, "PAYMENT_NOT_PENDING");
+    if (!b.hold_expires_at || new Date(b.hold_expires_at) <= new Date()) fail(409, "HOLD_EXPIRED");
+    const pays = await tx`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC`;
+    if (pays[0] && pays[0].status === "created") return { b, p: pays[0] };
+    return { b, p: await createPayment(tx, ctx, b, pays.length) };
+  });
+  return json(200, { checkout_url: ctx.psp.checkoutUrl(out.b.id, out.p.psp_payment_intent_id), hold_expires_at: qa(out.b.hold_expires_at) });
+}
+
+async function resolutionOptions(sql, b, locale, cfg) {
+  const deadline = new Date(new Date(b.cancelled_at).getTime() + cfg.rebookChoiceHours * 3600 * 1000);
+  const sessions = await sql`
+    SELECT s.id, s.starts_at, s.district_hint_ar, s.district_hint_en, s.max_seats - s.seats_sold AS seats_left,
+           (s.id = ANY (${b.alternate_session_ids}::uuid[])) AS is_alternate
+      FROM app.event_sessions s
+     WHERE s.status = 'on_sale' AND s.conversation_language = ${b.conversation_language} AND s.booking_closes_at > now()
+       AND s.id <> ${b.session_id} AND s.seats_sold < s.max_seats
+     ORDER BY (s.id = ANY (${b.alternate_session_ids}::uuid[])) DESC, s.starts_at LIMIT 5`;
+  return {
+    choice_deadline: qa(deadline), default_if_no_choice: "refund", open: deadline > new Date(),
+    options: [
+      { type: "rebook", sessions: sessions.map((s) => ({ session_id: s.id, starts_at: qa(s.starts_at), district: locale === "en" ? s.district_hint_en : s.district_hint_ar, seats_left: s.seats_left, is_alternate: s.is_alternate })) },
+      { type: "refund", amount: money(b.price_minor, locale) },
+    ],
+  };
+}
+
+async function resolutionState(sql, bookingId) {
+  const [child] = await sql`SELECT id, booking_ref, status FROM app.bookings WHERE rebooked_from_booking_id = ${bookingId}`;
+  const [refund] = await sql`SELECT status, amount_minor FROM app.refunds WHERE booking_id = ${bookingId} AND status <> 'failed' ORDER BY created_at DESC LIMIT 1`;
+  return { child: child || null, refund: refund || null };
+}
+
+async function eventDetails(ctx) {
+  const { sql, locale, cfg, keys } = ctx;
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
+  const [cp] = await sql`SELECT * FROM app.cancellation_policies WHERE version = ${b.cancellation_policy_version}`;
+  const [tier] = await sql`SELECT * FROM app.budget_tiers WHERE id = ${b.budget_tier_id}`;
+  const t = await currentTable(sql, b.id);
+  const [v] = t && t.venue_id ? await sql`SELECT * FROM app.venues WHERE id = ${t.venue_id}` : [null];
+  const phase = computePhase(b, s, t);
+  const now = new Date();
+  const fullUntil = hoursBefore(s.starts_at, cp.full_refund_until_hours);
+  const cancellable = ["payment_pending", "paid_awaiting_group", "group_locked", "revealed"].includes(b.status) && now < new Date(s.starts_at);
+  const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY (status IN ('succeeded','refunded','partially_refunded')) DESC, created_at DESC LIMIT 1`;
+  const out = {
+    booking: { id: b.id, ref: b.booking_ref, status: b.status, ...(b.cancel_reason_code ? { cancel_reason: b.cancel_reason_code } : {}),
+      cancellation: { policy_version: cp.version, full_refund_until: qa(fullUntil), can_cancel: cancellable,
+        refund_if_cancelled_now: cancellable && b.status !== "payment_pending" ? (now <= fullUntil ? "full" : (cp.late_cancel_refund_pct > 0 ? "partial" : "none")) : null } },
+    session: { experience: s.experience, conversation_language: s.conversation_language.trim(), starts_at: qa(s.starts_at), ends_at: qa(s.ends_at),
+      timezone: "Asia/Qatar", district: district(s, locale),
+      food_price_band: { max_minor: tier.max_spend_minor, display: locale === "en" ? tier.label_en : tier.label_ar },
+      accessibility: v ? v.accessibility : null, group_size: "4–6" },
+    reveal: { phase, lock_at: qa(s.lock_at), reveal_at: qa(s.reveal_at), check_in_opens_at: qa(s.check_in_opens_at) },
+    table: null, venue: null,
+    payment: p ? { amount: money(p.amount_minor, locale), status: p.status } : null,
+    actions: [],
+  };
+  if (["locked", "revealed", "day_of", "completed"].includes(phase)) {
+    out.table = { confirmed_count: t.confirmed_count, capacity: t.capacity };
+    if (phase !== "locked") out.table.code = t.table_code;
+    if (["day_of", "completed"].includes(phase)) {
+      const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
+      out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null }));
+    }
+  }
+  if (["revealed", "day_of", "completed"].includes(phase) && v) {
+    out.venue = { name: v.name, address: v.address_line, district: locale === "en" ? v.district_en : v.district_ar,
+      location: { lat: Number(v.lat), lng: Number(v.lng) }, map_url: `https://maps.google.com/?q=${Number(v.lat)},${Number(v.lng)}`,
+      arrival_instructions: (locale === "en" ? v.arrival_instructions_en : v.arrival_instructions_ar).replace("{code}", t.table_code),
+      bill_policy: locale === "en" ? "Everyone pays the venue directly for their own food and drinks. No minimum order from us." : "تدفع طعامك وشرابك للمكان مباشرة. لا يوجد حد أدنى للطلب من جهتنا." };
+  }
+  if (cancellable) out.actions.push({ type: "cancel", method: "POST", href: `/api/v1/bookings/${b.id}/cancel` });
+  if (phase === "pending_payment") out.actions.push({ type: "pay", method: "POST", href: `/api/v1/bookings/${b.id}/checkout` });
+  if (phase === "day_of" && ["revealed", "group_locked"].includes(b.status) && now < new Date(s.ends_at))
+    out.actions.push({ type: "check_in", method: "POST", href: `/api/v1/bookings/${b.id}/check-in` });
+  if (["day_of", "completed"].includes(phase)) out.actions.push({ type: "report", method: "POST", href: "/api/v1/reports" });
+  if (phase === "completed") {
+    const [fb] = await sql`SELECT id FROM app.event_feedback WHERE booking_id = ${b.id}`;
+    const open = now < new Date(new Date(s.ends_at).getTime() + cfg.feedbackWindowDays * 86400000);
+    if (!fb && open) out.actions.push({ type: "feedback", method: "POST", href: `/api/v1/bookings/${b.id}/feedback` });
+    out.feedback = { submitted: !!fb, open };
+  }
+  if (phase === "cancelled") {
+    const st = await resolutionState(sql, b.id);
+    out.refund = st.refund ? { status: st.refund.status, amount: money(st.refund.amount_minor, locale) } : { status: "none" };
+    if (st.child) out.rebooked_into = { booking_id: st.child.id, ref: st.child.booking_ref, status: st.child.status };
+    if (b.status === "cancelled_by_organizer" && !st.child && !st.refund) {
+      out.resolution = await resolutionOptions(sql, b, locale, cfg);
+      if (out.resolution.open) out.actions.push({ type: "resolution", method: "POST", href: `/api/v1/bookings/${b.id}/resolution` });
+    }
+  }
+  const etag = `"${sha256hex(JSON.stringify(out)).slice(0, 32)}"`;
+  const headers = { ETag: etag, "Cache-Control": "private, no-store" };
+  if (ctx.req.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+  return json(200, out, headers);
+}
+
+async function cancelBooking(ctx) {
+  const { sql, body, locale } = ctx;
+  const reason = ["schedule_changed", "illness", "other"].includes(body.reason_code) ? body.reason_code : null;
+  const out = await sql.begin(async (tx) => {
+    const b = await ownedBooking(tx, ctx, ctx.params.id, true);
+    const [s] = await tx`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
+    if (!["payment_pending", "paid_awaiting_group", "group_locked", "revealed"].includes(b.status) || new Date() >= new Date(s.starts_at))
+      fail(409, "CANCEL_NOT_ALLOWED");
+    const [cp] = await tx`SELECT * FROM app.cancellation_policies WHERE version = ${b.cancellation_policy_version}`;
+    await tx`UPDATE app.bookings SET status = 'cancelled_by_user', cancelled_at = now(), cancel_actor = 'user',
+                    cancel_reason_code = ${reason}, hold_expires_at = NULL WHERE id = ${b.id}`;
+    if (b.status === "payment_pending") {
+      await tx`UPDATE app.payments SET status = 'cancelled' WHERE booking_id = ${b.id} AND status IN ('created','requires_action','failed')`;
+      return { refund: { eligible: false, amount: money(0, locale), status: "none" }, refundId: null, b };
+    }
+    const inWindow = new Date() <= hoursBefore(s.starts_at, cp.full_refund_until_hours);
+    const amount = inWindow ? b.price_minor : Math.floor(b.price_minor * cp.late_cancel_refund_pct / 100);
+    const p = await capturedPayment(tx, b.id);
+    let refundId = null;
+    if (amount > 0 && p) {
+      const [r] = await tx`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
+                           VALUES (${p.id}, ${b.id}, ${amount}, 'user_cancel_in_window', 'requested', ${"ucx-" + b.id}) RETURNING id`;
+      refundId = r.id;
+    }
+    await notify(tx, b.user_id, "BOOKING_CANCELLED", { ref: b.booking_ref, booking_id: b.id });
+    return { refund: { eligible: amount > 0, amount: money(amount, locale), status: refundId ? "requested" : "none" }, refundId, b };
+  });
+  if (out.refundId) {
+    await dispatchRefund(sql, ctx.psp, out.refundId);
+    const [r] = await sql`SELECT status FROM app.refunds WHERE id = ${out.refundId}`;
+    out.refund.status = r.status;
+  }
+  return json(200, { status: "cancelled_by_user", refund: out.refund });
+}
+
+async function chooseResolution(ctx) {
+  const { sql, body, locale, cfg, user } = ctx;
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  if (b.status !== "cancelled_by_organizer") fail(409, "RESOLUTION_NOT_AVAILABLE");
+  const st = await resolutionState(sql, b.id);
+  if (st.child || st.refund) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "already_resolved" }]);
+  if (new Date() > new Date(new Date(b.cancelled_at).getTime() + cfg.rebookChoiceHours * 3600 * 1000)) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "deadline_passed" }]);
+  if (body.choice === "rebook") {
+    requireUuid(body.session_id, "session_id");
+    const [nb] = await sql`SELECT (r).* FROM (SELECT app.rebook_booking(${b.id}, ${user.id}, ${body.session_id}) AS r) x`;
+    return json(200, { choice: "rebook", booking: { id: nb.id, ref: nb.booking_ref, status: nb.status } });
+  }
+  if (body.choice === "refund") {
+    const out = await sql.begin(async (tx) => {
+      const p = await capturedPayment(tx, b.id);
+      if (!p) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "no_payment" }]);
+      const [r] = await tx`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
+                           VALUES (${p.id}, ${b.id}, ${p.amount_minor}, 'organizer_cancel', 'requested', ${"choice-refund-" + b.id}) RETURNING *`;
+      return r;
+    });
+    return json(200, { choice: "refund", refund: { status: out.status, amount: money(out.amount_minor, locale) } });
+  }
+  fail(422, "VALIDATION_FAILED", [{ field: "choice", code: "INVALID" }]);
+}
+
+async function checkIn(ctx) {
+  const { sql } = ctx;
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
+  const t = await currentTable(sql, b.id);
+  if (computePhase(b, s, t) !== "day_of" || !["revealed", "group_locked"].includes(b.status) || new Date() >= new Date(s.ends_at))
+    fail(409, "CHECK_IN_NOT_OPEN");
+  const [u] = await sql`UPDATE app.bookings SET status = 'checked_in', checked_in_at = now() WHERE id = ${b.id} RETURNING checked_in_at`;
+  return json(200, { status: "checked_in", checked_in_at: qa(u.checked_in_at) });
+}
+
+async function feedback(ctx) {
+  const { sql, body, cfg, keys } = ctx;
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
+  const t = await currentTable(sql, b.id);
+  if (computePhase(b, s, t) !== "completed" || new Date() > new Date(new Date(s.ends_at).getTime() + cfg.feedbackWindowDays * 86400000))
+    fail(409, "FEEDBACK_NOT_OPEN");
+  const r15 = (x) => Number.isInteger(x) && x >= 1 && x <= 5;
+  const details = [];
+  if (!r15(body.overall_rating)) details.push({ field: "overall_rating", code: "REQUIRED" });
+  if (!r15(body.comfort_rating)) details.push({ field: "comfort_rating", code: "REQUIRED" });
+  if (body.venue_rating != null && !r15(body.venue_rating)) details.push({ field: "venue_rating", code: "INVALID" });
+  if (body.comment != null && String(body.comment).length > 500) details.push({ field: "comment", code: "TOO_LONG" });
+  if (details.length) fail(422, "VALIDATION_FAILED", details);
+  const resp = await submittedResponse(sql, ctx.user.id);
+  const prof = resp ? await profileOf(sql, resp.id) : { q08Mutual: false };
+  const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
+  const bySeat = Object.fromEntries(members.map((m) => [seatToken(keys, b.id, m.booking_id), m]));
+  const connections = Array.isArray(body.connections) ? body.connections : [];
+  await sql.begin(async (tx) => {
+    const [dup] = await tx`SELECT id FROM app.event_feedback WHERE booking_id = ${b.id}`;
+    if (dup) fail(409, "ALREADY_SUBMITTED");
+    await tx`INSERT INTO app.event_feedback (booking_id, user_id, table_id, venue_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private)
+             VALUES (${b.id}, ${ctx.user.id}, ${t.id}, ${t.venue_id}, ${body.overall_rating}, ${body.comfort_rating}, ${body.venue_rating ?? null},
+                     ${typeof body.would_book_again === "boolean" ? body.would_book_again : null}, ${body.comment ?? null})`;
+    if (prof.q08Mutual) {
+      for (const c of connections) {
+        const m = bySeat[c && c.seat];
+        if (!m || typeof c.choice !== "boolean") continue;
+        await tx`INSERT INTO app.connection_consents (table_id, from_user_id, to_user_id, choice, expires_at)
+                 VALUES (${t.id}, ${ctx.user.id}, ${m.user_id}, ${c.choice}, now() + interval '30 days')
+                 ON CONFLICT (table_id, from_user_id, to_user_id) DO UPDATE SET choice = EXCLUDED.choice, decided_at = now()`;
+      }
+    }
+  });
+  const mutual = await sql`
+    SELECT u.display_name FROM app.mutual_connections mc JOIN app.users u
+      ON u.id = CASE WHEN mc.user_a = ${ctx.user.id} THEN mc.user_b ELSE mc.user_a END
+     WHERE mc.table_id = ${t.id} AND ${ctx.user.id} IN (mc.user_a, mc.user_b)`;
+  return json(201, { saved: true, connections_enabled: prof.q08Mutual, mutual: mutual.map((m) => m.display_name) });
+}
+
+// ------------------------------------------------------------------ safety
+async function createReport(ctx) {
+  const { sql, body, keys, user } = ctx;
+  const b = await ownedBooking(sql, ctx, body.booking_id);
+  if (!REPORT_CATEGORIES.includes(body.category)) fail(422, "VALIDATION_FAILED", [{ field: "category", code: "INVALID" }]);
+  if (!["during", "after"].includes(body.timing)) fail(422, "VALIDATION_FAILED", [{ field: "timing", code: "INVALID" }]);
+  if (body.description != null && String(body.description).length > 2000) fail(422, "VALIDATION_FAILED", [{ field: "description", code: "TOO_LONG" }]);
+  const danger = body.immediate_danger === true;
+  const t = await currentTable(sql, b.id);
+  let reported = null;
+  if (body.reported_seat) {
+    if (!t) fail(422, "VALIDATION_FAILED", [{ field: "reported_seat", code: "NOT_FOUND" }]);
+    const m = (await tableMembers(sql, t.id)).find((x) => x.booking_id !== b.id && seatToken(keys, b.id, x.booking_id) === body.reported_seat);
+    if (!m) fail(422, "VALIDATION_FAILED", [{ field: "reported_seat", code: "NOT_FOUND" }]);
+    reported = m.user_id;
+  }
+  const severity = danger ? 1 : SEVERITY_BY_CATEGORY[body.category];
+  const report = await sql.begin(async (tx) => {
+    const [r] = await tx`
+      INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, booking_id, table_id, category, timing,
+                                      immediate_danger, description_enc, severity, status, sla_due_at)
+      VALUES (app.next_case_ref(), ${user.id}, ${reported}, ${b.id}, ${t ? t.id : null}, ${body.category}, ${body.timing}, ${danger},
+              ${body.description ? encrypt(keys.dataKey, String(body.description)) : null}, ${severity}, 'new',
+              now() + make_interval(hours => ${SLA_HOURS[severity]}))
+      RETURNING *`;
+    await audit(tx, null, "report_intake", "safety_reports", r.id, `S${severity}${danger ? "_immediate_danger" : ""}`);
+    if (reported && severity <= 3) {
+      await tx`INSERT INTO app.user_blocks (blocker_user_id, blocked_user_id, source, report_id)
+               VALUES (${user.id}, ${reported}, 'safety_case', ${r.id}) ON CONFLICT (blocker_user_id, blocked_user_id) DO NOTHING`;
+      await tx`INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (${r.id}, 'interim_block', NULL)`;
+      await tx`DELETE FROM app.connection_consents WHERE (from_user_id = ${user.id} AND to_user_id = ${reported}) OR (from_user_id = ${reported} AND to_user_id = ${user.id})`;
+      await audit(tx, null, "user_block_auto", "user_blocks", r.id, "safety_case");
+    }
+    if (reported && severity === 1) {
+      await tx`INSERT INTO app.report_actions (report_id, action, actor_id) VALUES (${r.id}, 'temporary_suspension', NULL)`;
+      await tx`UPDATE app.users SET status = 'suspended' WHERE id = ${reported} AND status = 'active'`;
+      await audit(tx, null, "user_suspend_interim", "users", reported, "S1_pending_review");
+    }
+    if (severity <= 2 && body.timing === "during") await audit(tx, null, "coordinator_paged", "safety_reports", r.id, "push_and_sms");
+    await notify(tx, user.id, "REPORT_RECEIVED", { case: r.case_ref });
+    return r;
+  });
+  return json(201, { case_ref: report.case_ref, severity: report.severity, status: report.status,
+    emergency: { show: danger, number: "999" } });
+}
+
+async function myCases(ctx) {
+  const rows = await ctx.sql`
+    SELECT r.case_ref, r.category, r.status, s.starts_at,
+           (SELECT ra.action FROM app.report_actions ra WHERE ra.report_id = r.id AND ra.action IN ('warning','suspension','ban','no_action')
+             ORDER BY ra.created_at DESC LIMIT 1) AS decision,
+           (SELECT ra.created_at FROM app.report_actions ra WHERE ra.report_id = r.id AND ra.action IN ('warning','suspension','ban','no_action')
+             ORDER BY ra.created_at DESC LIMIT 1) AS decided_at
+      FROM app.safety_reports r LEFT JOIN app.bookings b ON b.id = r.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
+     WHERE r.reported_user_id = ${ctx.user.id}`;
+  return json(200, { cases: rows.filter((r) => r.decision).map((r) => ({
+    case_ref: r.case_ref, event_date: qa(r.starts_at), category: r.category, decision: r.decision, status: r.status,
+    appeal_until: qa(new Date(new Date(r.decided_at).getTime() + 14 * 86400000)),
+    can_appeal: r.status === "actioned" && r.decision !== "no_action" && Date.now() < new Date(r.decided_at).getTime() + 14 * 86400000,
+  })) });
+}
+
+async function appeal(ctx) {
+  const { sql, params, user } = ctx;
+  const [r] = await sql`SELECT * FROM app.safety_reports WHERE case_ref = ${params.ref} AND reported_user_id = ${user.id}`;
+  if (!r) fail(404, "CASE_NOT_FOUND");
+  const [d] = await sql`SELECT * FROM app.report_actions WHERE report_id = ${r.id} AND action IN ('warning','suspension','ban') ORDER BY created_at DESC LIMIT 1`;
+  if (r.status !== "actioned" || !d || Date.now() > new Date(d.created_at).getTime() + 14 * 86400000) fail(409, "APPEAL_NOT_ALLOWED");
+  await sql.begin(async (tx) => {
+    await tx`UPDATE app.safety_reports SET status = 'appealed' WHERE id = ${r.id}`;
+    await audit(tx, null, "appeal_filed", "safety_reports", r.id, "user_appeal");
+  });
+  return json(202, { case_ref: r.case_ref, status: "appealed" });
+}
+
+async function notifications(ctx) {
+  const rows = await ctx.sql`SELECT * FROM app.notifications_outbox WHERE user_id = ${ctx.user.id} ORDER BY created_at DESC LIMIT 50`;
+  const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
+    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, ctx.locale) : v]));
+  return json(200, { notifications: rows.map((n) => ({ id: n.id, template_key: n.template_key, created_at: qa(n.created_at),
+    booking_id: (n.payload || {}).booking_id || null, text: renderTemplate(n.template_key, ctx.locale, fmt(n.payload)) })) });
+}
+
+export const userRoutes = [
+  { method: "POST", path: "/api/v1/auth/otp:request", auth: "none", idem: true, handler: otpRequest },
+  { method: "POST", path: "/api/v1/auth/otp:verify", auth: "none", handler: otpVerify },
+  { method: "POST", path: "/api/v1/auth/token:refresh", auth: "none", handler: (ctx) => refreshTokens(ctx, "user") },
+  { method: "POST", path: "/api/v1/auth/logout", auth: "user_any", handler: logout },
+  { method: "GET", path: "/api/v1/legal/current", auth: "none", handler: legalCurrent },
+  { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
+  { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
+  { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },
+  { method: "GET", path: "/api/v1/questionnaires/current", auth: "user", handler: questionnaireCurrent },
+  { method: "POST", path: "/api/v1/questionnaire-responses", auth: "user", idem: true, handler: submitQuestionnaire },
+  { method: "GET", path: "/api/v1/sessions", auth: "user", handler: listSessions },
+  { method: "POST", path: "/api/v1/sessions/{id}/waitlist", auth: "user", idem: true, handler: joinWaitlist },
+  { method: "POST", path: "/api/v1/bookings", auth: "user", idem: true, handler: createBooking },
+  { method: "GET", path: "/api/v1/bookings", auth: "user", handler: listBookings },
+  { method: "GET", path: "/api/v1/bookings/{id}", auth: "user", handler: getBooking },
+  { method: "POST", path: "/api/v1/bookings/{id}/checkout", auth: "user", idem: true, handler: newCheckout },
+  { method: "GET", path: "/api/v1/bookings/{id}/event-details", auth: "user", handler: eventDetails },
+  { method: "POST", path: "/api/v1/bookings/{id}/cancel", auth: "user", idem: true, handler: cancelBooking },
+  { method: "POST", path: "/api/v1/bookings/{id}/resolution", auth: "user", idem: true, handler: chooseResolution },
+  { method: "POST", path: "/api/v1/bookings/{id}/check-in", auth: "user", idem: true, handler: checkIn },
+  { method: "POST", path: "/api/v1/bookings/{id}/feedback", auth: "user", idem: true, handler: feedback },
+  { method: "POST", path: "/api/v1/reports", auth: "user", idem: true, handler: createReport },
+  { method: "GET", path: "/api/v1/cases/mine", auth: "user", handler: myCases },
+  { method: "POST", path: "/api/v1/cases/{ref}/appeal", auth: "user", idem: true, handler: appeal },
+  { method: "GET", path: "/api/v1/notifications", auth: "user_any", handler: notifications },
+];
+

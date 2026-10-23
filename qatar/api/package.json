@@ -1,0 +1,16 @@
+{
+  "name": "qatar-mvp-api",
+  "private": true,
+  "type": "module",
+  "description": "{BRAND} Qatar MVP API — runs on Node (local/tests) and Supabase Edge (Deno)",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test --test-concurrency=1 test/"
+  },
+  "dependencies": {
+    "postgres": "3.4.5"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}

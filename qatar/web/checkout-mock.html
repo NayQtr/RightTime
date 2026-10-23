@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test payment · test_psp</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/config.js"></script>
+  <style>main { padding-top: var(--s-8); } .psp { border: 2px dashed var(--c-warning); }</style>
+</head>
+<body>
+  <main id="main" class="stack">
+    <div class="banner banner-warning" role="note"><div><strong>TEST PSP · بوابة دفع تجريبية</strong><br>
+      لا تُدخل بيانات بطاقة حقيقية. هذه الصفحة تحاكي صفحة الدفع المستضافة لمزوّد الدفع.<br>
+      No real card data. This page simulates the payment provider's hosted checkout.</div></div>
+    <section class="card psp stack" id="box" aria-busy="true"><div class="spinner" aria-hidden="true"></div></section>
+  </main>
+  <script type="module">
+    const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
+    const pi = new URLSearchParams(location.search).get("pi");
+    const box = document.getElementById("box");
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    async function load() {
+      const r = await fetch(`${CFG.apiBase}/api/mock-psp/checkout/${encodeURIComponent(pi)}`);
+      const d = await r.json();
+      if (!r.ok) { box.innerHTML = `<h1>Error</h1><p>${esc(d.message)}</p>`; return; }
+      box.removeAttribute("aria-busy");
+      box.innerHTML = `
+        <h1>${esc(d.merchant)}</h1>
+        <div class="kv"><span>المبلغ · Amount</span><strong class="num">${esc(d.amount.display)}</strong></div>
+        <div class="kv"><span>الحجز · Booking</span><span class="num">${esc(d.booking_ref)}</span></div>
+        <div class="kv"><span>البطاقة · Card</span><span class="num">4242 4242 4242 4242 · 3-D Secure</span></div>
+        <div class="stack">
+          <button class="btn btn-primary btn-block" data-o="success">ادفع (نجاح) · Pay (success)</button>
+          <button class="btn btn-secondary btn-block" data-o="declined">رفض البطاقة · Card declined</button>
+          <button class="btn btn-secondary btn-block" data-o="3ds_failed">فشل 3-D Secure · 3-D Secure failed</button>
+          <button class="btn btn-ghost btn-block" data-o="cancel">إلغاء والعودة · Cancel and return</button>
+        </div>`;
+      box.querySelectorAll("[data-o]").forEach((b) => (b.onclick = () => pay(b.dataset.o, d.return_url)));
+    }
+    async function pay(outcome, fallback) {
+      box.setAttribute("aria-busy", "true");
+      box.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      const r = await fetch(`${CFG.apiBase}/api/mock-psp/checkout/${encodeURIComponent(pi)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome }) });
+      const d = await r.json().catch(() => ({}));
+      location.assign(d.return_url || fallback);
+    }
+    load();
+  </script>
+</body>
+</html>

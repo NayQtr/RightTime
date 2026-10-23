@@ -9,7 +9,8 @@ INSERT INTO legal_documents (version, type, text_ar, text_en, published_at) VALU
   ('terms-qa-1',   'terms',        'الشروط (نسخة اختبار)',          'Terms (test copy)',        now()),
   ('conduct-qa-1', 'conduct',      'قواعد السلوك (نسخة اختبار)',    'Code of conduct (test)',   now()),
   ('privacy-qa-1', 'privacy',      'إشعار الخصوصية (نسخة اختبار)', 'Privacy notice (test)',    now()),
-  ('cxl-qa-1',     'cancellation', 'سياسة الإلغاء (نسخة اختبار)',   'Cancellation policy (test)', now());
+  ('cxl-qa-1',     'cancellation', 'سياسة الإلغاء (نسخة اختبار)',   'Cancellation policy (test)', now()),
+  ('mkt-qa-1',     'marketing',    'رسائل تسويقية (نسخة اختبار)',   'Marketing messages (test copy)', now());
 
 INSERT INTO admin_users (id, email, name, role, mfa_enabled) VALUES
   ('00000000-0000-0000-0000-00000000a001', 'ops.oncall@example.test',  'Ops On-call',  'ops',          true),
@@ -43,7 +44,7 @@ INSERT INTO price_plans (id, city_id, experience, service_fee_minor, valid_from)
 INSERT INTO cancellation_policies (id, version, full_refund_until_hours, late_cancel_refund_pct, text_ar, text_en) VALUES
   ('00000000-0000-0000-0000-0000000000d2', 'cxl-qa-1', 48, 0, 'انظر وثيقة السياسة cxl-qa-1', 'See policy document cxl-qa-1');
 
--- questionnaire: Q05 only is needed by the matcher; other questions exist in production (v0.3 §1.2)
+-- questionnaire QA-2026-01 (v0.3 §1.2): Q05 (read by the matcher) first, then Q01, Q04, Q06, Q07, Q08
 INSERT INTO questionnaire_versions (id, code, status) VALUES ('00000000-0000-0000-0000-0000000000e1', 'QA-2026-01', 'draft');
 INSERT INTO questions (id, questionnaire_version_id, key, scope, text_ar, text_en, purpose_ar, purpose_en, answer_type,
                        max_selections, matching_use, data_class, sort_order) VALUES
@@ -56,6 +57,49 @@ SELECT '00000000-0000-0000-0000-0000000000e5', k, la, le, k = 'no_pref', o FROM 
   ('books_culture','كتب وثقافة','Books & culture',4), ('creative_hobbies','هوايات إبداعية','Creative hobbies',5),
   ('tech','تقنية','Tech',6), ('no_pref','لا تفضيل','No preference',7)
 ) v(k, la, le, o);
+-- the other profile questions of v0.3 §1.2 (Q01, Q04, Q06, Q07, Q08); Q02/Q03 are asked per booking on SCR-04
+INSERT INTO questions (id, questionnaire_version_id, key, scope, text_ar, text_en, purpose_ar, purpose_en, answer_type,
+                       max_selections, is_required, matching_use, data_class, sort_order) VALUES
+  ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000e1', 'Q01', 'profile',
+   'ما اللغة التي ترتاح لإجراء محادثة جماعية كاملة بها؟', 'In which language can you comfortably hold a full group conversation?',
+   'لتحديد لغة الطاولة؛ لا نجمع طاولة بلغات لا تتقاطع.', 'To set your table''s language; we never seat people without a shared language.',
+   'multi', NULL, true, 'hard_constraint', 'P3', 1),
+  ('00000000-0000-0000-0000-0000000000e4', '00000000-0000-0000-0000-0000000000e1', 'Q04', 'profile',
+   'ما الحد الأعلى المناسب لإنفاقك على الطعام والمشروبات، بخلاف رسم الخدمة الظاهر؟', 'What is your maximum food and drink budget, excluding the displayed service fee?',
+   'لاختيار مكان ضمن ميزانيتك؛ لا يرى أحد على الطاولة إجابتك.', 'To choose a venue within your budget; no one at your table sees this answer.',
+   'tier', NULL, true, 'hard_constraint', 'P3', 2),
+  ('00000000-0000-0000-0000-0000000000e6', '00000000-0000-0000-0000-0000000000e1', 'Q06', 'profile',
+   'ما الذي يساعدك على المشاركة براحة في لقاء أول؟', 'What helps you participate comfortably in a first meeting?',
+   'لنقترح بداية مريحة للحوار على طاولتك.', 'To suggest a comfortable way to start the conversation at your table.',
+   'multi', NULL, false, 'event_prep', 'P3', 4),
+  ('00000000-0000-0000-0000-0000000000e7', '00000000-0000-0000-0000-0000000000e1', 'Q07', 'profile',
+   'هل تحتاج إلى ترتيب عملي في المكان أو الوجبة لإتمام الحجز؟', 'Do you need a practical venue or meal arrangement to complete your booking?',
+   'لنتواصل معك بشكل خاص؛ لا تكتب تفاصيل هنا.', 'So our team can contact you privately; please don''t write details here.',
+   'contact_request', NULL, false, 'ops_only', 'P4', 5),
+  ('00000000-0000-0000-0000-0000000000e8', '00000000-0000-0000-0000-0000000000e1', 'Q08', 'profile',
+   'كيف تفضل إتاحة التواصل بعد اللقاء؟', 'How would you like contact to be enabled after the event?',
+   'لا نشارك أي وسيلة تواصل إلا بموافقة الطرفين.', 'We never share contact details unless both people agree.',
+   'single', NULL, false, 'ops_only', 'P3', 6);
+UPDATE questions SET sort_order = 3 WHERE id = '00000000-0000-0000-0000-0000000000e5';
+
+INSERT INTO question_options (question_id, key, label_ar, label_en, is_exclusive, maps_to, sort_order) VALUES
+  ('00000000-0000-0000-0000-0000000000e3', 'lang_ar',    'العربية',    'Arabic',           false, '{"language":"ar"}', 1),
+  ('00000000-0000-0000-0000-0000000000e3', 'lang_en',    'الإنجليزية', 'English',          false, '{"language":"en"}', 2),
+  ('00000000-0000-0000-0000-0000000000e3', 'lang_other', 'لغة أخرى',   'Another language', false, '{}', 3),
+  ('00000000-0000-0000-0000-0000000000e4', 'tier_1', 'حتى 100 ر.ق',  'Up to QAR 100',  false, '{"budget_tier_id":"00000000-0000-0000-0000-0000000000b1"}', 1),
+  ('00000000-0000-0000-0000-0000000000e4', 'tier_2', 'حتى 200 ر.ق',  'Up to QAR 200',  false, '{"budget_tier_id":"00000000-0000-0000-0000-0000000000b2"}', 2),
+  ('00000000-0000-0000-0000-0000000000e4', 'tier_3', 'أكثر من 200 ر.ق', 'More than QAR 200', false, '{"budget_tier_id":"00000000-0000-0000-0000-0000000000b3"}', 3),
+  ('00000000-0000-0000-0000-0000000000e6', 'opener_question',  'سؤال افتتاحي',      'An opening question',        false, NULL, 1),
+  ('00000000-0000-0000-0000-0000000000e6', 'simple_activity',  'نشاط بسيط',         'A simple activity',          false, NULL, 2),
+  ('00000000-0000-0000-0000-0000000000e6', 'spontaneous',      'مساحة لحوار عفوي',  'Room for spontaneous talk',  false, NULL, 3),
+  ('00000000-0000-0000-0000-0000000000e6', 'turn_taking',      'إتاحة الدور للجميع', 'Everyone gets a turn',       false, NULL, 4),
+  ('00000000-0000-0000-0000-0000000000e6', 'no_pref',          'لا تفضيل',           'No preference',              true,  NULL, 5),
+  ('00000000-0000-0000-0000-0000000000e7', 'no',               'لا',                 'No',                         false, NULL, 1),
+  ('00000000-0000-0000-0000-0000000000e7', 'private_contact',  'أرغب في تواصل خاص بشأن ترتيب عملي', 'I''d like private contact about a practical arrangement', false, NULL, 2),
+  ('00000000-0000-0000-0000-0000000000e8', 'no_sharing',       'لا مشاركة',          'No sharing',                 false, NULL, 1),
+  ('00000000-0000-0000-0000-0000000000e8', 'mutual_consent',   'تواصل بعد موافقة متبادلة', 'Contact after mutual agreement', false, NULL, 2);
+UPDATE question_options SET is_exclusive = true WHERE question_id = '00000000-0000-0000-0000-0000000000e5' AND key = 'no_pref';
+
 UPDATE questionnaire_versions SET status = 'published', published_at = now(), approved_by = '00000000-0000-0000-0000-00000000a003'
  WHERE id = '00000000-0000-0000-0000-0000000000e1';
 
@@ -72,7 +116,7 @@ FROM users u CROSS JOIN (VALUES ('terms','terms-qa-1'), ('conduct','conduct-qa-1
 INSERT INTO questionnaire_responses (id, user_id, questionnaire_version_id, status, submitted_at, completeness_required)
 SELECT ('00000000-0000-0000-0000-0000000002' || lpad(g::text, 2, '0'))::uuid,
        ('00000000-0000-0000-0000-0000000001' || lpad(g::text, 2, '0'))::uuid,
-       '00000000-0000-0000-0000-0000000000e1', 'submitted', now() - interval '20 days', 4
+       '00000000-0000-0000-0000-0000000000e1', 'submitted', now() - interval '20 days', 2
 FROM generate_series(1, 20) g;
 
 INSERT INTO answers (response_id, question_id, option_id)
@@ -82,6 +126,13 @@ JOIN question_options o ON o.question_id = '00000000-0000-0000-0000-0000000000e5
  AND o.key = ANY (CASE g % 4 WHEN 0 THEN ARRAY['food','travel'] WHEN 1 THEN ARRAY['books_culture','tech']
                              WHEN 2 THEN ARRAY['food','creative_hobbies'] ELSE ARRAY['sport','travel'] END)
 WHERE g <> 5;
+
+-- Q01 = Arabic, Q04 = tier 2 for every test user (matches bookings.budget_tier_id b2)
+INSERT INTO answers (response_id, question_id, option_id)
+SELECT ('00000000-0000-0000-0000-0000000002' || lpad(g::text, 2, '0'))::uuid, o.question_id, o.id
+FROM generate_series(1, 20) g
+JOIN question_options o ON (o.question_id, o.key) IN (('00000000-0000-0000-0000-0000000000e3'::uuid, 'lang_ar'),
+                                                     ('00000000-0000-0000-0000-0000000000e4'::uuid, 'tier_2'));
 
 -- sessions: S1 and S2 at T (Arabic dinner, Lusail / West Bay hints); S3 a week later for rebooking
 CREATE SCHEMA sim;  -- simulation-only helpers; never create this schema in production
@@ -114,4 +165,16 @@ BEGIN
   VALUES (b.id, uid, 'test_psp', 'pi_' || b.id, 5900, 'succeeded', 'visa', '4242', 'pay-' || b.id, now());
   UPDATE app.bookings SET status = 'paid_awaiting_group', hold_expires_at = NULL WHERE id = b.id;
   RETURN b.id;
+END $$;
+
+-- Supabase: the simulation schema is never reachable by client roles
+REVOKE ALL ON SCHEMA sim FROM PUBLIC;
+DO $$
+DECLARE r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['anon','authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('REVOKE ALL ON SCHEMA sim FROM %I', r);
+    END IF;
+  END LOOP;
 END $$;

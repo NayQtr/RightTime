@@ -8,6 +8,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 -d "$DB")
 psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/001_init.sql"
+"${PSQL[@]}" -1 -f "$ROOT/db/migrations/002_api_support.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 "${PSQL[@]}" -1 -f "$HERE/01_seed_bookings.sql"
 # T-48h: matching publishes S1 and S2 (seeded, reproducible; production packing mode min_leftovers).
