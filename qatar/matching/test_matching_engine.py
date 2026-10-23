@@ -6,8 +6,8 @@ from matching_engine import (BookingInput, MatchingError, VenueInput, run_matchi
 
 SESSION = "s-0001"
 TOPICS = [
-    frozenset({"food", "travel"}), frozenset({"food", "books"}), frozenset({"sport", "tech"}),
-    frozenset({"tech", "books"}), frozenset({"travel", "art"}), frozenset({"art", "food"}),
+    frozenset({"food", "travel"}), frozenset({"food", "books_culture"}), frozenset({"sport", "tech"}),
+    frozenset({"tech", "books_culture"}), frozenset({"travel", "creative_hobbies"}), frozenset({"creative_hobbies", "food"}),
 ]
 
 

@@ -48,12 +48,13 @@ INSERT INTO questionnaire_versions (id, code, status) VALUES ('00000000-0000-000
 INSERT INTO questions (id, questionnaire_version_id, key, scope, text_ar, text_en, purpose_ar, purpose_en, answer_type,
                        max_selections, matching_use, data_class, sort_order) VALUES
   ('00000000-0000-0000-0000-0000000000e5', '00000000-0000-0000-0000-0000000000e1', 'Q05', 'profile',
-   'ما المواضيع التي تستمتع بالحديث عنها؟', 'Which topics do you enjoy talking about?',
+   'اختر حتى ثلاثة موضوعات تستمتع بالحديث عنها.', 'Choose up to three topics you enjoy discussing.',
    'لنقترح طاولة باهتمامات مشتركة', 'To suggest a table with shared interests', 'multi', 3, 'soft_factor', 'P3', 5);
 INSERT INTO question_options (question_id, key, label_ar, label_en, is_exclusive, sort_order)
 SELECT '00000000-0000-0000-0000-0000000000e5', k, la, le, k = 'no_pref', o FROM (VALUES
-  ('food','الطعام','Food',1), ('travel','السفر','Travel',2), ('books','الكتب','Books',3),
-  ('sport','الرياضة','Sport',4), ('tech','التقنية','Tech',5), ('art','الفن','Art',6), ('no_pref','لا تفضيل','No preference',7)
+  ('food','طعام','Food',1), ('travel','سفر','Travel',2), ('sport','رياضة','Sport',3),
+  ('books_culture','كتب وثقافة','Books & culture',4), ('creative_hobbies','هوايات إبداعية','Creative hobbies',5),
+  ('tech','تقنية','Tech',6), ('no_pref','لا تفضيل','No preference',7)
 ) v(k, la, le, o);
 UPDATE questionnaire_versions SET status = 'published', published_at = now(), approved_by = '00000000-0000-0000-0000-00000000a003'
  WHERE id = '00000000-0000-0000-0000-0000000000e1';
@@ -78,8 +79,8 @@ INSERT INTO answers (response_id, question_id, option_id)
 SELECT ('00000000-0000-0000-0000-0000000002' || lpad(g::text, 2, '0'))::uuid, '00000000-0000-0000-0000-0000000000e5', o.id
 FROM generate_series(1, 20) g
 JOIN question_options o ON o.question_id = '00000000-0000-0000-0000-0000000000e5'
- AND o.key = ANY (CASE g % 4 WHEN 0 THEN ARRAY['food','travel'] WHEN 1 THEN ARRAY['books','tech']
-                             WHEN 2 THEN ARRAY['food','art'] ELSE ARRAY['sport','travel'] END)
+ AND o.key = ANY (CASE g % 4 WHEN 0 THEN ARRAY['food','travel'] WHEN 1 THEN ARRAY['books_culture','tech']
+                             WHEN 2 THEN ARRAY['food','creative_hobbies'] ELSE ARRAY['sport','travel'] END)
 WHERE g <> 5;
 
 -- sessions: S1 and S2 at T (Arabic dinner, Lusail / West Bay hints); S3 a week later for rebooking
