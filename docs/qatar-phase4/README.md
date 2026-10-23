@@ -32,6 +32,11 @@ Everything here is **staging**: OTP codes come back in the API response and paym
   - Admin routes: `…/api/admin/v1/...`.
   - PSP webhook: `POST …/api/v1/payments/webhooks/test_psp`, HMAC-signed with `x-signature` and `x-timestamp` (±300 s).
 - **Function settings:** the Edge Function `api` runs with `verify_jwt = false` because the API does its own authentication: RS256 user/admin JWTs, plus HMAC for webhooks. It reaches Postgres through the platform-injected `SUPABASE_DB_URL`. No database password or service-role key is in the code or on the client.
+- **Web app and admin panel (Vercel):** https://qatar-mvp-staging.vercel.app (admin: `/admin/`). This is a separate Vercel project, `qatar-mvp-staging`, in team `rightime`, built from branch `rightime-app` with root `qatar/web`. The build copies `config.vercel.js` over `config.js`. The existing projects `rightime` and `rightime-app` were not touched.
+- **Region pinning:** the database is in `ap-south-1`, but Edge Functions run next to the caller by default (`us-east-1` from the US), which made each call take about 7–12 s. The web clients therefore add `forceFunctionRegion=ap-south-1` (`apiRegion` in `config.vercel.js`). This is a query parameter, so no extra CORS header is needed. Calls now take about 1.2 s from the US, and should be faster from Qatar.
+- **Scheduled jobs (pg_cron, migration 004):**
+  - `app_release_expired_holds` runs every minute.
+  - `app_refund_unresolved_organizer_cancels` runs every 15 minutes and uses `REBOOK_CHOICE_HOURS`. It creates refunds as `requested`; finance sends them with the batch approval.
 - **Data API isolation:** the `app` schema is **not** exposed through the Data API. RLS is on for every table with no policies, and `anon`/`authenticated` have no privileges. Only the server-side function reads or writes data.
 
 ### Verified on 2026-10-23
@@ -56,7 +61,7 @@ Prerequisites: Node 22 and PostgreSQL 16+.
 
 ```bash
 createdb qatar_dev
-for f in qatar/db/migrations/00{1,2,3}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
+for f in qatar/db/migrations/00{1,2,3,4}_*.sql qatar/ops/seed_common.sql; do psql -v ON_ERROR_STOP=1 -1 -d qatar_dev -f "$f"; done
 cd qatar/api && npm ci
 DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 # user app: http://localhost:8787/   admin: http://localhost:8787/admin/
@@ -95,8 +100,8 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 |---|---|---|
 | `OTP_DEV_MODE` | `true`: the OTP code is returned in the API response | **`false`**; needs an SMS provider (not built) |
 | `MOCK_PSP_ENABLED` | `true`: `/checkout/mock/{booking_id}` and `/api/mock-psp/*` | **`false`**; needs a real PSP adapter (O05) |
-| `WEB_BASE_URL` | `http://localhost:8787` | the hosted web app origin |
-| `CORS_ORIGINS` | `*` | the web app origin(s) only |
+| `WEB_BASE_URL` | `https://qatar-mvp-staging.vercel.app` (`http://localhost:8787` for local runs) | the hosted web app origin |
+| `CORS_ORIGINS` | `https://qatar-mvp-staging.vercel.app,https://qatar-mvp-staging-rightime.vercel.app` | the web app origin(s) only |
 | `SEAT_HOLD_MINUTES` / `REBOOK_CHOICE_HOURS` / `FEEDBACK_WINDOW_DAYS` | 10 / 48 / 7 | per policy |
 | `PACKING_MODE` | `min_leftovers` (`greedy_6` also available) | per v0.4 decision |
 
@@ -107,10 +112,8 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 - **SMS OTP provider.** OTP only works in dev mode today.
 - **Real PSP adapter (O05).** Only `test_psp` exists.
 - **Delivery for `notifications_outbox`.** Rows are written and shown in-app, but no push, SMS or email sender exists.
-- **Scheduled jobs.** Expired holds are released on request paths. Auto refunds after the 48 h choice window run from the admin action `refunds:auto-unresolved`. There is no cron yet.
-- **Hosting for the web app.** It is served by `server.mjs` locally and is not hosted. To use it against staging, set `apiBase` in `qatar/web/config.js` to the API base above.
 - **Brand placeholder.** `{BRAND}` is still a placeholder throughout.
 - **Legal sign-off.** The 48 h full-refund window is a config default pending legal sign-off (O04).
 - **Supabase advisors (2026-10-23):**
   - Security: only the expected INFO "RLS enabled, no policy" findings remain; this is deny-all by design. The one WARN (mutable `search_path` on `sim.book_and_pay`) has been fixed.
-  - Performance: INFO-level unindexed foreign keys (47) and unused indexes (10). These are not addressed yet and should be reviewed once real traffic exists.
+  - Performance: the 47 unindexed foreign keys are fixed by migration 004. The "unused index" findings remain on purpose. Staging has almost no traffic, so the advisor reports every index as unused, including the new ones. Each listed index backs a real query path, so none were dropped. Review this again once real traffic exists.
