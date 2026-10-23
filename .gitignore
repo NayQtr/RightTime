@@ -1,3 +1,5 @@
 
 # arena tournament scratch (ephemeral)
 .arena/
+__pycache__/
+.pytest_cache/
