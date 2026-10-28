@@ -224,28 +224,64 @@ async function deleteMe(ctx) {
 }
 
 // ------------------------------------------------------------------ questionnaire
-async function questionnaireCurrent(ctx) {
-  const { sql, locale, user } = ctx;
+const pickLocale = (row, field, locale) => (locale === "en" ? row[`${field}_en`] : row[`${field}_ar`]) ?? null;
+
+function questionView(q, opts, locale) {
+  return {
+    id: q.id, key: q.key, scope: q.scope, answer_type: q.answer_type, is_required: q.is_required, max_selections: q.max_selections,
+    layout: q.layout || "list", section: pickLocale(q, "section", locale), scale_low: pickLocale(q, "scale_low", locale), scale_high: pickLocale(q, "scale_high", locale),
+    text: pickLocale(q, "text", locale), purpose: pickLocale(q, "purpose", locale),
+    options: opts.filter((o) => o.question_id === q.id)
+      .map((o) => ({ id: o.id, key: o.key, label: pickLocale(o, "label", locale), emoji: o.emoji ?? null, is_exclusive: o.is_exclusive })),
+  };
+}
+
+async function publishedQuestionnaire(sql) {
   const [v] = await sql`SELECT * FROM app.questionnaire_versions WHERE status = 'published'`;
   if (!v) fail(404, "QUESTIONNAIRE_VERSION_NOT_FOUND");
   const qs = await sql`SELECT * FROM app.questions WHERE questionnaire_version_id = ${v.id} ORDER BY sort_order`;
   const opts = await sql`SELECT o.* FROM app.question_options o JOIN app.questions q ON q.id = o.question_id
                           WHERE q.questionnaire_version_id = ${v.id} ORDER BY o.sort_order`;
+  return { v, qs, opts };
+}
+
+// The quiz runs before sign-up (spec 2026-10-28 §3): questions only, never user data.
+async function questionnairePreview(ctx) {
+  const { v, qs, opts } = await publishedQuestionnaire(ctx.sql);
+  return json(200, { questionnaire_version_id: v.id, code: v.code, questions: qs.map((q) => questionView(q, opts, ctx.locale)) });
+}
+
+async function questionnaireCurrent(ctx) {
+  const { sql, locale, user } = ctx;
+  const { v, qs, opts } = await publishedQuestionnaire(sql);
   const answersOf = async (status) => {
     const [r] = await sql`SELECT id FROM app.questionnaire_responses WHERE user_id = ${user.id} AND questionnaire_version_id = ${v.id} AND status = ${status}`;
     if (!r) return null;
     const rows = await sql`SELECT question_id, array_agg(option_id ORDER BY option_id) AS option_ids FROM app.answers WHERE response_id = ${r.id} GROUP BY question_id`;
     return { response_id: r.id, answers: rows.map((x) => ({ question_id: x.question_id, option_ids: x.option_ids })) };
   };
+  const submitted = await answersOf("submitted");
+  const anySubmitted = submitted ? null : await submittedResponse(sql, user.id);
+  // Answers of an older version are offered again by (question key, option key); options that no longer exist are dropped.
+  let carried = null;
+  if (anySubmitted) {
+    const rows = await sql`SELECT q.key AS qkey, o.key AS okey FROM app.answers a JOIN app.questions q ON q.id = a.question_id
+                             JOIN app.question_options o ON o.id = a.option_id WHERE a.response_id = ${anySubmitted.id}`;
+    const answers = [];
+    for (const q of qs) {
+      const keys = new Set(rows.filter((r) => r.qkey === q.key).map((r) => r.okey));
+      const ids = opts.filter((o) => o.question_id === q.id && keys.has(o.key)).map((o) => o.id);
+      if (ids.length) answers.push({ question_id: q.id, option_ids: ids });
+    }
+    carried = { from_version_id: anySubmitted.questionnaire_version_id, answers };
+  }
   return json(200, {
     questionnaire_version_id: v.id, code: v.code,
-    questions: qs.map((q) => ({
-      id: q.id, key: q.key, scope: q.scope, answer_type: q.answer_type, is_required: q.is_required, max_selections: q.max_selections,
-      text: locale === "en" ? q.text_en : q.text_ar, purpose: locale === "en" ? q.purpose_en : q.purpose_ar,
-      options: opts.filter((o) => o.question_id === q.id).map((o) => ({ id: o.id, key: o.key, label: locale === "en" ? o.label_en : o.label_ar, is_exclusive: o.is_exclusive })),
-    })),
+    questions: qs.map((q) => questionView(q, opts, locale)),
     draft: await answersOf("draft"),
-    submitted: await answersOf("submitted"),
+    submitted,
+    has_submitted_any: Boolean(submitted || anySubmitted),
+    carried,
   });
 }
 
@@ -795,6 +831,7 @@ export const userRoutes = [
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
   { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },
+  { method: "GET", path: "/api/v1/questionnaires/preview", auth: "none", handler: questionnairePreview },
   { method: "GET", path: "/api/v1/questionnaires/current", auth: "user", handler: questionnaireCurrent },
   { method: "POST", path: "/api/v1/questionnaire-responses", auth: "user", idem: true, handler: submitQuestionnaire },
   { method: "GET", path: "/api/v1/sessions", auth: "user", handler: listSessions },

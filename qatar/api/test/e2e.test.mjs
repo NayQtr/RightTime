@@ -101,24 +101,24 @@ test("registration gate, consents, idempotent replay, refresh rotation", async (
 });
 
 // ===================================================================== questionnaire
-test("questionnaire: v0.3 validation codes, Q07 private contact case, derived profile", async () => {
+test("questionnaire QA-2026-02: validation codes, Q07 private contact case, derived profile", async () => {
   const q = (await call("GET", "/api/v1/questionnaires/current", { token: S.first.token, locale: "en" })).body;
-  assert.deepEqual(q.questions.map((x) => x.key), ["Q01", "Q04", "Q05", "Q06", "Q07", "Q08"]);
-  assert.equal(q.questions[0].text, "In which language can you comfortably hold a full group conversation?");
+  assert.deepEqual(q.questions.map((x) => x.key), ["Q09", "Q10", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q01", "Q04", "Q17", "Q05", "Q18", "Q19", "Q20", "Q06", "Q21", "Q22", "Q23", "Q24", "Q08", "Q07"]);
+  assert.equal(q.questions.find((x) => x.key === "Q01").text, "In which language can you comfortably hold a full group conversation?");
   const opt = (key, ks) => { const qq = q.questions.find((x) => x.key === key); return { question_id: qq.id, option_ids: qq.options.filter((o) => ks.includes(o.key)).map((o) => o.id) }; };
   const bad = await call("POST", "/api/v1/questionnaire-responses", { token: S.first.token, body: { questionnaire_version_id: q.questionnaire_version_id, status: "submitted",
-    answers: [opt("Q04", ["tier_1", "tier_2"]), opt("Q05", ["food", "travel", "sport", "tech"]), opt("Q06", ["no_pref", "opener_question"])] } });
+    answers: [opt("Q04", ["tier_1", "tier_2"]), opt("Q05", ["food", "travel", "sport", "tech", "coffee", "music"]), opt("Q06", ["no_pref", "opener_question"])] } });
   assert.equal(bad.status, 422);
   const codes = bad.body.details.map((d) => `${d.question_key}:${d.code}`).sort();
-  assert.deepEqual(codes, ["Q01:REQUIRED_MISSING", "Q04:SINGLE_CHOICE_EXPECTED", "Q05:TOO_MANY_SELECTIONS", "Q06:EXCLUSIVE_OPTION_CONFLICT"]);
+  assert.deepEqual(codes, ["Q01:REQUIRED_MISSING", "Q04:SINGLE_CHOICE_EXPECTED", "Q05:TOO_MANY_SELECTIONS", "Q06:EXCLUSIVE_OPTION_CONFLICT", "Q10:REQUIRED_MISSING", "Q11:REQUIRED_MISSING"]);
   const draft = await call("POST", "/api/v1/questionnaire-responses", { token: S.first.token, body: { questionnaire_version_id: q.questionnaire_version_id, status: "draft", answers: [opt("Q01", ["lang_ar"])] } });
   assert.equal(draft.status, 201);
   const ok = await call("POST", "/api/v1/questionnaire-responses", { token: S.first.token, body: { questionnaire_version_id: q.questionnaire_version_id, status: "submitted",
-    answers: [opt("Q01", ["lang_ar"]), opt("Q04", ["tier_2"]), opt("Q05", ["food", "travel"]), opt("Q06", ["opener_question"]), opt("Q07", ["private_contact"]), opt("Q08", ["mutual_consent"])] } });
+    answers: [opt("Q10", ["woman"]), opt("Q11", ["age_25_34"]), opt("Q01", ["lang_ar"]), opt("Q04", ["tier_2"]), opt("Q05", ["food", "travel"]), opt("Q06", ["opener_question"]), opt("Q07", ["private_contact"]), opt("Q08", ["mutual_consent"])] } });
   assert.equal(ok.status, 201, JSON.stringify(ok.body));
   assert.deepEqual(ok.body.derived.conversation_languages, ["ar"]);
   assert.ok(ok.body.derived.private_contact_case_id);
-  assert.deepEqual(ok.body.completeness, { required_answered: 2, required_total: 2, optional_answered: 4, optional_total: 4 });
+  assert.deepEqual(ok.body.completeness, { required_answered: 4, required_total: 4, optional_answered: 4, optional_total: 18 });
   const [c] = await sql`SELECT type, notes_enc FROM app.support_cases WHERE id = ${ok.body.derived.private_contact_case_id}`;
   assert.equal(c.type, "practical_arrangement_Q07");
   assert.equal(c.notes_enc, null, "no Q07 details stored");
