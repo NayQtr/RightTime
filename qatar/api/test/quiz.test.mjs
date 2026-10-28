@@ -78,3 +78,28 @@ test("current: a new user has nothing submitted and nothing carried", async () =
   assert.equal(cur.carried, null);
   assert.equal(cur.submitted, null);
 });
+
+test("privacy notice privacy-qa-2 lists the new data and auto-save; an update is re-accepted without signing up again", async () => {
+  const legal = (await call("GET", "/api/v1/legal/current")).body;
+  assert.equal(legal.privacy_notice.document_version, "privacy-qa-2");
+  for (const s of ["الحفظ التلقائي", "الفئة العمرية", "الحالة الاجتماعية", "بصمة الجهاز", "مسودة"]) assert.ok(legal.privacy_notice.text.includes(s), s);
+  const en = (await call("GET", "/api/v1/legal/current", { locale: "en" })).body;
+  assert.ok(en.privacy_notice.text.includes("Auto-save") && en.privacy_notice.text.includes("device fingerprint"));
+
+  const u = await registeredUser("Notice");
+  assert.deepEqual((await call("GET", "/api/v1/users/me", { token: u.token })).body.user.outdated_consents, [], "just accepted the current notice");
+  await env.sql`INSERT INTO app.legal_documents (version, type, text_ar, text_en, published_at) VALUES ('privacy-qa-3', 'privacy', 'نسخة أحدث', 'Newer', now())`;
+  assert.deepEqual((await call("GET", "/api/v1/users/me", { token: u.token })).body.user.outdated_consents, ["privacy_notice"]);
+  const old = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-2", granted: true }] } });
+  assert.equal(old.body.code, "DOCUMENT_VERSION_OUTDATED");
+  const refuse = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-3", granted: false }] } });
+  assert.equal(refuse.body.code, "CONSENT_REQUIRED", "a required consent is withdrawn by deleting the account");
+  assert.equal((await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [] } })).status, 422);
+  const ok = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-3", granted: true }] } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.deepEqual(ok.body.outdated_consents, []);
+  const [row] = await env.sql`SELECT document_version, granted, source FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'privacy_notice'
+                              ORDER BY recorded_at DESC, created_at DESC LIMIT 1`;
+  assert.deepEqual({ ...row }, { document_version: "privacy-qa-3", granted: true, source: "app_web" });
+  assert.equal((await call("POST", "/api/v1/users/me/consents", { body: { consents: [] } })).status, 401);
+});

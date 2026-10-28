@@ -23,6 +23,7 @@ Everything here is **staging**: OTP codes come back in the API response and paym
 | `qatar/db/migrations/008_question_display.sql` | Quiz display metadata: question `section`, `layout` (list / chips / scale), scale end labels, option `emoji` |
 | `qatar/ops/seed_common.sql` | Staging seed: admins, tiers, venues, full v0.3 questionnaire, legal docs, 3 Arabic sessions on sale, `sim` helpers |
 | `qatar/ops/seed_questionnaire_v2.sql` | Questionnaire QA-2026-02 (22 questions, Qatar-adapted; spec `docs/specs/2026-10-28-timeleft-style-experience-design.md`). Retires v1 and publishes v2; re-running is a no-op |
+| `qatar/ops/seed_privacy_v2.sql` | Privacy notice `privacy-qa-2`: lists the QA-2026-02 data and the auto-save behaviour. Staging draft for counsel (F8); re-running is a no-op |
 | `qatar/web/quiz-flow.js` | Pure quiz-flow logic (step order with interstitials, the vibe card, answer payloads), unit-tested in Node |
 | `qatar/api/src/` | Framework-free API: `handle(Request) → Response`, the same code on Node and Deno |
 | `qatar/api/edge-index.ts` | Supabase Edge Function entry point (deployed as `index.ts`) |
@@ -77,7 +78,7 @@ DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 Tests need a local server on port 5433 with user `app`. They build a template database, give each test its own copy, and drive Chromium through Playwright:
 
 ```bash
-cd qatar/api && npm test          # 30 tests: 15 API e2e, 3 key encryption, 1 parity, 3 questionnaire API, 4 quiz logic, 4 browser
+cd qatar/api && npm test          # 35 tests: 15 API e2e, 3 key encryption, 1 parity, 4 questionnaire and privacy API, 5 quiz logic, 7 browser
 cd qatar/matching && python3 -m pytest -q
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_a/run_simulation.sh
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_b/run_simulation.sh
@@ -133,13 +134,34 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 - `GET /api/v1/health` reports `key_source`: `env`, `db-encrypted`, `db-fallback` (plaintext) or `mixed`.
 - Never change or delete `SERVER_KEYS_KEK` once rows are encrypted. Without it the keys cannot be decrypted.
 
+### Auto-save and finishing later
+
+Nobody has to start again from zero.
+
+| Moment | Where progress is kept | How the user continues |
+|---|---|---|
+| Quiz, name, phone, before sign-up | This device only (`localStorage`: `q_quiz` answers, `q_resume` last step, `q_quizName`, `q_phone`) | Welcome shows "Continue where you left off" with the saved answer count; "Start over" clears it |
+| Code screen | The pending challenge in `sessionStorage` until it expires | A reload stays on the code screen |
+| Signed in, editing answers | Server draft (`POST /questionnaire-responses`, `status: draft`), debounced and flushed when the tab is hidden | Any device, after signing in with the same number; the quiz opens at the first unanswered question |
+| Booking held, not paid | Server (`payment_pending` booking) | Home shows it with a link back to payment |
+
+- The device copy is deleted when the answers are submitted, on "Start over" and on sign-out.
+- No IP address, device fingerprint or tracking cookie is used to recognise a person or restore data. A shared or carrier IP (common on mobile networks) would show one person's answers to another.
+- Every API call is retried once on a dropped connection, and reads once more on a 502/503/504. The retry reuses the Idempotency-Key, so a write is never applied twice.
+
+### Privacy notice updates
+
+- `GET /api/v1/users/me` returns `outdated_consents`: required consents whose latest grant is for an older document version.
+- `POST /api/v1/users/me/consents` records acceptance of the current version (idempotent; refusing a required consent returns `CONSENT_REQUIRED`, since that is done by deleting the account).
+- Home shows the update with the full text and an "I've read it and agree" button; Account links to the current notice (`#/privacy`).
+
 ## Not built yet / before real users
 
 - **SMS OTP provider.** OTP only works in dev mode today.
 - **Real PSP adapter (O05).** Only `test_psp` exists.
 - **Delivery for `notifications_outbox`.** Rows are written and shown in-app, but no push, SMS or email sender exists.
 - **Legal sign-off.** The 48 h full-refund window is a config default pending legal sign-off (O04).
-- **Privacy notice for QA-2026-02.** The notice must list the new data (gender, age range, personality, work field, family and marital status) before real users. This is part of open item F8.
+- **Privacy notice sign-off.** `privacy-qa-2` lists the QA-2026-02 data and auto-save, but it is a draft: counsel must approve it, the proposed retention periods, and whether Q23 (children) and Q24 (marital status) are special-nature data under Article 16 (open items F8 and O04).
 - **Matcher upgrade.** Use age range, gender and personality to balance tables (spec 2026-10-28 §10).
 - **Supabase advisors (2026-10-23):**
   - Security: the INFO "RLS enabled, no policy" findings are cleared by migration 007 (explicit deny-all policy; same behaviour). The one WARN (mutable `search_path` on `sim.book_and_pay`) has been fixed.

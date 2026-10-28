@@ -36,3 +36,10 @@ export function vibeOf(byKey) {
 export function toPayload(answers) {
   return Object.entries(answers || {}).filter(([, ids]) => ids && ids.length).map(([question_id, ids]) => ({ question_id, option_ids: [...ids] }));
 }
+
+// Where a signed-in user resumes: the first question with no answer yet, else the first question.
+export function firstOpenStep(steps, questions, answers) {
+  const qSteps = steps.map((s, i) => [s, i]).filter(([s]) => s.kind === "q");
+  const open = qSteps.find(([s]) => !((answers || {})[questions[s.index].id] || []).length);
+  return (open || qSteps[0] || [null, 0])[1];
+}

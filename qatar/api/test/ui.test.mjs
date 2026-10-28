@@ -210,6 +210,113 @@ test("existing user with answers from the old questionnaire is not blocked and i
   assert.deepEqual(errors, []);
 });
 
+test("auto-save: a dropped request is retried, an unfinished quiz resumes where it stopped, start over clears the device copy", async () => {
+  const { page, errors } = await newPage();
+  let dropped = 0;
+  await page.route(/questionnaires\/preview/, (r) => (dropped++ === 0 ? r.abort("connectionreset") : r.continue()));
+  await page.goto(env.base + "/");
+  assert.equal(await page.locator("#resume-card").count(), 0, "nothing saved yet");
+  assert.ok((await page.locator(".device-note").innerText()).includes("على هذا الجهاز فقط"));
+  await page.click("#start");
+  await page.waitForSelector("[data-inter=doha]");
+  assert.equal(dropped, 2, "the dropped preview request was retried once");
+  await page.click("#nx");
+  await page.waitForSelector("[data-inter=community]");
+  await page.click("#nx");
+  await page.waitForSelector(".quiz-q h1");
+  await page.locator("label.option").first().click();
+  await page.click("#nx");
+  await page.waitForFunction(() => location.hash === "#/quiz/3");
+  await page.locator("label.option", { hasText: "امرأة" }).click();
+  await page.waitForFunction(() => location.hash === "#/quiz/4");
+  // leave and come back later: the welcome screen offers to continue at the same question
+  await page.goto(env.base + "/");
+  await page.waitForSelector("#resume-card");
+  assert.ok((await page.locator("#resume-card").innerText()).includes("الإجابات المحفوظة على هذا الجهاز: 2"));
+  assert.equal(await page.getAttribute("#resume", "href"), "#/quiz/4");
+  await page.screenshot({ path: `${SHOTS}/14-resume-ar.png` });
+  await page.click("#resume");
+  await page.waitForFunction(() => location.hash === "#/quiz/4");
+  await page.goto(env.base + "/#/quiz/3");
+  await page.waitForSelector(".quiz-q h1");
+  assert.equal(await page.locator("input[data-key=woman]").isChecked(), true, "earlier answer kept");
+  // start over
+  await page.goto(env.base + "/");
+  await page.click("#over");
+  await page.waitForSelector("[data-inter=doha]");
+  assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null);
+  await page.goto(env.base + "/");
+  await page.waitForSelector(".hero-welcome h1");
+  assert.equal(await page.locator("#resume-card").count(), 0, "start over leaves nothing to resume");
+  // a reload on the code screen keeps the pending code and the typed number
+  await page.goto(env.base + "/#/signin");
+  await page.fill("#phone", "55512399");
+  await page.click("#send");
+  await page.waitForSelector("#code");
+  await page.reload();
+  await page.waitForSelector("#code");
+  assert.ok((await page.locator("main").innerText()).includes("+97455512399"));
+  const dev = (await page.locator(".banner-warning bdi").innerText()).trim();
+  await page.fill("#code", dev);
+  await page.click("#ver");
+  await page.waitForSelector("#age");
+  assert.deepEqual(errors.filter((e) => !e.includes("ERR_CONNECTION_RESET")), [], "only the request dropped on purpose");
+});
+
+test("auto-save when signed in: an edited answer is saved as a server draft and shows up on another device", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Draft" });
+  const signIn = async () => {
+    const { page, errors } = await newPage();
+    await page.goto(env.base + "/");
+    await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, { access_token: u.token, refresh_token: u.refresh });
+    return { page, errors };
+  };
+  const a = await signIn();
+  await a.page.goto(env.base + "/#/quiz/6");
+  await a.page.waitForSelector("input[data-key=extrovert]");
+  await a.page.locator("label.option", { has: a.page.locator("input[data-key=extrovert]") }).click();
+  await a.page.waitForFunction(() => location.hash === "#/quiz/7");
+  let draft = [];
+  for (let k = 0; k < 20 && !draft.length; k += 1) {
+    await a.page.waitForTimeout(250);
+    draft = await env.sql`SELECT o.key FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
+                            JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q12' JOIN app.question_options o ON o.id = x.option_id
+                           WHERE r.user_id = ${u.userId} AND r.status = 'draft'`;
+  }
+  assert.deepEqual(draft.map((d) => d.key), ["extrovert"], "draft saved on the server");
+  const b = await signIn();
+  await b.page.goto(env.base + "/#/quiz/6");
+  await b.page.waitForSelector("input[data-key=extrovert]");
+  assert.equal(await b.page.locator("input[data-key=extrovert]").isChecked(), true, "the other device continues from the draft");
+  assert.deepEqual([...a.errors, ...b.errors], []);
+});
+
+test("privacy notice update: existing users see it on home, read it and accept it once", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Notice" });
+  await env.sql`INSERT INTO app.legal_documents (version, type, text_ar, text_en, published_at)
+                VALUES ('privacy-ui-3', 'privacy', 'نص إشعار الخصوصية المحدّث', 'Updated privacy notice text', now())`;
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, { access_token: u.token, refresh_token: u.refresh });
+  await page.goto(env.base + "/#/home");
+  await page.waitForSelector("#privacy-upd");
+  await page.click("#privacy-upd summary");
+  assert.ok((await page.locator("#privacy-upd").innerText()).includes("نص إشعار الخصوصية المحدّث"));
+  await page.screenshot({ path: `${SHOTS}/15-privacy-update-ar.png`, fullPage: true });
+  await page.click("#pv-ok");
+  await page.waitForSelector(".event-card");
+  await page.waitForFunction(() => !document.querySelector("#privacy-upd"));
+  const [row] = await env.sql`SELECT document_version FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'privacy_notice'
+                                ORDER BY recorded_at DESC LIMIT 1`;
+  assert.equal(row.document_version, "privacy-ui-3");
+  await page.goto(env.base + "/#/privacy");
+  await page.waitForSelector(".legal-text");
+  assert.ok((await page.locator(".legal-text").innerText()).includes("نص إشعار الخصوصية المحدّث"));
+  assert.deepEqual(errors, []);
+});
+
 test("SCR-10 private report: 'I'm in danger now' opens the 999 screen before submit", async () => {
   const call = client(env.base);
   const u = await signUp(call, { name: "Lina" });

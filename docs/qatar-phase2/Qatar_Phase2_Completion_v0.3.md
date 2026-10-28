@@ -269,7 +269,7 @@ Rendered from `GET /bookings/{id}/event-details` (§3.4). Sections appear or dis
 | 2 | Status badge + countdown | always | as SCR-06 |
 | 3 | Essentials list | always | Experience · date & time with `Asia/Qatar` label · table language · district · venue price band · accessibility summary (`مدخل بلا درج`, `هادئ نسبيًا`) |
 | 4 | Your table | `group_locked` | `{n} أشخاص مؤكدون` (count only; no names) · `نصيحة: قدّم نفسك باسمك الأول.` |
-| 5 | Venue block | `revealed` | Venue name (H2) · address (copy button) · embedded **mini map** (static map image + `فتح في الخرائط` button) · `تعليمات الوصول` text · **table code** in large monospace (`طاولة RT-24`) · `اذكر "{BRAND}" ورمز الطاولة لموظف الاستقبال.` |
+| 5 | Venue block | `revealed` | Venue name (H2) · address (copy button) · embedded **mini map** (static map image + `فتح في الخرائط` button) · `تعليمات الوصول` text · **table code** in large monospace (`طاولة RT-24`) · `اذكر "Rightime" ورمز الطاولة لموظف الاستقبال.` |
 | 6 | Bill reminder | `revealed` | `تدفع طعامك وشرابك للمكان مباشرة. لا يوجد حد أدنى للطلب من جهتنا.` *(the second sentence only if the venue contract confirms "no minimum spend" — A06)* |
 | 7 | Check-in | day-of, from `check_in_opens_at` [CONFIG, proposed T-60 min] until end | Primary button `أنا هنا` / *I'm here*. After a tap: `تم تسجيل وصولك` |
 | 8 | Support | always (prominent on day-of) | `تواصل مع المنسق المناوب` (in-app chat or call-back request) · `إبلاغ خاص` (→ SCR-10) |
@@ -546,7 +546,7 @@ Q07's "private contact" option stores **only** that the request was made. Any de
 | accessibility | jsonb | `{"step_free":true,"accessible_wc":false,"parking":true,"lift":false}` | Yes | — | P0 |
 | separate_bills_confirmed | boolean | Venue agrees to individual bills (F09) | Yes | — | P1 |
 | min_spend_policy | varchar(200) | Written minimum-spend terms; `none` if none (A06) | Yes | — | P1 |
-| arrival_instructions_ar / _en | text | "Ask for the {BRAND} table at reception…" | Yes | — | P0 after reveal |
+| arrival_instructions_ar / _en | text | "Ask for the Rightime table at reception…" | Yes | — | P0 after reveal |
 | contract_status | contract_status enum | `prospect` \| `offer_received` \| `signed` \| `paused` \| `terminated` | Yes | — | P1; only `signed` venues are assignable |
 | contract_expires_on | date | Contract end | No | — | P1 |
 | is_active | boolean | Assignable now | Yes | — | P1 |
@@ -1211,7 +1211,7 @@ Response `200` — phase `revealed` (only the deltas are shown):
     "district": "لوسيل",
     "location": { "lat": 25.000000, "lng": 51.000000 },
     "map_url": "https://maps.google.com/?q=25.000000,51.000000",
-    "arrival_instructions": "اطلب طاولة {BRAND} عند الاستقبال واذكر الرمز RT-24.",
+    "arrival_instructions": "اطلب طاولة Rightime عند الاستقبال واذكر الرمز RT-24.",
     "bill_policy": "يدفع كل شخص طعامه وشرابه للمكان مباشرة."
   }
 }

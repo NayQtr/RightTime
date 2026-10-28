@@ -17,6 +17,7 @@ psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/008_question_display.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_questionnaire_v2.sql"
+"${PSQL[@]}" -1 -f "$ROOT/ops/seed_privacy_v2.sql"
 "${PSQL[@]}" -1 -f "$HERE/01_seed_bookings.sql"
 # T-48h: matching publishes S1 and S2 (seeded, reproducible; production packing mode min_leftovers).
 # S1 has 2 bookable venue tables (12 seats) -> 6 + 6 + 1 leftover; S2 has 1 table.

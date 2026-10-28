@@ -17,6 +17,7 @@ psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/008_question_display.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_questionnaire_v2.sql"
+"${PSQL[@]}" -1 -f "$ROOT/ops/seed_privacy_v2.sql"
 for f in 01_seed_live_table 02_intake_s1 03_coordinator_and_triage 04_decision_and_appeal 99_verify; do
   "${PSQL[@]}" -1 -f "$HERE/$f.sql"
 done

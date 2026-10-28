@@ -1,6 +1,6 @@
 // Rightime user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
-import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, toPayload, vibeOf } from "./quiz-flow.js";
+import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf } from "./quiz-flow.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
@@ -10,6 +10,15 @@ const store = {
   set(k, v) { try { localStorage.setItem("q_" + k, JSON.stringify(v)); } catch { /* private mode */ } },
   del(k) { try { localStorage.removeItem("q_" + k); } catch { /* private mode */ } },
 };
+// Survives a reload of the tab but not closing it: the pending OTP challenge (valid for minutes only).
+const tabStore = {
+  get(k) { try { return JSON.parse(sessionStorage.getItem("q_" + k)); } catch { return null; } },
+  set(k, v) { try { sessionStorage.setItem("q_" + k, JSON.stringify(v)); } catch { /* private mode */ } },
+  del(k) { try { sessionStorage.removeItem("q_" + k); } catch { /* private mode */ } },
+};
+// Progress kept on this device before sign-up (privacy notice §3): answers, last step, first name, phone.
+const DEVICE_PROGRESS = [QUIZ_STORE_KEY, "quizName", "phone", "resume"];
+function clearDeviceProgress() { DEVICE_PROGRESS.forEach((k) => store.del(k)); tabStore.del("challenge"); }
 let locale = store.get("locale") || "ar";
 const state = { me: null, q: null, qAnswers: null, quiz: null, phone: null, challenge: null, timers: [] };
 const main = document.getElementById("main");
@@ -63,12 +72,18 @@ async function api(method, path, body, opts = {}) {
   if (tok && !opts.noAuth) headers.Authorization = `Bearer ${tok.access_token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") headers["Idempotency-Key"] = opts.idem || uuid();
+  // One automatic retry on a dropped connection (and on a gateway error for reads). The retry reuses the same
+  // Idempotency-Key, so a write the server already applied is replayed, never done twice.
+  const send = () => fetch(apiUrl(path), { method, headers, keepalive: !!opts.keepalive, body: body === undefined ? undefined : JSON.stringify(body) });
+  const pause = () => new Promise((r) => setTimeout(r, 1200));
   let res;
   try {
-    res = await fetch(apiUrl(path), { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await send();
   } catch {
-    return { ok: false, status: 0, data: { code: "OFFLINE", message: T("offline") } };
+    await pause();
+    try { res = await send(); } catch { return { ok: false, status: 0, data: { code: "OFFLINE", message: T("offline") } }; }
   }
+  if (method === "GET" && [502, 503, 504].includes(res.status)) { await pause(); res = await send().catch(() => res); }
   if (res.status === 401 && tok && tok.refresh_token && !opts.retried && !opts.noAuth) {
     const r = await fetch(apiUrl("/api/v1/auth/token:refresh"), { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: tok.refresh_token }) }).catch(() => null);
@@ -135,6 +150,13 @@ async function loadQuestionnaire(force = false) {
   return state.q;
 }
 
+// Step where a signed-in user picks the quiz up again: first unanswered question of their draft / carried answers.
+function resumeStepFor(q) {
+  const src = q.draft || q.submitted || q.carried;
+  const answers = Object.fromEntries((src ? src.answers : []).map((a) => [a.question_id, a.option_ids]));
+  return firstOpenStep(buildSteps(q.questions), q.questions, answers);
+}
+
 // gate: signed in -> registered -> questionnaire submitted
 async function guard({ needQuestionnaire = true } = {}) {
   if (!store.get("tokens")) { go("#/welcome"); return false; }
@@ -144,7 +166,7 @@ async function guard({ needQuestionnaire = true } = {}) {
   if (me.registration_status !== "complete") { go("#/register"); return false; }
   if (needQuestionnaire && !state.suspended) {
     const q = await loadQuestionnaire().catch(() => null);
-    if (q && !q.submitted && !q.has_submitted_any) { go("#/quiz/0"); return false; }
+    if (q && !q.submitted && !q.has_submitted_any) { go(`#/quiz/${q.draft ? resumeStepFor(q) : 0}`); return false; }
   }
   return true;
 }
@@ -152,20 +174,31 @@ async function guard({ needQuestionnaire = true } = {}) {
 // ------------------------------------------------------------------ welcome (spec 2026-10-28 §3)
 function scrWelcome() {
   if (store.get("tokens")) { go("#/home"); return; }
+  const saved = store.get(QUIZ_STORE_KEY);
+  const resume = store.get("resume");
+  const answered = saved ? Object.values(saved.answers || {}).filter((a) => a && a.length).length : 0;
+  const canResume = Boolean(resume && /^#\/(quiz\/\d+|name|signin|otp)$/.test(resume) && (answered || store.get("quizName")));
   view(T("welcomeHero"), `
     <section class="hero-welcome">
       <div class="art" aria-hidden="true">🍽️ ☕ ✨</div>
       <h1>${esc(T("welcomeHero"))}</h1>
       <p>${esc(T("welcomeSub"))}</p>
+      ${canResume ? `<div class="resume-card stack" id="resume-card"><p><strong>${esc(T("resumeTitle"))}</strong></p><p class="caption">${esc(T("resumeBody", { n: answered }))}</p>
+        <a class="btn btn-primary btn-block" id="resume" href="${esc(resume)}">${esc(T("resumeCta"))}</a>
+        <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
       <div class="stack">
-        <a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>
+        ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
+      <p class="caption device-note">${esc(T("deviceNote"))}</p>
     </section>`);
+  if (canResume) $("#over").onclick = () => { clearDeviceProgress(); state.quiz = null; go("#/quiz/0"); };
 }
 
 // ------------------------------------------------------------------ SCR-02a phone, 02b OTP, 02c registration
 function scrPhone() {
+  if (!signedIn()) store.set("resume", "#/signin");
+  if (!state.phone && store.get("phone")) state.phone = store.get("phone");
   view(T("phoneTitle"), `
     <h1>${esc(T("phoneTitle"))}</h1>
     <p class="muted">${esc(T("phoneHelp"))}</p>
@@ -188,11 +221,15 @@ function scrPhone() {
     if (!r.ok) { $("#phone").setAttribute("aria-invalid", "true"); $("#perr").textContent = r.data.message || T("errGeneric"); return; }
     state.phone = "+974" + digits;
     state.challenge = r.data;
+    store.set("phone", state.phone);
+    tabStore.set("challenge", { ch: r.data, phone: state.phone, until: Date.now() + r.data.expires_in * 1000 });
     go("#/otp");
   };
 }
 
 function scrOtp() {
+  const kept = tabStore.get("challenge");
+  if (!state.challenge && kept && kept.until > Date.now()) { state.challenge = kept.ch; state.phone = kept.phone; }
   if (!state.challenge) { go("#/signin"); return; }
   const ch = state.challenge;
   view(T("otpTitle"), `
@@ -226,10 +263,11 @@ function scrOtp() {
     }
     store.set("tokens", { access_token: r.data.access_token, refresh_token: r.data.refresh_token });
     state.challenge = null;
+    tabStore.del("challenge");
     renderTopbar();
     if (r.data.user.registration_status !== "complete") go("#/register");
     else if (store.get(QUIZ_STORE_KEY)) await finishQuiz();
-    else go("#/home");
+    else { clearDeviceProgress(); go("#/home"); }
   };
 }
 
@@ -304,6 +342,21 @@ function saveQuizLocal() {
   store.set(QUIZ_STORE_KEY, { version_id: state.quiz.q.questionnaire_version_id, answers: state.quiz.answers });
 }
 
+// Signed in: answers are also saved as a server draft (debounced), so the user can continue on any device.
+function saveDraftSoon(delay = 700) {
+  clearTimeout(saveDraftSoon.t);
+  saveDraftSoon.t = setTimeout(flushDraft, delay);
+}
+function flushDraft(keepalive = false) {
+  if (!saveDraftSoon.t) return;
+  clearTimeout(saveDraftSoon.t);
+  saveDraftSoon.t = null;
+  const quiz = state.quiz;
+  if (!quiz || !signedIn()) return;
+  api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: quiz.q.questionnaire_version_id, status: "draft", answers: toPayload(quiz.answers) }, { keepalive });
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(true); });
+
 function answersByKey() {
   const out = {};
   for (const qq of state.quiz.q.questions) {
@@ -329,6 +382,7 @@ async function scrQuiz(stepStr) {
   const quiz = await loadQuiz();
   const i = Math.max(0, Math.min(Number(stepStr || 0), quiz.steps.length - 1));
   const step = quiz.steps[i];
+  if (!signedIn()) store.set("resume", `#/quiz/${i}`);
   const back = i > 0 ? `#/quiz/${i - 1}` : (signedIn() ? "#/home" : "#/welcome");
   if (step.kind === "inter") { scrInter(step.id, i, back); return; }
   const qq = quiz.q.questions[step.index];
@@ -366,6 +420,7 @@ async function scrQuiz(stepStr) {
     if (qq.max_selections) inputs.forEach((x) => { x.disabled = !x.checked && picked.length >= qq.max_selections; });
     quiz.answers[qq.id] = picked.map((x) => x.value);
     saveQuizLocal();
+    if (changed && signedIn()) saveDraftSoon();
     $("#nx").disabled = qq.is_required && picked.length === 0;
     $("#nx").textContent = !qq.is_required && picked.length === 0 ? T("skipQ") : T("continue");
     const keys = picked.map((x) => x.dataset.key);
@@ -430,6 +485,7 @@ function scrInter(id, i, back) {
 }
 
 function scrName() {
+  store.set("resume", "#/name");
   const steps = state.quiz ? state.quiz.steps.length : 0;
   view(T("nameTitle"), `${quizHead(`#/quiz/${Math.max(0, steps - 1)}`, "", null)}
     <form id="f" class="stack quiz-q" novalidate>
@@ -448,6 +504,8 @@ function scrName() {
 // Submits the quiz once the user is signed in; a missing required answer reopens the quiz at that question.
 async function finishQuiz() {
   loadingView();
+  clearTimeout(saveDraftSoon.t);
+  saveDraftSoon.t = null;
   state.quiz = null;
   const quiz = await loadQuiz();
   const hadAny = Boolean(quiz.q.has_submitted_any);
@@ -459,7 +517,7 @@ async function finishQuiz() {
     go(`#/quiz/${idx >= 0 ? idx : 0}`);
     return;
   }
-  store.del(QUIZ_STORE_KEY);
+  clearDeviceProgress();
   state.quiz = null;
   toast(r.data.derived && r.data.derived.private_contact_case_id ? T("q07Note") : T("answersSaved"));
   await loadQuestionnaire(true);
@@ -710,7 +768,10 @@ function sessionCard(s) {
 async function scrHome() {
   if (!(await guard())) return;
   loadingView();
-  const [sR, bR, contact] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact()]);
+  const needPrivacy = ((state.me && state.me.outdated_consents) || []).includes("privacy_notice");
+  const [sR, bR, contact, legalR] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact(),
+    needPrivacy ? api("GET", "/api/v1/legal/current", undefined, { noAuth: true }) : null]);
+  const notice = legalR && legalR.ok ? legalR.data.privacy_notice : null;
   const sessions = sR.ok ? sR.data.sessions.filter((x) => x.language_match !== false) : [];
   const bookings = bR.ok ? bR.data.bookings : [];
   const next = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
@@ -725,7 +786,10 @@ async function scrHome() {
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
-    ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${INTERSTITIALS.start.length}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
+    ${notice ? `<section class="banner banner-warning" id="privacy-upd"><div class="stack"><p><strong>${esc(T("privacyUpdTitle"))}</strong></p><p>${esc(T("privacyUpdBody"))}</p>
+      <details><summary>${esc(T("readDoc"))} · ${num(notice.document_version)}</summary><p class="caption legal-text">${esc(notice.text)}</p></details>
+      <button class="btn btn-primary" id="pv-ok" data-version="${esc(notice.document_version)}">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
+    ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${resumeStepFor(q)}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
     ${next ? `<a class="card card-link hero stack" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
       <span class="row between"><strong>${esc(T("nextEvent"))}</strong>${statusBadge(next)}</span>
       <span>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</span><span class="caption">${esc(next.district)} · ${esc(countdown(next.starts_at))}</span></a>` : ""}
@@ -733,6 +797,24 @@ async function scrHome() {
     ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
       : `<p class="muted">${esc(T("noUpcoming"))}</p>`}
     <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+  if (notice) {
+    $("#pv-ok").onclick = async () => {
+      $("#pv-ok").disabled = true;
+      const r = await api("POST", "/api/v1/users/me/consents", { consents: [{ type: "privacy_notice", document_version: $("#pv-ok").dataset.version, granted: true }] });
+      if (!r.ok) { $("#pv-ok").disabled = false; $("#pv-err").innerHTML = errorBanner(r.data); return; }
+      await loadMe(true);
+      toast(T("privacyAccepted"));
+      scrHome();
+    };
+  }
+}
+
+// Current privacy notice, readable signed in or out.
+async function scrPrivacy() {
+  loadingView();
+  const r = await api("GET", "/api/v1/legal/current", undefined, { noAuth: true });
+  const n = r.ok ? r.data.privacy_notice : null;
+  view(T("privacyTitle"), `<h1>${esc(T("privacyTitle"))}</h1>${n ? `<p class="caption">${num(n.document_version)}</p><div class="card"><p class="legal-text">${esc(n.text)}</p></div>` : errorBanner(r.data)}`);
 }
 
 async function scrEvents() {
@@ -1001,7 +1083,8 @@ async function scrProfile() {
       <span><strong>${esc(name)}</strong><br><span class="caption">${esc(T("eventsCount", { n: count }))}</span></span></section>
     <p class="section-label">${esc(T("secAccount"))}</p>
     <ul class="settings"><li><a class="chev" href="#/quiz/${INTERSTITIALS.start.length}"><span>${esc(T("myAnswers"))}</span></a></li>
-      <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li></ul>
+      <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
+      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li></ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
     <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
       <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
@@ -1010,7 +1093,7 @@ async function scrProfile() {
     <div class="stack" style="margin-block-start: var(--s-6)">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
-  const forget = () => { store.del("tokens"); store.del(QUIZ_STORE_KEY); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
+  const forget = () => { store.del("tokens"); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
   $("#out").onclick = async () => { const t = store.get("tokens"); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await api("DELETE", "/api/v1/users/me"); forget(); };
@@ -1050,7 +1133,7 @@ const ROUTES = [
   [/^#\/(?:questions\/\d+|summary)$/, () => go(`#/quiz/${INTERSTITIALS.start.length}`)], [/^#\/sessions(?:\?s=([\w-]+))?$/, scrSessions], [/^#\/events$/, scrEvents],
   [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
   [/^#\/booking\/([\w-]+)\/cancel$/, scrCancel], [/^#\/booking\/([\w-]+)\/choose$/, scrChoose], [/^#\/booking\/([\w-]+)\/feedback$/, scrFeedback],
-  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases],
+  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy],
 ];
 
 async function route() {

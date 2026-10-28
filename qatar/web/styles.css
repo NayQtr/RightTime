@@ -247,6 +247,11 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .hero-welcome .art { text-align: center; font-size: 64px; letter-spacing: 8px; }
 .hero-welcome .btn.btn-primary, :root[dir="rtl"] .hero-welcome .btn.btn-primary { background: #FFFFFF; color: #141210; }
 .hero-welcome .btn-secondary { background: transparent; color: #FFFFFF; border-color: #FFFFFF; }
+.hero-welcome .resume-card { background: rgba(20, 18, 16, 0.72); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: var(--r-lg); padding: var(--s-4); color: #FFFFFF; text-align: center; }
+.hero-welcome .resume-card .caption { color: #EDE6DC; }
+.hero-welcome .link-btn { color: #FFFFFF; }
+.hero-welcome .device-note { font-size: 13px; color: #EDE6DC; }
+.legal-text { white-space: pre-line; margin: 0; }
 
 /* tab bar */
 .tabbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--c-surface);

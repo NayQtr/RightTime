@@ -193,16 +193,9 @@ async function register(ctx) {
   if (details.length) fail(422, "VALIDATION_FAILED", details);
   if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
   const consents = Array.isArray(body.consents) ? body.consents : [];
-  const docs = await sql`
-    SELECT DISTINCT ON (type) type, version FROM app.legal_documents WHERE published_at <= now() ORDER BY type, published_at DESC`;
-  const current = Object.fromEntries(docs.map((d) => [d.type, d.version]));
   const missing = REQUIRED_CONSENTS.filter((t) => !consents.some((c) => c.type === t && c.granted === true));
   if (missing.length) fail(422, "CONSENT_REQUIRED", missing.map((t) => ({ field: `consents.${t}`, code: "REQUIRED" })));
-  for (const c of consents) {
-    if (!(c.type in CONSENT_DOC) || typeof c.granted !== "boolean") fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "INVALID" }]);
-    const cur = current[CONSENT_DOC[c.type]];
-    if (!cur || c.document_version !== cur) fail(422, "DOCUMENT_VERSION_OUTDATED", [{ field: `consents.${c.type}`, current_version: cur || null }]);
-  }
+  await checkConsentVersions(sql, consents);
   const [u] = await sql.begin(async (tx) => {
     for (const c of consents) {
       await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
@@ -215,7 +208,51 @@ async function register(ctx) {
   return json(201, { user: userView(u), next: "questionnaire" });
 }
 
-const me = async (ctx) => json(200, { user: userView(ctx.user) });
+async function currentDocVersions(sql) {
+  const docs = await sql`
+    SELECT DISTINCT ON (type) type, version FROM app.legal_documents WHERE published_at <= now() ORDER BY type, published_at DESC`;
+  return Object.fromEntries(docs.map((d) => [d.type, d.version]));
+}
+
+async function checkConsentVersions(sql, consents) {
+  const current = await currentDocVersions(sql);
+  for (const c of consents) {
+    if (!c || !(c.type in CONSENT_DOC) || typeof c.granted !== "boolean") fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "INVALID" }]);
+    const cur = current[CONSENT_DOC[c.type]];
+    if (!cur || c.document_version !== cur) fail(422, "DOCUMENT_VERSION_OUTDATED", [{ field: `consents.${c.type}`, current_version: cur || null }]);
+  }
+}
+
+// Required consents whose latest grant is for an older version than the published document (e.g. an updated privacy notice).
+async function outdatedConsents(sql, user) {
+  if (!user.registration_completed_at) return [];
+  const current = await currentDocVersions(sql);
+  const mine = await sql`SELECT consent_type, document_version, granted FROM app.current_consents WHERE user_id = ${user.id}`;
+  return REQUIRED_CONSENTS.filter((t) => {
+    const cur = current[CONSENT_DOC[t]];
+    const m = mine.find((r) => r.consent_type === t);
+    return cur && !(m && m.granted && m.document_version === cur);
+  });
+}
+
+const me = async (ctx) => json(200, { user: { ...userView(ctx.user), outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
+
+// Accepting an updated document after registration. Required consents are withdrawn by deleting the account, not here.
+async function updateConsents(ctx) {
+  const { sql, body, user } = ctx;
+  const consents = Array.isArray(body.consents) ? body.consents : [];
+  if (!consents.length) fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "REQUIRED" }]);
+  await checkConsentVersions(sql, consents);
+  const refused = consents.filter((c) => REQUIRED_CONSENTS.includes(c.type) && !c.granted);
+  if (refused.length) fail(422, "CONSENT_REQUIRED", refused.map((c) => ({ field: `consents.${c.type}`, code: "REQUIRED" })));
+  await sql.begin(async (tx) => {
+    for (const c of consents) {
+      await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
+               VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
+    }
+  });
+  return json(200, { outdated_consents: await outdatedConsents(sql, user) });
+}
 
 async function deleteMe(ctx) {
   await ctx.sql`UPDATE app.users SET status = 'deletion_requested' WHERE id = ${ctx.user.id} AND status = 'active'`;
@@ -830,6 +867,7 @@ export const userRoutes = [
   { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
+  { method: "POST", path: "/api/v1/users/me/consents", auth: "user", idem: true, handler: updateConsents },
   { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },
   { method: "GET", path: "/api/v1/questionnaires/preview", auth: "none", handler: questionnairePreview },
   { method: "GET", path: "/api/v1/questionnaires/current", auth: "user", handler: questionnaireCurrent },
