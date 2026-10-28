@@ -1,8 +1,8 @@
 /* GENERATED from qatar/design/tokens.json by build_tokens_css.py — do not edit by hand. */
 :root {
-  --c-bg: #FBF8F4;
+  --c-bg: #F4F1EC;
   --c-surface: #FFFFFF;
-  --c-surfaceSunken: #F2EDE6;
+  --c-surfaceSunken: #EAE4DB;
   --c-text: #1C1A17;
   --c-textMuted: #5C554C;
   --c-textDisabled: #8F877C;
@@ -18,9 +18,14 @@
   --c-danger: #B3261E;
   --c-onDanger: #FFFFFF;
   --c-info: #1F4FA8;
+  --c-cta: #1C1A17;
+  --c-ctaEnd: #4A4540;
+  --c-onCta: #FFFFFF;
   --font-ar: "IBM Plex Sans Arabic", "Noto Sans Arabic", system-ui, sans-serif;
   --font-en: "IBM Plex Sans", system-ui, sans-serif;
   --font-numeric: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display-ar: Amiri, "IBM Plex Sans Arabic", serif;
+  --font-display-en: "DM Serif Display", Georgia, serif;
   --s-0: 0px;
   --s-1: 4px;
   --s-2: 8px;
@@ -68,6 +73,9 @@
   --c-danger: #FF9A8F;
   --c-onDanger: #3A0703;
   --c-info: #8DB4FF;
+  --c-cta: #F3EEE7;
+  --c-ctaEnd: #CFC7BC;
+  --c-onCta: #141210;
   }
 }
 :root[data-theme="dark"] {
@@ -89,9 +97,13 @@
   --c-danger: #FF9A8F;
   --c-onDanger: #3A0703;
   --c-info: #8DB4FF;
+  --c-cta: #F3EEE7;
+  --c-ctaEnd: #CFC7BC;
+  --c-onCta: #141210;
 }
 :root[lang="ar"] {
   --font-body: var(--font-ar);
+  --font-display: var(--font-display-ar);
   --t-display-size: 32px; --t-display-lh: 1.4; --t-display-weight: 700; --t-display-ls: 0;
   --t-h1-size: 26px; --t-h1-lh: 1.45; --t-h1-weight: 700; --t-h1-ls: 0;
   --t-h2-size: 21px; --t-h2-lh: 1.5; --t-h2-weight: 600; --t-h2-ls: 0;
@@ -101,6 +113,7 @@
 }
 :root[lang="en"] {
   --font-body: var(--font-en);
+  --font-display: var(--font-display-en);
   --t-display-size: 30px; --t-display-lh: 1.2; --t-display-weight: 700; --t-display-ls: -0.01em;
   --t-h1-size: 24px; --t-h1-lh: 1.25; --t-h1-weight: 700; --t-h1-ls: -0.005em;
   --t-h2-size: 20px; --t-h2-lh: 1.3; --t-h2-weight: 600; --t-h2-ls: 0;

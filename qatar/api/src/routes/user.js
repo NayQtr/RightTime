@@ -390,7 +390,7 @@ async function listSessions(ctx) {
       starts_at: qa(s.starts_at), ends_at: qa(s.ends_at), district: district(s, locale),
       seats_left: s.max_seats - s.seats_sold, is_full: s.status === "sold_out" || s.seats_sold >= s.max_seats,
       price: money(s.service_fee_minor, locale), group_size: "4–6",
-      full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), booking_closes_at: qa(s.booking_closes_at),
+      full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), full_refund_until_hours: s.full_refund_until_hours, booking_closes_at: qa(s.booking_closes_at),
       my_booking_id: s.my_booking_id,
     })),
   });

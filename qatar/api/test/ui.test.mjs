@@ -44,111 +44,169 @@ async function oneH1(page) {
   assert.equal(await page.locator("main h1").count(), 1, `exactly one h1 on ${page.url()}`);
 }
 
-test("user journey in Arabic (RTL, 360px): SCR-01 -> SCR-07 with mock payment", async () => {
+// Walks the quiz-first flow (spec 2026-10-28) until the sign-up name screen; returns what it saw on the way.
+async function walkQuiz(page) {
+  const seen = { keys: [], inters: [], timeleft: false };
+  for (let guard = 0; guard < 80; guard += 1) {
+    const hash = await page.evaluate(() => location.hash);
+    if (hash === "#/name") return seen;
+    await page.waitForSelector("main:not([aria-busy]) h1");
+    if (/timeleft/i.test(await page.locator("body").innerText())) seen.timeleft = true;
+    const inter = (await page.locator("[data-inter]").count()) ? await page.locator("[data-inter]").getAttribute("data-inter") : null;
+    if (inter) {
+      seen.inters.push(inter);
+      if (inter === "vibe") await page.screenshot({ path: `${SHOTS}/04-quiz-vibe-ar.png` });
+      if (inter === "ready") await page.click("#yes"); else await page.click("#nx");
+    } else {
+      const text = await page.locator("main h1").innerText();
+      seen.keys.push(text);
+      if (await page.locator(".scale").count()) {
+        await page.locator(".scale label").nth(3).click();
+      } else if (await page.locator(".chips").count()) {
+        const chips = page.locator(".chip");
+        const max = Number(((await page.locator(".why").innerText()).match(/\d+/) || ["1"])[0]);
+        for (let k = 0; k < max; k += 1) await chips.nth(k).click();
+        if (max === 5) {
+          assert.equal(await chips.nth(5).locator("input").isDisabled(), true, "max 5 interests enforced");
+          await page.screenshot({ path: `${SHOTS}/03-quiz-chips-ar.png` });
+        }
+        await page.click("#nx");
+      } else {
+        const want = text.includes("اللغة") ? "العربية" : text.includes("إنفاقك") ? "حتى 200" : null;
+        const opt = want ? page.locator("label.option", { hasText: want }).first() : page.locator("label.option").first();
+        if (text.includes("كيف تعرّف نفسك")) {
+          assert.deepEqual((await page.locator("label.option").allInnerTexts()).map((x) => x.replace(/\s+/g, "")), ["🙋‍♂️رجل", "🙋‍♀️امرأة"], "man / woman only");
+          await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
+        }
+        await opt.click();
+        if (await page.evaluate((h) => location.hash === h, hash)) await page.click("#nx").catch(() => {});
+      }
+    }
+    await page.waitForFunction((h) => location.hash !== h, hash, { timeout: 5000 });
+  }
+  throw new Error("quiz did not reach the name screen");
+}
+
+test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, book, pay, details, cancel", async () => {
   const { page, errors } = await newPage();
   await page.goto(env.base + "/");
   assert.equal(await page.getAttribute("html", "dir"), "rtl");
-  await page.waitForSelector("main h1");
+  await page.waitForSelector(".hero-welcome h1");
   await oneH1(page);
   await noHorizontalScroll(page);
-  await page.screenshot({ path: `${SHOTS}/01-onboarding-ar.png` });
-  await page.click("#next"); await page.click("#next");
-  await page.click("a[href='#/signin'].btn-primary");
-  // SCR-02a
+  await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
+  await page.click("#start");
+  const seen = await walkQuiz(page);
+  assert.deepEqual(seen.inters, ["doha", "community", "how", "science", "vibe", "curating", "ready", "safety"]);
+  assert.equal(seen.keys.length, 22, "22 questions in QA-2026-02");
+  assert.equal(seen.timeleft, false, "no Timeleft text anywhere");
+  assert.ok(!seen.keys.some((k) => /فكاهة|غير لائقة/.test(k)), "no politically incorrect humour question");
+  assert.ok(await page.evaluate(() => Boolean(localStorage.getItem("q_quiz"))), "answers kept on the device before sign-up");
+  // sign-up after the quiz: first name -> phone -> OTP -> consents
+  await page.fill("#fname", "مريم");
+  await page.click("#nx");
   await page.fill("#phone", "55512345");
   await page.click("#send");
-  // SCR-02b (staging shows the dev code)
   await page.waitForSelector("#code");
   const dev = (await page.locator(".banner-warning bdi").innerText()).trim();
   assert.match(dev, /^[0-9]{6}$/);
-  await page.screenshot({ path: `${SHOTS}/02-otp-ar.png` });
   await page.fill("#code", dev);
   await page.click("#ver");
-  // SCR-02c
   await page.waitForSelector("#age");
-  await page.fill("#name", "مريم");
+  assert.equal(await page.locator("#name").count(), 0, "name already given in the quiz");
   await page.check("#age");
   for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
-  await page.screenshot({ path: `${SHOTS}/03-consents-ar.png`, fullPage: true });
   await page.click("#go");
-  // SCR-03: six cards
-  await page.waitForSelector("[role=progressbar]");
-  assert.equal(await page.getAttribute("[role=progressbar]", "aria-valuenow"), "1");
-  const choose = async (texts) => { for (const t of texts) await page.locator("label.option", { hasText: t }).first().click(); };
-  await choose(["العربية"]); await page.screenshot({ path: `${SHOTS}/04-question-q01-ar.png` }); await page.click("#nx");
-  await choose(["حتى 200 ر.ق"]); await page.click("#nx");
-  await choose(["طعام", "سفر", "تقنية"]);
-  assert.equal(await page.locator("label.option", { hasText: "رياضة" }).locator("input").isDisabled(), true, "max 3 enforced");
-  await page.click("#nx");
-  await choose(["سؤال افتتاحي"]); await page.click("#nx");
-  await choose(["أرغب في تواصل خاص"]);
-  assert.ok((await page.locator("#note").innerText()).includes("سيتواصل معك فريقنا"));
-  await page.click("#nx");
-  await choose(["تواصل بعد موافقة متبادلة"]); await page.click("#nx");
-  // summary
-  await page.waitForSelector("#save");
-  await page.screenshot({ path: `${SHOTS}/05-summary-ar.png`, fullPage: true });
-  await page.click("#save");
-  // SCR-04
-  await page.waitForSelector("input[name=s]");
-  await noHorizontalScroll(page);
-  // Q07 private-contact toast: dismissible by tap
-  const toastEl = page.locator("#toast");
-  assert.ok((await toastEl.innerText()).includes("سيتواصل معك فريقنا"));
-  await toastEl.click();
-  assert.equal((await toastEl.innerText()).trim(), "", "toast dismissed on tap");
-  await page.locator("label.option.radio").first().click();
-  // Real viewport (not full-page): the pay bar stays fixed at the bottom, alternates scroll above it
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  const geo = await page.evaluate(() => ({ vh: innerHeight, bar: document.querySelector(".sticky-bar").getBoundingClientRect(),
-    alts: document.querySelector("#alts").getBoundingClientRect() }));
-  assert.ok(Math.abs(geo.bar.bottom - geo.vh) < 1, "pay bar pinned to the bottom of the viewport");
-  assert.ok(geo.alts.bottom <= geo.bar.top, "alternates sit above the pay bar");
-  await page.screenshot({ path: `${SHOTS}/06-sessions-ar.png` });
-  await page.click("#go");
-  // SCR-05
-  await page.waitForSelector("#pay");
-  assert.ok((await page.locator("main").innerText()).includes("59 ر.ق"));
-  assert.match(await page.locator("#clock").innerText(), /^\d\d:\d\d$/);
-  // the seeded session starts in ~24 h: past the 48 h cut-off -> no-refund warning + required acknowledgement (audit F1)
-  const late = await page.locator("#late").innerText();
-  assert.ok(late.includes("يبدأ هذا الموعد خلال أقل من 48 ساعة") && late.includes("فلن يُسترد رسم التنظيم"), late);
-  assert.ok(!(await page.locator("main").innerText()).includes("يمكنك الإلغاء مع استرداد كامل"), "no stale full-refund promise");
-  assert.equal(await page.locator("#pay").isDisabled(), true, "pay disabled until acknowledged");
-  await page.check("#ack");
-  assert.equal(await page.locator("#pay").isDisabled(), false);
-  await page.screenshot({ path: `${SHOTS}/07-review-ar.png`, fullPage: true });
-  await page.click("#pay");
-  // mock hosted checkout
-  await page.waitForSelector("[data-o=success]");
-  await page.screenshot({ path: `${SHOTS}/08-mock-checkout.png`, fullPage: true });
-  await page.click("[data-o=success]");
-  // SCR-05P -> success
-  await page.waitForSelector("text=تم الدفع. نجمع طاولتك الآن.", { timeout: 15000 });
-  await page.screenshot({ path: `${SHOTS}/09-paid-ar.png` });
-  await page.click("a[href='#/home']");
-  // SCR-06
-  await page.waitForSelector(".hero");
-  assert.ok((await page.locator(".hero").innerText()).includes("نجمع طاولتك الآن"));
-  // coordinator on duty is a real channel (audit F10)
+  // what you get (per seat; subscription-ready)
+  await page.waitForSelector("#plan[data-kind=per_seat]");
+  const wyg = await page.locator("main").innerText();
+  assert.ok(wyg.includes("ماذا تحصل مع Rightime") && wyg.includes("59 ر.ق") && wyg.includes("48 ساعة"), wyg.slice(0, 300));
+  assert.ok(wyg.includes("هل Rightime تطبيق تعارف؟"));
+  assert.ok(!/شخصيت/.test(wyg.replace("هل Rightime", "")) || !wyg.includes("حسب شخصيتك"), "no personality-matching claim");
+  assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
+  const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
+                                          JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
+  assert.equal(answered, 22, "every quiz answer saved");
+  await page.screenshot({ path: `${SHOTS}/05-what-you-get-ar.png`, fullPage: true });
+  await page.click("#wyg-go");
+  // home: Doha, sessions by week, tab bar, coordinator (audit F10)
+  await page.waitForSelector(".event-card");
+  await oneH1(page);
+  assert.equal((await page.locator("main h1").innerText()).trim().startsWith("الدوحة"), true);
+  assert.equal(await page.locator("#tabbar a").count(), 4);
+  assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/home");
   assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006");
   assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: `${SHOTS}/06-home-ar.png`, fullPage: true });
+  await page.locator(".event-card").first().click();
+  // session picker opens with the tapped session selected
+  await page.waitForSelector("input[name=s]:checked");
+  assert.equal(await page.locator("#go").isDisabled(), false);
+  await page.screenshot({ path: `${SHOTS}/07-sessions-ar.png` });
+  await page.click("#go");
+  // review: the seeded session starts in ~24 h -> no-refund warning + acknowledgement (audit F1)
+  await page.waitForSelector("#pay");
+  assert.ok((await page.locator("main").innerText()).includes("59 ر.ق"));
+  assert.ok((await page.locator("#late").innerText()).includes("فلن يُسترد رسم التنظيم"));
+  assert.equal(await page.locator("#pay").isDisabled(), true);
+  await page.check("#ack");
+  await page.screenshot({ path: `${SHOTS}/08-review-ar.png`, fullPage: true });
+  await page.click("#pay");
+  await page.waitForSelector("[data-o=success]");
+  await page.click("[data-o=success]");
+  await page.waitForSelector("text=تم الدفع. نجمع طاولتك الآن.", { timeout: 15000 });
+  await page.screenshot({ path: `${SHOTS}/09-paid-ar.png` });
+  // my events tab: the booking with its stepper
+  await page.goto(env.base + "/#/events");
+  await page.waitForSelector(".hero");
+  assert.ok((await page.locator(".hero").innerText()).includes("نجمع طاولتك الآن"));
+  assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/events");
   await oneH1(page);
-  await page.screenshot({ path: `${SHOTS}/10-dashboard-ar.png`, fullPage: true });
-  // SCR-07
+  await page.screenshot({ path: `${SHOTS}/10-events-ar.png`, fullPage: true });
   await page.click(".hero a.btn-primary");
   await page.waitForSelector("text=تفاصيل اللقاء");
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");
+  assert.equal(await page.locator("#tabbar").isHidden(), true, "no tab bar on detail screens");
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });
-  // SCR-08a outcome panel
   await page.click("a[href$='/cancel']");
   await page.waitForSelector("text=تأكيد الإلغاء");
   await page.screenshot({ path: `${SHOTS}/12-cancel-ar.png`, fullPage: true });
-  // language toggle -> English, LTR
+  // profile tab, then English (LTR)
+  await page.goto(env.base + "/#/profile");
+  await page.waitForSelector(".avatar");
+  assert.ok((await page.locator("main").innerText()).includes("مريم"));
+  await page.screenshot({ path: `${SHOTS}/13-profile-ar.png`, fullPage: true });
   await page.click("#lang");
   await page.waitForFunction(() => document.documentElement.dir === "ltr");
-  await page.waitForSelector("text=Cancel booking");
-  await page.screenshot({ path: `${SHOTS}/13-cancel-en.png`, fullPage: true });
+  await page.waitForSelector("text=Account");
+  await page.screenshot({ path: `${SHOTS}/13-profile-en.png`, fullPage: true });
+  assert.deepEqual(errors, []);
+});
+
+test("existing user with answers from the old questionnaire is not blocked and is invited to complete the card", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Old" });
+  const [v1] = await env.sql`SELECT id FROM app.questionnaire_versions WHERE code = 'QA-2026-01'`;
+  // move this user's response back to the retired v1 (as if answered before v2 was published)
+  await env.sql`UPDATE app.questionnaire_responses SET questionnaire_version_id = ${v1.id} WHERE user_id = ${u.userId}`;
+  await env.sql`UPDATE app.answers a SET question_id = q1.id, option_id = o1.id
+                  FROM app.questions q2 JOIN app.question_options o2 ON o2.question_id = q2.id,
+                       app.questions q1 JOIN app.question_options o1 ON o1.question_id = q1.id
+                 WHERE a.question_id = q2.id AND a.option_id = o2.id AND q1.questionnaire_version_id = ${v1.id}
+                   AND q1.key = q2.key AND o1.key = o2.key
+                   AND a.response_id IN (SELECT id FROM app.questionnaire_responses WHERE user_id = ${u.userId})`;
+  await env.sql`DELETE FROM app.answers a USING app.questions q WHERE a.question_id = q.id AND q.questionnaire_version_id <> ${v1.id}
+                 AND a.response_id IN (SELECT id FROM app.questionnaire_responses WHERE user_id = ${u.userId})`;
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+    { access_token: u.token, refresh_token: u.refresh });
+  await page.goto(env.base + "/#/home");
+  await page.waitForSelector("#complete-card");
+  await page.click("#complete-card a");
+  await page.waitForSelector(".quiz-q h1");
+  assert.ok(page.url().endsWith("#/quiz/2"), page.url());
   assert.deepEqual(errors, []);
 });
 

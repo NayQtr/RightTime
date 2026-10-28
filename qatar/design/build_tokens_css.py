@@ -43,6 +43,8 @@ css = f"""/* GENERATED from qatar/design/tokens.json by build_tokens_css.py — 
   --font-ar: {fam("ar")};
   --font-en: {fam("en")};
   --font-numeric: {fam("numeric")};
+  --font-display-ar: {fam("displayAr")};
+  --font-display-en: {fam("displayEn")};
 {space}
 {radius}
 {shadow}
@@ -60,10 +62,12 @@ css = f"""/* GENERATED from qatar/design/tokens.json by build_tokens_css.py — 
 }}
 :root[lang="ar"] {{
   --font-body: var(--font-ar);
+  --font-display: var(--font-display-ar);
 {type_vars("ar")}
 }}
 :root[lang="en"] {{
   --font-body: var(--font-en);
+  --font-display: var(--font-display-en);
 {type_vars("en")}
 }}
 @media (prefers-reduced-motion: reduce) {{

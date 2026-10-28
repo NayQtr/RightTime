@@ -1,5 +1,6 @@
 // Rightime user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
+import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, toPayload, vibeOf } from "./quiz-flow.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
@@ -10,7 +11,7 @@ const store = {
   del(k) { try { localStorage.removeItem("q_" + k); } catch { /* private mode */ } },
 };
 let locale = store.get("locale") || "ar";
-const state = { me: null, q: null, qAnswers: null, phone: null, challenge: null, timers: [] };
+const state = { me: null, q: null, qAnswers: null, quiz: null, phone: null, challenge: null, timers: [] };
 const main = document.getElementById("main");
 
 // ------------------------------------------------------------------ helpers
@@ -92,7 +93,6 @@ function renderTopbar() {
     <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}"><span class="brand-mark" aria-hidden="true">ط</span><span>${esc(T("brand"))}</span></a>
     ${CFG.staging ? `<span class="env-badge">${esc(T("staging"))}</span>` : ""}
     <span class="spacer"></span>
-    ${signedIn ? `<a class="btn btn-ghost" href="#/inbox" aria-label="${esc(T("inbox"))}">🔔</a><a class="btn btn-ghost" href="#/profile" aria-label="${esc(T("profile"))}">👤</a>` : ""}
     <button class="btn btn-ghost" id="lang" lang="${locale === "ar" ? "en" : "ar"}">${esc(T("langToggle"))}</button>`;
   document.getElementById("lang").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
 }
@@ -104,6 +104,7 @@ function setLocale(l) {
   document.documentElement.dir = l === "ar" ? "rtl" : "ltr";
   document.querySelector(".skip").textContent = T("skip");
   state.q = null;
+  state.quiz = null;
   renderTopbar();
   route();
 }
@@ -143,36 +144,24 @@ async function guard({ needQuestionnaire = true } = {}) {
   if (me.registration_status !== "complete") { go("#/register"); return false; }
   if (needQuestionnaire && !state.suspended) {
     const q = await loadQuestionnaire().catch(() => null);
-    if (q && !q.submitted) { go("#/questions/0"); return false; }
+    if (q && !q.submitted && !q.has_submitted_any) { go("#/quiz/0"); return false; }
   }
   return true;
 }
 
-// ------------------------------------------------------------------ SCR-01 onboarding
+// ------------------------------------------------------------------ welcome (spec 2026-10-28 §3)
 function scrWelcome() {
   if (store.get("tokens")) { go("#/home"); return; }
-  const cards = [["🍽️", "ob1Title", "ob1Body"], ["🗓️", "ob2Title", "ob2Body"], ["🛡️", "ob3Title", "ob3Body"]];
-  let i = 0;
-  const draw = () => {
-    const [icon, t, b] = cards[i];
-    view(T(t), `
-      <section class="card card-raised onboard-card" aria-roledescription="carousel">
-        <div class="illustration" aria-hidden="true">${icon}</div>
-        <h1 class="display">${esc(T(t))}</h1>
-        <p class="muted">${esc(T(b))}</p>
-      </section>
-      <div class="dots" role="group" aria-label="${esc(T("slide"))}">
-        ${cards.map((_, j) => `<button type="button" data-i="${j}" aria-label="${esc(T("slide"))} ${j + 1} / 3" ${j === i ? 'aria-current="true"' : ""}></button>`).join("")}
-      </div>
+  view(T("welcomeHero"), `
+    <section class="hero-welcome">
+      <div class="art" aria-hidden="true">🍽️ ☕ ✨</div>
+      <h1>${esc(T("welcomeHero"))}</h1>
+      <p>${esc(T("welcomeSub"))}</p>
       <div class="stack">
-        ${i < 2 ? `<button class="btn btn-primary btn-block" id="next">${esc(T("next"))}</button>` : `<a class="btn btn-primary btn-block" href="#/signin">${esc(T("obCta"))}</a>`}
-        <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("obSignin"))}</a>
-      </div>`);
-    $$(".dots button").forEach((b) => (b.onclick = () => { i = Number(b.dataset.i); draw(); }));
-    const n = $("#next");
-    if (n) n.onclick = () => { i += 1; draw(); };
-  };
-  draw();
+        <a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>
+        <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
+      </div>
+    </section>`);
 }
 
 // ------------------------------------------------------------------ SCR-02a phone, 02b OTP, 02c registration
@@ -238,7 +227,9 @@ function scrOtp() {
     store.set("tokens", { access_token: r.data.access_token, refresh_token: r.data.refresh_token });
     state.challenge = null;
     renderTopbar();
-    go(r.data.user.registration_status === "complete" ? "#/home" : "#/register");
+    if (r.data.user.registration_status !== "complete") go("#/register");
+    else if (store.get(QUIZ_STORE_KEY)) await finishQuiz();
+    else go("#/home");
   };
 }
 
@@ -252,11 +243,12 @@ async function scrRegister() {
     <label class="check"><input type="checkbox" name="c" value="${type}" ${req ? "required" : ""}>
       <span>${esc(T(labelKey))} ${req ? `<span class="caption">(${esc(T("required"))})</span>` : ""}
       <details><summary class="caption">${esc(T("readDoc"))} · ${num(L[type].document_version)}</summary><p class="caption">${esc(L[type].text)}</p></details></span></label>` : "";
+  const quizName = store.get("quizName");
   view(T("regTitle"), `
     <h1>${esc(T("regTitle"))}</h1>
     <form id="f" class="stack" novalidate>
-      <div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
-        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh"><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>
+      ${quizName ? "" : `<div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
+        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh"><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
       <fieldset class="card">
         <label class="check"><input type="checkbox" id="age" required><span>${esc(T("ageLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
         ${consent("terms", "termsLabel", true)}${consent("conduct", "conductLabel", true)}${consent("privacy_notice", "privacyLabel", true)}${consent("marketing", "marketingLabel", false)}
@@ -268,7 +260,7 @@ async function scrRegister() {
     e.preventDefault();
     const checked = new Set($$("input[name=c]:checked").map((i) => i.value));
     const body = {
-      display_name: $("#name").value.trim() || null, locale, age_eligibility_confirmed: $("#age").checked,
+      display_name: quizName || ($("#name") ? $("#name").value.trim() : "") || null, locale, age_eligibility_confirmed: $("#age").checked,
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
         .map((t) => ({ type: t, document_version: L[t].document_version, granted: checked.has(t) })),
     };
@@ -277,42 +269,92 @@ async function scrRegister() {
     $("#go").disabled = false;
     if (!r.ok) { $("#err").innerHTML = errorBanner(r.data); return; }
     state.me = r.data.user;
-    go("#/questions/0");
+    store.del("quizName");
+    if (store.get(QUIZ_STORE_KEY)) await finishQuiz();
+    else go("#/quiz/0");
   };
 }
 
-// ------------------------------------------------------------------ SCR-03 questionnaire
-async function scrQuestions(idxStr) {
-  if (!(await guard({ needQuestionnaire: false }))) return;
-  const q = await loadQuestionnaire();
-  const qs = q.questions;
-  const i = Math.max(0, Math.min(Number(idxStr || 0), qs.length - 1));
-  const qq = qs[i];
-  const sel = state.qAnswers[qq.id] || new Set();
+// ------------------------------------------------------------------ quiz-first questionnaire (spec 2026-10-28 §3–§5)
+const signedIn = () => Boolean(store.get("tokens"));
+const arrowBack = () => (locale === "ar" ? "→" : "←");
+
+// Signed out: the public preview plus answers kept on this device. Signed in: the user's own answers
+// (draft, submitted, or carried over from an older version), with newer answers from this device on top.
+async function loadQuiz() {
+  if (state.quiz && state.quiz.locale === locale && state.quiz.signedIn === signedIn()) return state.quiz;
+  let q;
+  let answers = {};
+  if (signedIn()) {
+    q = await loadQuestionnaire(true);
+    const src = q.draft || q.submitted || q.carried;
+    for (const a of (src ? src.answers : [])) answers[a.question_id] = [...a.option_ids];
+  } else {
+    const r = await api("GET", "/api/v1/questionnaires/preview", undefined, { noAuth: true });
+    if (!r.ok) throw r.data;
+    q = r.data;
+  }
+  const saved = store.get(QUIZ_STORE_KEY);
+  if (saved && saved.version_id === q.questionnaire_version_id) answers = { ...answers, ...saved.answers };
+  state.quiz = { q, answers, steps: buildSteps(q.questions), locale, signedIn: signedIn() };
+  return state.quiz;
+}
+
+function saveQuizLocal() {
+  store.set(QUIZ_STORE_KEY, { version_id: state.quiz.q.questionnaire_version_id, answers: state.quiz.answers });
+}
+
+function answersByKey() {
+  const out = {};
+  for (const qq of state.quiz.q.questions) {
+    out[qq.key] = (state.quiz.answers[qq.id] || []).map((id) => (qq.options.find((o) => o.id === id) || {}).key).filter(Boolean);
+  }
+  return out;
+}
+
+// Step index of a question key in the quiz (used by "edit your languages" links); first question when absent.
+function stepOfKey(key) {
+  const i = state.q ? buildSteps(state.q.questions).findIndex((s) => s.kind === "q" && s.key === key) : -1;
+  return i >= 0 ? i : INTERSTITIALS.start.length;
+}
+
+function quizHead(back, section, progress) {
+  return `<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
+      <span class="section">${esc(section || "")}</span><span></span></div>
+    ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span style="width:${Math.round((progress.i / progress.n) * 100)}%"></span></div>` : ""}`;
+}
+
+async function scrQuiz(stepStr) {
+  if (signedIn() && !(await guard({ needQuestionnaire: false }))) return;
+  const quiz = await loadQuiz();
+  const i = Math.max(0, Math.min(Number(stepStr || 0), quiz.steps.length - 1));
+  const step = quiz.steps[i];
+  const back = i > 0 ? `#/quiz/${i - 1}` : (signedIn() ? "#/home" : "#/welcome");
+  if (step.kind === "inter") { scrInter(step.id, i, back); return; }
+  const qq = quiz.q.questions[step.index];
+  const n = quiz.q.questions.length;
+  const chosen = new Set(quiz.answers[qq.id] || []);
   const single = ["single", "tier", "contact_request"].includes(qq.answer_type);
-  const pct = Math.round(((i + 1) / qs.length) * 100);
-  view(qq.text, `
-    <p class="caption">${esc(T("qProgress", { i: i + 1, n: qs.length }))}</p>
-    <div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${qs.length}" aria-valuenow="${i + 1}" aria-label="${esc(T("qProgress", { i: i + 1, n: qs.length }))}"><span style="width:${pct}%"></span></div>
-    <form id="f" class="stack" novalidate>
-      <fieldset>
-        <legend><h1>${esc(qq.text)}</h1></legend>
-        <p class="caption"><span aria-hidden="true">ℹ️</span> ${esc(T("whyAsk"))}: ${esc(qq.purpose)}</p>
-        ${!qq.is_required ? `<p class="caption">${esc(T("optional"))}</p>` : ""}
-        ${qq.max_selections ? `<p class="caption" id="maxnote">${esc(T("chooseUpTo", { n: qq.max_selections }))}</p>` : ""}
-        <div class="options">
-          ${qq.options.map((o) => `
-            <label class="option ${single ? "radio" : ""}">
-              <input type="${single ? "radio" : "checkbox"}" name="o" value="${o.id}" data-key="${esc(o.key)}" data-excl="${o.is_exclusive}" ${sel.has(o.id) ? "checked" : ""}>
-              <span class="tick" aria-hidden="true"></span><span>${esc(o.label)}</span></label>`).join("")}
-        </div>
-      </fieldset>
+  const input = (o) => `<input type="${single ? "radio" : "checkbox"}" name="o" value="${o.id}" data-key="${esc(o.key)}" data-excl="${o.is_exclusive}" ${chosen.has(o.id) ? "checked" : ""}>`;
+  const emoji = (o) => (o.emoji ? `<span class="emoji" aria-hidden="true">${esc(o.emoji)}</span>` : "");
+  let body;
+  if (qq.layout === "scale") {
+    const last = qq.options.length - 1;
+    body = `<div class="scale" role="radiogroup" aria-labelledby="qh">${qq.options.map((o, j) => `<label>${input(o).replace("<input ", `<input aria-label="${esc(o.label)}${j === 0 && qq.scale_low ? ` · ${esc(qq.scale_low)}` : ""}${j === last && qq.scale_high ? ` · ${esc(qq.scale_high)}` : ""}" `)}<span aria-hidden="true">${esc(o.label)}</span></label>`).join("")}</div>
+      <div class="scale-ends caption" aria-hidden="true"><span>${esc(qq.scale_low || "")}</span><span>${esc(qq.scale_high || "")}</span></div>`;
+  } else if (qq.layout === "chips") {
+    body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}${emoji(o)}<span>${esc(o.label)}</span></label>`).join("")}</div>`;
+  } else {
+    body = `<div class="options" role="${single ? "radiogroup" : "group"}" aria-labelledby="qh">${qq.options.map((o) => `
+      <label class="option ${single ? "radio plain" : ""}">${input(o)}${emoji(o)}<span class="${single ? "" : "txt"}">${esc(o.label)}</span>${single ? "" : `<span class="tick" aria-hidden="true"></span>`}</label>`).join("")}</div>`;
+  }
+  view(qq.text, `${quizHead(back, qq.section, { i: step.index + 1, n })}
+    <form id="f" class="quiz-q" novalidate>
+      <h1 id="qh">${esc(qq.text)}</h1>
+      <p class="caption why">${qq.max_selections ? `${esc(T("chooseUpTo", { n: qq.max_selections }))} · ` : ""}${esc(qq.purpose)}</p>
+      ${body}
       <div id="note" aria-live="polite"></div>
-      <div class="row between">
-        ${i > 0 ? `<a class="btn btn-secondary" href="#/questions/${i - 1}">${esc(T("back"))}</a>` : "<span></span>"}
-        <button class="btn btn-primary" type="submit" id="nx">${esc(i === qs.length - 1 ? T("continue") : T("next"))}</button>
-      </div>
-      <button type="button" class="link-btn" id="draft">${esc(T("saveExit"))}</button>
+      <div class="quiz-foot"><div><button class="btn btn-primary btn-block" type="submit" id="nx">${esc(T("continue"))}</button></div></div>
     </form>`);
   const inputs = $$("input[name=o]");
   const sync = (changed) => {
@@ -320,65 +362,144 @@ async function scrQuestions(idxStr) {
       if (changed.dataset.excl === "true") inputs.forEach((x) => { if (x !== changed) x.checked = false; });
       else inputs.forEach((x) => { if (x.dataset.excl === "true") x.checked = false; });
     }
-    const chosen = inputs.filter((x) => x.checked);
-    if (qq.max_selections) inputs.forEach((x) => { x.disabled = !x.checked && chosen.length >= qq.max_selections; });
-    state.qAnswers[qq.id] = new Set(chosen.map((x) => x.value));
-    $("#nx").disabled = qq.is_required && chosen.length === 0;
-    const keys = chosen.map((x) => x.dataset.key);
+    const picked = inputs.filter((x) => x.checked);
+    if (qq.max_selections) inputs.forEach((x) => { x.disabled = !x.checked && picked.length >= qq.max_selections; });
+    quiz.answers[qq.id] = picked.map((x) => x.value);
+    saveQuizLocal();
+    $("#nx").disabled = qq.is_required && picked.length === 0;
+    $("#nx").textContent = !qq.is_required && picked.length === 0 ? T("skipQ") : T("continue");
+    const keys = picked.map((x) => x.dataset.key);
     $("#note").innerHTML = qq.key === "Q01" && keys.length === 1 && keys[0] === "lang_other" ? `<div class="banner banner-info"><div>${esc(T("q01Note"))}</div></div>`
       : qq.key === "Q07" && keys.includes("private_contact") ? `<div class="banner banner-info"><div>${esc(T("q07Note"))}</div></div>` : "";
   };
   inputs.forEach((x) => (x.onchange = () => sync(x)));
+  // A tap on a single-choice answer moves on, like a card deck; keyboard users (detail 0) use the Continue button.
+  if (single) {
+    const here = location.hash;
+    inputs.forEach((x) => x.addEventListener("click", (e) => {
+      if (e.detail > 0 && !$("#note").innerHTML) setTimeout(() => { if (location.hash === here) go(`#/quiz/${i + 1}`); }, 250);
+    }));
+  }
   sync(null);
-  $("#f").onsubmit = (e) => { e.preventDefault(); go(i === qs.length - 1 ? "#/summary" : `#/questions/${i + 1}`); };
-  $("#draft").onclick = async () => {
-    await api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: q.questionnaire_version_id, status: "draft", answers: answersPayload() });
-    toast(T("save"));
-    go("#/home");
+  $("#f").onsubmit = (e) => { e.preventDefault(); go(`#/quiz/${i + 1}`); };
+}
+
+function scrInter(id, i, back) {
+  const last = i === state.quiz.steps.length - 1;
+  const done = () => { if (!last) go(`#/quiz/${i + 1}`); else if (signedIn()) finishQuiz(); else go("#/name"); };
+  const vibe = id === "vibe" ? vibeOf(answersByKey()) : null;
+  const screens = {
+    doha: () => `<div class="art" aria-hidden="true">🏙️</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
+    community: () => `<div class="art" aria-hidden="true">🤝</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
+    how: () => `<h1>${esc(T("howTitle"))}</h1><ol class="steps">${["how1", "how2", "how3", "how4"].map((k, j) => `<li><span class="n" aria-hidden="true">${j + 1}</span><span>${esc(T(k))}</span></li>`).join("")}</ol>`,
+    science: () => `<div class="art" aria-hidden="true">📖</div><h1>${esc(T("scienceTitle"))}</h1><div class="quote"><p>${esc(T("scienceBody"))}</p><p class="caption">${esc(T("scienceSource"))}</p></div>`,
+    vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="vibe-card" aria-hidden="true">${{ playful: "🎉", calm: "🌙", warm: "💗", curious: "🌀" }[vibe]}</div>
+      <h1>${esc(T(`vibe_${vibe}`))}</h1><p class="lead">${esc(T(`vibe_${vibe}Body`))}</p><p class="caption">${esc(T("vibeNote"))}</p>`,
+    curating: () => `<div class="dots-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><b id="pct">0%</b></div>
+      <h1>${esc(T("curatingTitle"))}</h1><ul class="checklist" id="cl">${["cur1", "cur2", "cur3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
+    ready: () => `<h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
+      <div class="choice-stack"><button type="button" class="option plain" id="yes">${esc(T("readyYes"))}</button><a class="option plain" id="unsure" href="#/what-you-get">${esc(T("readyNo"))}</a></div>`,
+    safety: () => `<div class="art" aria-hidden="true">🛡️</div><h1>${esc(T("safetyTitle"))}</h1><ul class="benefits">${["safe1", "safe2", "safe3", "safe4"]
+      .map((k) => `<li><span class="bi" aria-hidden="true">✓</span><span>${esc(T(k))}</span></li>`).join("")}</ul>`,
   };
-}
-
-function answersPayload() {
-  return Object.entries(state.qAnswers || {}).map(([question_id, set]) => ({ question_id, option_ids: [...set] }));
-}
-
-async function scrSummary() {
-  if (!(await guard({ needQuestionnaire: false }))) return;
-  const q = await loadQuestionnaire();
-  view(T("summaryTitle"), `
-    <h1>${esc(T("summaryTitle"))}</h1>
-    <ul class="list">
-      ${q.questions.map((qq, i) => {
-        const chosen = qq.options.filter((o) => (state.qAnswers[qq.id] || new Set()).has(o.id)).map((o) => o.label);
-        return `<li class="card"><div class="row between"><strong>${esc(qq.text)}</strong><a href="#/questions/${i}" aria-label="${esc(T("edit"))}: ${esc(qq.text)}">${esc(T("edit"))}</a></div>
-          <div class="${chosen.length ? "" : "muted"}">${esc(chosen.join(" · ") || T("noAnswer"))}</div></li>`;
-      }).join("")}
-    </ul>
-    <div id="err" role="alert"></div>
-    <button class="btn btn-primary btn-block" id="save">${esc(T("saveAnswers"))}</button>`);
-  $("#save").onclick = async () => {
-    $("#save").disabled = true;
-    const r = await api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: q.questionnaire_version_id, status: "submitted", answers: answersPayload() });
-    $("#save").disabled = false;
-    if (!r.ok) {
-      const bad = (r.data.details || []).map((d) => `${d.question_key || ""} ${d.code}`).join(", ");
-      $("#err").innerHTML = errorBanner({ message: `${r.data.message || ""} ${bad}` });
-      return;
+  view(T(id === "vibe" ? `vibe_${vibe}` : `${id}Title`), `${quizHead(back, "", null)}<section class="inter" data-inter="${id}">${screens[id]()}</section>
+    ${id === "ready" ? "" : `<div class="quiz-foot"><div><button class="btn btn-primary btn-block" id="nx">${esc(T("continue"))}</button></div></div>`}`);
+  if (id === "ready") {
+    state.quizReturn = i;
+    $("#yes").onclick = done;
+    return;
+  }
+  $("#nx").onclick = done;
+  if (id === "curating") {
+    const items = $$("#cl li");
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let pct = reduce ? 100 : 0;
+    const paint = () => {
+      $("#pct").textContent = `${pct}%`;
+      items.forEach((li, k) => li.classList.toggle("done", pct >= ((k + 1) * 100) / items.length - 1));
+    };
+    paint();
+    if (!reduce) {
+      every(80, () => {
+        pct = Math.min(100, pct + 4);
+        paint();
+        if (pct >= 100) { clearTimers(); setTimeout(() => { if (location.hash === `#/quiz/${i}`) done(); }, 400); }
+      });
     }
-    if (r.data.derived && r.data.derived.private_contact_case_id) toast(T("q07Note"));
-    await loadQuestionnaire(true);
-    go("#/sessions");
-  };
+  }
+}
+
+function scrName() {
+  const steps = state.quiz ? state.quiz.steps.length : 0;
+  view(T("nameTitle"), `${quizHead(`#/quiz/${Math.max(0, steps - 1)}`, "", null)}
+    <form id="f" class="stack quiz-q" novalidate>
+      <h1>${esc(T("nameTitle"))}</h1>
+      <div class="field"><label class="label" for="fname">${esc(T("firstName"))}</label>
+        <input class="input" id="fname" maxlength="30" autocomplete="given-name" aria-describedby="nh" value="${esc(store.get("quizName") || "")}">
+        <span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>
+      <div class="quiz-foot"><div><button class="btn btn-primary btn-block" type="submit" id="nx">${esc(T("next"))}</button></div></div>
+    </form>`);
+  const sync = () => { $("#nx").disabled = !$("#fname").value.trim(); };
+  $("#fname").oninput = sync;
+  sync();
+  $("#f").onsubmit = (e) => { e.preventDefault(); if (!$("#fname").value.trim()) return; store.set("quizName", $("#fname").value.trim()); go("#/signin"); };
+}
+
+// Submits the quiz once the user is signed in; a missing required answer reopens the quiz at that question.
+async function finishQuiz() {
+  loadingView();
+  state.quiz = null;
+  const quiz = await loadQuiz();
+  const hadAny = Boolean(quiz.q.has_submitted_any);
+  const r = await api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: quiz.q.questionnaire_version_id, status: "submitted", answers: toPayload(quiz.answers) });
+  if (!r.ok) {
+    const miss = (r.data.details || []).find((d) => d.question_key);
+    const idx = miss ? quiz.steps.findIndex((st) => st.kind === "q" && st.key === miss.question_key) : -1;
+    toast(r.data.message || T("errGeneric"));
+    go(`#/quiz/${idx >= 0 ? idx : 0}`);
+    return;
+  }
+  store.del(QUIZ_STORE_KEY);
+  state.quiz = null;
+  toast(r.data.derived && r.data.derived.private_contact_case_id ? T("q07Note") : T("answersSaved"));
+  await loadQuestionnaire(true);
+  go(hadAny ? "#/home" : "#/what-you-get");
+}
+
+// "What you get" (spec §6): per-seat today; `plan.kind` is where a subscription would render its plan cards.
+async function scrWhatYouGet() {
+  const authed = signedIn();
+  let s = null;
+  if (authed) {
+    if (!(await guard())) return;
+    loadingView();
+    const r = await api("GET", "/api/v1/sessions");
+    s = r.ok ? r.data.sessions[0] || null : null;
+  }
+  const plan = { kind: "per_seat", fee: s ? s.price.display : null, hours: s ? s.full_refund_until_hours : null };
+  const benefits = [["👥", "wyg1t", "wyg1b"], ["📍", "wyg2t", "wyg2b"], ["❓", "wyg3t", "wyg3b"], ["🛡️", "wyg4t", "wyg4b"], ["🤝", "wyg5t", "wyg5b"]];
+  view(T("wygTitle"), `
+    <h1 class="display-title">${esc(T("wygTitle"))}</h1>
+    <section class="card stack" id="plan" data-kind="${plan.kind}">
+      <p class="label">${esc(plan.fee ? T("wygPrice", { fee: plan.fee }) : T("wygPriceNoFee"))}</p>
+      <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi" aria-hidden="true">${ic}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
+    </section>
+    <div class="banner banner-info"><span class="icon" aria-hidden="true">ℹ️</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
+    <h2>${esc(T("faqTitle"))}</h2>
+    <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
+    <div class="quiz-foot"><div><a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
 }
 
 // ------------------------------------------------------------------ SCR-04 sessions
-async function scrSessions() {
+async function scrSessions(preselect) {
   if (!(await guard())) return;
-  const exp = store.get("exp") || "dinner";
   loadingView();
-  const r = await api("GET", `/api/v1/sessions?experience=${exp}`);
+  const r = await api("GET", "/api/v1/sessions");
   if (!r.ok) { view(T("sessionsTitle"), `<h1>${esc(T("sessionsTitle"))}</h1>${errorBanner(r.data)}`); return; }
-  const all = r.data.sessions;
+  const pre = preselect && r.data.sessions.find((x) => x.id === preselect);
+  if (pre) store.set("exp", pre.experience);
+  const exp = store.get("exp") || "dinner";
+  const all = r.data.sessions.filter((x) => x.experience === exp);
   const ok = all.filter((s) => s.language_match);
   const card = (s) => `
     <label class="option radio" style="align-items:flex-start">
@@ -398,7 +519,7 @@ async function scrSessions() {
     </div>
     <form id="f" class="stack" novalidate>
       ${ok.length ? `<fieldset><legend class="sr-only">${esc(T("sessionsTitle"))}</legend><div class="options">${ok.map(card).join("")}</div></fieldset>`
-        : `<div class="banner banner-info"><div>${esc(T("noSessions"))} <a href="#/questions/0">${esc(T("editLanguages"))}</a></div></div>`}
+        : `<div class="banner banner-info"><div>${esc(T("noSessions"))} <a href="#/quiz/${stepOfKey("Q01")}">${esc(T("editLanguages"))}</a></div></div>`}
       <fieldset id="alts" hidden><legend class="label">${esc(T("alternatesLegend"))}</legend><p class="caption">${esc(T("alternatesHelp"))}</p><div class="options" id="altlist"></div></fieldset>
       <div id="err" role="alert"></div>
     </form>
@@ -421,6 +542,8 @@ async function scrSessions() {
       $$("input[name=alt]").forEach((y) => { y.disabled = !y.checked && n >= 3; });
     }));
   }));
+  const preRadio = pre && radios.find((x) => x.value === pre.id && !x.disabled);
+  if (preRadio) { preRadio.checked = true; preRadio.onchange(); }
   $("#go").onclick = async () => {
     const chosen = radios.find((x) => x.checked);
     if (!chosen) return;
@@ -567,7 +690,52 @@ function countdown(iso) {
   return d > 0 ? T("inDays", { d, h }) : T("inHours", { h, m });
 }
 
+// Calendar weeks start on Sunday in Qatar (UTC+3, no DST): 0 = this week, 1 = next week, 2+ = later.
+function weekOffset(iso) {
+  const day = (ms) => Math.floor((ms + 3 * 3600000) / 86400000);
+  const weekStart = (ms) => day(ms) - new Date(ms + 3 * 3600000).getUTCDay();
+  return Math.round((weekStart(new Date(iso).getTime()) - weekStart(Date.now())) / 7);
+}
+
+function sessionCard(s) {
+  const href = s.my_booking_id ? `#/booking/${s.my_booking_id}` : `#/sessions?s=${s.id}`;
+  const status = s.my_booking_id ? T("alreadyBooked") : s.is_full ? T("full") : T("seatsLeft", { n: s.seats_left });
+  return `<li><a class="event-card" href="${href}" data-session="${s.id}"><span class="ic ${esc(s.experience)}" aria-hidden="true">${s.experience === "coffee" ? "☕" : "🍽️"}</span>
+    <span class="t"><strong>${esc(fmtDate(s.starts_at, { weekday: "long", day: "numeric", month: "long" }))}</strong>
+      <span>${esc(T(s.experience))} · ${esc(s.district)}</span>
+      <span class="caption">${esc(fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }))} · ${esc(status)}</span></span>
+    <span class="go" aria-hidden="true">→</span></a></li>`;
+}
+
 async function scrHome() {
+  if (!(await guard())) return;
+  loadingView();
+  const [sR, bR, contact] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact()]);
+  const sessions = sR.ok ? sR.data.sessions.filter((x) => x.language_match !== false) : [];
+  const bookings = bR.ok ? bR.data.bookings : [];
+  const next = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
+  const choice = bookings.find((b) => b.status === "cancelled_by_organizer" && new Date(b.starts_at) > new Date(Date.now() - 2 * 86400000));
+  const done = bookings.find((b) => b.status === "completed" && b.phase === "completed");
+  const q = state.q;
+  const groups = [["thisWeek", (w) => w <= 0], ["nextWeek", (w) => w === 1], ["later", (w) => w >= 2]]
+    .map(([k, f]) => [k, sessions.filter((x) => f(weekOffset(x.starts_at)))]).filter(([, list]) => list.length);
+  view(T("city"), `
+    <div class="home-head"><h1 class="display-title">${esc(T("city"))} <span aria-hidden="true">📍</span></h1>
+      <a class="icon-btn" href="#/inbox" aria-label="${esc(T("inbox"))}"><span aria-hidden="true">🔔</span></a></div>
+    ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
+    ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
+    ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
+    ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${INTERSTITIALS.start.length}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
+    ${next ? `<a class="card card-link hero stack" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
+      <span class="row between"><strong>${esc(T("nextEvent"))}</strong>${statusBadge(next)}</span>
+      <span>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</span><span class="caption">${esc(next.district)} · ${esc(countdown(next.starts_at))}</span></a>` : ""}
+    <h2>${esc(T("allSessions"))}</h2>
+    ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
+      : `<p class="muted">${esc(T("noUpcoming"))}</p>`}
+    <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+}
+
+async function scrEvents() {
   if (!(await guard())) return;
   loadingView();
   const [r, contact] = await Promise.all([api("GET", "/api/v1/bookings"), loadContact()]);
@@ -591,17 +759,16 @@ async function scrHome() {
       <a class="btn btn-primary btn-block" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">${esc(next.phase === "day_of" ? T("imHere") : T("viewDetails"))}</a>
     </section>`;
   }
-  const name = state.me && state.me.display_name;
-  view(T("hiAnon"), `
-    <h1>${esc(name ? T("hi", { name }) : T("hiAnon"))}</h1>
+  view(T("eventsTitle"), `
+    <h1 class="display-title">${esc(T("eventsTitle"))}</h1>
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
-    ${hero || `<section class="card center"><p>${esc(T("noBookings"))}</p><a class="btn btn-primary" href="#/sessions">${esc(T("bookFirst"))}</a></section>`}
+    ${hero || `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
     ${bookings.length > (next ? 1 : 0) ? `<h2>${esc(T("otherBookings"))}</h2><ul class="list">${bookings.filter((b) => b !== next).map((b) => `
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
-    ${next ? `<a class="btn btn-secondary btn-block" href="#/sessions">${esc(T("bookAnother"))}</a>` : ""}
+    ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
     <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
 }
 
@@ -816,27 +983,37 @@ async function scrInbox() {
   loadingView();
   const r = await api("GET", "/api/v1/notifications");
   const list = r.ok ? r.data.notifications : [];
-  view(T("inbox"), `<h1>${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
+  view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
     <li class="card"><p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
-    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<p class="muted">${esc(T("noNotifications"))}</p>`}`);
+    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
 }
 
 async function scrProfile() {
   if (!(await guard({ needQuestionnaire: false }))) return;
+  loadingView();
+  const [bR, contact] = await Promise.all([api("GET", "/api/v1/bookings"), loadContact()]);
   const me = state.me;
+  const name = me.display_name || T("unnamed");
+  const count = bR.ok ? bR.data.bookings.filter((b) => b.status === "completed").length : 0;
   view(T("profile"), `
-    <h1>${esc(T("profile"))}</h1>
-    <section class="card"><div class="kv"><span>${esc(T("nameLabel").split("(")[0])}</span><strong>${esc(me.display_name || "—")}</strong></div>
-      <div class="kv"><span>${esc(T("language"))}</span><button class="btn btn-ghost" id="lng">${esc(T("langToggle"))}</button></div></section>
-    <ul class="list">
-      <li><a class="card card-link" href="#/summary">${esc(T("myAnswers"))}</a></li>
-      <li><a class="card card-link" href="#/cases">${esc(T("casesTitle"))}</a></li>
-    </ul>
-    <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
-    <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button>`);
+    <h1 class="display-title">${esc(T("profile"))}</h1>
+    <section class="row"><span class="avatar" aria-hidden="true">${esc([...name][0])}</span>
+      <span><strong>${esc(name)}</strong><br><span class="caption">${esc(T("eventsCount", { n: count }))}</span></span></section>
+    <p class="section-label">${esc(T("secAccount"))}</p>
+    <ul class="settings"><li><a class="chev" href="#/quiz/${INTERSTITIALS.start.length}"><span>${esc(T("myAnswers"))}</span></a></li>
+      <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li></ul>
+    <p class="section-label">${esc(T("secPrefs"))}</p>
+    <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
+      <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
+    <p class="section-label">${esc(T("secHelp"))}</p>
+    <section class="card stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
+    <div class="stack" style="margin-block-start: var(--s-6)">
+      <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
+      <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
+  const forget = () => { store.del("tokens"); store.del(QUIZ_STORE_KEY); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
-  $("#out").onclick = async () => { const t = store.get("tokens"); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); store.del("tokens"); state.me = null; state.q = null; state.qAnswers = null; renderTopbar(); go("#/welcome"); };
-  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await api("DELETE", "/api/v1/users/me"); store.del("tokens"); renderTopbar(); go("#/welcome"); };
+  $("#out").onclick = async () => { const t = store.get("tokens"); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
+  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await api("DELETE", "/api/v1/users/me"); forget(); };
 }
 
 async function scrCases() {
@@ -857,9 +1034,20 @@ async function scrCases() {
 }
 
 // ------------------------------------------------------------------ router
+const TABS = [["#/home", "tabHome", "🏠"], ["#/events", "tabEvents", "🗓️"], ["#/inbox", "tabInbox", "🔔"], ["#/profile", "tabProfile", "🙂"]];
+function renderTabbar(hash) {
+  const nav = document.getElementById("tabbar");
+  const active = TABS.find(([h]) => h === hash);
+  nav.hidden = !(active && store.get("tokens"));
+  if (nav.hidden) { nav.innerHTML = ""; return; }
+  nav.setAttribute("aria-label", T("tabsLabel"));
+  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}><span class="ti" aria-hidden="true">${ic}</span><span>${esc(T(k))}</span></a>`).join("");
+}
+
 const ROUTES = [
-  [/^#\/welcome$/, scrWelcome], [/^#\/signin$/, scrPhone], [/^#\/otp$/, scrOtp], [/^#\/register$/, scrRegister],
-  [/^#\/questions\/(\d+)$/, scrQuestions], [/^#\/summary$/, scrSummary], [/^#\/sessions$/, scrSessions],
+  [/^#\/welcome$/, scrWelcome], [/^#\/quiz\/(\d+)$/, scrQuiz], [/^#\/name$/, scrName], [/^#\/what-you-get$/, scrWhatYouGet],
+  [/^#\/signin$/, scrPhone], [/^#\/otp$/, scrOtp], [/^#\/register$/, scrRegister],
+  [/^#\/(?:questions\/\d+|summary)$/, () => go(`#/quiz/${INTERSTITIALS.start.length}`)], [/^#\/sessions(?:\?s=([\w-]+))?$/, scrSessions], [/^#\/events$/, scrEvents],
   [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
   [/^#\/booking\/([\w-]+)\/cancel$/, scrCancel], [/^#\/booking\/([\w-]+)\/choose$/, scrChoose], [/^#\/booking\/([\w-]+)\/feedback$/, scrFeedback],
   [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases],
@@ -868,6 +1056,7 @@ const ROUTES = [
 async function route() {
   clearTimers();
   const hash = location.hash || (store.get("tokens") ? "#/home" : "#/welcome");
+  renderTabbar(hash);
   // the old screen must not take taps while the next one loads (audit F7/F16); view() re-enables it
   main.inert = true;
   main.setAttribute("aria-busy", "true");

@@ -20,7 +20,10 @@ Everything here is **staging**: OTP codes come back in the API response and paym
 | `qatar/db/migrations/005_late_ack_and_admin_throttle.sql` | Audit F1: `bookings.late_no_refund_ack_at` (no-refund acknowledgement before paying after the refund cut-off). Audit F5: `admin_auth_attempts` + `ADMIN_LOGIN_*` config for admin sign-in/enrolment lockout (429 + Retry-After); daily purge job |
 | `qatar/db/migrations/006_support_contact.sql` | Audit F10: `COORDINATOR_PHONE_E164` / `COORDINATOR_WHATSAPP` config for the coordinator call / WhatsApp buttons (`GET /api/v1/support/contact`) |
 | `qatar/db/migrations/007_deny_policies.sql` | Explicit RESTRICTIVE deny-all RLS policy (`deny_all`) on every app table; same behaviour as before, clears the advisor notices. New app tables need the same policy |
+| `qatar/db/migrations/008_question_display.sql` | Quiz display metadata: question `section`, `layout` (list / chips / scale), scale end labels, option `emoji` |
 | `qatar/ops/seed_common.sql` | Staging seed: admins, tiers, venues, full v0.3 questionnaire, legal docs, 3 Arabic sessions on sale, `sim` helpers |
+| `qatar/ops/seed_questionnaire_v2.sql` | Questionnaire QA-2026-02 (22 questions, Qatar-adapted; spec `docs/specs/2026-10-28-timeleft-style-experience-design.md`). Retires v1 and publishes v2; re-running is a no-op |
+| `qatar/web/quiz-flow.js` | Pure quiz-flow logic (step order with interstitials, the vibe card, answer payloads), unit-tested in Node |
 | `qatar/api/src/` | Framework-free API: `handle(Request) → Response`, the same code on Node and Deno |
 | `qatar/api/edge-index.ts` | Supabase Edge Function entry point (deployed as `index.ts`) |
 | `qatar/api/server.mjs` | Local runner: API plus the static web app and admin panel |
@@ -74,13 +77,26 @@ DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 Tests need a local server on port 5433 with user `app`. They build a template database, give each test its own copy, and drive Chromium through Playwright:
 
 ```bash
-cd qatar/api && npm test          # 22 tests: 15 API e2e, 3 key encryption, 1 parity, 3 browser
+cd qatar/api && npm test          # 30 tests: 15 API e2e, 3 key encryption, 1 parity, 3 questionnaire API, 4 quiz logic, 4 browser
 cd qatar/matching && python3 -m pytest -q
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_a/run_simulation.sh
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_b/run_simulation.sh
 ```
 
 The browser tests save screenshots to a temp folder, so a test run leaves the repo unchanged. To refresh the committed screenshots in `docs/qatar-phase4/screens/`, run `UI_SHOTS=docs npm test` and commit the result.
+
+## User experience (quiz first, spec 2026-10-28)
+
+The user app follows the pattern of the Timeleft screenshots in the `Rightime` Drive folder, with Rightime's own content. Nothing of Timeleft's (name, photos, reviews, numbers) is used.
+
+1. **Welcome**, then the quiz *before* sign-up: 22 questions, one per screen, plus interstitials (Doha, welcome, how it works, research with its source, your card, preparing, ready, safety rules). Answers stay on the device (`localStorage` `q_quiz`) until sign-up.
+2. **Sign-up:** first name, phone, OTP, consents (18+). The answers are then submitted and the device copy is deleted.
+3. **What you get:** per-seat fee from the API, benefits, refund rule, FAQ. The page renders a `plan` object so a subscription can be added later.
+4. **App:** four tabs. *Home* (Doha, sessions grouped by week), *My events*, *Notifications*, *Account*.
+
+- `GET /api/v1/questionnaires/preview` (no auth) serves the questions to signed-out visitors, with no user data.
+- Users who answered an older questionnaire are not blocked. `GET /api/v1/questionnaires/current` returns `has_submitted_any` and `carried` answers (mapped by question and option key), and Home invites them to complete the card.
+- Copy rule: tables are formed by language, budget and shared interests. The new questions are collected but not yet used by the matcher, so no screen claims personality matching.
 
 ## Admin sign-in (TOTP)
 
@@ -123,6 +139,8 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 - **Real PSP adapter (O05).** Only `test_psp` exists.
 - **Delivery for `notifications_outbox`.** Rows are written and shown in-app, but no push, SMS or email sender exists.
 - **Legal sign-off.** The 48 h full-refund window is a config default pending legal sign-off (O04).
+- **Privacy notice for QA-2026-02.** The notice must list the new data (gender, age range, personality, work field, family and marital status) before real users. This is part of open item F8.
+- **Matcher upgrade.** Use age range, gender and personality to balance tables (spec 2026-10-28 §10).
 - **Supabase advisors (2026-10-23):**
   - Security: the INFO "RLS enabled, no policy" findings are cleared by migration 007 (explicit deny-all policy; same behaviour). The one WARN (mutable `search_path` on `sim.book_and_pay`) has been fixed.
   - Performance: the 47 unindexed foreign keys are fixed by migration 004. The "unused index" findings remain on purpose. Staging has almost no traffic, so the advisor reports every index as unused, including the new ones. Each listed index backs a real query path, so none were dropped. Review this again once real traffic exists. `sim.clock` (staging simulation only) now has a primary key.
