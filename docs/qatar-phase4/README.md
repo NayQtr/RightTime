@@ -19,13 +19,14 @@ Everything here is **staging**: OTP codes come back in the API response and paym
 | `qatar/db/migrations/004_cron_and_indexes.sql` | 47 covering foreign-key indexes; pg_cron jobs (hold release, unresolved organizer-cancel refunds) where pg_cron exists |
 | `qatar/db/migrations/005_late_ack_and_admin_throttle.sql` | Audit F1: `bookings.late_no_refund_ack_at` (no-refund acknowledgement before paying after the refund cut-off). Audit F5: `admin_auth_attempts` + `ADMIN_LOGIN_*` config for admin sign-in/enrolment lockout (429 + Retry-After); daily purge job |
 | `qatar/db/migrations/006_support_contact.sql` | Audit F10: `COORDINATOR_PHONE_E164` / `COORDINATOR_WHATSAPP` config for the coordinator call / WhatsApp buttons (`GET /api/v1/support/contact`) |
+| `qatar/db/migrations/007_deny_policies.sql` | Explicit RESTRICTIVE deny-all RLS policy (`deny_all`) on every app table; same behaviour as before, clears the advisor notices. New app tables need the same policy |
 | `qatar/ops/seed_common.sql` | Staging seed: admins, tiers, venues, full v0.3 questionnaire, legal docs, 3 Arabic sessions on sale, `sim` helpers |
 | `qatar/api/src/` | Framework-free API: `handle(Request) → Response`, the same code on Node and Deno |
 | `qatar/api/edge-index.ts` | Supabase Edge Function entry point (deployed as `index.ts`) |
 | `qatar/api/server.mjs` | Local runner: API plus the static web app and admin panel |
 | `qatar/web/` | User web app (SCR-01…SCR-10, SCR-05P, SCR-08a/b, the 999 screen), mock checkout, `admin/` panel |
 | `qatar/api/test/` | Parity (JS vs Python matching), API end-to-end, and browser (Playwright) tests |
-| `docs/qatar-phase4/screens/` | Screenshots captured by the UI tests |
+| `docs/qatar-phase4/screens/` | Screenshots captured by the UI tests (refreshed only with `UI_SHOTS=docs`) |
 
 ## Deployed staging
 
@@ -73,11 +74,13 @@ DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 Tests need a local server on port 5433 with user `app`. They build a template database, give each test its own copy, and drive Chromium through Playwright:
 
 ```bash
-cd qatar/api && npm test          # 16 tests: 12 API e2e, 1 parity, 3 browser
+cd qatar/api && npm test          # 22 tests: 15 API e2e, 3 key encryption, 1 parity, 3 browser
 cd qatar/matching && python3 -m pytest -q
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_a/run_simulation.sh
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_b/run_simulation.sh
 ```
+
+The browser tests save screenshots to a temp folder, so a test run leaves the repo unchanged. To refresh the committed screenshots in `docs/qatar-phase4/screens/`, run `UI_SHOTS=docs npm test` and commit the result.
 
 ## Admin sign-in (TOTP)
 
@@ -119,8 +122,7 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 - **SMS OTP provider.** OTP only works in dev mode today.
 - **Real PSP adapter (O05).** Only `test_psp` exists.
 - **Delivery for `notifications_outbox`.** Rows are written and shown in-app, but no push, SMS or email sender exists.
-- **Brand placeholder.** `{BRAND}` is still a placeholder throughout.
 - **Legal sign-off.** The 48 h full-refund window is a config default pending legal sign-off (O04).
 - **Supabase advisors (2026-10-23):**
-  - Security: only the expected INFO "RLS enabled, no policy" findings remain; this is deny-all by design. The one WARN (mutable `search_path` on `sim.book_and_pay`) has been fixed.
-  - Performance: the 47 unindexed foreign keys are fixed by migration 004. The "unused index" findings remain on purpose. Staging has almost no traffic, so the advisor reports every index as unused, including the new ones. Each listed index backs a real query path, so none were dropped. Review this again once real traffic exists.
+  - Security: the INFO "RLS enabled, no policy" findings are cleared by migration 007 (explicit deny-all policy; same behaviour). The one WARN (mutable `search_path` on `sim.book_and_pay`) has been fixed.
+  - Performance: the 47 unindexed foreign keys are fixed by migration 004. The "unused index" findings remain on purpose. Staging has almost no traffic, so the advisor reports every index as unused, including the new ones. Each listed index backs a real query path, so none were dropped. Review this again once real traffic exists. `sim.clock` (staging simulation only) now has a primary key.

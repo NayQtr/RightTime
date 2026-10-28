@@ -13,6 +13,7 @@ psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/004_cron_and_indexes.sql"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/005_late_ack_and_admin_throttle.sql"
 "${PSQL[@]}" -1 -f "$ROOT/db/migrations/006_support_contact.sql"
+"${PSQL[@]}" -1 -f "$ROOT/db/migrations/007_deny_policies.sql"
 "${PSQL[@]}" -1 -f "$ROOT/ops/seed_common.sql"
 for f in 01_seed_live_table 02_intake_s1 03_coordinator_and_triage 04_decision_and_appeal 99_verify; do
   "${PSQL[@]}" -1 -f "$HERE/$f.sql"

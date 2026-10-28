@@ -4,7 +4,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 
 ### 1.2.1 English
 
-> **{BRAND} — small tables of strangers, at your venue**
+> **Rightime — small tables of strangers, at your venue**
 >
 > **What we do.** We bring together small groups of 4 to 6 adults who want to meet new people over coffee or dinner. Each guest answers a short questionnaire and pays us an organising fee in advance. We form the table and send the guests to you. **Each guest orders and pays for their own food and drinks, directly to you.**
 >
@@ -20,7 +20,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 > |---|---|---|
 > | 1 | Reserved table | One table for up to **6** guests per session, reserved under a table code (e.g. `T01`) that guests give on arrival. |
 > | 2 | Separate bills | Each guest receives and pays their **own bill**. *(Our system records this as `separate_bills_confirmed = true`; we cannot list a venue without it.)* |
-> | 3 | No minimum spend on us | No minimum spend, deposit or cover charge charged to {BRAND}. If the venue has a per-person minimum for all customers, it must be stated in writing so we can show it to guests before they pay. |
+> | 3 | No minimum spend on us | No minimum spend, deposit or cover charge charged to Rightime. If the venue has a per-person minimum for all customers, it must be stated in writing so we can show it to guests before they pay. |
 > | 4 | Atmosphere | The table is in a **quiet or moderate** area where 6 people can talk without raising their voices (not next to speakers, a stage or the kitchen pass). |
 > | 5 | Head-count & release | We confirm the final count at **T-24 h**. If a table does not reach 4 guests, we cancel it and tell you **immediately** so you can release the table. |
 > | 6 | Day-of contact | You name one contact (name, role, phone) reachable from **T-3 h until the end of service**. Our coordinator confirms the booking with them at T-3 h. |
@@ -31,7 +31,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 >
 > **Day-of protocol**
 >
-> | Time | Venue | {BRAND} |
+> | Time | Venue | Rightime |
 > |---|---|---|
 > | T-24 h | Receives the final count per table (or a release) | Locks tables, sends guests the venue and table code |
 > | T-3 h | Confirms the reservation to the coordinator | Calls the day-of contact; marks `venue_confirmed_at` |
@@ -43,7 +43,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 
 ### 1.2.2 العربية
 
-> **{BRAND} — طاولات صغيرة لأشخاص يتعارفون، في مكانكم**
+> **Rightime — طاولات صغيرة لأشخاص يتعارفون، في مكانكم**
 >
 > **ماذا نفعل؟** نجمع مجموعات صغيرة من ٤ إلى ٦ بالغين يرغبون في التعرّف على أشخاص جدد على قهوة أو عشاء. يجيب كل ضيف عن استبيان قصير ويدفع لنا رسم تنظيم مسبقًا، ثم نكوّن الطاولة ونرسل الضيوف إليكم. **يطلب كل ضيف طعامه ومشروباته ويدفع ثمنها لكم مباشرة.**
 >
@@ -59,7 +59,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 > |---|---|---|
 > | ١ | طاولة محجوزة | طاولة واحدة لحتى **٦** ضيوف في كل موعد، محجوزة برمز (مثل `T01`) يذكره الضيوف عند الوصول. |
 > | ٢ | فواتير منفصلة | يستلم كل ضيف **فاتورته الخاصة** ويدفعها. *(يسجّل نظامنا ذلك بالقيمة `separate_bills_confirmed = true`، ولا يمكننا إدراج مكان بدونها.)* |
-> | ٣ | لا حدّ أدنى للإنفاق علينا | لا حدّ أدنى للإنفاق ولا عربون ولا رسم خدمة يُفرض على {BRAND}. إن كان لدى المكان حدّ أدنى للفرد يطبَّق على جميع الزبائن، فيُكتب ذلك لنعرضه على الضيوف قبل الدفع. |
+> | ٣ | لا حدّ أدنى للإنفاق علينا | لا حدّ أدنى للإنفاق ولا عربون ولا رسم خدمة يُفرض على Rightime. إن كان لدى المكان حدّ أدنى للفرد يطبَّق على جميع الزبائن، فيُكتب ذلك لنعرضه على الضيوف قبل الدفع. |
 > | ٤ | الأجواء | الطاولة في منطقة **هادئة أو متوسطة الهدوء** يستطيع فيها ٦ أشخاص الحديث دون رفع أصواتهم (بعيدًا عن السمّاعات والمسرح وممر المطبخ). |
 > | ٥ | العدد وتحرير الطاولة | نؤكد العدد النهائي قبل الموعد بـ**24 ساعة**. إذا لم يكتمل الحد الأدنى (٤ ضيوف) نلغي الطاولة ونخبركم **فورًا** لتحريرها. |
 > | ٦ | جهة التواصل يوم اللقاء | تحددون شخصًا واحدًا (الاسم، الصفة، الهاتف) متاحًا من **3 ساعات قبل الموعد حتى نهاية الخدمة**. يؤكد منسّقنا الحجز معه قبل الموعد بـ3 ساعات. |
@@ -70,7 +70,7 @@ One page per language, for cafés and restaurants in Lusail, Msheireb and West B
 >
 > **بروتوكول يوم اللقاء**
 >
-> | الوقت | المكان | {BRAND} |
+> | الوقت | المكان | Rightime |
 > |---|---|---|
 > | قبل 24 ساعة | يستلم العدد النهائي لكل طاولة (أو إشعار التحرير) | نثبّت الطاولات ونرسل للضيوف المكان ورمز الطاولة |
 > | قبل 3 ساعات | يؤكد الحجز للمنسّق | نتصل بجهة التواصل ونسجّل `venue_confirmed_at` |

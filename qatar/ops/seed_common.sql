@@ -137,6 +137,7 @@ JOIN question_options o ON (o.question_id, o.key) IN (('00000000-0000-0000-0000-
 -- sessions: S1 and S2 at T (Arabic dinner, Lusail / West Bay hints); S3 a week later for rebooking
 CREATE SCHEMA sim;  -- simulation-only helpers; never create this schema in production
 CREATE TABLE sim.clock AS SELECT date_trunc('minute', now()) + interval '24 hours' AS t;
+ALTER TABLE sim.clock ADD COLUMN id boolean PRIMARY KEY DEFAULT true CHECK (id);  -- single-row table
 INSERT INTO event_sessions (id, city_id, experience, conversation_language, starts_at, ends_at, district_hint_ar, district_hint_en,
   price_plan_id, cancellation_policy_id, max_seats, booking_opens_at, booking_closes_at, lock_at, reveal_at, check_in_opens_at, status)
 SELECT x.id, 'doh', 'dinner', 'ar', c.t + x.shift, c.t + x.shift + interval '2 hours', x.dar, x.den,

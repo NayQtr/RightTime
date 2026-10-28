@@ -3,7 +3,7 @@
 ## 1.1 Legal counsel briefing memo (gates O03 and O04)
 
 > **To:** Qatar-qualified legal counsel (to be appointed)  
-> **From:** {BRAND} product team  
+> **From:** Rightime product team  
 > **Date:** 2026-10-23  
 > **Re:** Pre-launch review under Law No. 13 of 2016 (Personal Data Privacy Protection) — special-nature data (Article 16), retention, and cancellation terms  
 > **Status:** Briefing for instruction. Nothing in this memo is legal advice; every proposed value is for counsel to accept, amend or reject.

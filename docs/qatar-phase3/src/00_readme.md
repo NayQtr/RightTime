@@ -1,6 +1,6 @@
 ---
 title: "Phase 3 — Pre-Launch Execution & Validation Package (v0.4)"
-subtitle: "{BRAND} social-dining service, Doha — builds on Qatar_Phase2_Completion_v0.3"
+subtitle: "Rightime social-dining service, Doha — builds on Qatar_Phase2_Completion_v0.3"
 date: "2026-10-23"
 ---
 
@@ -26,7 +26,6 @@ This package turns the v0.3 specification into artefacts that can be executed, t
 | **[PROPOSED]** | A product proposal made in this package; needs owner sign-off. |
 | **[COMMERCIAL]** | Left open on purpose — to be agreed with the venue or PSP; no figure is assumed. |
 | **TRAINING EXAMPLE** | Illustrative content used to train researchers on the log format. **Not a finding.** Phase 1 forbids presenting invented research results as evidence. |
-| `{BRAND}` | Brand placeholder for the Qatar service (the name is not decided in the Phase 1/2 files). |
 
 ## 0.3 Business rules carried unchanged from v0.3
 

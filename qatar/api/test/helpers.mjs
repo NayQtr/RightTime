@@ -18,7 +18,7 @@ function psql(db, args) {
 
 export function buildTemplate() {
   psql("postgres", ["-c", `DROP DATABASE IF EXISTS ${TEMPLATE}`, "-c", `CREATE DATABASE ${TEMPLATE}`]);
-  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "ops/seed_common.sql"]) {
+  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "db/migrations/007_deny_policies.sql", "ops/seed_common.sql"]) {
     psql(TEMPLATE, ["-1", "-f", path.join(ROOT, f)]);
   }
 }

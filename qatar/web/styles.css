@@ -1,4 +1,4 @@
-/* {BRAND} user app — components built only on tokens.css variables. Logical properties everywhere (RTL mirrors itself). */
+/* Rightime user app — components built only on tokens.css variables. Logical properties everywhere (RTL mirrors itself). */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
