@@ -61,8 +61,7 @@ export const STRINGS = {
     rebookedInto: "نقلناك إلى الحجز {ref}.", refundLabel: "الاسترداد",
     // SCR-09
     fbTitle: "كيف كانت التجربة؟", overall: "التقييم العام", comfort: "هل شعرتِ بالراحة في الحوار؟", venueRating: "تقييم المكان (اختياري)",
-    commentLabel: "تعليق خاص (اختياري)", commentHelp: "لن يراه أحد من الطاولة", contactLegend: "التواصل بعد اللقاء", contactHelp: "لا نخبر أحدًا باختيارك. يُفتح التواصل فقط إذا اختار الطرفان «أرغب».",
-    wantContact: "أرغب بالتواصل", noContact: "لا", send: "إرسال", fbThanks: "شكرًا! وصلنا تقييمك.", mutualWith: "تواصل متبادل مع: {names}",
+    commentLabel: "تعليق خاص (اختياري)", commentHelp: "لن يراه أحد من الطاولة", contactLegend: "التواصل بعد اللقاء", contactSend: "طلب تواصل", contactSent: "أُرسل الطلب", contactIncoming: "ترغب بالتواصل معكِ", contactAccept: "قبول", contactDecline: "اعتذار", contactWhatsapp: "واتساب", contactUntil: "متاح حتى {date}", contactClosed: "انتهت مدة طلبات التواصل لهذا اللقاء.", contactDeclined: "تم. لن نخبرها باعتذاركِ.", contactAccepted: "تم. يظهر لكما الآن زر واتساب.", contactGo: "التواصل بعد اللقاء", contactHelp: "أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.", send: "إرسال", fbThanks: "شكرًا! وصلنا تقييمك.",
     reportSeparate: "شيء أزعجك؟ إبلاغ خاص", wouldBookAgain: "سأحجز مرة أخرى",
     // SCR-10
     reportTitle: "إبلاغ خاص", reportIntro: "بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.", category: "نوع المشكلة",
@@ -169,8 +168,7 @@ export const STRINGS = {
     rfRequested: "Refund requested", rfProcessing: "Processing", rfRefunded: "Refunded", rfFailed: "Refund failed", rfNone: "No refund",
     rebookedInto: "We moved you to booking {ref}.", refundLabel: "Refund",
     fbTitle: "How was it?", overall: "Overall rating", comfort: "Did you feel comfortable in the conversation?", venueRating: "Venue rating (optional)",
-    commentLabel: "Private comment (optional)", commentHelp: "No one at your table will see it", contactLegend: "Contact after the event", contactHelp: "We never tell anyone what you chose. Contact opens only if both people choose \"I'd like to\".",
-    wantContact: "I'd like to stay in touch", noContact: "No", send: "Send", fbThanks: "Thank you! We received your feedback.", mutualWith: "Mutual contact with: {names}",
+    commentLabel: "Private comment (optional)", commentHelp: "No one at your table will see it", contactLegend: "Contact after the event", contactSend: "Ask to stay in touch", contactSent: "Request sent", contactIncoming: "would like to stay in touch", contactAccept: "Accept", contactDecline: "Decline", contactWhatsapp: "WhatsApp", contactUntil: "Open until {date}", contactClosed: "Contact requests for this meetup are closed.", contactDeclined: "Done. We won't tell her you declined.", contactAccepted: "Done. You both now have a WhatsApp button.", contactGo: "Stay in touch after the meetup", contactHelp: "Ask a tablemate you'd like to see again. If she accepts, you both get a WhatsApp button. We never tell anyone if a request isn't accepted.", send: "Send", fbThanks: "Thank you! We received your feedback.",
     reportSeparate: "Something bothered you? Private report", wouldBookAgain: "I'd book again",
     reportTitle: "Private report", reportIntro: "Your report is confidential. We won't reveal your identity to the person reported.", category: "What happened?",
     cHarassment: "Harassment", cThreat: "Threat or violence", cPhoto: "Photographed without consent", cStalking: "Stalking or unwanted contact", cFraud: "Fraud", cDisruptive: "Disruptive or disrespectful behaviour",

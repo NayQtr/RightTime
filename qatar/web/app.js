@@ -955,6 +955,8 @@ async function scrDetails(id) {
     ${act("check_in") ? `<button class="btn btn-primary btn-block" id="ci">${esc(T("imHere"))}</button>` : ""}
     ${e.booking.status === "checked_in" ? `<div class="banner banner-success"><span class="icon">${icon("circle-check")}</span><div>${esc(T("checkedIn"))}</div></div>` : ""}
     ${act("feedback") ? `<a class="btn btn-primary btn-block" href="#/booking/${id}/feedback">${esc(T("rateIt"))}</a>` : ""}
+    ${ph === "completed" ? `<section class="card stack" id="contacts" aria-labelledby="contacts-h"><h2 id="contacts-h">${esc(T("contactLegend"))}</h2>
+      <p class="caption">${esc(T("contactHelp"))}</p><div id="contacts-list" aria-live="polite"></div></section>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
     <section class="stack" style="margin-block-start: var(--s-6)"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
@@ -964,6 +966,42 @@ async function scrDetails(id) {
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
   const ci = $("#ci");
   if (ci) ci.onclick = async () => { ci.disabled = true; const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); ci.disabled = false; } };
+  if (ph === "completed") renderContacts(id);
+}
+
+// Contact requests after the meetup (migration 010): ask a tablemate; on acceptance both get a WhatsApp button.
+// A refusal or no answer is never shown: the sender only ever sees "Request sent".
+async function renderContacts(id, note = "") {
+  const box = $("#contacts-list");
+  if (!box) return;
+  const r = await api("GET", `/api/v1/bookings/${id}/contacts`);
+  if (!$("#contacts-list")) return;
+  if (!r.ok) { box.innerHTML = errorBanner(r.data); return; }
+  const c = r.data;
+  const row = (m) => {
+    const name = esc(m.display_name || T("unnamed"));
+    const action = m.state === "connected" ? `<a class="btn btn-primary" href="${esc(m.whatsapp_url)}" target="_blank" rel="noopener" data-wa>${icon("phone")}${esc(T("contactWhatsapp"))}</a>`
+      : m.state === "incoming" ? `<span class="row"><button class="btn btn-primary" data-accept="${esc(m.request_id)}">${esc(T("contactAccept"))}</button>
+          <button class="btn btn-secondary" data-decline="${esc(m.request_id)}">${esc(T("contactDecline"))}</button></span>`
+      : m.state === "sent" ? `<span class="caption">${esc(T("contactSent"))}</span>`
+      : m.can_send ? `<button class="btn btn-secondary" data-seat="${esc(m.seat)}">${esc(T("contactSend"))}</button>` : "";
+    return `<li class="row between contact-row" style="padding:8px 0;gap:8px;flex-wrap:wrap"><span><strong>${name}</strong>${m.state === "incoming"
+      ? `<br><span class="caption">${esc(T("contactIncoming"))}</span>` : ""}</span>${action}</li>`;
+  };
+  box.innerHTML = `${note ? `<div class="banner banner-success" role="status"><div>${esc(note)}</div></div>` : ""}
+    ${c.members.length ? `<ul class="list" style="gap:0">${c.members.map(row).join("")}</ul>` : ""}
+    <p class="caption">${esc(c.open ? T("contactUntil", { date: fmtDate(c.closes_at) }) : T("contactClosed"))}</p>
+    <div id="contacts-err" role="alert"></div>`;
+  const act = async (btn, method, path, body, done) => {
+    btn.disabled = true;
+    const x = await api(method, path, body);
+    if (!x.ok) { btn.disabled = false; $("#contacts-err").innerHTML = errorBanner(x.data); return; }
+    renderContacts(id, done(x.data));
+  };
+  $$("#contacts-list [data-seat]").forEach((b) => (b.onclick = () => act(b, "POST", "/api/v1/contact-requests", { booking_id: id, seat: b.dataset.seat },
+    (d) => (d.state === "connected" ? T("contactAccepted") : ""))));
+  $$("#contacts-list [data-accept]").forEach((b) => (b.onclick = () => act(b, "POST", `/api/v1/contact-requests/${b.dataset.accept}:accept`, {}, () => T("contactAccepted"))));
+  $$("#contacts-list [data-decline]").forEach((b) => (b.onclick = () => act(b, "POST", `/api/v1/contact-requests/${b.dataset.decline}:decline`, {}, () => T("contactDeclined"))));
 }
 
 // ------------------------------------------------------------------ SCR-08a cancel, SCR-08b organizer choice
@@ -1040,12 +1078,8 @@ async function scrChoose(id) {
 async function scrFeedback(id) {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
-  const [r, q] = await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadQuestionnaire().catch(() => null)]);
+  const r = await api("GET", `/api/v1/bookings/${id}/event-details`);
   if (!r.ok) { view(T("fbTitle"), `<h1>${esc(T("fbTitle"))}</h1>${errorBanner(r.data)}`); return; }
-  const e = r.data;
-  const q08 = q && q.questions.find((x) => x.key === "Q08");
-  const mutualOpt = q08 && q08.options.find((o) => o.key === "mutual_consent");
-  const contacts = !!(mutualOpt && state.qAnswers[q08.id] && state.qAnswers[q08.id].has(mutualOpt.id));
   const stars = (name, label, required) => `<fieldset><legend class="label">${esc(label)}</legend><div class="stars">
     ${[1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="${name}" value="${v}" ${required ? "required" : ""}><span>${v}</span><span class="sr-only">/ 5</span></label>`).join("")}</div></fieldset>`;
   view(T("fbTitle"), `
@@ -1054,11 +1088,6 @@ async function scrFeedback(id) {
       ${stars("overall", T("overall"), true)}${stars("comfort", T("comfort"), true)}${stars("venue", T("venueRating"), false)}
       <label class="check"><input type="checkbox" id="again"><span>${esc(T("wouldBookAgain"))}</span></label>
       <div class="field"><label class="label" for="cm">${esc(T("commentLabel"))}</label><textarea class="input" id="cm" maxlength="500" aria-describedby="cmh"></textarea><span id="cmh" class="caption">${esc(T("commentHelp"))}</span></div>
-      ${contacts && e.table && e.table.members && e.table.members.length ? `<fieldset class="card"><legend class="label">${esc(T("contactLegend"))}</legend><p class="caption">${esc(T("contactHelp"))}</p>
-        ${e.table.members.map((m, i) => `<div class="row between" style="padding:8px 0"><span>${esc(m.display_name || T("unnamed"))}</span>
-          <span class="segmented" role="radiogroup" aria-label="${esc(m.display_name || T("unnamed"))}">
-            <label class="option radio" style="min-height:40px"><input type="radio" name="m${i}" value="yes" data-seat="${esc(m.seat)}"><span class="tick" aria-hidden="true"></span><span>${esc(T("wantContact"))}</span></label>
-            <label class="option radio" style="min-height:40px"><input type="radio" name="m${i}" value="no" data-seat="${esc(m.seat)}" checked><span class="tick" aria-hidden="true"></span><span>${esc(T("noContact"))}</span></label></span></div>`).join("")}</fieldset>` : ""}
       <div id="err" role="alert"></div>
       <button class="btn btn-primary btn-block" type="submit" id="go">${esc(T("send"))}</button>
     </form>
@@ -1066,12 +1095,11 @@ async function scrFeedback(id) {
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
     const val = (n) => { const x = $$(`input[name=${n}]:checked`)[0]; return x ? Number(x.value) : null; };
-    const connections = $$("input[value=yes], input[value=no]").filter((x) => x.checked && x.dataset.seat).map((x) => ({ seat: x.dataset.seat, choice: x.value === "yes" }));
     const c = await api("POST", `/api/v1/bookings/${id}/feedback`, { overall_rating: val("overall"), comfort_rating: val("comfort"), venue_rating: val("venue"),
-      would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null, connections });
+      would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null });
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); return; }
     view(T("fbThanks"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("fbThanks"))}</h1>
-      ${c.data.mutual.length ? `<p>${esc(T("mutualWith", { names: c.data.mutual.join("، ") }))}</p>` : ""}
+      <a class="btn btn-secondary" href="#/booking/${id}">${esc(T("contactGo"))}</a>
       <a class="btn btn-primary" href="#/sessions">${esc(T("bookAnother"))}</a></div>`);
   };
 }

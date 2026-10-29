@@ -1,5 +1,5 @@
 // Quiz-first questionnaire (spec 2026-10-28): public preview with display metadata, answers carried over from an
-// older version, QA-2026-03 required questions, and the HerZone women-only confirmation.
+// older version, QA-2026-04 required questions, and the HerZone women-only confirmation.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { buildTemplate, client, startTestEnv } from "./helpers.mjs";
@@ -18,10 +18,10 @@ async function registeredUser(name) {
   return { token: r2.body.access_token, userId: r2.body.user.id };
 }
 
-test("preview: published v3 without a token, with display metadata and the Qatar adaptations", async () => {
+test("preview: published v4 without a token, with display metadata and the Qatar adaptations", async () => {
   const r = await call("GET", "/api/v1/questionnaires/preview", { locale: "en" });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(r.body.code, "QA-2026-03");
+  assert.equal(r.body.code, "QA-2026-04");
   assert.equal(r.body.draft, undefined, "no user data in the preview");
   const by = Object.fromEntries(r.body.questions.map((q) => [q.key, q]));
   assert.equal(by.Q05.layout, "chips");
@@ -31,6 +31,7 @@ test("preview: published v3 without a token, with display metadata and the Qatar
   assert.equal(by.Q21.scale_low, "Not important");
   assert.equal(by.Q21.scale_high, "Very important");
   assert.equal(by.Q10, undefined, "no gender question: HerZone is for women only, confirmed at sign-up");
+  assert.equal(by.Q08, undefined, "no contact preference: contact is a request after the meetup");
   assert.ok(!by.Q09.options.some((o) => /special/i.test(o.key)), "no dating goal");
   assert.ok(!r.body.questions.some((q) => /humou?r/i.test(q.text)), "no politically incorrect humour question");
   assert.ok(by.Q11.is_required);
@@ -53,7 +54,7 @@ test("current: answers from an older version are carried by question and option 
                  WHERE q.questionnaire_version_id = ${v1.id}
                    AND ((q.key = 'Q05' AND o.key IN ('food', 'travel', 'no_pref')) OR (q.key = 'Q01' AND o.key = 'lang_ar') OR (q.key = 'Q04' AND o.key = 'tier_2'))`;
   const cur = (await call("GET", "/api/v1/questionnaires/current", { token: u.token })).body;
-  assert.equal(cur.code, "QA-2026-03");
+  assert.equal(cur.code, "QA-2026-04");
   assert.equal(cur.submitted, null);
   assert.equal(cur.has_submitted_any, true);
   assert.equal(cur.carried.from_version_id, v1.id);
@@ -83,30 +84,30 @@ test("current: a new user has nothing submitted and nothing carried", async () =
   assert.equal(cur.submitted, null);
 });
 
-test("privacy notice privacy-qa-3 (HerZone, women only) lists the data and auto-save; an update is re-accepted without signing up again", async () => {
+test("privacy notice privacy-qa-4 (HerZone, women only, contact requests) lists the data and auto-save; an update is re-accepted without signing up again", async () => {
   const legal = (await call("GET", "/api/v1/legal/current")).body;
-  assert.equal(legal.privacy_notice.document_version, "privacy-qa-3");
-  for (const s of ["HerZone", "للنساء فقط", "تأكيدكِ أنكِ امرأة", "الحفظ التلقائي", "الفئة العمرية", "الحالة الاجتماعية", "بصمة الجهاز", "مسودة", "الأسئلة المطلوبة ثلاثة"])
+  assert.equal(legal.privacy_notice.document_version, "privacy-qa-4");
+  for (const s of ["HerZone", "للنساء فقط", "طلبات التواصل", "زر واتساب", "تأكيدكِ أنكِ امرأة", "الحفظ التلقائي", "الفئة العمرية", "الحالة الاجتماعية", "بصمة الجهاز", "مسودة", "الأسئلة المطلوبة ثلاثة"])
     assert.ok(legal.privacy_notice.text.includes(s), s);
-  assert.ok(!legal.privacy_notice.text.includes("Rightime") && !legal.privacy_notice.text.includes("رجل أو امرأة"));
+  assert.ok(!legal.privacy_notice.text.includes("Rightime") && !legal.privacy_notice.text.includes("رجل أو امرأة") && !legal.privacy_notice.text.includes("تفضيل التواصل"));
   const en = (await call("GET", "/api/v1/legal/current", { locale: "en" })).body;
   assert.ok(en.privacy_notice.text.includes("Auto-save") && en.privacy_notice.text.includes("device fingerprint") && en.privacy_notice.text.includes("women only"));
 
   const u = await registeredUser("Notice");
   assert.deepEqual((await call("GET", "/api/v1/users/me", { token: u.token })).body.user.outdated_consents, [], "just accepted the current notice");
-  await env.sql`INSERT INTO app.legal_documents (version, type, text_ar, text_en, published_at) VALUES ('privacy-qa-4', 'privacy', 'نسخة أحدث', 'Newer', now())`;
+  await env.sql`INSERT INTO app.legal_documents (version, type, text_ar, text_en, published_at) VALUES ('privacy-qa-5', 'privacy', 'نسخة أحدث', 'Newer', now())`;
   assert.deepEqual((await call("GET", "/api/v1/users/me", { token: u.token })).body.user.outdated_consents, ["privacy_notice"]);
-  const old = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-3", granted: true }] } });
+  const old = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-4", granted: true }] } });
   assert.equal(old.body.code, "DOCUMENT_VERSION_OUTDATED");
-  const refuse = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-4", granted: false }] } });
+  const refuse = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-5", granted: false }] } });
   assert.equal(refuse.body.code, "CONSENT_REQUIRED", "a required consent is withdrawn by deleting the account");
   assert.equal((await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [] } })).status, 422);
-  const ok = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-4", granted: true }] } });
+  const ok = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [{ type: "privacy_notice", document_version: "privacy-qa-5", granted: true }] } });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   assert.deepEqual(ok.body.outdated_consents, []);
   const [row] = await env.sql`SELECT document_version, granted, source FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'privacy_notice'
                               ORDER BY recorded_at DESC, created_at DESC LIMIT 1`;
-  assert.deepEqual({ ...row }, { document_version: "privacy-qa-4", granted: true, source: "app_web" });
+  assert.deepEqual({ ...row }, { document_version: "privacy-qa-5", granted: true, source: "app_web" });
   assert.equal((await call("POST", "/api/v1/users/me/consents", { body: { consents: [] } })).status, 401);
 });
 

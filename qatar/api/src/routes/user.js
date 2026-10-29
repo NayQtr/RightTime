@@ -1,5 +1,5 @@
 // User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
-import { encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
+import { decrypt, encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { decisionLabel, renderTemplate } from "../lib/i18n.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
@@ -49,7 +49,6 @@ async function profileOf(sql, responseId) {
     languages, tier,
     onlyOther: rows.some((r) => r.key === "Q01" && r.option_key === "lang_other") && languages.length === 0,
     q07Private: rows.some((r) => r.key === "Q07" && r.option_key === "private_contact"),
-    q08Mutual: rows.some((r) => r.key === "Q08" && r.option_key === "mutual_consent"),
   };
 }
 
@@ -740,7 +739,7 @@ async function checkIn(ctx) {
 }
 
 async function feedback(ctx) {
-  const { sql, body, cfg, keys } = ctx;
+  const { sql, body, cfg } = ctx;
   const b = await ownedBooking(sql, ctx, ctx.params.id);
   const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
   const t = await currentTable(sql, b.id);
@@ -753,32 +752,112 @@ async function feedback(ctx) {
   if (body.venue_rating != null && !r15(body.venue_rating)) details.push({ field: "venue_rating", code: "INVALID" });
   if (body.comment != null && String(body.comment).length > 500) details.push({ field: "comment", code: "TOO_LONG" });
   if (details.length) fail(422, "VALIDATION_FAILED", details);
-  const resp = await submittedResponse(sql, ctx.user.id);
-  const prof = resp ? await profileOf(sql, resp.id) : { q08Mutual: false };
-  const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
-  const bySeat = Object.fromEntries(members.map((m) => [seatToken(keys, b.id, m.booking_id), m]));
-  const connections = Array.isArray(body.connections) ? body.connections : [];
   await sql.begin(async (tx) => {
     const [dup] = await tx`SELECT id FROM app.event_feedback WHERE booking_id = ${b.id}`;
     if (dup) fail(409, "ALREADY_SUBMITTED");
     await tx`INSERT INTO app.event_feedback (booking_id, user_id, table_id, venue_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private)
              VALUES (${b.id}, ${ctx.user.id}, ${t.id}, ${t.venue_id}, ${body.overall_rating}, ${body.comfort_rating}, ${body.venue_rating ?? null},
                      ${typeof body.would_book_again === "boolean" ? body.would_book_again : null}, ${body.comment ?? null})`;
-    if (prof.q08Mutual) {
-      for (const c of connections) {
-        const m = bySeat[c && c.seat];
-        if (!m || typeof c.choice !== "boolean") continue;
-        await tx`INSERT INTO app.connection_consents (table_id, from_user_id, to_user_id, choice, expires_at)
-                 VALUES (${t.id}, ${ctx.user.id}, ${m.user_id}, ${c.choice}, now() + interval '30 days')
-                 ON CONFLICT (table_id, from_user_id, to_user_id) DO UPDATE SET choice = EXCLUDED.choice, decided_at = now()`;
-      }
-    }
   });
-  const mutual = await sql`
-    SELECT u.display_name FROM app.mutual_connections mc JOIN app.users u
-      ON u.id = CASE WHEN mc.user_a = ${ctx.user.id} THEN mc.user_b ELSE mc.user_a END
-     WHERE mc.table_id = ${t.id} AND ${ctx.user.id} IN (mc.user_a, mc.user_b)`;
-  return json(201, { saved: true, connections_enabled: prof.q08Mutual, mutual: mutual.map((m) => m.display_name) });
+  return json(201, { saved: true });
+}
+
+// ------------------------------------------------------------------ contact requests (migration 010)
+// From the meetup's end and for 7 days, a member asks a tablemate to stay in touch; on acceptance each gets a WhatsApp
+// button to the other. A refusal, no answer, a block or a suspended account is never revealed to the sender.
+const CONTACT_WINDOW_DAYS = 7;
+
+async function finishedTable(sql, ctx, bookingId) {
+  const b = await ownedBooking(sql, ctx, bookingId);
+  const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${b.session_id}`;
+  const t = await currentTable(sql, b.id);
+  const ended = computePhase(b, s, t) === "completed";
+  const closesAt = new Date(new Date(s.ends_at).getTime() + CONTACT_WINDOW_DAYS * 86400000);
+  return { b, t, ended, open: ended && new Date() < closesAt, closesAt };
+}
+
+async function isBlockedPair(sql, a, b) {
+  const [row] = await sql`SELECT 1 FROM app.blocked_pairs WHERE user_a = LEAST(${a}::uuid, ${b}::uuid) AND user_b = GREATEST(${a}::uuid, ${b}::uuid)`;
+  return Boolean(row);
+}
+
+async function whatsappOf(sql, keys, userId) {
+  const [u] = await sql`SELECT phone_e164_enc FROM app.users WHERE id = ${userId} AND status = 'active'`;
+  const phone = u ? decrypt(keys.dataKey, u.phone_e164_enc) : null;
+  return phone ? `https://wa.me/${phone.slice(1)}` : null;
+}
+
+async function bookingContacts(ctx) {
+  const { sql, keys, user } = ctx;
+  const { b, t, ended, open, closesAt } = await finishedTable(sql, ctx, ctx.params.id);
+  if (!ended) return json(200, { open: false, closes_at: null, members: [] });
+  const reqs = await sql`SELECT * FROM app.contact_requests WHERE table_id = ${t.id} AND ${user.id} IN (from_user_id, to_user_id)`;
+  const members = [];
+  for (const m of (await tableMembers(sql, t.id)).filter((x) => x.booking_id !== b.id)) {
+    const mine = reqs.find((r) => r.from_user_id === user.id && r.to_user_id === m.user_id);
+    const theirs = reqs.find((r) => r.from_user_id === m.user_id && r.to_user_id === user.id && r.delivered);
+    const blocked = await isBlockedPair(sql, user.id, m.user_id);
+    let state = mine ? "sent" : "none", requestId = null, whatsapp = null;
+    if (!blocked && [mine, theirs].some((r) => r && r.status === "accepted")) {
+      whatsapp = await whatsappOf(sql, keys, m.user_id);
+      if (whatsapp) state = "connected";
+    } else if (!blocked && !mine && theirs && theirs.status === "pending" && open) {
+      state = "incoming"; requestId = theirs.id;
+    }
+    members.push({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null, state, request_id: requestId,
+      whatsapp_url: whatsapp, can_send: open && state === "none" });
+  }
+  return json(200, { open, closes_at: qa(closesAt), members });
+}
+
+async function sendContactRequest(ctx) {
+  const { sql, keys, user, body } = ctx;
+  const { b, t, open, closesAt } = await finishedTable(sql, ctx, body.booking_id);
+  if (!open) fail(409, "CONTACT_WINDOW_CLOSED");
+  const m = (await tableMembers(sql, t.id)).find((x) => x.booking_id !== b.id && seatToken(keys, b.id, x.booking_id) === body.seat);
+  if (!m) fail(422, "VALIDATION_FAILED", [{ field: "seat", code: "NOT_FOUND" }]);
+  const state = await sql.begin(async (tx) => {
+    const [existing] = await tx`SELECT status FROM app.contact_requests WHERE table_id = ${t.id} AND from_user_id = ${user.id} AND to_user_id = ${m.user_id}`;
+    if (existing) return existing.status === "accepted" ? "connected" : "sent";
+    const [target] = await tx`SELECT status FROM app.users WHERE id = ${m.user_id}`;
+    const deliverable = target.status === "active" && !(await isBlockedPair(tx, user.id, m.user_id));
+    // she already asked me (even if I declined then): both want it, so connect now
+    const [theirs] = deliverable ? await tx`SELECT id FROM app.contact_requests WHERE table_id = ${t.id} AND from_user_id = ${m.user_id}
+                                             AND to_user_id = ${user.id} AND delivered FOR UPDATE` : [];
+    if (theirs) {
+      await tx`UPDATE app.contact_requests SET status = 'accepted', decided_at = now() WHERE id = ${theirs.id} AND status <> 'accepted'`;
+      await tx`INSERT INTO app.contact_requests (table_id, from_user_id, to_user_id, status, expires_at, decided_at)
+               VALUES (${t.id}, ${user.id}, ${m.user_id}, 'accepted', ${closesAt}, now())`;
+      await notify(tx, m.user_id, "CONTACT_ACCEPTED", { name: user.display_name, booking_id: m.booking_id });
+      return "connected";
+    }
+    await tx`INSERT INTO app.contact_requests (table_id, from_user_id, to_user_id, delivered, expires_at)
+             VALUES (${t.id}, ${user.id}, ${m.user_id}, ${deliverable}, ${closesAt})`;
+    if (deliverable) await notify(tx, m.user_id, "CONTACT_REQUEST", { name: user.display_name, booking_id: m.booking_id });
+    return "sent";
+  });
+  return json(201, { state, whatsapp_url: state === "connected" ? await whatsappOf(sql, keys, m.user_id) : null });
+}
+
+async function decideContactRequest(ctx, accept) {
+  const { sql, keys, user } = ctx;
+  requireUuid(ctx.params.id, "request_id");
+  const r = await sql.begin(async (tx) => {
+    const [row] = await tx`SELECT * FROM app.contact_requests WHERE id = ${ctx.params.id} AND to_user_id = ${user.id} AND delivered FOR UPDATE`;
+    if (!row || await isBlockedPair(tx, user.id, row.from_user_id)) fail(404, "NOT_FOUND");
+    // the window follows the meetup's actual end (an admin may have moved the session since the request was sent)
+    const [s] = await tx`SELECT s.ends_at FROM app.event_tables t JOIN app.event_sessions s ON s.id = t.session_id WHERE t.id = ${row.table_id}`;
+    const closesAt = new Date(new Date(s.ends_at).getTime() + CONTACT_WINDOW_DAYS * 86400000);
+    if (row.status !== "pending" || new Date() >= closesAt) fail(409, "CONTACT_REQUEST_CLOSED");
+    await tx`UPDATE app.contact_requests SET status = ${accept ? "accepted" : "declined"}, decided_at = now() WHERE id = ${row.id}`;
+    if (accept) {
+      const [sender] = await tx`SELECT b.id FROM app.table_assignments a JOIN app.bookings b ON b.id = a.booking_id
+                                 WHERE a.table_id = ${row.table_id} AND a.is_current AND b.user_id = ${row.from_user_id}`;
+      await notify(tx, row.from_user_id, "CONTACT_ACCEPTED", { name: user.display_name, booking_id: sender ? sender.id : null });
+    }
+    return row;
+  });
+  return json(200, { status: accept ? "accepted" : "declined", whatsapp_url: accept ? await whatsappOf(sql, keys, r.from_user_id) : null });
 }
 
 // ------------------------------------------------------------------ safety
@@ -859,7 +938,8 @@ async function appeal(ctx) {
 async function notifications(ctx) {
   const rows = await ctx.sql`SELECT * FROM app.notifications_outbox WHERE user_id = ${ctx.user.id} ORDER BY created_at DESC LIMIT 50`;
   const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
-    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, ctx.locale) : v]));
+    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, ctx.locale)
+      : k === "name" && !v ? (ctx.locale === "en" ? "A tablemate" : "زميلة طاولتك") : v]));
   return json(200, { notifications: rows.map((n) => ({ id: n.id, template_key: n.template_key, created_at: qa(n.created_at),
     booking_id: (n.payload || {}).booking_id || null, text: renderTemplate(n.template_key, ctx.locale, fmt(n.payload)) })) });
 }
@@ -902,6 +982,10 @@ export const userRoutes = [
   { method: "POST", path: "/api/v1/bookings/{id}/resolution", auth: "user", idem: true, handler: chooseResolution },
   { method: "POST", path: "/api/v1/bookings/{id}/check-in", auth: "user", idem: true, handler: checkIn },
   { method: "POST", path: "/api/v1/bookings/{id}/feedback", auth: "user", idem: true, handler: feedback },
+  { method: "GET", path: "/api/v1/bookings/{id}/contacts", auth: "user", handler: bookingContacts },
+  { method: "POST", path: "/api/v1/contact-requests", auth: "user", idem: true, handler: sendContactRequest },
+  { method: "POST", path: "/api/v1/contact-requests/{id}:accept", auth: "user", idem: true, handler: (ctx) => decideContactRequest(ctx, true) },
+  { method: "POST", path: "/api/v1/contact-requests/{id}:decline", auth: "user", idem: true, handler: (ctx) => decideContactRequest(ctx, false) },
   { method: "POST", path: "/api/v1/reports", auth: "user", idem: true, handler: createReport },
   { method: "GET", path: "/api/v1/cases/mine", auth: "user", handler: myCases },
   { method: "POST", path: "/api/v1/cases/{ref}/appeal", auth: "user", idem: true, handler: appeal },

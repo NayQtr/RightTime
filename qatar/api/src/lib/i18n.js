@@ -42,6 +42,8 @@ export const ERRORS = {
   RESOLUTION_NOT_AVAILABLE: ["لا يوجد اختيار مطلوب لهذا الحجز.", "There's no choice to make for this booking."],
   CHECK_IN_NOT_OPEN: ["تسجيل الوصول غير متاح الآن.", "Check-in isn't open right now."],
   FEEDBACK_NOT_OPEN: ["التقييم غير متاح الآن.", "Feedback isn't open right now."],
+  CONTACT_WINDOW_CLOSED: ["انتهت مدة طلبات التواصل لهذا اللقاء.", "Contact requests for this meetup are closed."],
+  CONTACT_REQUEST_CLOSED: ["لم يعد هذا الطلب متاحًا.", "This request is no longer open."],
   ALREADY_SUBMITTED: ["أرسلتِ هذا من قبل.", "You've already sent this."],
   PAYMENT_NOT_PENDING: ["لا يوجد دفع معلّق لهذا الحجز.", "There's no pending payment for this booking."],
   HOLD_EXPIRED: ["انتهت مدة حجز المقعد. المقاعد قد تكون تغيّرت.", "Your seat hold expired. Availability may have changed."],
@@ -81,6 +83,8 @@ export const TEMPLATES = {
   APPEAL_DECISION: ["راجع اعتراضَك شخصٌ لم يتخذ القرار الأصلي. القرار النهائي: {decision}.", "Your appeal was reviewed by someone who did not make the original decision. Final decision: {decision}."],
   PAYMENT_CONFIRMED: ["تم الدفع. نجمع طاولتك الآن. رقم الحجز {ref}.", "Payment confirmed. We're forming your table now. Booking ref {ref}."],
   BOOKING_CANCELLED: ["تم إلغاء حجزك {ref}.", "Your booking {ref} was cancelled."],
+  CONTACT_REQUEST: ["{name} ترغب بالتواصل معكِ بعد لقائكما. يمكنكِ القبول أو الاعتذار من تفاصيل اللقاء خلال 7 أيام من انتهائه.", "{name} would like to stay in touch after your meetup. You can accept or decline in the meetup details within 7 days of its end."],
+  CONTACT_ACCEPTED: ["{name} وافقت على التواصل. تجدين زر واتساب في تفاصيل اللقاء.", "{name} agreed to stay in touch. You'll find a WhatsApp button in the meetup details."],
   PRIVATE_CONTACT: ["سيتواصل معك فريقنا بشكل خاص قبل اللقاء.", "Our team will contact you privately before the event."],
 };
 

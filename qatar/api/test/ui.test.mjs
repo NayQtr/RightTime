@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
 import { sha256hex, totpAt } from "../src/lib/crypto.js";
 
 // Screenshots go to a temp dir so a test run never dirties the repo; UI_SHOTS=docs refreshes docs/qatar-phase4/screens.
@@ -95,7 +95,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.click("#start");
   const seen = await walkQuiz(page);
   assert.deepEqual(seen.inters, ["doha", "community", "how", "science", "vibe", "curating", "ready", "safety"]);
-  assert.equal(seen.keys.length, 21, "21 questions in QA-2026-03");
+  assert.equal(seen.keys.length, 20, "20 questions in QA-2026-04");
   assert.ok(seen.keys.includes("ما الذي تبحثين عنه؟") && !seen.keys.some((k) => k.includes("تعرّف نفسك")), "addressed to a woman, no gender question");
   assert.equal(seen.timeleft, false, "no Timeleft text anywhere");
   assert.ok(!seen.keys.some((k) => /فكاهة|غير لائقة/.test(k)), "no politically incorrect humour question");
@@ -131,7 +131,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
-  assert.equal(answered, 21, "every quiz answer saved");
+  assert.equal(answered, 20, "every quiz answer saved");
   await page.screenshot({ path: `${SHOTS}/05-what-you-get-ar.png`, fullPage: true });
   // the fixed bottom button never covers the last content (spec 2026-10-29 §4)
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -418,4 +418,52 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   await page.waitForSelector("text=Trust & Safety queue");
   await page.screenshot({ path: `${SHOTS}/22-admin-ts-queue.png`, fullPage: true });
   assert.deepEqual(errors, []);
+});
+
+test("contact request after the meetup: Fatima asks, Sara accepts, both get a WhatsApp button", async () => {
+  const call = client(env.base);
+  const owner = await adminLogin(call, env.sql, "owner@example.test");
+  const ses = await call("POST", "/api/admin/v1/sessions", { token: owner.token, body: { experience: "dinner", conversation_language: "ar",
+    starts_at: new Date(Date.now() + 4 * 86400000).toISOString(), duration_minutes: 120, max_seats: 18, district_hint_ar: "لوسيل", district_hint_en: "Lusail" } });
+  await call("POST", `/api/admin/v1/sessions/${ses.body.id}:open-sale`, { token: owner.token });
+  const U = {};
+  for (const name of ["فاطمة", "سارة", "هدى", "منى"]) {
+    const u = await signUp(call, { name });
+    const b = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: ses.body.id } });
+    await payViaMock(call, await checkoutUrlFor(call, u.token, b.body));
+    U[name] = { ...u, booking: b.body.booking_id };
+  }
+  await call("POST", `/api/admin/v1/sessions/${ses.body.id}/matching:publish`, { token: owner.token, body: { seed: 5 } });
+  const det = (await call("GET", `/api/admin/v1/sessions/${ses.body.id}`, { token: owner.token })).body;
+  assert.equal((await call("POST", `/api/admin/v1/tables/${det.tables[0].id}:lock`, { token: owner.token })).status, 200);
+  // the meetup ended an hour ago
+  await env.sql`UPDATE app.event_sessions SET starts_at = now() - interval '3 hours', ends_at = now() - interval '1 hour',
+                  booking_opens_at = now() - interval '10 days', booking_closes_at = now() - interval '4 hours', lock_at = now() - interval '27 hours',
+                  reveal_at = now() - interval '27 hours', check_in_opens_at = now() - interval '4 hours' WHERE id = ${ses.body.id}`;
+  const open = async (who) => {
+    const { page, errors } = await newPage();
+    await page.goto(env.base + "/");
+    await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+      { access_token: U[who].token, refresh_token: U[who].refresh });
+    await page.goto(`${env.base}/#/booking/${U[who].booking}`);
+    await page.waitForSelector("#contacts-list li");
+    return { page, errors };
+  };
+  const f = await open("فاطمة");
+  assert.ok((await f.page.locator("#contacts").innerText()).includes("التواصل بعد اللقاء"));
+  await f.page.locator(".contact-row", { hasText: "سارة" }).locator("[data-seat]").click();
+  await f.page.waitForFunction(() => [...document.querySelectorAll(".contact-row")].some((r) => r.textContent.includes("سارة") && r.textContent.includes("أُرسل الطلب")));
+  await noHorizontalScroll(f.page);
+  const s = await open("سارة");
+  const row = s.page.locator(".contact-row", { hasText: "فاطمة" });
+  assert.ok((await row.innerText()).includes("ترغب بالتواصل معكِ"));
+  await s.page.screenshot({ path: `${SHOTS}/16-contact-request-ar.png`, fullPage: true });
+  await row.locator("[data-accept]").click();
+  await s.page.waitForSelector(".contact-row [data-wa]");
+  assert.equal(await s.page.locator(".contact-row [data-wa]").getAttribute("href"), `https://wa.me/${U["فاطمة"].phone.slice(1)}`);
+  await f.page.reload();
+  await f.page.waitForSelector(".contact-row [data-wa]");
+  assert.equal(await f.page.locator(".contact-row [data-wa]").getAttribute("href"), `https://wa.me/${U["سارة"].phone.slice(1)}`);
+  await f.page.screenshot({ path: `${SHOTS}/17-contact-connected-ar.png`, fullPage: true });
+  assert.deepEqual([...f.errors, ...s.errors], []);
 });
