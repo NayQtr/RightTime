@@ -103,3 +103,45 @@ test("privacy notice privacy-qa-2 lists the new data and auto-save; an update is
   assert.deepEqual({ ...row }, { document_version: "privacy-qa-3", granted: true, source: "app_web" });
   assert.equal((await call("POST", "/api/v1/users/me/consents", { body: { consents: [] } })).status, 401);
 });
+
+test("idempotency: a retry that arrives while the first request is still running is told to wait, never run twice", async () => {
+  const u = await registeredUser("Retry");
+  const principal = `user:${u.userId}`;
+  // the first request has reserved its key and is still running
+  await env.sql`INSERT INTO app.idempotency_keys (principal, key, method_path, request_hash, status_code, response)
+                VALUES (${principal}, 'k-running', 'POST /api/v1/reports', ${"x".repeat(64)}, 0, '{}'::jsonb)`;
+  const r = await call("POST", "/api/v1/users/me/consents", { token: u.token, idem: "k-running",
+    body: { consents: [{ type: "marketing", document_version: (await call("GET", "/api/v1/legal/current")).body.marketing.document_version, granted: true }] } });
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, "IDEMPOTENCY_IN_PROGRESS");
+  assert.equal(r.body.retryable, true);
+  const [{ n }] = await env.sql`SELECT count(*)::int AS n FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'marketing'`;
+  assert.equal(n, 0, "the retry did not run the handler");
+  // a normal key is reserved, then completed; the same key replays the stored answer
+  const legal = (await call("GET", "/api/v1/legal/current")).body;
+  const body = { consents: [{ type: "marketing", document_version: legal.marketing.document_version, granted: true }] };
+  const first = await call("POST", "/api/v1/users/me/consents", { token: u.token, idem: "k-done", body });
+  const again = await call("POST", "/api/v1/users/me/consents", { token: u.token, idem: "k-done", body });
+  assert.equal(first.status, 200);
+  assert.equal(again.headers.get("idempotent-replayed"), "true");
+  const [{ m }] = await env.sql`SELECT count(*)::int AS m FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'marketing'`;
+  assert.equal(m, 1, "applied exactly once");
+  const [row] = await env.sql`SELECT status_code FROM app.idempotency_keys WHERE principal = ${principal} AND key = 'k-done'`;
+  assert.equal(row.status_code, 200);
+});
+
+test("consents: malformed or duplicate entries are rejected with 422, not 500 or an arbitrary winner", async () => {
+  const u = await registeredUser("Dupes");
+  const legal = (await call("GET", "/api/v1/legal/current")).body;
+  const v = (t) => legal[t].document_version;
+  const dup = await call("POST", "/api/v1/users/me/consents", { token: u.token, body: { consents: [
+    { type: "marketing", document_version: v("marketing"), granted: true }, { type: "marketing", document_version: v("marketing"), granted: false }] } });
+  assert.equal(dup.status, 422);
+  assert.equal(dup.body.code, "VALIDATION_FAILED");
+  const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97466123456", locale: "ar", purpose: "login" } });
+  const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });
+  const reg = await call("POST", "/api/v1/users/me/registration", { token: r2.body.access_token, body: { display_name: "N", locale: "ar", age_eligibility_confirmed: true,
+    consents: [null, ...["terms", "conduct", "privacy_notice"].map((t) => ({ type: t, document_version: v(t), granted: true }))] } });
+  assert.equal(reg.status, 422, JSON.stringify(reg.body));
+  assert.equal(reg.body.code, "VALIDATION_FAILED");
+});

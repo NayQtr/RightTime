@@ -260,6 +260,7 @@ test("auto-save: a dropped request is retried, an unfinished quiz resumes where 
   await page.fill("#phone", "55512399");
   await page.click("#send");
   await page.waitForSelector("#code");
+  assert.equal(await page.evaluate(() => localStorage.getItem("q_phone")), null, "a plain sign-in keeps no phone number on the device");
   await page.reload();
   await page.waitForSelector("#code");
   assert.ok((await page.locator("main").innerText()).includes("+97455512399"));
@@ -299,25 +300,28 @@ test("auto-save when signed in: an edited answer is saved as a server draft and 
   assert.deepEqual([...a.errors, ...b.errors], []);
 });
 
-test("privacy notice update: existing users see it on home, read it and accept it once", async () => {
+test("document updates (privacy notice and terms): existing users see them on home, read them and accept once", async () => {
   const call = client(env.base);
   const u = await signUp(call, { name: "Notice" });
   await env.sql`INSERT INTO app.legal_documents (version, type, text_ar, text_en, published_at)
-                VALUES ('privacy-ui-3', 'privacy', 'نص إشعار الخصوصية المحدّث', 'Updated privacy notice text', now())`;
+                VALUES ('privacy-ui-3', 'privacy', 'نص إشعار الخصوصية المحدّث', 'Updated privacy notice text', now()),
+                       ('terms-ui-2', 'terms', 'نص الشروط المحدّث', 'Updated terms text', now())`;
   const { page, errors } = await newPage();
   await page.goto(env.base + "/");
   await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, { access_token: u.token, refresh_token: u.refresh });
   await page.goto(env.base + "/#/home");
-  await page.waitForSelector("#privacy-upd");
-  await page.click("#privacy-upd summary");
-  assert.ok((await page.locator("#privacy-upd").innerText()).includes("نص إشعار الخصوصية المحدّث"));
+  await page.waitForSelector("#consent-upd");
+  assert.equal(await page.locator("#consent-upd details").count(), 2, "both updated documents are listed");
+  for (const s of await page.locator("#consent-upd summary").all()) await s.click();
+  const banner = await page.locator("#consent-upd").innerText();
+  assert.ok(banner.includes("نص إشعار الخصوصية المحدّث") && banner.includes("نص الشروط المحدّث"), banner.slice(0, 200));
   await page.screenshot({ path: `${SHOTS}/15-privacy-update-ar.png`, fullPage: true });
   await page.click("#pv-ok");
   await page.waitForSelector(".event-card");
-  await page.waitForFunction(() => !document.querySelector("#privacy-upd"));
-  const [row] = await env.sql`SELECT document_version FROM app.user_consents WHERE user_id = ${u.userId} AND consent_type = 'privacy_notice'
-                                ORDER BY recorded_at DESC LIMIT 1`;
-  assert.equal(row.document_version, "privacy-ui-3");
+  await page.waitForFunction(() => !document.querySelector("#consent-upd"));
+  const rows = await env.sql`SELECT DISTINCT ON (consent_type) consent_type, document_version FROM app.user_consents WHERE user_id = ${u.userId}
+                               AND consent_type IN ('privacy_notice', 'terms') ORDER BY consent_type, recorded_at DESC`;
+  assert.deepEqual(rows.map((r) => `${r.consent_type}:${r.document_version}`).sort(), ["privacy_notice:privacy-ui-3", "terms:terms-ui-2"]);
   await page.goto(env.base + "/#/privacy");
   await page.waitForSelector(".legal-text");
   assert.ok((await page.locator(".legal-text").innerText()).includes("نص إشعار الخصوصية المحدّث"));

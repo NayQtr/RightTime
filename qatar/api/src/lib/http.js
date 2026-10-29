@@ -18,7 +18,7 @@ export function problemBody(err, locale, requestId, domain = "docs.example") {
     message: errorMessage(err.code, locale),
     request_id: requestId,
     ...(err.details ? { details: err.details } : {}),
-    retryable: err.status >= 500 || err.status === 429 || err.code === "OTP_INVALID",
+    retryable: err.status >= 500 || err.status === 429 || err.code === "OTP_INVALID" || err.code === "IDEMPOTENCY_IN_PROGRESS",
     ...err.extra,
   };
 }

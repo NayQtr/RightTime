@@ -37,9 +37,13 @@ export function toPayload(answers) {
   return Object.entries(answers || {}).filter(([, ids]) => ids && ids.length).map(([question_id, ids]) => ({ question_id, option_ids: [...ids] }));
 }
 
-// Where a signed-in user resumes: the first question with no answer yet, else the first question.
+// Where a signed-in user resumes: the question right after the furthest one answered (optional questions skipped
+// earlier are not replayed); the first question when nothing is answered or the last one already is.
 export function firstOpenStep(steps, questions, answers) {
   const qSteps = steps.map((s, i) => [s, i]).filter(([s]) => s.kind === "q");
-  const open = qSteps.find(([s]) => !((answers || {})[questions[s.index].id] || []).length);
-  return (open || qSteps[0] || [null, 0])[1];
+  const answered = (s) => ((answers || {})[questions[s.index].id] || []).length > 0;
+  let last = -1;
+  qSteps.forEach(([s], k) => { if (answered(s)) last = k; });
+  const next = qSteps[last + 1] || qSteps[0];
+  return next ? next[1] : 0;
 }

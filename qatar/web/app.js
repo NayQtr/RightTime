@@ -99,6 +99,11 @@ async function api(method, path, body, opts = {}) {
   const text = res.status === 304 ? "" : await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+  // the server is still running an earlier attempt with this key: wait and ask again (it replays the stored answer)
+  if (res.status === 409 && data && data.code === "IDEMPOTENCY_IN_PROGRESS" && (opts.waits || 0) < 3) {
+    await new Promise((r) => setTimeout(r, 2000));
+    return api(method, path, body, { ...opts, idem: headers["Idempotency-Key"], waits: (opts.waits || 0) + 1 });
+  }
   if (res.status === 403 && data && data.code === "ACCOUNT_SUSPENDED") state.suspended = true;
   return { ok: res.ok, status: res.status, data, headers: res.headers };
 }
@@ -144,7 +149,7 @@ async function loadQuestionnaire(force = false) {
   const r = await api("GET", "/api/v1/questionnaires/current");
   if (!r.ok) throw r.data;
   state.q = r.data;
-  const src = r.data.draft || r.data.submitted;
+  const src = r.data.submitted || r.data.draft;
   if (!state.qAnswers || force) {
     state.qAnswers = {};
     for (const a of (src ? src.answers : [])) state.qAnswers[a.question_id] = new Set(a.option_ids);
@@ -223,7 +228,7 @@ function scrPhone() {
     if (!r.ok) { $("#phone").setAttribute("aria-invalid", "true"); $("#perr").textContent = r.data.message || T("errGeneric"); return; }
     state.phone = "+974" + digits;
     state.challenge = r.data;
-    store.set("phone", state.phone);
+    if (store.get(QUIZ_STORE_KEY) || store.get("quizName")) store.set("phone", state.phone);
     tabStore.set("challenge", { ch: r.data, phone: state.phone, until: Date.now() + r.data.expires_in * 1000 });
     go("#/otp");
   };
@@ -355,7 +360,8 @@ function flushDraft(keepalive = false) {
   saveDraftSoon.t = null;
   const quiz = state.quiz;
   if (!quiz || !signedIn()) return;
-  api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: quiz.q.questionnaire_version_id, status: "draft", answers: toPayload(quiz.answers) }, { keepalive });
+  saveDraftSoon.inflight = api("POST", "/api/v1/questionnaire-responses", { questionnaire_version_id: quiz.q.questionnaire_version_id, status: "draft", answers: toPayload(quiz.answers) }, { keepalive })
+    .finally(() => { saveDraftSoon.inflight = null; });
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(true); });
 
@@ -510,6 +516,7 @@ async function finishQuiz() {
   loadingView();
   clearTimeout(saveDraftSoon.t);
   saveDraftSoon.t = null;
+  if (saveDraftSoon.inflight) await saveDraftSoon.inflight.catch(() => {});
   state.quiz = null;
   const quiz = await loadQuiz();
   const hadAny = Boolean(quiz.q.has_submitted_any);
@@ -791,10 +798,13 @@ function sessionCard(s) {
 async function scrHome() {
   if (!(await guard())) return;
   loadingView();
-  const needPrivacy = ((state.me && state.me.outdated_consents) || []).includes("privacy_notice");
+  // required documents updated since the user accepted them (terms, conduct, privacy notice): read and accept on home
+  const outdated = (state.me && state.me.outdated_consents) || [];
   const [sR, bR, contact, legalR] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact(),
-    needPrivacy ? api("GET", "/api/v1/legal/current", undefined, { noAuth: true }) : null]);
-  const notice = legalR && legalR.ok ? legalR.data.privacy_notice : null;
+    outdated.length ? api("GET", "/api/v1/legal/current", undefined, { noAuth: true }) : null]);
+  const docs = legalR && legalR.ok ? outdated.filter((k) => legalR.data[k]).map((k) => ({ type: k, ...legalR.data[k] })) : [];
+  const onlyPrivacy = docs.length === 1 && docs[0].type === "privacy_notice";
+  const DOC_NAME = { terms: "docTerms", conduct: "docConduct", privacy_notice: "privacyTitle" };
   const sessions = sR.ok ? sR.data.sessions.filter((x) => x.language_match !== false) : [];
   const bookings = bR.ok ? bR.data.bookings : [];
   const next = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
@@ -810,9 +820,10 @@ async function scrHome() {
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
-    ${notice ? `<section class="banner banner-warning" id="privacy-upd"><div class="stack"><p><strong>${esc(T("privacyUpdTitle"))}</strong></p><p>${esc(T("privacyUpdBody"))}</p>
-      <details><summary>${esc(T("readDoc"))} · ${num(notice.document_version)}</summary><p class="caption legal-text">${esc(notice.text)}</p></details>
-      <button class="btn btn-primary" id="pv-ok" data-version="${esc(notice.document_version)}">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
+    ${docs.length ? `<section class="banner banner-warning" id="consent-upd"><div class="stack"><p><strong>${esc(T(onlyPrivacy ? "privacyUpdTitle" : "docsUpdTitle"))}</strong></p>
+      <p>${esc(T(onlyPrivacy ? "privacyUpdBody" : "docsUpdBody"))}</p>
+      ${docs.map((d) => `<details><summary>${esc(T(DOC_NAME[d.type]))} · ${num(d.document_version)}</summary><p class="caption legal-text">${esc(d.text)}</p></details>`).join("")}
+      <button class="btn btn-primary" id="pv-ok">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
     ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${resumeStepFor(q)}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
     ${next ? `<a class="next-card" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
       <span class="row between"><span class="caption">${esc(T("nextEvent"))}</span>${statusBadge(next)}</span>
@@ -828,10 +839,10 @@ async function scrHome() {
     const card = $(`.event-card[data-day="${b.dataset.day}"]`);
     if (card) { card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.focus({ preventScroll: true }); }
   }));
-  if (notice) {
+  if (docs.length) {
     $("#pv-ok").onclick = async () => {
       $("#pv-ok").disabled = true;
-      const r = await api("POST", "/api/v1/users/me/consents", { consents: [{ type: "privacy_notice", document_version: $("#pv-ok").dataset.version, granted: true }] });
+      const r = await api("POST", "/api/v1/users/me/consents", { consents: docs.map((d) => ({ type: d.type, document_version: d.document_version, granted: true })) });
       if (!r.ok) { $("#pv-ok").disabled = false; $("#pv-err").innerHTML = errorBanner(r.data); return; }
       await loadMe(true);
       toast(T("privacyAccepted"));

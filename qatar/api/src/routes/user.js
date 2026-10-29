@@ -193,6 +193,7 @@ async function register(ctx) {
   if (details.length) fail(422, "VALIDATION_FAILED", details);
   if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
   const consents = Array.isArray(body.consents) ? body.consents : [];
+  checkConsentShape(consents);
   const missing = REQUIRED_CONSENTS.filter((t) => !consents.some((c) => c.type === t && c.granted === true));
   if (missing.length) fail(422, "CONSENT_REQUIRED", missing.map((t) => ({ field: `consents.${t}`, code: "REQUIRED" })));
   await checkConsentVersions(sql, consents);
@@ -214,19 +215,31 @@ async function currentDocVersions(sql) {
   return Object.fromEntries(docs.map((d) => [d.type, d.version]));
 }
 
-async function checkConsentVersions(sql, consents) {
-  const current = await currentDocVersions(sql);
+// Each entry is an object with a known type and a boolean, and each type appears once (two rows recorded in the same
+// transaction share a timestamp, so current_consents could not tell which one wins).
+function checkConsentShape(consents) {
+  const seen = new Set();
   for (const c of consents) {
-    if (!c || !(c.type in CONSENT_DOC) || typeof c.granted !== "boolean") fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "INVALID" }]);
-    const cur = current[CONSENT_DOC[c.type]];
-    if (!cur || c.document_version !== cur) fail(422, "DOCUMENT_VERSION_OUTDATED", [{ field: `consents.${c.type}`, current_version: cur || null }]);
+    if (!c || typeof c !== "object" || !(c.type in CONSENT_DOC) || typeof c.granted !== "boolean" || seen.has(c.type))
+      fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "INVALID" }]);
+    seen.add(c.type);
   }
 }
 
+async function checkConsentVersions(sql, consents, current = null) {
+  checkConsentShape(consents);
+  current = current || await currentDocVersions(sql);
+  for (const c of consents) {
+    const cur = current[CONSENT_DOC[c.type]];
+    if (!cur || c.document_version !== cur) fail(422, "DOCUMENT_VERSION_OUTDATED", [{ field: `consents.${c.type}`, current_version: cur || null }]);
+  }
+  return current;
+}
+
 // Required consents whose latest grant is for an older version than the published document (e.g. an updated privacy notice).
-async function outdatedConsents(sql, user) {
+async function outdatedConsents(sql, user, current = null) {
   if (!user.registration_completed_at) return [];
-  const current = await currentDocVersions(sql);
+  current = current || await currentDocVersions(sql);
   const mine = await sql`SELECT consent_type, document_version, granted FROM app.current_consents WHERE user_id = ${user.id}`;
   return REQUIRED_CONSENTS.filter((t) => {
     const cur = current[CONSENT_DOC[t]];
@@ -242,7 +255,7 @@ async function updateConsents(ctx) {
   const { sql, body, user } = ctx;
   const consents = Array.isArray(body.consents) ? body.consents : [];
   if (!consents.length) fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "REQUIRED" }]);
-  await checkConsentVersions(sql, consents);
+  const current = await checkConsentVersions(sql, consents);
   const refused = consents.filter((c) => REQUIRED_CONSENTS.includes(c.type) && !c.granted);
   if (refused.length) fail(422, "CONSENT_REQUIRED", refused.map((c) => ({ field: `consents.${c.type}`, code: "REQUIRED" })));
   await sql.begin(async (tx) => {
@@ -251,7 +264,7 @@ async function updateConsents(ctx) {
                VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
     }
   });
-  return json(200, { outdated_consents: await outdatedConsents(sql, user) });
+  return json(200, { outdated_consents: await outdatedConsents(sql, user, current) });
 }
 
 async function deleteMe(ctx) {

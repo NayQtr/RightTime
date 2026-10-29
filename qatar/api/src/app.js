@@ -88,18 +88,25 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const principal = ctx.user ? `user:${ctx.user.id}` : ctx.admin ? `admin:${ctx.admin.id}` : `anon:${ctx.ipTrunc || "unknown"}`;
     const reqHash = sha256hex(`${route.key}\n${ctx.rawBody || ""}\n${JSON.stringify(ctx.params)}`);
     await sql`DELETE FROM app.idempotency_keys WHERE created_at < now() - interval '24 hours'`;
-    const [prev] = await sql`SELECT * FROM app.idempotency_keys WHERE principal = ${principal} AND key = ${key}`;
-    if (prev) {
-      if (prev.request_hash !== reqHash) fail(409, "IDEMPOTENCY_KEY_REUSED");
-      return json(prev.status_code, prev.response, { "Idempotent-Replayed": "true" });
+    // Reserve the key before running (status_code 0 = in progress), so a client retry that arrives while the first
+    // request is still running is told to wait instead of running the handler a second time.
+    const reserved = await sql`INSERT INTO app.idempotency_keys (principal, key, method_path, request_hash, status_code, response)
+                               VALUES (${principal}, ${key}, ${route.key}, ${reqHash}, 0, '{}'::jsonb)
+                               ON CONFLICT (principal, key) DO NOTHING RETURNING key`;
+    if (!reserved.length) {
+      const [prev] = await sql`SELECT * FROM app.idempotency_keys WHERE principal = ${principal} AND key = ${key}`;
+      if (prev && prev.status_code === 0) fail(409, "IDEMPOTENCY_IN_PROGRESS", null, { retry_after: 2 });
+      if (prev && prev.request_hash !== reqHash) fail(409, "IDEMPOTENCY_KEY_REUSED");
+      if (prev) return json(prev.status_code, prev.response, { "Idempotent-Replayed": "true" });
     }
-    const res = await run();
+    const release = () => sql`DELETE FROM app.idempotency_keys WHERE principal = ${principal} AND key = ${key} AND status_code = 0`;
+    let res;
+    // a thrown error is never stored (as before): the key is freed so the client may try again
+    try { res = await run(); } catch (e) { await release(); throw e; }
     if (res.status < 500) {
       const body = await res.clone().json().catch(() => ({}));
-      await sql`INSERT INTO app.idempotency_keys (principal, key, method_path, request_hash, status_code, response)
-                VALUES (${principal}, ${key}, ${route.key}, ${reqHash}, ${res.status}, ${sql.json(body)})
-                ON CONFLICT (principal, key) DO NOTHING`;
-    }
+      await sql`UPDATE app.idempotency_keys SET status_code = ${res.status}, response = ${sql.json(body)} WHERE principal = ${principal} AND key = ${key}`;
+    } else await release();
     return res;
   }
 

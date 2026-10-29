@@ -34,12 +34,13 @@ test("toPayload: only answered questions, as API answers", () => {
   assert.equal(QUIZ_STORE_KEY, "quiz");
 });
 
-test("firstOpenStep: resumes at the first unanswered question, after the interstitials", () => {
+test("firstOpenStep: resumes after the furthest answered question, so skipped optional ones are not replayed", () => {
   const questions = ["Q09", "Q10", "Q11", "Q12"].map((key) => ({ key, id: key.toLowerCase() }));
   const steps = buildSteps(questions);
   assert.equal(label(steps[firstOpenStep(steps, questions, {})]), "Q09", "nothing answered: first question, not the intro");
   assert.equal(label(steps[firstOpenStep(steps, questions, { q09: ["a"], q10: ["b"] })]), "Q11");
-  assert.equal(label(steps[firstOpenStep(steps, questions, { q09: ["a"], q10: [], q11: ["c"] })]), "Q10", "an emptied answer counts as open");
+  assert.equal(label(steps[firstOpenStep(steps, questions, { q09: ["a"], q10: [], q11: ["c"] })]), "Q12", "a skipped question before the furthest answer is not where we resume");
   assert.equal(label(steps[firstOpenStep(steps, questions, { q09: ["a"], q10: ["b"], q11: ["c"], q12: ["d"] })]), "Q09", "all answered: back to the start");
+  assert.equal(label(steps[firstOpenStep(steps, questions, { q12: ["d"] })]), "Q09", "last question answered (carried answers): back to the start");
   assert.equal(firstOpenStep(buildSteps([]), [], null), 0);
 });
