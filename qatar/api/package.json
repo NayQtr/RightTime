@@ -2,7 +2,7 @@
   "name": "qatar-mvp-api",
   "private": true,
   "type": "module",
-  "description": "Rightime Qatar MVP API — runs on Node (local/tests) and Supabase Edge (Deno)",
+  "description": "HerZone Qatar MVP API — runs on Node (local/tests) and Supabase Edge (Deno)",
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs"

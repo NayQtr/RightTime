@@ -1,4 +1,4 @@
-/* Rightime user app — «سُفرة» design system (spec docs/specs/2026-10-29-sufra-visual-redesign.md).
+/* HerZone user app — «سُفرة» design system (spec docs/specs/2026-10-29-sufra-visual-redesign.md).
    Only tokens.css variables; logical properties everywhere (RTL mirrors itself). Elevation is lightness, never a gradient. */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

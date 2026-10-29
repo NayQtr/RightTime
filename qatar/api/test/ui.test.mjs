@@ -74,10 +74,7 @@ async function walkQuiz(page) {
       } else {
         const want = text.includes("اللغة") ? "العربية" : text.includes("إنفاقك") ? "حتى 200" : null;
         const opt = want ? page.locator("label.option", { hasText: want }).first() : page.locator("label.option").first();
-        if (text.includes("كيف تعرّف نفسك")) {
-          assert.deepEqual((await page.locator("label.option").allInnerTexts()).map((x) => x.replace(/\s+/g, "")), ["رجل", "امرأة"], "man / woman only, words without emoji");
-          await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
-        }
+        if (text.includes("فئتك العمرية")) await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
         await opt.click();
         if (await page.evaluate((h) => location.hash === h, hash)) await page.click("#nx").catch(() => {});
       }
@@ -98,7 +95,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.click("#start");
   const seen = await walkQuiz(page);
   assert.deepEqual(seen.inters, ["doha", "community", "how", "science", "vibe", "curating", "ready", "safety"]);
-  assert.equal(seen.keys.length, 22, "22 questions in QA-2026-02");
+  assert.equal(seen.keys.length, 21, "21 questions in QA-2026-03");
+  assert.ok(seen.keys.includes("ما الذي تبحثين عنه؟") && !seen.keys.some((k) => k.includes("تعرّف نفسك")), "addressed to a woman, no gender question");
   assert.equal(seen.timeleft, false, "no Timeleft text anywhere");
   assert.ok(!seen.keys.some((k) => /فكاهة|غير لائقة/.test(k)), "no politically incorrect humour question");
   assert.ok(await page.evaluate(() => Boolean(localStorage.getItem("q_quiz"))), "answers kept on the device before sign-up");
@@ -114,19 +112,26 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.click("#ver");
   await page.waitForSelector("#age");
   assert.equal(await page.locator("#name").count(), 0, "name already given in the quiz");
+  assert.ok((await page.locator("main").innerText()).includes("HerZone للنساء فقط."));
   await page.check("#age");
+  for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
+  await page.click("#go");
+  await page.waitForSelector("#err .banner");
+  assert.ok((await page.locator("#err").innerText()).includes("للنساء فقط"), "the women-only confirmation is required");
+  await page.check("#woman");
   for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
   await page.click("#go");
   // what you get (per seat; subscription-ready)
   await page.waitForSelector("#plan[data-kind=per_seat]");
   const wyg = await page.locator("main").innerText();
-  assert.ok(wyg.includes("ماذا تحصل مع Rightime") && wyg.includes("59 ر.ق") && wyg.includes("48 ساعة"), wyg.slice(0, 300));
-  assert.ok(wyg.includes("هل Rightime تطبيق تعارف؟"));
-  assert.ok(!/شخصيت/.test(wyg.replace("هل Rightime", "")) || !wyg.includes("حسب شخصيتك"), "no personality-matching claim");
+  assert.ok(wyg.includes("ماذا تحصلين مع HerZone") && wyg.includes("59 ر.ق") && wyg.includes("48 ساعة"), wyg.slice(0, 300));
+  assert.ok(wyg.includes("هل HerZone تطبيق تعارف؟") && wyg.includes("طاولة من 4 إلى 6 سيدات"));
+  assert.ok(!/Rightime/.test(wyg), "old name gone");
+  assert.ok(!/شخصيت/.test(wyg.replace("هل HerZone", "")) || !wyg.includes("حسب شخصيتك"), "no personality-matching claim");
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
-  assert.equal(answered, 22, "every quiz answer saved");
+  assert.equal(answered, 21, "every quiz answer saved");
   await page.screenshot({ path: `${SHOTS}/05-what-you-get-ar.png`, fullPage: true });
   // the fixed bottom button never covers the last content (spec 2026-10-29 §4)
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -188,7 +193,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.waitForFunction(() => document.documentElement.dir === "ltr");
   await page.waitForSelector("text=Account");
   await page.screenshot({ path: `${SHOTS}/13-profile-en.png`, fullPage: true });
-  assert.deepEqual(errors, []);
+  assert.equal(errors.filter((e) => e.includes("status of 422")).length, 1, "the sign-up refused without the women-only confirmation");
+  assert.deepEqual(errors.filter((e) => !e.includes("status of 422")), []);
 });
 
 test("existing user with answers from the old questionnaire is not blocked and is invited to complete the card", async () => {
@@ -234,7 +240,7 @@ test("auto-save: a dropped request is retried, an unfinished quiz resumes where 
   await page.locator("label.option").first().click();
   await page.click("#nx");
   await page.waitForFunction(() => location.hash === "#/quiz/3");
-  await page.locator("label.option", { hasText: "امرأة" }).click();
+  await page.locator("label.option", { hasText: "25–34" }).click();
   await page.waitForFunction(() => location.hash === "#/quiz/4");
   // leave and come back later: the welcome screen offers to continue at the same question
   await page.goto(env.base + "/");
@@ -246,7 +252,7 @@ test("auto-save: a dropped request is retried, an unfinished quiz resumes where 
   await page.waitForFunction(() => location.hash === "#/quiz/4");
   await page.goto(env.base + "/#/quiz/3");
   await page.waitForSelector(".quiz-q h1");
-  assert.equal(await page.locator("input[data-key=woman]").isChecked(), true, "earlier answer kept");
+  assert.equal(await page.locator("input[data-key=age_25_34]").isChecked(), true, "earlier answer kept");
   // start over
   await page.goto(env.base + "/");
   await page.click("#over");
@@ -281,10 +287,10 @@ test("auto-save when signed in: an edited answer is saved as a server draft and 
     return { page, errors };
   };
   const a = await signIn();
-  await a.page.goto(env.base + "/#/quiz/6");
+  await a.page.goto(env.base + "/#/quiz/5");
   await a.page.waitForSelector("input[data-key=extrovert]");
   await a.page.locator("label.option", { has: a.page.locator("input[data-key=extrovert]") }).click();
-  await a.page.waitForFunction(() => location.hash === "#/quiz/7");
+  await a.page.waitForFunction(() => location.hash === "#/quiz/6");
   let draft = [];
   for (let k = 0; k < 20 && !draft.length; k += 1) {
     await a.page.waitForTimeout(250);
@@ -294,10 +300,29 @@ test("auto-save when signed in: an edited answer is saved as a server draft and 
   }
   assert.deepEqual(draft.map((d) => d.key), ["extrovert"], "draft saved on the server");
   const b = await signIn();
-  await b.page.goto(env.base + "/#/quiz/6");
+  await b.page.goto(env.base + "/#/quiz/5");
   await b.page.waitForSelector("input[data-key=extrovert]");
   assert.equal(await b.page.locator("input[data-key=extrovert]").isChecked(), true, "the other device continues from the draft");
   assert.deepEqual([...a.errors, ...b.errors], []);
+});
+
+test("women only: an account from before the change confirms once on home, then the banner is gone", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Hind" });
+  await env.sql`UPDATE app.users SET woman_confirmed_at = NULL WHERE id = ${u.userId}`;
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+    { access_token: u.token, refresh_token: u.refresh });
+  await page.goto(env.base + "/#/home");
+  await page.waitForSelector("#woman-upd");
+  assert.ok((await page.locator("#woman-upd").innerText()).includes("HerZone أصبحت للنساء فقط"));
+  await page.click("#woman-ok");
+  await page.waitForSelector(".event-card");
+  await page.waitForFunction(() => !document.querySelector("#woman-upd"));
+  const [{ at }] = await env.sql`SELECT woman_confirmed_at AS at FROM app.users WHERE id = ${u.userId}`;
+  assert.ok(at);
+  assert.deepEqual(errors, []);
 });
 
 test("document updates (privacy notice and terms): existing users see them on home, read them and accept once", async () => {

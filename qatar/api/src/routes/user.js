@@ -27,7 +27,8 @@ async function issueTokens(ctx, subjectType, subjectId, familyId = randomUUID())
 export { issueTokens };
 
 const registrationStatus = (u) => (u.registration_completed_at ? "complete" : "consents_required");
-const userView = (u) => ({ id: u.id, display_name: u.display_name, locale: u.locale, status: u.status, registration_status: registrationStatus(u) });
+const userView = (u) => ({ id: u.id, display_name: u.display_name, locale: u.locale, status: u.status, registration_status: registrationStatus(u),
+  woman_confirmed: Boolean(u.woman_confirmed_at) });
 
 // ------------------------------------------------------------------ profile helpers
 async function submittedResponse(sql, userId) {
@@ -192,6 +193,7 @@ async function register(ctx) {
   if (!["ar", "en"].includes(body.locale)) details.push({ field: "locale", code: "REQUIRED" });
   if (details.length) fail(422, "VALIDATION_FAILED", details);
   if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
+  if (body.woman_confirmed !== true) fail(422, "WOMEN_ONLY", [{ field: "woman_confirmed", code: "REQUIRED" }]);
   const consents = Array.isArray(body.consents) ? body.consents : [];
   checkConsentShape(consents);
   const missing = REQUIRED_CONSENTS.filter((t) => !consents.some((c) => c.type === t && c.granted === true));
@@ -203,7 +205,7 @@ async function register(ctx) {
                VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
     }
     return tx`UPDATE app.users SET display_name = ${body.display_name || null}, locale = ${body.locale},
-                     age_eligibility_confirmed_at = now(), registration_completed_at = now()
+                     age_eligibility_confirmed_at = now(), woman_confirmed_at = now(), registration_completed_at = now()
                WHERE id = ${user.id} RETURNING *`;
   });
   return json(201, { user: userView(u), next: "questionnaire" });
@@ -250,11 +252,13 @@ async function outdatedConsents(sql, user, current = null) {
 
 const me = async (ctx) => json(200, { user: { ...userView(ctx.user), outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
 
-// Accepting an updated document after registration. Required consents are withdrawn by deleting the account, not here.
+// Accepting an updated document after registration, and the women-only confirmation of accounts registered before it
+// was asked at sign-up. Required consents are withdrawn by deleting the account, not here.
 async function updateConsents(ctx) {
   const { sql, body, user } = ctx;
   const consents = Array.isArray(body.consents) ? body.consents : [];
-  if (!consents.length) fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "REQUIRED" }]);
+  if (body.woman_confirmed !== undefined && body.woman_confirmed !== true) fail(422, "WOMEN_ONLY", [{ field: "woman_confirmed", code: "REQUIRED" }]);
+  if (!consents.length && body.woman_confirmed !== true) fail(422, "VALIDATION_FAILED", [{ field: "consents", code: "REQUIRED" }]);
   const current = await checkConsentVersions(sql, consents);
   const refused = consents.filter((c) => REQUIRED_CONSENTS.includes(c.type) && !c.granted);
   if (refused.length) fail(422, "CONSENT_REQUIRED", refused.map((c) => ({ field: `consents.${c.type}`, code: "REQUIRED" })));
@@ -263,8 +267,9 @@ async function updateConsents(ctx) {
       await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
                VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
     }
+    if (body.woman_confirmed === true) await tx`UPDATE app.users SET woman_confirmed_at = COALESCE(woman_confirmed_at, now()) WHERE id = ${user.id}`;
   });
-  return json(200, { outdated_consents: await outdatedConsents(sql, user, current) });
+  return json(200, { outdated_consents: await outdatedConsents(sql, user, current), woman_confirmed: Boolean(user.woman_confirmed_at) || body.woman_confirmed === true });
 }
 
 async function deleteMe(ctx) {
@@ -476,6 +481,7 @@ async function createBooking(ctx) {
   const alternates = Array.isArray(body.alternate_session_ids) ? [...new Set(body.alternate_session_ids)] : [];
   alternates.forEach((a) => requireUuid(a, "alternate_session_ids"));
   if (alternates.length > 3 || alternates.includes(body.session_id)) fail(422, "VALIDATION_FAILED", [{ field: "alternate_session_ids", code: "INVALID" }]);
+  if (!user.woman_confirmed_at) fail(422, "WOMEN_ONLY", [{ field: "woman_confirmed", code: "REQUIRED" }]);
   const resp = await submittedResponse(sql, user.id);
   if (!resp) fail(422, "QUESTIONNAIRE_INCOMPLETE");
   const prof = await profileOf(sql, resp.id);

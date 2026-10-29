@@ -41,7 +41,7 @@ async function mockIntent(ctx) {
      WHERE p.psp_payment_intent_id = ${params.pi}`;
   if (!p) fail(404, "NOT_FOUND");
   return { p, out: { payment_intent: p.psp_payment_intent_id, booking_id: p.booking_id, booking_ref: p.booking_ref, status: p.status,
-    amount: money(p.amount_minor, locale), hold_expires_at: p.hold_expires_at, merchant: "Rightime (test)",
+    amount: money(p.amount_minor, locale), hold_expires_at: p.hold_expires_at, merchant: "HerZone (test)",
     return_url: `${cfg.webBaseUrl}/#/pay/return/${p.booking_id}` } };
 }
 

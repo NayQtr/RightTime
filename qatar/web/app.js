@@ -1,4 +1,4 @@
-// Rightime user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
+// HerZone user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
 import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf } from "./quiz-flow.js";
 import { icon } from "./icons.js";
@@ -295,6 +295,8 @@ async function scrRegister() {
       ${quizName ? "" : `<div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
         <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh"><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
       <fieldset class="card">
+        <p class="caption">${esc(T("womenOnly"))}</p>
+        <label class="check"><input type="checkbox" id="woman" required><span>${esc(T("womanLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
         <label class="check"><input type="checkbox" id="age" required><span>${esc(T("ageLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
         ${consent("terms", "termsLabel", true)}${consent("conduct", "conductLabel", true)}${consent("privacy_notice", "privacyLabel", true)}${consent("marketing", "marketingLabel", false)}
       </fieldset>
@@ -305,7 +307,7 @@ async function scrRegister() {
     e.preventDefault();
     const checked = new Set($$("input[name=c]:checked").map((i) => i.value));
     const body = {
-      display_name: quizName || ($("#name") ? $("#name").value.trim() : "") || null, locale, age_eligibility_confirmed: $("#age").checked,
+      display_name: quizName || ($("#name") ? $("#name").value.trim() : "") || null, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
         .map((t) => ({ type: t, document_version: L[t].document_version, granted: checked.has(t) })),
     };
@@ -800,6 +802,8 @@ async function scrHome() {
   loadingView();
   // required documents updated since the user accepted them (terms, conduct, privacy notice): read and accept on home
   const outdated = (state.me && state.me.outdated_consents) || [];
+  // accounts registered before HerZone became women-only confirm once before their next booking
+  const askWoman = Boolean(state.me && state.me.woman_confirmed === false);
   const [sR, bR, contact, legalR] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact(),
     outdated.length ? api("GET", "/api/v1/legal/current", undefined, { noAuth: true }) : null]);
   const docs = legalR && legalR.ok ? outdated.filter((k) => legalR.data[k]).map((k) => ({ type: k, ...legalR.data[k] })) : [];
@@ -824,6 +828,8 @@ async function scrHome() {
       <p>${esc(T(onlyPrivacy ? "privacyUpdBody" : "docsUpdBody"))}</p>
       ${docs.map((d) => `<details><summary>${esc(T(DOC_NAME[d.type]))} · ${num(d.document_version)}</summary><p class="caption legal-text">${esc(d.text)}</p></details>`).join("")}
       <button class="btn btn-primary" id="pv-ok">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
+    ${askWoman ? `<section class="banner banner-warning" id="woman-upd"><div class="stack"><p><strong>${esc(T("womanUpdTitle"))}</strong></p>
+      <p>${esc(T("womanUpdBody"))}</p><button class="btn btn-primary" id="woman-ok">${esc(T("womanLabel"))}</button><div id="woman-err" role="alert"></div></div></section>` : ""}
     ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${resumeStepFor(q)}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
     ${next ? `<a class="next-card" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
       <span class="row between"><span class="caption">${esc(T("nextEvent"))}</span>${statusBadge(next)}</span>
@@ -839,6 +845,16 @@ async function scrHome() {
     const card = $(`.event-card[data-day="${b.dataset.day}"]`);
     if (card) { card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.focus({ preventScroll: true }); }
   }));
+  if (askWoman) {
+    $("#woman-ok").onclick = async () => {
+      $("#woman-ok").disabled = true;
+      const r = await api("POST", "/api/v1/users/me/consents", { consents: [], woman_confirmed: true });
+      if (!r.ok) { $("#woman-ok").disabled = false; $("#woman-err").innerHTML = errorBanner(r.data); return; }
+      await loadMe(true);
+      toast(T("womanConfirmed"));
+      scrHome();
+    };
+  }
   if (docs.length) {
     $("#pv-ok").onclick = async () => {
       $("#pv-ok").disabled = true;

@@ -19,6 +19,7 @@ let cached = null;
 export function kekFrom(secret) {
   if (!secret) return null;
   if (secret.length < 32) throw new Error("SERVER_KEYS_KEK must be at least 32 characters");
+  // fixed derivation label (kept from the Rightime name): changing it would make every stored key unreadable
   return createHash("sha256").update("rightime/server-keys/v1\n" + secret).digest();
 }
 

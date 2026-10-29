@@ -1,4 +1,4 @@
-// Rightime admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
+// HerZone admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
 const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
 const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
@@ -35,7 +35,7 @@ async function api(method, path, body) {
 
 function view(title, html) {
   main.innerHTML = html;
-  document.title = `${title} · Rightime Admin`;
+  document.title = `${title} · HerZone Admin`;
   const h = main.querySelector("h1");
   if (h) { h.tabIndex = -1; h.focus(); }
 }
@@ -56,10 +56,10 @@ const NAV = [
 
 function renderNav() {
   const a = ss.get("admin");
-  nav.innerHTML = a ? `<span class="brand"><span class="brand-mark" aria-hidden="true">ط</span>Rightime Admin</span>
+  nav.innerHTML = a ? `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>
     <ul>${NAV.filter(([, , roles]) => roles.includes(a.role)).map(([h, l]) => `<li><a href="${h}" ${location.hash.startsWith(h) ? 'aria-current="page"' : ""}>${esc(l)}</a></li>`).join("")}</ul>
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
-    : `<span class="brand"><span class="brand-mark" aria-hidden="true">ط</span>Rightime Admin</span>`;
+    : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
   const lo = document.getElementById("logout");
   if (lo) lo.onclick = () => { ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
 }
