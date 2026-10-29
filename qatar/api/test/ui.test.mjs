@@ -75,7 +75,7 @@ async function walkQuiz(page) {
         const want = text.includes("اللغة") ? "العربية" : text.includes("إنفاقك") ? "حتى 200" : null;
         const opt = want ? page.locator("label.option", { hasText: want }).first() : page.locator("label.option").first();
         if (text.includes("كيف تعرّف نفسك")) {
-          assert.deepEqual((await page.locator("label.option").allInnerTexts()).map((x) => x.replace(/\s+/g, "")), ["🙋‍♂️رجل", "🙋‍♀️امرأة"], "man / woman only");
+          assert.deepEqual((await page.locator("label.option").allInnerTexts()).map((x) => x.replace(/\s+/g, "")), ["رجل", "امرأة"], "man / woman only, words without emoji");
           await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
         }
         await opt.click();
@@ -128,6 +128,13 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
   assert.equal(answered, 22, "every quiz answer saved");
   await page.screenshot({ path: `${SHOTS}/05-what-you-get-ar.png`, fullPage: true });
+  // the fixed bottom button never covers the last content (spec 2026-10-29 §4)
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const [lastBottom, footTop] = await page.evaluate(() => {
+    const items = [...document.querySelectorAll("main > *:not(.quiz-foot)")];
+    return [Math.max(...items.map((e) => e.getBoundingClientRect().bottom)), document.querySelector(".quiz-foot").getBoundingClientRect().top];
+  });
+  assert.ok(lastBottom <= footTop + 1, `content (${lastBottom}) hidden under the bottom button (${footTop})`);
   await page.click("#wyg-go");
   // home: Doha, sessions by week, tab bar, coordinator (audit F10)
   await page.waitForSelector(".event-card");
@@ -165,7 +172,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await oneH1(page);
   await page.screenshot({ path: `${SHOTS}/10-events-ar.png`, fullPage: true });
   await page.click(".hero a.btn-primary");
-  await page.waitForSelector("text=تفاصيل اللقاء");
+  await page.waitForSelector(".det-head h1");
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");
   assert.equal(await page.locator("#tabbar").isHidden(), true, "no tab bar on detail screens");
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });

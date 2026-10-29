@@ -10,7 +10,8 @@ import { createApp } from "./src/app.js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.resolve(HERE, "../web");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".webmanifest": "application/manifest+json" };
+  ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".webmanifest": "application/manifest+json",
+  ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
 
 export function startServer({ databaseUrl = process.env.DATABASE_URL, port = Number(process.env.PORT || 8787), env = process.env } = {}) {
   const sql = postgres(databaseUrl, { max: 5, onnotice: () => {} });

@@ -1,6 +1,8 @@
 // Rightime user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
 import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf } from "./quiz-flow.js";
+import { icon } from "./icons.js";
+import { brandMark, tableSvg, vibeTable } from "./motif.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
@@ -60,7 +62,7 @@ function view(title, html) {
 
 function errorBanner(err) {
   const msg = (err && err.message) || T("errGeneric");
-  return `<div class="banner banner-danger" role="alert"><span class="icon" aria-hidden="true">⚠️</span><div>${esc(msg)}</div></div>`;
+  return `<div class="banner banner-danger" role="alert"><span class="icon">${icon("triangle-alert")}</span><div>${esc(msg)}</div></div>`;
 }
 
 function loadingView() { main.innerHTML = `<div class="center" aria-busy="true"><div class="spinner" role="img" aria-label="${esc(T("loading"))}"></div></div>`; }
@@ -105,7 +107,7 @@ async function api(method, path, body, opts = {}) {
 function renderTopbar() {
   const signedIn = !!store.get("tokens");
   document.getElementById("topbar").innerHTML = `
-    <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}"><span class="brand-mark" aria-hidden="true">ط</span><span>${esc(T("brand"))}</span></a>
+    <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}">${brandMark()}<span>${esc(T("brand"))}</span></a>
     ${CFG.staging ? `<span class="env-badge">${esc(T("staging"))}</span>` : ""}
     <span class="spacer"></span>
     <button class="btn btn-ghost" id="lang" lang="${locale === "ar" ? "en" : "ar"}">${esc(T("langToggle"))}</button>`;
@@ -178,11 +180,11 @@ function scrWelcome() {
   const resume = store.get("resume");
   const answered = saved ? Object.values(saved.answers || {}).filter((a) => a && a.length).length : 0;
   const canResume = Boolean(resume && /^#\/(quiz\/\d+|name|signin|otp)$/.test(resume) && (answered || store.get("quizName")));
-  view(T("welcomeHero"), `
+  view(T("welcomeHeroPlain"), `
     <section class="hero-welcome">
-      <div class="art" aria-hidden="true">🍽️ ☕ ✨</div>
-      <h1>${esc(T("welcomeHero"))}</h1>
+      <h1>${esc(T("welcomeHero")).replace("{em}", `<em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
       <p>${esc(T("welcomeSub"))}</p>
+      <div class="welcome-table">${tableSvg({ seats: 6, filled: 4 })}</div>
       ${canResume ? `<div class="resume-card stack" id="resume-card"><p><strong>${esc(T("resumeTitle"))}</strong></p><p class="caption">${esc(T("resumeBody", { n: answered }))}</p>
         <a class="btn btn-primary btn-block" id="resume" href="${esc(resume)}">${esc(T("resumeCta"))}</a>
         <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
@@ -390,20 +392,20 @@ async function scrQuiz(stepStr) {
   const chosen = new Set(quiz.answers[qq.id] || []);
   const single = ["single", "tier", "contact_request"].includes(qq.answer_type);
   const input = (o) => `<input type="${single ? "radio" : "checkbox"}" name="o" value="${o.id}" data-key="${esc(o.key)}" data-excl="${o.is_exclusive}" ${chosen.has(o.id) ? "checked" : ""}>`;
-  const emoji = (o) => (o.emoji ? `<span class="emoji" aria-hidden="true">${esc(o.emoji)}</span>` : "");
   let body;
   if (qq.layout === "scale") {
     const last = qq.options.length - 1;
     body = `<div class="scale" role="radiogroup" aria-labelledby="qh">${qq.options.map((o, j) => `<label>${input(o).replace("<input ", `<input aria-label="${esc(o.label)}${j === 0 && qq.scale_low ? ` · ${esc(qq.scale_low)}` : ""}${j === last && qq.scale_high ? ` · ${esc(qq.scale_high)}` : ""}" `)}<span aria-hidden="true">${esc(o.label)}</span></label>`).join("")}</div>
       <div class="scale-ends caption" aria-hidden="true"><span>${esc(qq.scale_low || "")}</span><span>${esc(qq.scale_high || "")}</span></div>`;
   } else if (qq.layout === "chips") {
-    body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}${emoji(o)}<span>${esc(o.label)}</span></label>`).join("")}</div>`;
+    body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}<span>${esc(o.label)}</span></label>`).join("")}</div>`;
   } else {
     body = `<div class="options" role="${single ? "radiogroup" : "group"}" aria-labelledby="qh">${qq.options.map((o) => `
-      <label class="option ${single ? "radio plain" : ""}">${input(o)}${emoji(o)}<span class="${single ? "" : "txt"}">${esc(o.label)}</span>${single ? "" : `<span class="tick" aria-hidden="true"></span>`}</label>`).join("")}</div>`;
+      <label class="option ${single ? "radio" : ""}">${input(o)}<span class="txt">${esc(o.label)}</span><span class="tick" aria-hidden="true"></span></label>`).join("")}</div>`;
   }
   view(qq.text, `${quizHead(back, qq.section, { i: step.index + 1, n })}
     <form id="f" class="quiz-q" novalidate>
+      <p class="step-k">${esc(T("qStep", { i: step.index + 1, n }))}</p>
       <h1 id="qh">${esc(qq.text)}</h1>
       <p class="caption why">${qq.max_selections ? `${esc(T("chooseUpTo", { n: qq.max_selections }))} · ` : ""}${esc(qq.purpose)}</p>
       ${body}
@@ -444,18 +446,18 @@ function scrInter(id, i, back) {
   const done = () => { if (!last) go(`#/quiz/${i + 1}`); else if (signedIn()) finishQuiz(); else go("#/name"); };
   const vibe = id === "vibe" ? vibeOf(answersByKey()) : null;
   const screens = {
-    doha: () => `<div class="art" aria-hidden="true">🏙️</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
-    community: () => `<div class="art" aria-hidden="true">🤝</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
+    doha: () => `<div class="art">${icon("map-pin")}</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
+    community: () => `<div class="art">${icon("users")}</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
     how: () => `<h1>${esc(T("howTitle"))}</h1><ol class="steps">${["how1", "how2", "how3", "how4"].map((k, j) => `<li><span class="n" aria-hidden="true">${j + 1}</span><span>${esc(T(k))}</span></li>`).join("")}</ol>`,
-    science: () => `<div class="art" aria-hidden="true">📖</div><h1>${esc(T("scienceTitle"))}</h1><div class="quote"><p>${esc(T("scienceBody"))}</p><p class="caption">${esc(T("scienceSource"))}</p></div>`,
-    vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="vibe-card" aria-hidden="true">${{ playful: "🎉", calm: "🌙", warm: "💗", curious: "🌀" }[vibe]}</div>
+    science: () => `<div class="art">${icon("book-open")}</div><h1>${esc(T("scienceTitle"))}</h1><div class="quote"><p>${esc(T("scienceBody"))}</p><p class="caption">${esc(T("scienceSource"))}</p></div>`,
+    vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="vibe-card">${vibeTable(vibe)}</div>
       <h1>${esc(T(`vibe_${vibe}`))}</h1><p class="lead">${esc(T(`vibe_${vibe}Body`))}</p><p class="caption">${esc(T("vibeNote"))}</p>`,
-    curating: () => `<div class="dots-loader" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><b id="pct">0%</b></div>
+    curating: () => `<div class="dots-loader">${tableSvg({ seats: 6, filled: 0 })}<b id="pct" class="num">0%</b></div>
       <h1>${esc(T("curatingTitle"))}</h1><ul class="checklist" id="cl">${["cur1", "cur2", "cur3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
     ready: () => `<h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
       <div class="choice-stack"><button type="button" class="option plain" id="yes">${esc(T("readyYes"))}</button><a class="option plain" id="unsure" href="#/what-you-get">${esc(T("readyNo"))}</a></div>`,
-    safety: () => `<div class="art" aria-hidden="true">🛡️</div><h1>${esc(T("safetyTitle"))}</h1><ul class="benefits">${["safe1", "safe2", "safe3", "safe4"]
-      .map((k) => `<li><span class="bi" aria-hidden="true">✓</span><span>${esc(T(k))}</span></li>`).join("")}</ul>`,
+    safety: () => `<div class="art">${icon("shield-check")}</div><h1>${esc(T("safetyTitle"))}</h1><ul class="benefits">${["safe1", "safe2", "safe3", "safe4"]
+      .map((k) => `<li><span class="bi">${icon("check")}</span><span>${esc(T(k))}</span></li>`).join("")}</ul>`,
   };
   view(T(id === "vibe" ? `vibe_${vibe}` : `${id}Title`), `${quizHead(back, "", null)}<section class="inter" data-inter="${id}">${screens[id]()}</section>
     ${id === "ready" ? "" : `<div class="quiz-foot"><div><button class="btn btn-primary btn-block" id="nx">${esc(T("continue"))}</button></div></div>`}`);
@@ -469,8 +471,10 @@ function scrInter(id, i, back) {
     const items = $$("#cl li");
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let pct = reduce ? 100 : 0;
+    const seats = $$(".dots-loader .seat");
     const paint = () => {
       $("#pct").textContent = `${pct}%`;
+      seats.forEach((s, k) => s.setAttribute("class", `seat ${pct >= ((k + 1) * 100) / seats.length - 1 ? "on" : "off"}`));
       items.forEach((li, k) => li.classList.toggle("done", pct >= ((k + 1) * 100) / items.length - 1));
     };
     paint();
@@ -535,14 +539,14 @@ async function scrWhatYouGet() {
     s = r.ok ? r.data.sessions[0] || null : null;
   }
   const plan = { kind: "per_seat", fee: s ? s.price.display : null, hours: s ? s.full_refund_until_hours : null };
-  const benefits = [["👥", "wyg1t", "wyg1b"], ["📍", "wyg2t", "wyg2b"], ["❓", "wyg3t", "wyg3b"], ["🛡️", "wyg4t", "wyg4b"], ["🤝", "wyg5t", "wyg5b"]];
+  const benefits = [["users", "wyg1t", "wyg1b"], ["map-pin", "wyg2t", "wyg2b"], ["message-circle", "wyg3t", "wyg3b"], ["shield-check", "wyg4t", "wyg4b"], ["hand-heart", "wyg5t", "wyg5b"]];
   view(T("wygTitle"), `
     <h1 class="display-title">${esc(T("wygTitle"))}</h1>
     <section class="card stack" id="plan" data-kind="${plan.kind}">
       <p class="label">${esc(plan.fee ? T("wygPrice", { fee: plan.fee }) : T("wygPriceNoFee"))}</p>
-      <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi" aria-hidden="true">${ic}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
+      <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi">${icon(ic)}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
     </section>
-    <div class="banner banner-info"><span class="icon" aria-hidden="true">ℹ️</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
+    <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
     <h2>${esc(T("faqTitle"))}</h2>
     <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
     <div class="quiz-foot"><div><a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
@@ -685,17 +689,17 @@ async function loadContact() {
 }
 function contactButtons(c) {
   if (!c) return "";
-  return `<div class="row contact-actions"><a class="btn btn-secondary" id="call-coord" href="${esc(c.tel_url)}"><span aria-hidden="true">📞</span> ${esc(T("callCoordinator"))} <bdi dir="ltr">${esc(c.phone_display)}</bdi></a>
-    ${c.whatsapp_url ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(c.whatsapp_url)}" target="_blank" rel="noopener noreferrer">${esc(T("whatsappCoordinator"))}</a>` : ""}</div>`;
+  return `<div class="row contact-actions"><a class="btn btn-secondary" id="call-coord" href="${esc(c.tel_url)}">${icon("phone")}<span>${esc(T("callCoordinator"))}</span><bdi dir="ltr" class="num">${esc(c.phone_display)}</bdi></a>
+    ${c.whatsapp_url ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(c.whatsapp_url)}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}${esc(T("whatsappCoordinator"))}</a>` : ""}</div>`;
 }
 
 // Cancellation terms before paying (audit F1): never promise a refund deadline that has already passed.
 function policyHtml(c, fee) {
   if (c.full_refund_window_open !== false) {
-    return `<div class="banner banner-info"><span class="icon" aria-hidden="true">ℹ️</span><div>${esc(T("policyBox", { deadline: fmtDate(c.full_refund_until) }))}</div></div>`;
+    return `<div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(T("policyBox", { deadline: fmtDate(c.full_refund_until) }))}</div></div>`;
   }
   const partial = c.refund_if_cancelled_after_payment === "partial";
-  return `<div class="banner banner-warning" id="late"><span class="icon" aria-hidden="true">⚠️</span><div>
+  return `<div class="banner banner-warning" id="late"><span class="icon">${icon("triangle-alert")}</span><div>
       <strong>${esc(T("lateTitle", { hours: c.full_refund_until_hours }))}</strong><br>
       ${esc(T(partial ? "latePartial" : "lateNone", { fee, pct: c.late_cancel_refund_pct }))} ${esc(T("lateQuorum"))}</div></div>
     ${c.acknowledgement_required === "late_no_refund" ? `<label class="option"><input type="checkbox" id="ack" aria-describedby="late"><span class="tick" aria-hidden="true"></span>
@@ -707,13 +711,13 @@ async function scrPayReturn(id) {
   const started = Date.now();
   const draw = (phase, b) => {
     if (phase === "success") {
-      view(T("paidTitle"), `<div class="center"><div class="success-check" aria-hidden="true">✓</div><h1>${esc(T("paidTitle"))}</h1>
+      view(T("paidTitle"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("paidTitle"))}</h1>
         <p>${esc(T("bookingRef"))} ${num(b.ref)}</p><a class="btn btn-primary" href="#/home">${esc(T("goDashboard"))}</a></div>`);
     } else if (phase === "failed") {
       view(T("paymentFailed"), `<div class="center"><h1>${esc(T("paymentFailed"))}</h1><p class="muted">${esc(T("noDoubleCharge"))}</p>
         <a class="btn btn-primary" href="#/booking/${id}/review">${esc(T("payNow"))}</a></div>`);
     } else if (phase === "slow") {
-      view(T("confirming"), `<div class="center"><div aria-hidden="true" class="illustration">⏳</div><h1>${esc(T("slowConfirm"))}</h1><a class="btn btn-secondary" href="#/home">${esc(T("backHome"))}</a></div>`);
+      view(T("confirming"), `<div class="center"><div class="illustration">${icon("hourglass")}</div><h1>${esc(T("slowConfirm"))}</h1><a class="btn btn-secondary" href="#/home">${esc(T("backHome"))}</a></div>`);
     } else {
       view(T("confirming"), `<div class="center" aria-busy="true"><div class="spinner" aria-hidden="true"></div><h1>${esc(T("confirming"))}</h1></div>`);
     }
@@ -734,7 +738,7 @@ async function scrPayReturn(id) {
 // ------------------------------------------------------------------ SCR-06 dashboard
 const ACTIVE = ["payment_pending", "paid_awaiting_group", "group_locked", "revealed", "checked_in"];
 function statusBadge(b) {
-  const map = { payment_pending: ["badge-warning", "stPending"], paid_awaiting_group: ["badge-info", "step2"], group_locked: ["badge-success", "step3"],
+  const map = { payment_pending: ["badge-warning", "stPending"], paid_awaiting_group: ["badge-primary", "step2"], group_locked: ["badge-success", "step3"],
     revealed: ["badge-success", "step4"], checked_in: ["badge-success", "checkedIn"], completed: ["badge-muted", "stCompleted"],
     cancelled_by_user: ["badge-muted", "stCancelled"], cancelled_by_organizer: ["badge-danger", "stCancelled"], expired: ["badge-muted", "stCancelled"], payment_failed: ["badge-muted", "stCancelled"] };
   const [cls, key] = map[b.status] || ["badge-muted", b.status];
@@ -755,14 +759,33 @@ function weekOffset(iso) {
   return Math.round((weekStart(new Date(iso).getTime()) - weekStart(Date.now())) / 7);
 }
 
+// Calendar day in Asia/Qatar (UTC+3, no DST) as YYYY-MM-DD.
+const qatarDay = (iso) => new Date(new Date(iso).getTime() + 3 * 3600000).toISOString().slice(0, 10);
+
+// Seven days from today; a dot marks days that have sessions, tapping one scrolls to its first card.
+function weekRibbon(sessions) {
+  const days = new Set(sessions.map((s) => qatarDay(s.starts_at)));
+  const today = Date.now();
+  return `<div class="week" role="group" aria-label="${esc(T("weekLabel"))}">${Array.from({ length: 7 }, (_, k) => {
+    const iso = new Date(today + k * 86400000).toISOString();
+    const key = qatarDay(iso);
+    const has = days.has(key);
+    return `<button type="button" class="${has ? "has" : ""}" data-day="${key}" aria-pressed="false" ${has ? "" : "disabled"}
+      aria-label="${esc(fmtDate(iso, { weekday: "long", day: "numeric", month: "long" }))}"><span>${esc(fmtDate(iso, { weekday: "short" }))}</span><b>${esc(fmtDate(iso, { day: "numeric" }))}</b><i></i></button>`;
+  }).join("")}</div>`;
+}
+
 function sessionCard(s) {
   const href = s.my_booking_id ? `#/booking/${s.my_booking_id}` : `#/sessions?s=${s.id}`;
   const status = s.my_booking_id ? T("alreadyBooked") : s.is_full ? T("full") : T("seatsLeft", { n: s.seats_left });
-  return `<li><a class="event-card" href="${href}" data-session="${s.id}"><span class="ic ${esc(s.experience)}" aria-hidden="true">${s.experience === "coffee" ? "☕" : "🍽️"}</span>
-    <span class="t"><strong>${esc(fmtDate(s.starts_at, { weekday: "long", day: "numeric", month: "long" }))}</strong>
-      <span>${esc(T(s.experience))} · ${esc(s.district)}</span>
-      <span class="caption">${esc(fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }))} · ${esc(status)}</span></span>
-    <span class="go" aria-hidden="true">→</span></a></li>`;
+  const lang = T(s.conversation_language === "ar" ? "langAr" : "langEn");
+  return `<li><a class="event-card" href="${href}" data-session="${s.id}" data-day="${qatarDay(s.starts_at)}"
+      aria-label="${esc(`${T(s.experience)} · ${fmtDate(s.starts_at)} · ${s.district} · ${status}`)}">
+    <span class="d" aria-hidden="true"><b>${esc(fmtDate(s.starts_at, { day: "numeric" }))}</b><span>${esc(fmtDate(s.starts_at, { weekday: "long" }))}</span></span>
+    <span class="t" aria-hidden="true"><strong>${esc(T(s.experience))} · ${esc(lang)}</strong>
+      <span class="m"><span>${icon("map-pin")}${esc(s.district)}</span><span>${icon("clock")}<span class="num">${esc(fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }))}</span></span></span>
+      <span class="m"><span class="${s.my_booking_id ? "mine" : s.is_full ? "full" : ""}">${icon("users")}${esc(status)}</span></span></span>
+    <span class="go" aria-hidden="true">${icon(locale === "ar" ? "chevron-left" : "chevron-right")}</span></a></li>`;
 }
 
 async function scrHome() {
@@ -781,8 +804,9 @@ async function scrHome() {
   const groups = [["thisWeek", (w) => w <= 0], ["nextWeek", (w) => w === 1], ["later", (w) => w >= 2]]
     .map(([k, f]) => [k, sessions.filter((x) => f(weekOffset(x.starts_at)))]).filter(([, list]) => list.length);
   view(T("city"), `
-    <div class="home-head"><h1 class="display-title">${esc(T("city"))} <span aria-hidden="true">📍</span></h1>
-      <a class="icon-btn" href="#/inbox" aria-label="${esc(T("inbox"))}"><span aria-hidden="true">🔔</span></a></div>
+    <div class="home-head"><h1 class="display-title">${esc(T("city"))}</h1>
+      <a class="icon-btn" href="#/inbox" aria-label="${esc(T("inbox"))}">${icon("bell")}</a></div>
+    ${sessions[0] ? `<p class="home-sub">${esc(T("homeSub", { fee: sessions[0].price.display }))}</p>` : ""}
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
@@ -790,13 +814,20 @@ async function scrHome() {
       <details><summary>${esc(T("readDoc"))} · ${num(notice.document_version)}</summary><p class="caption legal-text">${esc(notice.text)}</p></details>
       <button class="btn btn-primary" id="pv-ok" data-version="${esc(notice.document_version)}">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
     ${q && !q.submitted && q.has_submitted_any ? `<div class="banner banner-info" id="complete-card"><div>${esc(T("completeCard"))} <a href="#/quiz/${resumeStepFor(q)}">${esc(T("completeCardCta"))}</a></div></div>` : ""}
-    ${next ? `<a class="card card-link hero stack" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
-      <span class="row between"><strong>${esc(T("nextEvent"))}</strong>${statusBadge(next)}</span>
-      <span>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</span><span class="caption">${esc(next.district)} · ${esc(countdown(next.starts_at))}</span></a>` : ""}
+    ${next ? `<a class="next-card" id="next-booking" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">
+      <span class="row between"><span class="caption">${esc(T("nextEvent"))}</span>${statusBadge(next)}</span>
+      <span class="when">${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at, { weekday: "long", hour: "numeric", minute: "2-digit" }))}</span>
+      <span class="row"><span>${esc(next.district)}</span>${countdown(next.starts_at) ? `<span>· ${esc(countdown(next.starts_at))}</span>` : ""}</span></a>` : ""}
     <h2>${esc(T("allSessions"))}</h2>
+    ${sessions.length ? weekRibbon(sessions) : ""}
     ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
-      : `<p class="muted">${esc(T("noUpcoming"))}</p>`}
-    <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+      : `<div class="empty">${tableSvg({ seats: 6 })}<p class="muted">${esc(T("noUpcoming"))}</p></div>`}
+    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+  $$(".week button[data-day]").forEach((b) => (b.onclick = () => {
+    $$(".week button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    const card = $(`.event-card[data-day="${b.dataset.day}"]`);
+    if (card) { card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.focus({ preventScroll: true }); }
+  }));
   if (notice) {
     $("#pv-ok").onclick = async () => {
       $("#pv-ok").disabled = true;
@@ -833,7 +864,7 @@ async function scrEvents() {
     const phaseLine = next.phase === "pending_payment" ? T("stPending") : next.phase === "forming" ? T("stForming", { lock_at: fmtTime(next.lock_at) })
       : next.phase === "locked" ? T("stLocked", { n: next.confirmed_count || "4–6", reveal_at: fmtTime(next.reveal_at) })
       : next.phase === "day_of" ? T("stDayOf") : T("viewDetails");
-    hero = `<section class="card card-raised hero stack" aria-labelledby="nexth">
+    hero = `<section class="card hero stack" aria-labelledby="nexth">
       <div class="row between"><h2 id="nexth">${esc(T("nextEvent"))}</h2>${statusBadge(next)}</div>
       <div><strong>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</strong><div class="caption">${esc(next.district)} · <span aria-live="off">${esc(countdown(next.starts_at))}</span></div></div>
       <p>${esc(phaseLine)}</p>
@@ -846,12 +877,12 @@ async function scrEvents() {
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
-    ${hero || `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
+    ${hero || `<div class="empty">${tableSvg({ seats: 6 })}<h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
     ${bookings.length > (next ? 1 : 0) ? `<h2>${esc(T("otherBookings"))}</h2><ul class="list">${bookings.filter((b) => b !== next).map((b) => `
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
-    <section class="card sunken stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
 }
 
 // ------------------------------------------------------------------ SCR-07 event details
@@ -864,19 +895,30 @@ async function scrDetails(id) {
   if (ph === "pending_payment") { go(`#/booking/${id}/review`); return; }
   if (e.resolution) { go(`#/booking/${id}/choose`); return; }
   const acc = e.session.accessibility ? Object.entries(e.session.accessibility).filter(([, v]) => v).map(([k]) => k).join(" · ") : "";
+  const cd = countdown(e.session.starts_at);
+  // tracker: paid · forming · confirmed · revealed (spec §3); cancelled/completed bookings show no tracker
+  const stage = { forming: 1, locked: 2, revealed: 3, day_of: 3, completed: 4 }[ph];
+  const track = stage === undefined ? "" : `<ol class="track" aria-label="${esc(T("essentials"))}">${["step1", "step2", "step3", "step4"].map((k, j) =>
+    `<li class="${j < stage ? "done" : j === stage ? "current" : ""}" ${j === stage ? 'aria-current="step"' : ""}>${esc(T(k))}</li>`).join("")}</ol>`;
   view(T("detailsTitle"), `
-    <div class="row between"><h1>${esc(T("detailsTitle"))}</h1>${statusBadge(e.booking)}</div>
-    <p class="caption">${num(e.booking.ref)} · ${esc(countdown(e.session.starts_at))}</p>
-    <section class="card"><h2>${esc(T("essentials"))}</h2><dl class="facts">
-      <dt>${esc(T("experience"))}</dt><dd>${esc(T(e.session.experience))}</dd>
-      <dt>${esc(T("dateTime"))}</dt><dd>${esc(fmtDate(e.session.starts_at))} <span class="caption">(Asia/Qatar)</span></dd>
-      <dt>${esc(T("tableLanguage"))}</dt><dd>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</dd>
-      <dt>${esc(T("district"))}</dt><dd>${esc(e.session.district)}</dd>
-      <dt>${esc(T("foodBandLabel"))}</dt><dd>${esc(e.session.food_price_band.display)}</dd>
-      ${acc ? `<dt>${esc(T("accessibility"))}</dt><dd>${esc(acc)}</dd>` : ""}</dl></section>
-    ${e.table ? `<section class="card"><h2>${esc(T("yourTable"))}</h2><p>${esc(T("confirmedCount", { n: e.table.confirmed_count }))}</p><p class="caption">${esc(T("introTip"))}</p>
-      ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.map((m) => m.display_name || T("unnamed")).join("، "))}</p>` : ""}</section>` : ""}
-    ${!e.venue && ["forming", "locked"].includes(ph) ? `<div class="banner banner-info"><div>${esc(T("venueHidden", { reveal_at: fmtDate(e.reveal.reveal_at) }))}</div></div>` : ""}
+    <header class="det-head">${statusBadge(e.booking)}
+      <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
+      <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
+      <span class="ref">${num(e.booking.ref)}${cd ? ` · ${esc(cd)}` : ""}</span></header>
+    ${track}
+    <ul class="facts-list" aria-label="${esc(T("essentials"))}">
+      <li>${icon("map-pin")}<span>${esc(e.session.district)}</span><span class="k">${esc(T("district"))}</span></li>
+      <li>${icon("languages")}<span>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</span><span class="k">${esc(T("tableLanguage"))}</span></li>
+      <li>${icon("wallet")}<span>${esc(e.session.food_price_band.display)}</span><span class="k">${esc(T("foodBandLabel"))}</span></li>
+      <li>${icon("clock")}<span class="num">${esc(fmtDate(e.session.starts_at, { hour: "numeric", minute: "2-digit" }))}</span><span class="k">${esc(T("dateTime"))} · Asia/Qatar</span></li>
+      ${acc ? `<li>${icon("info")}<span>${esc(acc)}</span><span class="k">${esc(T("accessibility"))}</span></li>` : ""}</ul>
+    ${e.table ? `<section class="card stack"><div class="table-figure">${tableSvg({ seats: e.table.capacity, filled: e.table.confirmed_count,
+        label: T("tableSeats", { n: e.table.confirmed_count, cap: e.table.capacity }) })}
+      <div><h2>${esc(T("yourTable"))}</h2><p class="label">${esc(T("confirmedCount", { n: e.table.confirmed_count }))}</p></div></div>
+      <p class="caption">${esc(T("introTip"))}</p>
+      ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.map((m) => m.display_name || T("unnamed")).join("، "))}</p>` : ""}</section>`
+      : ph === "forming" ? `<section class="card"><div class="table-figure">${tableSvg({ seats: 6 })}<p class="label">${esc(T("tableForming"))}</p></div></section>` : ""}
+    ${!e.venue && ["forming", "locked"].includes(ph) ? `<div class="note note-primary"><span class="icon">${icon("lock")}</span><div>${esc(T("venueHidden", { reveal_at: fmtDate(e.reveal.reveal_at) }))}</div></div>` : ""}
     ${e.venue ? `<section class="card stack"><h2>${esc(e.venue.name)}</h2><p>${esc(e.venue.address)} · ${esc(e.venue.district)}</p>
       <a class="btn btn-secondary" href="${esc(e.venue.map_url)}" target="_blank" rel="noopener">${esc(T("openMaps"))}</a>
       <div><strong>${esc(T("arrival"))}</strong><p>${esc(e.venue.arrival_instructions)}</p></div>
@@ -884,12 +926,12 @@ async function scrDetails(id) {
       <p class="caption">${esc(e.venue.bill_policy)}</p></section>` : ""}
     <div id="msg" role="status"></div>
     ${act("check_in") ? `<button class="btn btn-primary btn-block" id="ci">${esc(T("imHere"))}</button>` : ""}
-    ${e.booking.status === "checked_in" ? `<div class="banner banner-success"><div>✓ ${esc(T("checkedIn"))}</div></div>` : ""}
+    ${e.booking.status === "checked_in" ? `<div class="banner banner-success"><span class="icon">${icon("circle-check")}</span><div>${esc(T("checkedIn"))}</div></div>` : ""}
     ${act("feedback") ? `<a class="btn btn-primary btn-block" href="#/booking/${id}/feedback">${esc(T("rateIt"))}</a>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
-    <section class="card sunken stack"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
-      ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary" href="#/report/${id}">${esc(T("privateReport"))}</a>` : ""}</section>
+    <section class="stack" style="margin-block-start: var(--s-6)"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
+      ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
@@ -1001,7 +1043,7 @@ async function scrFeedback(id) {
     const c = await api("POST", `/api/v1/bookings/${id}/feedback`, { overall_rating: val("overall"), comfort_rating: val("comfort"), venue_rating: val("venue"),
       would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null, connections });
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); return; }
-    view(T("fbThanks"), `<div class="center"><div class="success-check" aria-hidden="true">✓</div><h1>${esc(T("fbThanks"))}</h1>
+    view(T("fbThanks"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("fbThanks"))}</h1>
       ${c.data.mutual.length ? `<p>${esc(T("mutualWith", { names: c.data.mutual.join("، ") }))}</p>` : ""}
       <a class="btn btn-primary" href="#/sessions">${esc(T("bookAnother"))}</a></div>`);
   };
@@ -1015,7 +1057,7 @@ function emergencyScreen(onContinue) {
   el.setAttribute("aria-modal", "true");
   el.setAttribute("aria-labelledby", "emh");
   el.innerHTML = `<div class="inner"><h1 id="emh">${esc(T("emTitle"))}</h1><p>${esc(T("emBody"))}</p>
-    <a class="call" href="tel:999">📞 ${esc(T("emCall"))}</a><button class="btn btn-block" id="emc">${esc(T("emContinue"))}</button></div>`;
+    <a class="call" href="tel:999">${icon("phone")}${esc(T("emCall"))}</a><button class="btn btn-block" id="emc">${esc(T("emContinue"))}</button></div>`;
   document.body.appendChild(el);
   el.querySelector("a.call").focus();
   el.querySelector("#emc").onclick = () => { el.remove(); onContinue && onContinue(); };
@@ -1054,7 +1096,7 @@ async function scrReport(id) {
     const c = await api("POST", "/api/v1/reports", { booking_id: id, category: cat.value, timing: $$("input[name=when]:checked")[0].value,
       immediate_danger: $("#danger").checked, reported_seat: who && who.value ? who.value : undefined, description: $("#d").value.trim() || undefined });
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#go").disabled = false; return; }
-    const done = () => view(T("reportTitle"), `<div class="center"><div class="success-check" aria-hidden="true">✓</div><h1>${esc(T("reportSent", { case: c.data.case_ref }))}</h1><a class="btn btn-primary" href="#/home">${esc(T("backHome"))}</a></div>`);
+    const done = () => view(T("reportTitle"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("reportSent", { case: c.data.case_ref }))}</h1><a class="btn btn-primary" href="#/home">${esc(T("backHome"))}</a></div>`);
     if (c.data.emergency && c.data.emergency.show) { done(); emergencyScreen(); } else done();
   };
 }
@@ -1089,7 +1131,7 @@ async function scrProfile() {
     <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
       <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
     <p class="section-label">${esc(T("secHelp"))}</p>
-    <section class="card stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
+    <section class="stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
     <div class="stack" style="margin-block-start: var(--s-6)">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
@@ -1117,14 +1159,14 @@ async function scrCases() {
 }
 
 // ------------------------------------------------------------------ router
-const TABS = [["#/home", "tabHome", "🏠"], ["#/events", "tabEvents", "🗓️"], ["#/inbox", "tabInbox", "🔔"], ["#/profile", "tabProfile", "🙂"]];
+const TABS = [["#/home", "tabHome", "house"], ["#/events", "tabEvents", "calendar-days"], ["#/inbox", "tabInbox", "bell"], ["#/profile", "tabProfile", "circle-user-round"]];
 function renderTabbar(hash) {
   const nav = document.getElementById("tabbar");
   const active = TABS.find(([h]) => h === hash);
   nav.hidden = !(active && store.get("tokens"));
   if (nav.hidden) { nav.innerHTML = ""; return; }
   nav.setAttribute("aria-label", T("tabsLabel"));
-  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}><span class="ti" aria-hidden="true">${ic}</span><span>${esc(T(k))}</span></a>`).join("");
+  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
 }
 
 const ROUTES = [
@@ -1154,6 +1196,7 @@ async function route() {
 }
 
 window.addEventListener("hashchange", route);
+window.addEventListener("scroll", () => document.getElementById("topbar").classList.toggle("scrolled", window.scrollY > 4), { passive: true });
 document.documentElement.lang = locale;
 document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
 document.querySelector(".skip").textContent = T("skip");
