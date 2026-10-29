@@ -9,7 +9,7 @@ export const ERRORS = {
   REGISTRATION_INCOMPLETE: ["أكملي التسجيل أولًا.", "Please complete registration first."],
   IDEMPOTENCY_KEY_REQUIRED: ["مفتاح منع التكرار مطلوب.", "An Idempotency-Key header is required."],
   IDEMPOTENCY_KEY_REUSED: ["استُخدم هذا المفتاح لطلب مختلف.", "This Idempotency-Key was used for a different request."],
-  IDEMPOTENCY_IN_PROGRESS: ["طلبك السابق ما زال قيد التنفيذ. انتظر لحظة.", "Your previous request is still being processed. Please wait a moment."],
+  IDEMPOTENCY_IN_PROGRESS: ["طلبك السابق ما زال قيد التنفيذ. انتظري لحظة.", "Your previous request is still being processed. Please wait a moment."],
   RATE_LIMITED: ["طلبات كثيرة. حاولي بعد قليل.", "Too many requests. Please try again shortly."],
   INTERNAL: ["حدث خطأ. حاولي مرة أخرى.", "Something went wrong. Please try again."],
   UNAVAILABLE: ["الخدمة غير متاحة مؤقتًا.", "The service is temporarily unavailable."],
