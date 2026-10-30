@@ -2,13 +2,16 @@
 // Same inputs + seed => identical tables, leftovers, inputs_hash and explanations
 // (verified by test/parity.test.mjs against the Python engine).
 import { createHash } from "node:crypto";
+import { checkQuestionnaire, cleanAnswers, pairTotal, PersonalityError, PERSONALITY_WEIGHTS, scoreGroupPersonality, tableThemes } from "./personality.js";
 
 export const MIN_TABLE = 4;
 export const MAX_TABLE = 6;
 export const W_INTEREST = 0.6;
 export const W_COHESION = 0.4;
 export const PACKING_MODES = ["min_leftovers", "greedy_6"];
-export const RULE_OBJECTIVES = { "r1-baseline": "baseline_random", "r1-interest": "interest_opt_v1" };
+export const RULE_OBJECTIVES = { "r1-baseline": "baseline_random", "r1-interest": "interest_opt_v1", "r2-personality": "personality_v1" };
+const PERSONALITY = "personality_v1";
+const OPTIMISED = ["interest_opt_v1", PERSONALITY];
 const LANGUAGES = ["ar", "en"];
 const MODES = ["dry_run", "published"];
 const NO_PREF = "no_pref";
@@ -73,7 +76,8 @@ export function scoreGroup(group) {
   return { interest, cohesion, score: W_INTEREST * interest + W_COHESION * cohesion, memberScores };
 }
 
-const scoreOf = (g) => scoreGroup(g).score || 0;
+const scorer = (algorithm) => (algorithm === PERSONALITY ? scoreGroupPersonality : scoreGroup);
+const scoreOf = (g, algorithm) => scorer(algorithm)(g).score || 0;
 
 export function tableSizes(n, maxSize, packing = "min_leftovers", maxTables = null) {
   const byPeople = Math.floor(n / MIN_TABLE);
@@ -128,7 +132,7 @@ function seatGreedy(ordered, sizes, blocks) {
   return [keep, still];
 }
 
-function optimise(groups, blocks) {
+function optimise(groups, blocks, value) {
   for (let pass = 0; pass < MAX_OPT_PASSES; pass++) {
     let improved = false;
     for (let gi = 0; gi < groups.length; gi++) {
@@ -139,8 +143,8 @@ function optimise(groups, blocks) {
             const ni = [...groups[gi].slice(0, ai), b, ...groups[gi].slice(ai + 1)];
             const nj = [...groups[gj].slice(0, bi), a, ...groups[gj].slice(bi + 1)];
             if (!(groupOk(ni, blocks) && groupOk(nj, blocks))) continue;
-            const before = scoreOf(groups[gi]) + scoreOf(groups[gj]);
-            const after = scoreOf(ni) + scoreOf(nj);
+            const before = value(groups[gi]) + value(groups[gj]);
+            const after = value(ni) + value(nj);
             if (after > before + 1e-12) { groups[gi] = ni; groups[gj] = nj; improved = true; }
           }
         }
@@ -151,13 +155,25 @@ function optimise(groups, blocks) {
   return groups;
 }
 
+// r2: the table score's cohesion term can trap swap search between two profiles (3+3 never becomes 4+2 even though
+// 6+0 is best), so a second start first clusters on pairTotal, then both starts climb on the table score and the
+// higher total wins. The result is never below the plain climb.
+function optimiseFor(groups, blocks, algorithm) {
+  const value = (g) => scoreOf(g, algorithm);
+  if (algorithm !== PERSONALITY) return optimise(groups, blocks, value);
+  const plain = optimise(groups.map((g) => [...g]), blocks, value);
+  const clustered = optimise(optimise(groups.map((g) => [...g]), blocks, pairTotal), blocks, value);
+  const total = (gs) => sum(gs.map(value));
+  return total(clustered) > total(plain) + 1e-12 ? clustered : plain;
+}
+
 function formGroups(cell, maxSize, blocks, algorithm, seed, packing, budget) {
   const ordered = stableShuffle(cell, seed);
   const sizes = tableSizes(ordered.length, maxSize, packing, budget ? budget.left : null);
   if (budget && budget.left !== null) budget.left -= sizes.length;
   if (!sizes.length) return [[], ordered.map((m) => [m, "cell_below_quorum"])];
   let [groups, unseated] = seatGreedy(ordered, sizes, blocks);
-  if (algorithm === "interest_opt_v1" && groups.length > 1) groups = optimise(groups, blocks);
+  if (OPTIMISED.includes(algorithm) && groups.length > 1) groups = optimiseFor(groups, blocks, algorithm);
   return [groups, unseated];
 }
 
@@ -214,11 +230,12 @@ function cmpList(a, b) {
   return a.length - b.length;
 }
 
-export function inputsHash(pool, blocks, params) {
+export function inputsHash(pool, blocks, params, withAnswers = false) {
   const doc = {
     params,
     pool: pool.map((b) => [b.booking_id, b.user_id, b.conversation_language, b.budget_tier_rank,
-      b.q05_topics && b.q05_topics.length ? [...b.q05_topics].sort() : null]).sort((x, y) => cmp(x[0], y[0])),
+      b.q05_topics && b.q05_topics.length ? [...b.q05_topics].sort() : null,
+      ...(withAnswers ? [b.answers] : [])]).sort((x, y) => cmp(x[0], y[0])),
     blocks: [...blocks].map((k) => k.split("|").sort()).sort(cmpList),
   };
   return sha256(canonical(doc));
@@ -244,10 +261,11 @@ function sharedTopicCount(group) {
   return Object.values(counts).filter((c) => c >= 2).length;
 }
 
-function explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings) {
-  return {
+function explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings, answersDropped) {
+  const personality = algorithm === PERSONALITY;
+  const out = {
     algorithm,
-    weights: algorithm === "interest_opt_v1" ? { interest: W_INTEREST, cohesion: W_COHESION } : null,
+    weights: algorithm === "interest_opt_v1" ? { interest: W_INTEREST, cohesion: W_COHESION } : personality ? PERSONALITY_WEIGHTS : null,
     tables: tables.map((t) => ({
       table_code: t.table_code, language: t.language, tier_rank: t.tier_rank, size: t.members.length,
       venue_id: t.venue_id, seats: t.members.map((m) => pseudonym(seed, m.booking_id)),
@@ -256,16 +274,22 @@ function explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings) 
       score: t.score === null ? null : round4(t.score),
       answered_q05: t.members.filter((m) => topics(m) !== null).length,
       checks: { same_language: true, tier_within_caps: true, no_blocked_pair: true, size_within_bounds: true },
-      warnings: sharedTopicCount(t.members) < 2 ? ["solo interest coverage < 2 topics"] : [],
+      ...(personality ? {
+        energy_balance: t.energy === null ? null : round4(t.energy),
+        answered: t.members.filter((m) => Object.keys(m.answers).length > 0).length,
+        warnings: t.members.filter((m) => Object.keys(m.answers).length > 0).length < 2 ? ["fewer than 2 members answered the questionnaire"] : [],
+      } : { warnings: sharedTopicCount(t.members) < 2 ? ["solo interest coverage < 2 topics"] : [] }),
     })),
     leftovers: leftovers.map((lo) => ({ seat: pseudonym(seed, lo.booking.booking_id), reason: lo.reason })),
     ineligible: ineligible.map(([b, r]) => ({ seat: pseudonym(seed, b.booking_id), reason: r })),
     venue_warnings: venueWarnings,
   };
+  if (personality) out.answers_dropped = answersDropped;
+  return out;
 }
 
 export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, blockRows = [], venueCapacity = MAX_TABLE,
-  venues = null, packingMode = "min_leftovers", maxTables = null }) {
+  venues = null, packingMode = "min_leftovers", maxTables = null, questionnaire = null }) {
   if (!MODES.includes(mode)) throw new MatchingError(`mode must be one of ${MODES}`);
   if (!(ruleVersion in RULE_OBJECTIVES)) throw new MatchingError(`unknown rule_version ${ruleVersion}`);
   if (!(venueCapacity >= MIN_TABLE && venueCapacity <= MAX_TABLE)) throw new MatchingError("venue_capacity must be between 4 and 6");
@@ -274,6 +298,10 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
   if (maxTables !== null && maxTables < 0) throw new MatchingError("max_tables must be >= 0");
   const budget = { left: maxTables };
   const algorithm = RULE_OBJECTIVES[ruleVersion];
+  const personality = algorithm === PERSONALITY;
+  if (personality) {
+    try { checkQuestionnaire(questionnaire); } catch (e) { throw e instanceof PersonalityError ? new MatchingError(e.message) : e; }
+  }
   const blocks = blockedPairs(blockRows);
 
   const pool = [], ineligible = [], seenUsers = new Set();
@@ -285,6 +313,14 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
     else if (!(b.age_attested && b.account_active)) ineligible.push([b, "not_eligible"]);
     else if (seenUsers.has(b.user_id)) ineligible.push([b, "duplicate_user_in_session"]);
     else { seenUsers.add(b.user_id); pool.push(b); }
+  }
+  let answersDropped = 0;
+  if (personality) {
+    for (let i = 0; i < pool.length; i++) {
+      const c = cleanAnswers(pool[i].answers, questionnaire);
+      answersDropped += c.dropped;
+      pool[i] = { ...pool[i], answers: c.answers };
+    }
   }
 
   let n = 0;
@@ -306,8 +342,10 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
   const venueWarnings = assignVenues(tables, venues);
   for (const t of tables) {
     t.members.sort((x, y) => cmp(stableKey(seed, x.booking_id), stableKey(seed, y.booking_id)));
-    const s = scoreGroup(t.members);
+    const s = scorer(algorithm)(t.members);
     t.interest = s.interest; t.cohesion = s.cohesion; t.score = s.score; t.member_scores = s.memberScores;
+    t.energy = personality ? s.energy : null;
+    t.themes = personality ? tableThemes(t.members) : [];
   }
   const errors = validateTables(tables, venueCapacity, blocks);
   if (errors.length) throw new MatchingError("hard constraint violated: " + errors.join("; "));
@@ -315,8 +353,8 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
     packing_mode: packingMode, max_tables: maxTables };
   return {
     session_id: sessionId, mode, rule_version: ruleVersion, algorithm, seed,
-    inputs_hash: inputsHash(pool, blocks, params),
+    inputs_hash: inputsHash(pool, blocks, params, personality),
     tables, leftovers, ineligible,
-    explanations: explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings),
+    explanations: explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings, answersDropped),
   };
 }

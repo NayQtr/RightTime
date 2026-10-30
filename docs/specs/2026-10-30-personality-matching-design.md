@@ -1,6 +1,6 @@
 # HerZone — Personality matching (rule version `r2-personality`)
 
-**Status:** Design approved by the owner on 2026-10-30. Implementation not started.
+**Status:** Design approved by the owner on 2026-10-30. Implemented (engine, reference engine, migration 011, API, UI).
 **Source:** owner request («كل الإجابات معايير تقدير نوع الشخصية، وبناءً عليها يُجمع المتقاربات في نفس الطاولة») and the
 owner's concept document `personality_matching_platform_concept_ar.pdf` (sections 3, 5, 6, 11).
 **Replaces nothing:** `r1-baseline` and `r1-interest` stay available; `r2-personality` becomes the admin default.
@@ -97,12 +97,18 @@ Same deterministic pipeline as `r1-interest`, with the new `score`:
   «يجمعكن: …» / "What you share: …". Never shown before reveal. If no theme qualifies, nothing is shown.
 - Never derived from Q11, Q16, Q21–Q24, Q12, Q04, Q01, Q07.
 
-## 7. Privacy (blocking for production use of Q23/Q24)
+## 7. Privacy
 
-Using Q23/Q24 for seating must be stated in the privacy notice. A draft line goes into a new version
-`privacy-qa-5`, marked **pending counsel review**; it is not published to members without the owner's go-ahead.
-Until it is published, `r2-personality` runs with Q23/Q24 **excluded** (lifestyle uses Q11 and Q16 only) and
-the run's explanations say so; publishing `privacy-qa-5` switches them on.
+Owner decision (2026-10-30): Q23 and Q24 count from the first run, with no deferral. The privacy notice should
+say that answers, including these two, are used to form tables; that wording is for counsel and is tracked as a
+legal follow-up, not a code gate.
+
+## 7a. Optimisation detail found in testing
+
+With two clearly different profiles, swap search on the table score stayed at 3+3 per table: the cohesion term
+makes every intermediate 4+2 swap look worse. For `r2-personality` the engine therefore climbs from two starts,
+the seeded seating as is and the seating first clustered on the sum of pair similarities, and keeps the higher
+total table score. The result is never below the single climb.
 
 ## 8. Tuning later
 

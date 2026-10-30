@@ -29,11 +29,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import combinations
 from typing import Dict, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple
 
-ALGORITHMS = ("baseline_random", "interest_opt_v1")
+from personality import (PERSONALITY_WEIGHTS, PersonalityError, check_questionnaire, clean_answers, pair_total,
+                         score_group_personality, table_themes)
+
+ALGORITHMS = ("baseline_random", "interest_opt_v1", "personality_v1")
+PERSONALITY = "personality_v1"
+OPTIMISED = ("interest_opt_v1", PERSONALITY)
 MODES = ("dry_run", "published")
 LANGUAGES = ("ar", "en")
 MIN_TABLE = 4
@@ -54,6 +59,7 @@ PACKING_MODE = "min_leftovers"
 RULE_OBJECTIVES = {
     "r1-baseline": "baseline_random",
     "r1-interest": "interest_opt_v1",
+    "r2-personality": PERSONALITY,
 }
 
 
@@ -73,6 +79,8 @@ class BookingInput:
     consents_current: bool = True
     age_attested: bool = True
     account_active: bool = True
+    # r2-personality: {question_key: [option_key, ...]}, cleaned by the engine (personality.clean_answers)
+    answers: Optional[Dict[str, List[str]]] = field(default=None, hash=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -94,6 +102,8 @@ class Table:
     cohesion: Optional[float] = None
     score: Optional[float] = None
     member_scores: Dict[str, Optional[float]] = field(default_factory=dict)
+    energy: Optional[float] = None
+    themes: List[dict] = field(default_factory=list)
 
     @property
     def size(self) -> int:
@@ -175,6 +185,13 @@ def score_group(group: Sequence[BookingInput]) -> Tuple[Optional[float], Optiona
     return interest, cohesion, score, member_scores
 
 
+def _scorer(algorithm: str):
+    """Both scorers return (mean, cohesion, score, member_scores)."""
+    if algorithm == PERSONALITY:
+        return lambda g: score_group_personality(g)[:4]
+    return score_group
+
+
 def _total(groups: Sequence[Sequence[BookingInput]]) -> float:
     return sum((score_group(g)[2] or 0.0) for g in groups)
 
@@ -236,8 +253,9 @@ def _seat_greedy(ordered: List[BookingInput], sizes: List[int], blocks: Set[Froz
     return keep, still
 
 
-def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]]) -> List[List[BookingInput]]:
-    """Deterministic hill-climbing over pairwise swaps between tables; accepts strict improvements only."""
+def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], value) -> List[List[BookingInput]]:
+    """Deterministic hill-climbing over pairwise swaps between tables; accepts strict improvements only.
+    value(group) -> float is the objective."""
     for _ in range(MAX_OPT_PASSES):
         improved = False
         for gi, gj in combinations(range(len(groups)), 2):
@@ -248,14 +266,35 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]]) -> 
                     new_j = groups[gj][:b_idx] + [a] + groups[gj][b_idx + 1:]
                     if not (_group_ok(new_i, blocks) and _group_ok(new_j, blocks)):
                         continue
-                    before = (score_group(groups[gi])[2] or 0.0) + (score_group(groups[gj])[2] or 0.0)
-                    after = (score_group(new_i)[2] or 0.0) + (score_group(new_j)[2] or 0.0)
+                    before = value(groups[gi]) + value(groups[gj])
+                    after = value(new_i) + value(new_j)
                     if after > before + 1e-12:
                         groups[gi], groups[gj] = new_i, new_j
                         improved = True
         if not improved:
             break
     return groups
+
+
+def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], algorithm: str):
+    """r2: the cohesion term can trap swap search between two profiles, so a second start first clusters on
+    pair_total; both starts then climb on the table score and the higher total wins (never below the plain climb)."""
+    score = _scorer(algorithm)
+
+    def value(g):
+        return score(g)[2] or 0.0
+
+    if algorithm != PERSONALITY:
+        return _optimise(groups, blocks, value)
+    plain = _optimise([list(g) for g in groups], blocks, value)
+    clustered = _optimise(_optimise([list(g) for g in groups], blocks, pair_total), blocks, value)
+
+    def total(gs):
+        t = 0.0
+        for g in gs:
+            t += value(g)
+        return t
+    return clustered if total(clustered) > total(plain) + 1e-12 else plain
 
 
 def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int,
@@ -268,8 +307,8 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
     if not sizes:
         return [], [(m, "cell_below_quorum") for m in ordered]
     groups, unseated = _seat_greedy(ordered, sizes, blocks)
-    if algorithm == "interest_opt_v1" and len(groups) > 1:
-        groups = _optimise(groups, blocks)
+    if algorithm in OPTIMISED and len(groups) > 1:
+        groups = _optimise_for(groups, blocks, algorithm)
     return groups, unseated
 
 
@@ -319,12 +358,12 @@ def assign_venues(tables: List[Table], venues: Optional[Sequence[VenueInput]]) -
     return warnings
 
 
-def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], params: dict) -> str:
+def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], params: dict, with_answers: bool = False) -> str:
     doc = {
         "params": params,
         "pool": sorted([
             [b.booking_id, b.user_id, b.conversation_language, b.budget_tier_rank,
-             sorted(b.q05_topics) if b.q05_topics else None]
+             sorted(b.q05_topics) if b.q05_topics else None] + ([b.answers] if with_answers else [])
             for b in pool]),
         "blocks": sorted(sorted(p) for p in blocks),
     }
@@ -355,7 +394,8 @@ def validate_tables(tables: Sequence[Table], max_size: int, blocks: Set[FrozenSe
 def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
                  bookings: Sequence[BookingInput], block_rows: Iterable[Tuple[str, str]] = (),
                  venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None,
-                 packing_mode: str = PACKING_MODE, max_tables: Optional[int] = None) -> MatchResult:
+                 packing_mode: str = PACKING_MODE, max_tables: Optional[int] = None,
+                 questionnaire: Optional[Dict[str, List[str]]] = None) -> MatchResult:
     """max_tables = bookable venue tables for the session (None = unlimited). Cells are filled in sorted
     (language, tier) order, so when tables are scarce earlier cells are served first."""
     if mode not in MODES:
@@ -372,6 +412,12 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         raise MatchingError("max_tables must be >= 0")
     budget = {"left": max_tables}
     algorithm = RULE_OBJECTIVES[rule_version]
+    personality = algorithm == PERSONALITY
+    if personality:
+        try:
+            check_questionnaire(questionnaire)
+        except PersonalityError as e:
+            raise MatchingError(str(e)) from None
     blocks = blocked_pairs(block_rows)
 
     pool: List[BookingInput] = []
@@ -393,6 +439,12 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         else:
             seen_users.add(b.user_id)
             pool.append(b)
+    answers_dropped = 0
+    if personality:
+        for i, b in enumerate(pool):
+            answers, dropped = clean_answers(b.answers, questionnaire)
+            answers_dropped += dropped
+            pool[i] = replace(b, answers=answers)
 
     counter = {"n": 0}
 
@@ -419,7 +471,11 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
 
     for t in tables:
         t.members.sort(key=lambda m: _stable_key(seed, m.booking_id))
-        t.interest, t.cohesion, t.score, t.member_scores = score_group(t.members)
+        if personality:
+            t.interest, t.cohesion, t.score, t.member_scores, t.energy = score_group_personality(t.members)
+            t.themes = table_themes(t.members)
+        else:
+            t.interest, t.cohesion, t.score, t.member_scores = score_group(t.members)
 
     errors = validate_tables(tables, venue_capacity, blocks)
     if errors:
@@ -427,8 +483,8 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
 
     params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity,
               "packing_mode": packing_mode, "max_tables": max_tables}
-    h = inputs_hash(pool, blocks, params)
-    explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings)
+    h = inputs_hash(pool, blocks, params, personality)
+    explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings, answers_dropped)
     return MatchResult(session_id, mode, rule_version, algorithm, seed, h, tables, leftovers, ineligible, explanations)
 
 
@@ -441,14 +497,19 @@ def _shared_topic_count(group: Sequence[BookingInput]) -> int:
 
 
 def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, seed: int,
-            algorithm: str, venue_warnings: List[str]) -> dict:
+            algorithm: str, venue_warnings: List[str], answers_dropped: int = 0) -> dict:
     """Pseudonymous explanation stored in matching_runs.explanations (no user_id, no names, no answers)."""
+    personality = algorithm == PERSONALITY
     out_tables = []
     for t in tables:
         warnings = []
-        if _shared_topic_count(t.members) < 2:
+        if personality:
+            answered = sum(1 for m in t.members if m.answers)
+            if answered < 2:
+                warnings.append("fewer than 2 members answered the questionnaire")
+        elif _shared_topic_count(t.members) < 2:
             warnings.append("solo interest coverage < 2 topics")
-        out_tables.append({
+        row = {
             "table_code": t.table_code,
             "language": t.language,
             "tier_rank": t.tier_rank,
@@ -462,15 +523,23 @@ def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, 
             "checks": {"same_language": True, "tier_within_caps": True, "no_blocked_pair": True,
                        "size_within_bounds": True},
             "warnings": warnings,
-        })
-    return {
+        }
+        if personality:
+            row["energy_balance"] = None if t.energy is None else round(t.energy, 4)
+            row["answered"] = answered
+        out_tables.append(row)
+    out = {
         "algorithm": algorithm,
-        "weights": {"interest": W_INTEREST, "cohesion": W_COHESION} if algorithm == "interest_opt_v1" else None,
+        "weights": {"interest": W_INTEREST, "cohesion": W_COHESION} if algorithm == "interest_opt_v1"
+        else PERSONALITY_WEIGHTS if personality else None,
         "tables": out_tables,
         "leftovers": [{"seat": _pseudonym(seed, lo.booking.booking_id), "reason": lo.reason} for lo in leftovers],
         "ineligible": [{"seat": _pseudonym(seed, b.booking_id), "reason": r} for b, r in ineligible],
         "venue_warnings": venue_warnings,
     }
+    if personality:
+        out["answers_dropped"] = answers_dropped
+    return out
 
 
 def to_table_assignments(result: MatchResult) -> List[dict]:

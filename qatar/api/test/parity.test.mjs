@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { runMatching } from "../src/matching/engine.js";
+import { QUESTIONNAIRE, randomAnswers } from "./personality-fixtures.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MATCHING_DIR = path.resolve(HERE, "../../matching");
@@ -24,6 +25,7 @@ function makeJob(seed) {
       status: r() < 0.93 ? "paid_awaiting_group" : "payment_pending",
       conversation_language: r() < 0.7 ? "ar" : "en", budget_tier_rank: 1 + Math.floor(r() * 3),
       q05_topics: t.size ? [...t] : null, consents_current: r() < 0.97, age_attested: true, account_active: true,
+      answers: randomAnswers(r),
     });
   }
   const blocks = [];
@@ -34,7 +36,9 @@ function makeJob(seed) {
     { venue_id: "v-c", tier_rank: 3, capacity: 5 + Math.floor(r() * 2), tables_available: 1 },
   ];
   return {
-    session_id: "S", mode: r() < 0.5 ? "dry_run" : "published", rule_version: r() < 0.5 ? "r1-baseline" : "r1-interest",
+    session_id: "S", mode: r() < 0.5 ? "dry_run" : "published",
+    rule_version: ["r1-baseline", "r1-interest", "r2-personality", "r2-personality"][Math.floor(r() * 4)],
+    questionnaire: QUESTIONNAIRE,
     seed: Math.floor(r() * 1e9), bookings, blocks, venues, venue_capacity: 4 + Math.floor(r() * 3),
     packing_mode: r() < 0.6 ? "min_leftovers" : "greedy_6", max_tables: r() < 0.5 ? null : Math.floor(r() * 5),
   };
@@ -43,9 +47,9 @@ function makeJob(seed) {
 function runJs(job) {
   const res = runMatching({ sessionId: job.session_id, mode: job.mode, ruleVersion: job.rule_version, seed: job.seed,
     bookings: job.bookings, blockRows: job.blocks, venueCapacity: job.venue_capacity, venues: job.venues,
-    packingMode: job.packing_mode, maxTables: job.max_tables });
+    packingMode: job.packing_mode, maxTables: job.max_tables, questionnaire: job.questionnaire });
   return {
-    tables: res.tables.map((t) => ({ code: t.table_code, language: t.language, tier: t.tier_rank, venue_id: t.venue_id, members: t.members.map((m) => m.booking_id) })),
+    tables: res.tables.map((t) => ({ code: t.table_code, language: t.language, tier: t.tier_rank, venue_id: t.venue_id, members: t.members.map((m) => m.booking_id), themes: t.themes })),
     leftovers: res.leftovers.map((lo) => [lo.booking.booking_id, lo.reason]),
     ineligible: res.ineligible.map(([b, r]) => [b.booking_id, r]),
     inputs_hash: res.inputs_hash,
@@ -53,8 +57,8 @@ function runJs(job) {
   };
 }
 
-test("JS engine == Python engine on 300 random jobs", () => {
-  const jobs = Array.from({ length: 300 }, (_, i) => makeJob(i + 1));
+test("JS engine == Python engine on 400 random jobs (r1 and r2-personality)", () => {
+  const jobs = Array.from({ length: 400 }, (_, i) => makeJob(i + 1));
   const py = execFileSync("python3", ["-c", `
 import json, sys, subprocess
 jobs = json.load(sys.stdin)
@@ -76,5 +80,6 @@ print(json.dumps(out))
     assert.deepEqual(js, pyResults[i], `job ${i + 1} differs`);
     compared++;
   });
-  assert.ok(compared > 250, `only ${compared} jobs compared`);
+  assert.ok(compared > 330, `only ${compared} jobs compared`);
+  assert.ok(jobs.filter((j) => j.rule_version === "r2-personality").length > 150);
 });

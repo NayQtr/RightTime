@@ -629,7 +629,10 @@ async function eventDetails(ctx) {
   };
   if (["locked", "revealed", "day_of", "completed"].includes(phase)) {
     out.table = { confirmed_count: t.confirmed_count, capacity: t.capacity };
-    if (phase !== "locked") out.table.code = t.table_code;
+    if (phase !== "locked") {
+      out.table.code = t.table_code;
+      out.table.shared_themes = (t.match_themes || []).map((th) => (locale === "en" ? th.en : th.ar));
+    }
     if (["day_of", "completed"].includes(phase)) {
       const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
       out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null }));

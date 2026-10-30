@@ -45,7 +45,7 @@ export const STRINGS = {
     step1: "تم الدفع", step2: "تكوين الطاولة", step3: "تأكيد الطاولة", step4: "كشف المكان", step5: "يوم اللقاء", inDays: "بعد {d} يوم {h} ساعة", inHours: "بعد {h} ساعة {m} دقيقة",
     inbox: "الإشعارات", profile: "حسابي", noNotifications: "لا إشعارات بعد.",
     // SCR-07
-    detailsTitle: "تفاصيل اللقاء", essentials: "الأساسيات", yourTable: "طاولتك", confirmedCount: "{n} سيدات مؤكدات", introTip: "نصيحة: قدّمي نفسكِ باسمك الأول.",
+    detailsTitle: "تفاصيل اللقاء", essentials: "الأساسيات", yourTable: "طاولتك", confirmedCount: "{n} سيدات مؤكدات", introTip: "نصيحة: قدّمي نفسكِ باسمك الأول.", sharedThemes: "يجمعكن: {list}", listSep: "، ",
     venue: "المكان", openMaps: "فتح في الخرائط", arrival: "تعليمات الوصول", tableCode: "رمز طاولتك", mentionCode: "اذكري \"HerZone\" ورمز الطاولة لموظف الاستقبال.",
     checkedIn: "تم تسجيل وصولك", support: "تواصلي مع المنسق المناوب", privateReport: "إبلاغ خاص", cancelBooking: "إلغاء الحجز",
     venueHidden: "نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في {reveal_at}.", tablemates: "زميلات الطاولة اليوم", unnamed: "ضيفة",
@@ -154,7 +154,7 @@ export const STRINGS = {
     stOrganizer: "We cancelled this table. Choose: refund or another session.", chooseNow: "Choose now", rateIt: "Rate the event", directions: "Directions", imHere: "I'm here",
     step1: "Paid", step2: "Forming the table", step3: "Table confirmed", step4: "Venue revealed", step5: "Event day", inDays: "in {d} d {h} h", inHours: "in {h} h {m} min",
     inbox: "Notifications", profile: "Account", noNotifications: "No notifications yet.",
-    detailsTitle: "Event details", essentials: "Essentials", yourTable: "Your table", confirmedCount: "{n} women confirmed", introTip: "Tip: introduce yourself with your first name.",
+    detailsTitle: "Event details", essentials: "Essentials", yourTable: "Your table", confirmedCount: "{n} women confirmed", introTip: "Tip: introduce yourself with your first name.", sharedThemes: "What you share: {list}", listSep: ", ",
     venue: "Venue", openMaps: "Open in maps", arrival: "Arrival instructions", tableCode: "Your table code", mentionCode: "Mention \"HerZone\" and the table code at reception.",
     checkedIn: "You're checked in", support: "Contact the coordinator on duty", privateReport: "Private report", cancelBooking: "Cancel booking",
     venueHidden: "We reveal the venue name and address after the table is confirmed, at {reveal_at}.", tablemates: "Your tablemates today", unnamed: "Guest",

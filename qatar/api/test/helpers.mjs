@@ -18,7 +18,7 @@ function psql(db, args) {
 
 export function buildTemplate() {
   psql("postgres", ["-c", `DROP DATABASE IF EXISTS ${TEMPLATE}`, "-c", `CREATE DATABASE ${TEMPLATE}`]);
-  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "db/migrations/007_deny_policies.sql", "db/migrations/008_question_display.sql", "db/migrations/009_women_only.sql", "db/migrations/010_contact_requests.sql", "ops/seed_common.sql", "ops/seed_questionnaire_v2.sql", "ops/seed_privacy_v2.sql", "ops/seed_questionnaire_v3.sql", "ops/seed_privacy_v3.sql", "ops/seed_questionnaire_v4.sql", "ops/seed_privacy_v4.sql"]) {
+  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "db/migrations/007_deny_policies.sql", "db/migrations/008_question_display.sql", "db/migrations/009_women_only.sql", "db/migrations/010_contact_requests.sql", "db/migrations/011_personality_matching.sql", "ops/seed_common.sql", "ops/seed_questionnaire_v2.sql", "ops/seed_privacy_v2.sql", "ops/seed_questionnaire_v3.sql", "ops/seed_privacy_v3.sql", "ops/seed_questionnaire_v4.sql", "ops/seed_privacy_v4.sql"]) {
     psql(TEMPLATE, ["-1", "-f", path.join(ROOT, f)]);
   }
 }
@@ -57,7 +57,7 @@ export function client(base) {
 }
 
 let phoneSeq = 0;
-export async function signUp(call, { name = "Sara", locale = "ar", languages = ["lang_ar"], tier = "tier_2", topics = ["food", "travel"], q07 = "no", age = "age_25_34" } = {}) {
+export async function signUp(call, { name = "Sara", locale = "ar", languages = ["lang_ar"], tier = "tier_2", topics = ["food", "travel"], q07 = "no", age = "age_25_34", extra = {} } = {}) {
   const phone = `+9745${String(5000000 + (++phoneSeq) * 7919 + Math.floor(Math.random() * 1000)).slice(0, 7)}`;
   const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: phone, locale, purpose: "login" } });
   const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });
@@ -68,7 +68,8 @@ export async function signUp(call, { name = "Sara", locale = "ar", languages = [
   const q = (await call("GET", "/api/v1/questionnaires/current", { token })).body;
   const pick = (key, optKeys) => { const qq = q.questions.find((x) => x.key === key); return { question_id: qq.id, option_ids: qq.options.filter((o) => optKeys.includes(o.key)).map((o) => o.id) }; };
   const sub = await call("POST", "/api/v1/questionnaire-responses", { token, body: { questionnaire_version_id: q.questionnaire_version_id, status: "submitted",
-    answers: [pick("Q11", [age]), pick("Q01", languages), pick("Q04", [tier]), pick("Q05", topics), pick("Q06", ["opener_question"]), pick("Q07", [q07])] } });
+    answers: [pick("Q11", [age]), pick("Q01", languages), pick("Q04", [tier]), pick("Q05", topics), pick("Q06", ["opener_question"]), pick("Q07", [q07]),
+      ...Object.entries(extra).map(([k, v]) => pick(k, v))] } });
   return { phone, token, userId: r2.body.user.id, refresh: r2.body.refresh_token, questionnaire: q, submit: sub };
 }
 

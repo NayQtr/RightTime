@@ -470,3 +470,7 @@ a.option { text-decoration: none; color: inherit; }
   .btn:active, .option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active,
   .settings a:active, .tabbar a:active, .icon-btn:active, .brand:active { transform: none; }
 }
+
+/* shared-themes line on a revealed table (r2-personality) */
+.shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }
+.shared-themes .lucide, .shared-themes svg { flex: none; width: 20px; height: 20px; color: var(--c-primary); margin-block-start: 2px; }

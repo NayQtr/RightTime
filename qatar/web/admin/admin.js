@@ -144,7 +144,7 @@ async function scrSession(id) {
       <section class="card"><h2>Pool</h2><p>Seats ${s.seats_sold}/${s.max_seats} · holds in progress ${d.holds} · waitlist ${d.waitlist} · blocked pairs in pool ${d.blocks_in_pool}</p>
         <table><thead><tr><th>Language</th><th>Tier</th><th>Paid, awaiting group</th></tr></thead><tbody>${d.pool.map((p) => `<tr><td>${esc(p.language)}</td><td>${p.tier_rank}</td><td>${p.n}</td></tr>`).join("") || `<tr><td colspan="3">—</td></tr>`}</tbody></table></section>
       <section class="card"><h2>Matching</h2><form id="mf" class="grid-form">
-        <label>Rule version<select class="input" name="rule_version"><option value="r1-interest">r1-interest (0.6·I + 0.4·C)</option><option value="r1-baseline">r1-baseline (random)</option></select></label>
+        <label>Rule version<select class="input" name="rule_version"><option value="r2-personality">r2-personality (all answers: values 32 · personality 28 · social 18 · interests 12 · lifestyle 10; energy balanced)</option><option value="r1-interest">r1-interest (0.6·I + 0.4·C)</option><option value="r1-baseline">r1-baseline (random)</option></select></label>
         <label>Seed<input class="input" name="seed" type="number" value="${Math.floor(Math.random() * 1e6)}"></label>
         <label>Packing<select class="input" name="packing_mode"><option>min_leftovers</option><option>greedy_6</option></select></label>
         <label>Max tables (blank = venue tables)<input class="input" name="max_tables" type="number" min="0"></label>

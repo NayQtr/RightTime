@@ -200,7 +200,7 @@ async function runFor(ctx, mode) {
     if (locked || new Date() >= new Date(s.lock_at)) fail(409, "MATCHING_LOCKED");
   }
   const [{ input }] = await sql`SELECT app.matching_input(${s.id}) AS input`;
-  const ruleVersion = body.rule_version || "r1-interest";
+  const ruleVersion = body.rule_version || "r2-personality";
   const seed = Number.isInteger(body.seed) ? body.seed : Math.floor(Math.random() * 2 ** 31);
   const packingMode = body.packing_mode || cfg.packingMode;
   const maxTables = Number.isInteger(body.max_tables) ? body.max_tables : input.venues.reduce((a, v) => a + v.tables_available, 0);
@@ -208,7 +208,7 @@ async function runFor(ctx, mode) {
   try {
     res = runMatching({ sessionId: s.id, mode, ruleVersion, seed, packingMode, maxTables,
       bookings: input.bookings.map((b) => ({ ...b, q05_topics: b.q05_topics || null })),
-      blockRows: input.blocks, venueCapacity: 6, venues: input.venues });
+      blockRows: input.blocks, venueCapacity: 6, venues: input.venues, questionnaire: input.questionnaire });
   } catch (e) {
     if (e instanceof MatchingError) fail(422, "VALIDATION_FAILED", [{ reason: e.message }]);
     throw e;
@@ -230,9 +230,15 @@ async function runFor(ctx, mode) {
       RETURNING id`;
     if (mode === "published") {
       await tx`UPDATE app.table_assignments SET is_current = false WHERE is_current AND booking_id IN (SELECT id FROM app.bookings WHERE session_id = ${s.id})`;
+      // theme labels come from the published questionnaire the run was checked against
+      const labels = new Map((await tx`SELECT q.key AS q, o.key AS o, o.label_ar, o.label_en FROM app.questions q
+        JOIN app.question_options o ON o.question_id = q.id WHERE q.questionnaire_version_id = ${input.questionnaire_version_id}`)
+        .map((r) => [`${r.q}.${r.o}`, r]));
       for (const t of res.tables) {
-        const [et] = await tx`INSERT INTO app.event_tables (session_id, venue_id, table_code, capacity, status)
-                              VALUES (${s.id}, ${t.venue_id}, ${t.table_code}, 6, 'forming') RETURNING id`;
+        const themes = (t.themes || []).map((th) => labels.get(`${th.q}.${th.o}`)).filter(Boolean)
+          .map((r) => ({ q: r.q, o: r.o, ar: r.label_ar, en: r.label_en }));
+        const [et] = await tx`INSERT INTO app.event_tables (session_id, venue_id, table_code, capacity, status, match_themes)
+                              VALUES (${s.id}, ${t.venue_id}, ${t.table_code}, 6, 'forming', ${themes.length ? tx.json(themes) : null}) RETURNING id`;
         for (const m of t.members) {
           const ms = t.member_scores[m.booking_id];
           await tx`INSERT INTO app.table_assignments (booking_id, table_id, matching_run_id, member_score)
@@ -291,10 +297,15 @@ async function moveBooking(ctx) {
   requireUuid(ctx.params.id, "booking_id");
   requireUuid(ctx.body.to_table_id, "to_table_id");
   const payload = { booking_id: ctx.params.id, to_table_id: ctx.body.to_table_id, reason: String(ctx.body.reason || "") };
-  return proposeOrRun(ctx, "booking_move", payload, async (tx, actor) => {
-    await tx`SELECT app.move_booking_table(${payload.booking_id}, ${payload.to_table_id}, ${actor}, ${payload.reason})`;
-    return { moved: true };
-  });
+  return proposeOrRun(ctx, "booking_move", payload, (tx, actor) => moveBookingNow(tx, payload, actor));
+}
+
+async function moveBookingNow(tx, p, actor) {
+  const [from] = await tx`SELECT table_id FROM app.table_assignments WHERE booking_id = ${p.booking_id} AND is_current`;
+  await tx`SELECT app.move_booking_table(${p.booking_id}, ${p.to_table_id}, ${actor}, ${p.reason})`;
+  // the shared-themes line described the table as matched; after a manual move it may no longer be true
+  await tx`UPDATE app.event_tables SET match_themes = NULL WHERE id IN (${p.to_table_id}, ${from ? from.table_id : p.to_table_id})`;
+  return { moved: true };
 }
 
 async function openSale(ctx) {
@@ -698,7 +709,7 @@ async function decideApproval(ctx, approve) {
     const result = await sql.begin(async (tx) => {
       let res;
       if (a.action === "table_cancel_quorum") res = await cancelQuorumNow(tx, p.table_id, admin.id, cfg.rebookChoiceHours);
-      else if (a.action === "booking_move") { await tx`SELECT app.move_booking_table(${p.booking_id}, ${p.to_table_id}, ${admin.id}, ${p.reason})`; res = { moved: true }; }
+      else if (a.action === "booking_move") res = await moveBookingNow(tx, p, admin.id);
       else if (a.action === "session_open_sale") res = await openSaleNow(tx, p.session_id, admin.id);
       else if (a.action === "refund_goodwill") {
         const pay = await capturedPayment(tx, p.booking_id);
