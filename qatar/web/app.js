@@ -50,10 +50,18 @@ function toast(msg) {
   toast.t = setTimeout(() => { el.textContent = ""; }, 4000);
 }
 
+// Direction of the last navigation: quiz steps enter from the reading direction going forward and from the other
+// side going back (the same path in reverse); every other screen fades in. Set by route().
+let navDir = "fade", lastHash = null;
+const ENTER = ["enter-forward", "enter-back", "enter-fade"];
+
 function view(title, html) {
   main.inert = false;
   main.removeAttribute("aria-busy");
   main.innerHTML = html;
+  main.classList.remove(...ENTER);
+  void main.offsetWidth; // restart the entrance animation
+  main.classList.add(`enter-${navDir}`);
   document.title = `${title} · ${T("brand")}`;
   const h = main.querySelector("h1");
   if (h) { h.tabIndex = -1; h.focus({ preventScroll: false }); }
@@ -1236,6 +1244,10 @@ const ROUTES = [
 async function route() {
   clearTimers();
   const hash = location.hash || (store.get("tokens") ? "#/home" : "#/welcome");
+  const quizStep = (h) => { const m = /^#\/quiz\/(\d+)$/.exec(h || ""); return m ? Number(m[1]) : null; };
+  const from = quizStep(lastHash), to = quizStep(hash);
+  navDir = from !== null && to !== null && from !== to ? (to > from ? "forward" : "back") : "fade";
+  lastHash = hash;
   renderTabbar(hash);
   // the old screen must not take taps while the next one loads (audit F7/F16); view() re-enables it
   main.inert = true;
@@ -1251,6 +1263,8 @@ async function route() {
 }
 
 window.addEventListener("hashchange", route);
+// iOS Safari applies :active (the press feedback) only when the page listens for touches
+document.addEventListener("touchstart", () => {}, { passive: true });
 window.addEventListener("scroll", () => document.getElementById("topbar").classList.toggle("scrolled", window.scrollY > 4), { passive: true });
 document.documentElement.lang = locale;
 document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";

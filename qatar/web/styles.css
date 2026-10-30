@@ -24,6 +24,26 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
   padding: var(--s-2) var(--s-5); min-height: 60px; background: var(--c-bg); transition: box-shadow var(--m-base) var(--m-ease);
 }
 .topbar.scrolled { box-shadow: 0 1px 0 var(--c-border); }
+/* glass chrome (Apple materials): the top bar and the tab bar are a frosted layer that content scrolls under, with a soft
+   scroll edge instead of a hairline. Opaque enough to keep text crisp; solid when the device asks for less transparency. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar, .tabbar {
+    background: color-mix(in oklch, var(--c-bg) 85%, transparent);
+    -webkit-backdrop-filter: blur(32px) saturate(160%); backdrop-filter: blur(32px) saturate(160%);
+  }
+  .topbar.scrolled { box-shadow: 0 10px 18px -16px color-mix(in oklch, var(--c-text) 45%, transparent); }
+  .tabbar { box-shadow: 0 -10px 18px -16px color-mix(in oklch, var(--c-text) 45%, transparent); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .topbar, .tabbar { background: var(--c-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .topbar.scrolled { box-shadow: 0 1px 0 var(--c-border); }
+  .tabbar { background: var(--c-surface); box-shadow: 0 -1px 0 var(--c-border); }
+}
+@media (prefers-contrast: more) {
+  .topbar, .tabbar { background: var(--c-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .topbar.scrolled { box-shadow: 0 1px 0 var(--c-borderStrong); }
+  .tabbar { box-shadow: 0 -1px 0 var(--c-borderStrong); }
+}
 .brand { display: inline-flex; align-items: center; gap: var(--s-2); text-decoration: none; color: var(--c-text);
   font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: 0; min-height: 44px; }
 .brand .mark { width: 26px; height: 26px; }
@@ -48,6 +68,23 @@ body:has(main .quiz-foot) main, body:has(main .sticky-bar) main { padding-bottom
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 main > h1, main .quiz-q h1, main .inter h1, main .hero-welcome h1, main .display-title { animation: rise var(--m-slow) var(--m-ease) both; }
 @media (prefers-reduced-motion: reduce) { main > h1, main .quiz-q h1, main .inter h1, main .hero-welcome h1, main .display-title { animation: none; } }
+
+/* screen entrances (set by view()): a quiz step enters from the reading direction going forward and from the other side
+   going back, so the path reverses exactly; other screens fade in. Only transform/opacity, never blocking taps, and the
+   fixed bottom bars never move (a transformed ancestor would re-anchor them). */
+:root { --dir: 1; } :root[dir="rtl"] { --dir: -1; }
+@keyframes enter-from-end { from { opacity: 0; transform: translateX(calc(28px * var(--dir))); } }
+@keyframes enter-from-start { from { opacity: 0; transform: translateX(calc(-28px * var(--dir))); } }
+@keyframes enter-fade { from { opacity: 0; } }
+main.enter-forward > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.sticky-bar),
+main.enter-forward > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-end 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+main.enter-back > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.sticky-bar),
+main.enter-back > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-start 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+main.enter-fade > :not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)) { animation: enter-fade 180ms ease-out backwards; }
+main.enter-forward h1, main.enter-back h1 { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  main.enter-forward > *, main.enter-back > *, main.enter-forward > * > *, main.enter-back > * > * { animation: enter-fade 150ms ease-out backwards !important; }
+}
 
 /* ---------- type */
 h1, h2, h3, .display-title, legend { font-family: var(--font-display); font-style: normal; text-wrap: balance; }
@@ -404,3 +441,20 @@ a.option { text-decoration: none; color: inherit; }
 .benefits .bi .i { width: 20px; height: 20px; }
 .benefits strong { font-family: var(--font-display); font-weight: 700; }
 #plan .label { font-size: 15px; color: var(--c-textMuted); margin-block-end: var(--s-4); }
+
+/* press feedback on touch-down for every tappable surface (Apple: respond on press, not on release). The press is
+   instant; only the release eases back. Reduced motion keeps the highlight and drops the scale. */
+.option, .chip, .event-card, .card-link, .next-card, .week button, .tabbar a, .icon-btn, .settings a, .brand {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
+}
+.option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active, .settings a:active {
+  transform: scale(0.98); transition-duration: 0ms; background-color: color-mix(in oklch, var(--c-surfaceSunken) 60%, var(--c-border));
+}
+.option:has(input:checked):active { background-color: color-mix(in oklch, var(--c-primarySubtle) 80%, var(--c-primary)); }
+.chip:has(input:checked):active { background-color: color-mix(in oklch, var(--c-primary) 85%, var(--c-text)); }
+.tabbar a:active, .icon-btn:active, .brand:active { transform: scale(0.92); transition-duration: 0ms; }
+.btn:active { transition-duration: 0ms; }
+@media (prefers-reduced-motion: reduce) {
+  .btn:active, .option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active,
+  .settings a:active, .tabbar a:active, .icon-btn:active, .brand:active { transform: none; }
+}
