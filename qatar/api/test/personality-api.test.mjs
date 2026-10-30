@@ -51,6 +51,8 @@ test("matching_input carries every answer and the published questionnaire's opti
   assert.deepEqual(first.answers.Q24, ["married"]);
   assert.deepEqual(first.answers.Q05, ["books_culture", "tech"]);
   assert.ok(input.questionnaire.Q12.includes("ambivert") && input.questionnaire.Q21.includes("s5"));
+  const [fn] = await sql`SELECT proconfig FROM pg_proc WHERE oid = 'app.matching_input(uuid)'::regprocedure`;
+  assert.deepEqual(fn.proconfig, ["search_path=app, pg_temp"], "011 must keep the search_path pin from 002");
 });
 
 test("the default rule is r2-personality: profiles at separate tables, energies balanced, weights recorded", async () => {

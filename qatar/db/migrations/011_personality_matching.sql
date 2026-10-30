@@ -55,3 +55,5 @@ CREATE OR REPLACE FUNCTION matching_input(p_session uuid) RETURNS json LANGUAGE 
                        '[]'::json))
   FROM event_sessions s WHERE s.id = p_session;
 $$;
+-- CREATE OR REPLACE drops function settings; keep the pin from 002 (names resolve in app whatever the caller's path)
+ALTER FUNCTION matching_input(uuid) SET search_path = app, pg_temp;

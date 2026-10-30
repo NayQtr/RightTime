@@ -253,9 +253,34 @@ def _seat_greedy(ordered: List[BookingInput], sizes: List[int], blocks: Set[Froz
     return keep, still
 
 
-def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], value) -> List[List[BookingInput]]:
+MAX_MOVES = 200
+
+
+def _move_once(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], value, max_size: int) -> bool:
+    """Applies the first strictly improving single-member move (fixed scan order); returns whether one was applied."""
+    for gi in range(len(groups)):
+        if len(groups[gi]) <= MIN_TABLE:
+            continue
+        for gj in range(len(groups)):
+            if gj == gi or len(groups[gj]) >= max_size:
+                continue
+            for ai in range(len(groups[gi])):
+                a = groups[gi][ai]
+                if _conflicts(a, groups[gj], blocks):
+                    continue
+                new_i = groups[gi][:ai] + groups[gi][ai + 1:]
+                new_j = groups[gj] + [a]
+                if value(new_i) + value(new_j) > value(groups[gi]) + value(groups[gj]) + 1e-12:
+                    groups[gi], groups[gj] = new_i, new_j
+                    return True
+    return False
+
+
+def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], value,
+              max_size: Optional[int] = None) -> List[List[BookingInput]]:
     """Deterministic hill-climbing over pairwise swaps between tables; accepts strict improvements only.
-    value(group) -> float is the objective."""
+    value(group) -> float is the objective. max_size set (r2 only): single-member moves are also tried after the
+    swaps of each pass, keeping every table within MIN_TABLE..max_size."""
     for _ in range(MAX_OPT_PASSES):
         improved = False
         for gi, gj in combinations(range(len(groups)), 2):
@@ -271,12 +296,17 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], val
                     if after > before + 1e-12:
                         groups[gi], groups[gj] = new_i, new_j
                         improved = True
+        if max_size is not None:
+            moves = 0
+            while moves < MAX_MOVES and _move_once(groups, blocks, value, max_size):
+                moves += 1
+                improved = True
         if not improved:
             break
     return groups
 
 
-def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], algorithm: str):
+def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], algorithm: str, max_size: int):
     """r2: the cohesion term can trap swap search between two profiles, so a second start first clusters on
     pair_total; both starts then climb on the table score and the higher total wins (never below the plain climb)."""
     score = _scorer(algorithm)
@@ -286,8 +316,8 @@ def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]],
 
     if algorithm != PERSONALITY:
         return _optimise(groups, blocks, value)
-    plain = _optimise([list(g) for g in groups], blocks, value)
-    clustered = _optimise(_optimise([list(g) for g in groups], blocks, pair_total), blocks, value)
+    plain = _optimise([list(g) for g in groups], blocks, value, max_size)
+    clustered = _optimise(_optimise([list(g) for g in groups], blocks, pair_total, max_size), blocks, value, max_size)
 
     def total(gs):
         t = 0.0
@@ -308,7 +338,7 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
         return [], [(m, "cell_below_quorum") for m in ordered]
     groups, unseated = _seat_greedy(ordered, sizes, blocks)
     if algorithm in OPTIMISED and len(groups) > 1:
-        groups = _optimise_for(groups, blocks, algorithm)
+        groups = _optimise_for(groups, blocks, algorithm, max_size)
     return groups, unseated
 
 

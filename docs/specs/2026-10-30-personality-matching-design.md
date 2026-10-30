@@ -110,6 +110,15 @@ makes every intermediate 4+2 swap look worse. For `r2-personality` the engine th
 the seeded seating as is and the seating first clustered on the sum of pair similarities, and keeps the higher
 total table score. The result is never below the single climb.
 
+A second case: with 11 women the tables are 6 and 5 seats. If the 6-seat table starts with five of one profile
+and one of the other, no swap helps; the fix is to move one woman. For `r2-personality` each pass therefore also
+tries single-member moves between tables (first strictly improving move in a fixed order, up to 200 per pass),
+keeping every table within 4..capacity. Measured before the fix: profiles mixed in 115 of 300 random orderings;
+after: 0 of 800 (9–12 women), now a permanent test.
+
+Migration 011 also re-pins `matching_input`'s `search_path = app, pg_temp` (set by 002): `CREATE OR REPLACE`
+drops function settings, which broke the function for callers whose path does not include `app`.
+
 ## 8. Tuning later
 
 Weights are a starting point. Once enough post-meetup ratings exist, compare table scores with ratings and

@@ -89,7 +89,7 @@ DATABASE_URL=postgres://localhost/qatar_dev PORT=8787 npm start
 Tests need a local server on port 5433 with user `app`. They build a template database, give each test its own copy, and drive Chromium through Playwright:
 
 ```bash
-cd qatar/api && npm test          # 64 tests: 15 API e2e, 6 contact requests, 3 key encryption, 1 parity (400 jobs, r1 + r2), 11 personality engine, 4 personality API + browser, 7 questionnaire, privacy and women-only API, 5 quiz logic, 3 design system, 9 browser
+cd qatar/api && npm test          # 65 tests: 15 API e2e, 6 contact requests, 3 key encryption, 1 parity (400 jobs, r1 + r2), 12 personality engine, 4 personality API + browser, 7 questionnaire, privacy and women-only API, 5 quiz logic, 3 design system, 9 browser
 cd qatar/matching && python3 -m pytest -q
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_a/run_simulation.sh
 PGHOST=/tmp PGPORT=5433 PGUSER=app bash qatar/ops/runbook_b/run_simulation.sh

@@ -145,6 +145,25 @@ test("similar women are seated together: two clear profiles split into two table
   assert.ok(res.tables.every((t) => t.themes.length > 0));
 });
 
+test("uneven profiles (6 + 5, 5 + 4, ...) still separate for any booking ids: moves fix wrongly sized tables", () => {
+  const A = { Q13: ["logic"], Q19: ["deep_talk"], Q17: ["documentary"], Q05: ["books_culture"], Q24: ["married"] };
+  const B = { Q13: ["emotions"], Q19: ["games"], Q17: ["comedy"], Q05: ["music"], Q24: ["single"] };
+  const levels = ["introvert", "ambivert", "extrovert"];
+  for (const n of [9, 10, 11, 12]) {
+    for (let k = 0; k < 60; k++) {
+      const bookings = Array.from({ length: n }, (_, i) => ({ booking_id: `id-${n}-${k}-${i}`, user_id: `u${i}`, session_id: "S", status: "paid_awaiting_group",
+        conversation_language: "ar", budget_tier_rank: 2, q05_topics: null, consents_current: true, age_attested: true, account_active: true,
+        answers: { ...(i % 2 ? B : A), Q12: [levels[Math.floor(i / 2) % 3]] } }));
+      const res = run(bookings);
+      for (const t of res.tables) {
+        const kinds = new Set(t.members.map((m) => Number(m.booking_id.split("-")[3]) % 2));
+        assert.equal(kinds.size, 1, `n=${n} k=${k}: ${t.table_code} mixes profiles`);
+        assert.ok(t.members.length >= 4 && t.members.length <= 6);
+      }
+    }
+  }
+});
+
 test("a changed answer changes the inputs hash; r1 runs are unaffected by answers", () => {
   const bookings = pool(5, 12, { oneCell: true });
   const changed = bookings.map((b, i) => (i ? b : { ...b, answers: { ...(b.answers || {}), Q24: ["div_wid"] } }));

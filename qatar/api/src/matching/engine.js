@@ -132,7 +132,9 @@ function seatGreedy(ordered, sizes, blocks) {
   return [keep, still];
 }
 
-function optimise(groups, blocks, value) {
+// maxSize set (r2 only): after the swaps of each pass, single-member moves between tables are also tried, keeping
+// every table within MIN_TABLE..maxSize. Without them, tables of 6 and 5 can lock the wrong profile into each size.
+function optimise(groups, blocks, value, maxSize = null) {
   for (let pass = 0; pass < MAX_OPT_PASSES; pass++) {
     let improved = false;
     for (let gi = 0; gi < groups.length; gi++) {
@@ -150,19 +152,39 @@ function optimise(groups, blocks, value) {
         }
       }
     }
+    if (maxSize !== null) for (let moves = 0; moves < MAX_MOVES && moveOnce(groups, blocks, value, maxSize); moves++) improved = true;
     if (!improved) break;
   }
   return groups;
 }
 
+const MAX_MOVES = 200;
+// Applies the first strictly improving single-member move (fixed scan order); returns whether one was applied.
+function moveOnce(groups, blocks, value, maxSize) {
+  for (let gi = 0; gi < groups.length; gi++) {
+    if (groups[gi].length <= MIN_TABLE) continue;
+    for (let gj = 0; gj < groups.length; gj++) {
+      if (gj === gi || groups[gj].length >= maxSize) continue;
+      for (let ai = 0; ai < groups[gi].length; ai++) {
+        const a = groups[gi][ai];
+        if (conflicts(a, groups[gj], blocks)) continue;
+        const ni = [...groups[gi].slice(0, ai), ...groups[gi].slice(ai + 1)];
+        const nj = [...groups[gj], a];
+        if (value(ni) + value(nj) > value(groups[gi]) + value(groups[gj]) + 1e-12) { groups[gi] = ni; groups[gj] = nj; return true; }
+      }
+    }
+  }
+  return false;
+}
+
 // r2: the table score's cohesion term can trap swap search between two profiles (3+3 never becomes 4+2 even though
 // 6+0 is best), so a second start first clusters on pairTotal, then both starts climb on the table score and the
 // higher total wins. The result is never below the plain climb.
-function optimiseFor(groups, blocks, algorithm) {
+function optimiseFor(groups, blocks, algorithm, maxSize) {
   const value = (g) => scoreOf(g, algorithm);
   if (algorithm !== PERSONALITY) return optimise(groups, blocks, value);
-  const plain = optimise(groups.map((g) => [...g]), blocks, value);
-  const clustered = optimise(optimise(groups.map((g) => [...g]), blocks, pairTotal), blocks, value);
+  const plain = optimise(groups.map((g) => [...g]), blocks, value, maxSize);
+  const clustered = optimise(optimise(groups.map((g) => [...g]), blocks, pairTotal, maxSize), blocks, value, maxSize);
   const total = (gs) => sum(gs.map(value));
   return total(clustered) > total(plain) + 1e-12 ? clustered : plain;
 }
@@ -173,7 +195,7 @@ function formGroups(cell, maxSize, blocks, algorithm, seed, packing, budget) {
   if (budget && budget.left !== null) budget.left -= sizes.length;
   if (!sizes.length) return [[], ordered.map((m) => [m, "cell_below_quorum"])];
   let [groups, unseated] = seatGreedy(ordered, sizes, blocks);
-  if (OPTIMISED.includes(algorithm) && groups.length > 1) groups = optimiseFor(groups, blocks, algorithm);
+  if (OPTIMISED.includes(algorithm) && groups.length > 1) groups = optimiseFor(groups, blocks, algorithm, maxSize);
   return [groups, unseated];
 }
 
