@@ -18,13 +18,20 @@ def ref(v):
     return v
 
 
+# Text sizes are designed in px at a 16px base and emitted against --u (1rem, or the iOS Dynamic Type base scaled back to
+# 16px; see styles.css), so they follow the reader's text-size setting while looking identical at the default size.
+def size(px):
+    n = float(str(px).removesuffix("px")) / 16
+    return f"calc(var(--u) * {n:.4f})".replace(".0000)", ")")
+
+
 def type_vars(lang):
     out = []
     for role, spec in t["type"][lang].items():
         if role.startswith("$"):
             continue
         val = spec["$value"]
-        out.append(f"  --t-{role}-size: {val['fontSize']}; --t-{role}-lh: {val['lineHeight']}; "
+        out.append(f"  --t-{role}-size: {size(val['fontSize'])}; --t-{role}-lh: {val['lineHeight']}; "
                    f"--t-{role}-weight: {ref(val['fontWeight'])}; --t-{role}-ls: {val['letterSpacing']};")
     return "\n".join(out)
 

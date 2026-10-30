@@ -110,22 +110,22 @@
 :root[lang="ar"] {
   --font-body: var(--font-ar);
   --font-display: var(--font-display-ar);
-  --t-display-size: 40px; --t-display-lh: 1.2; --t-display-weight: 800; --t-display-ls: 0;
-  --t-h1-size: 30px; --t-h1-lh: 1.25; --t-h1-weight: 800; --t-h1-ls: 0;
-  --t-h2-size: 20px; --t-h2-lh: 1.4; --t-h2-weight: 700; --t-h2-ls: 0;
-  --t-body-size: 16px; --t-body-lh: 1.65; --t-body-weight: 400; --t-body-ls: 0;
-  --t-label-size: 15px; --t-label-lh: 1.5; --t-label-weight: 500; --t-label-ls: 0;
-  --t-caption-size: 13px; --t-caption-lh: 1.55; --t-caption-weight: 400; --t-caption-ls: 0;
+  --t-display-size: calc(var(--u) * 2.5000); --t-display-lh: 1.2; --t-display-weight: 800; --t-display-ls: 0;
+  --t-h1-size: calc(var(--u) * 1.8750); --t-h1-lh: 1.25; --t-h1-weight: 800; --t-h1-ls: 0;
+  --t-h2-size: calc(var(--u) * 1.2500); --t-h2-lh: 1.4; --t-h2-weight: 700; --t-h2-ls: 0;
+  --t-body-size: calc(var(--u) * 1); --t-body-lh: 1.65; --t-body-weight: 400; --t-body-ls: 0;
+  --t-label-size: calc(var(--u) * 0.9375); --t-label-lh: 1.5; --t-label-weight: 500; --t-label-ls: 0;
+  --t-caption-size: calc(var(--u) * 0.8125); --t-caption-lh: 1.55; --t-caption-weight: 400; --t-caption-ls: 0;
 }
 :root[lang="en"] {
   --font-body: var(--font-en);
   --font-display: var(--font-display-en);
-  --t-display-size: 38px; --t-display-lh: 1.1; --t-display-weight: 800; --t-display-ls: -0.01em;
-  --t-h1-size: 28px; --t-h1-lh: 1.15; --t-h1-weight: 800; --t-h1-ls: -0.005em;
-  --t-h2-size: 19px; --t-h2-lh: 1.3; --t-h2-weight: 700; --t-h2-ls: 0;
-  --t-body-size: 16px; --t-body-lh: 1.5; --t-body-weight: 400; --t-body-ls: 0;
-  --t-label-size: 15px; --t-label-lh: 1.4; --t-label-weight: 500; --t-label-ls: 0;
-  --t-caption-size: 13px; --t-caption-lh: 1.45; --t-caption-weight: 400; --t-caption-ls: 0.005em;
+  --t-display-size: calc(var(--u) * 2.3750); --t-display-lh: 1.1; --t-display-weight: 800; --t-display-ls: -0.02em;
+  --t-h1-size: calc(var(--u) * 1.7500); --t-h1-lh: 1.15; --t-h1-weight: 800; --t-h1-ls: -0.01em;
+  --t-h2-size: calc(var(--u) * 1.1875); --t-h2-lh: 1.3; --t-h2-weight: 700; --t-h2-ls: 0;
+  --t-body-size: calc(var(--u) * 1); --t-body-lh: 1.5; --t-body-weight: 400; --t-body-ls: 0;
+  --t-label-size: calc(var(--u) * 0.9375); --t-label-lh: 1.4; --t-label-weight: 500; --t-label-ls: 0;
+  --t-caption-size: calc(var(--u) * 0.8125); --t-caption-lh: 1.45; --t-caption-weight: 400; --t-caption-ls: 0.005em;
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --m-fast: 0ms; --m-base: 0ms; --m-slow: 0ms; }
