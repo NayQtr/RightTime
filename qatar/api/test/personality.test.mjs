@@ -172,3 +172,12 @@ test("a changed answer changes the inputs hash; r1 runs are unaffected by answer
   assert.equal(r1(bookings), r1(changed));
   assert.equal(typeof scoreGroup, "function");
 });
+
+test("fast enough for the Edge Function's 2 s CPU limit: 60 women in well under a second", () => {
+  const bookings = pool(99, 60, { oneCell: true });
+  const t0 = process.cpuUsage();
+  run(bookings);
+  const c = process.cpuUsage(t0);
+  const ms = (c.user + c.system) / 1000;
+  assert.ok(ms < 1000, `60 women took ${ms.toFixed(0)} ms CPU`);
+});

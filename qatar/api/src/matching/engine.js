@@ -181,10 +181,13 @@ function moveOnce(groups, blocks, value, maxSize) {
 // 6+0 is best), so a second start first clusters on pairTotal, then both starts climb on the table score and the
 // higher total wins. The result is never below the plain climb.
 function optimiseFor(groups, blocks, algorithm, maxSize) {
-  const value = (g) => scoreOf(g, algorithm);
-  if (algorithm !== PERSONALITY) return optimise(groups, blocks, value);
+  if (algorithm !== PERSONALITY) return optimise(groups, blocks, (g) => scoreOf(g, algorithm));
+  // tables are never changed in place during the search (a swap or move builds new arrays), so a table's value can
+  // be kept per array; the climb asks for the same unchanged table on every candidate swap
+  const memo = (fn) => { const seen = new WeakMap(); return (g) => { if (!seen.has(g)) seen.set(g, fn(g)); return seen.get(g); }; };
+  const value = memo((g) => scoreOf(g, algorithm));
   const plain = optimise(groups.map((g) => [...g]), blocks, value, maxSize);
-  const clustered = optimise(optimise(groups.map((g) => [...g]), blocks, pairTotal, maxSize), blocks, value, maxSize);
+  const clustered = optimise(optimise(groups.map((g) => [...g]), blocks, memo(pairTotal), maxSize), blocks, value, maxSize);
   const total = (gs) => sum(gs.map(value));
   return total(clustered) > total(plain) + 1e-12 ? clustered : plain;
 }

@@ -96,8 +96,24 @@ function itemSim(f, a, b) {
   return 0;
 }
 
-// Weighted similarity of two members in [0, 1], or null when they share no answered item.
+// Weighted similarity of two members in [0, 1], or null when they share no answered item. Symmetric, and memoised per
+// pair of (cleaned, never mutated) answer objects: the optimiser asks for the same pairs thousands of times, and a
+// session of 60 took over 3 s of CPU without it (the Edge Function limit is 2 s). Cached values are the computed ones,
+// so results stay identical to the Python reference.
+const pairCache = new WeakMap();
 export function pairScore(a, b) {
+  let row = pairCache.get(a);
+  if (!row) { row = new WeakMap(); pairCache.set(a, row); }
+  if (row.has(b)) return row.get(b);
+  const s = computePairScore(a, b);
+  row.set(b, s);
+  let back = pairCache.get(b);
+  if (!back) { back = new WeakMap(); pairCache.set(b, back); }
+  back.set(a, s);
+  return s;
+}
+
+function computePairScore(a, b) {
   let num = 0, den = 0;
   for (const [dim, w] of DIMENSIONS) {
     const sims = [];
@@ -131,28 +147,27 @@ export function energyBalance(group) {
 }
 
 // Same shape as the r1 scorer: interest = mean pair similarity, cohesion = lowest member mean, score, memberScores.
+// Index-based (no per-call objects) because the optimiser calls it for every candidate swap; sums run in the same
+// order as personality.py, so the floats are identical.
 export function scoreGroupPersonality(group) {
-  const memberScores = {};
-  for (const m of group) memberScores[m.booking_id] = null;
-  const perMember = Object.fromEntries(group.map((m) => [m.booking_id, []]));
-  const pairs = [];
-  for (let i = 0; i < group.length; i++)
-    for (let j = i + 1; j < group.length; j++) {
+  const n = group.length;
+  const own = new Array(n).fill(0), cnt = new Array(n).fill(0);
+  let total = 0, pairs = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
       const s = pairScore(group[i].answers, group[j].answers);
       if (s === null) continue;
-      pairs.push(s);
-      perMember[group[i].booking_id].push(s);
-      perMember[group[j].booking_id].push(s);
+      total += s; pairs++;
+      own[i] += s; cnt[i]++;
+      own[j] += s; cnt[j]++;
     }
   const energy = energyBalance(group);
+  const memberScores = {};
   let similarity = null, mean = null, cohesion = null;
-  if (pairs.length) {
-    for (const m of group) {
-      const xs = perMember[m.booking_id];
-      if (xs.length) memberScores[m.booking_id] = sumLR(xs) / xs.length;
-    }
-    mean = sumLR(pairs) / pairs.length;
-    cohesion = Math.min(...group.map((m) => memberScores[m.booking_id]).filter((v) => v !== null));
+  for (let i = 0; i < n; i++) memberScores[group[i].booking_id] = pairs && cnt[i] ? own[i] / cnt[i] : null;
+  if (pairs) {
+    mean = total / pairs;
+    for (let i = 0; i < n; i++) if (cnt[i] && (cohesion === null || own[i] / cnt[i] < cohesion)) cohesion = own[i] / cnt[i];
     similarity = W_MEAN * mean + W_COHESION * cohesion;
   }
   let score = null;
