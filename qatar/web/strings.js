@@ -74,7 +74,7 @@ export const STRINGS = {
     casesTitle: "قرارات تخصّك", appeal: "اعتراض", appealSent: "استلمنا اعتراضك. سيراجعه شخص لم يتخذ القرار الأصلي.", appealUntil: "يمكنك الاعتراض حتى {date}",
     suspended: "حسابك موقوف حاليًا.",
     // quiz-first experience (spec 2026-10-28)
-    welcomeHero: "عشاء مع {em}، قد يصبحن صديقات.", welcomeHeroEm: "غريبات", welcomeHeroPlain: "عشاء مع غريبات، قد يصبحن صديقات.", welcomeSub: "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.", getStarted: "ابدئي", haveAccount: "لديّ حساب",
+    welcomeHero: "تعرّفي على ناس.. {em}", welcomeHeroEm: "تفهمك", welcomeHeroPlain: "تعرّفي على ناس.. تفهمك", welcomeSub: "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.", getStarted: "ابدئي", haveAccount: "لديّ حساب",
     skipQ: "تخطَّي", qOf: "{i} من {n}",
     dohaTitle: "نبدأ في الدوحة", dohaBody: "HerZone متاح حاليًا في الدوحة فقط. سنخبركِ عند افتتاح مدن أخرى.",
     communityTitle: "أهلًا بكِ في HerZone", communityBody: "نصنع مساحة نسائية للقاءات حقيقية وآمنة وجهًا لوجه، تحوّل الغريبات إلى صديقات. أجيبي عن أسئلة قصيرة لنعرفكِ أكثر.",
@@ -178,7 +178,7 @@ export const STRINGS = {
     language: "Language", myAnswers: "My answers", deleteAccount: "Request account deletion", deleteConfirm: "We'll delete your data under our retention policy. Are you sure?",
     casesTitle: "Decisions about you", appeal: "Appeal", appealSent: "We received your appeal. Someone who did not make the original decision will review it.", appealUntil: "You can appeal until {date}",
     suspended: "Your account is currently suspended.",
-    welcomeHero: "Dinner with {em} who might become friends.", welcomeHeroEm: "strangers", welcomeHeroPlain: "Dinner with strangers who might become friends.", welcomeSub: "A table of 4 to 6 women, in your language and within your budget, in Doha.", getStarted: "Get started", haveAccount: "I already have an account",
+    welcomeHero: "Meet people who {em}.", welcomeHeroEm: "get you", welcomeHeroPlain: "Meet people who get you.", welcomeSub: "A table of 4 to 6 women, in your language and within your budget, in Doha.", getStarted: "Get started", haveAccount: "I already have an account",
     skipQ: "Skip", qOf: "{i} of {n}",
     dohaTitle: "We're starting in Doha", dohaBody: "HerZone is available in Doha only for now. We'll let you know when other cities open.",
     communityTitle: "Welcome to HerZone", communityBody: "We create a women-only space for real, safe, face-to-face moments that turn strangers into friends. Answer a few short questions so we get to know you.",

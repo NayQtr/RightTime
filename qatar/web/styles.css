@@ -359,8 +359,8 @@ a.option { text-decoration: none; color: inherit; }
 
 /* welcome: content-height, start-aligned, the table as the image */
 .hero-welcome { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-2); }
-.hero-welcome h1 { font-family: var(--font-display); font-weight: 800; font-size: min(calc(var(--u) * 2.5000), 14vw); line-height: 1.2; margin: 0; }
-:root[lang="en"] .hero-welcome h1 { font-size: min(calc(var(--u) * 2.3750), 13vw); line-height: 1.1; }
+.hero-welcome h1 { font-family: var(--font-display); font-weight: 600; font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.3; margin: 0; }
+:root[lang="en"] .hero-welcome h1 { font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.15; }
 .hero-welcome h1 em { font-style: normal; color: var(--c-primary); }
 .hero-welcome > p { color: var(--c-textMuted); margin: 0; max-width: 32ch; }
 .welcome-table { width: min(240px, 66%); justify-self: center; margin-block: var(--s-4); }

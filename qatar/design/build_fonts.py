@@ -11,7 +11,7 @@ import sys
 
 SRC = pathlib.Path(sys.argv[1])
 OUT = pathlib.Path(__file__).parent.parent / "web" / "fonts"
-FAMILIES = {"alexandria": ("Alexandria", [700, 800]), "ibm-plex-sans-arabic": ("IBM Plex Sans Arabic", [400, 500, 600])}
+FAMILIES = {"alexandria": ("Alexandria", [600, 700, 800]), "ibm-plex-sans-arabic": ("IBM Plex Sans Arabic", [400, 500, 600])}
 SUBSETS = ["arabic", "latin"]
 
 OUT.mkdir(parents=True, exist_ok=True)
