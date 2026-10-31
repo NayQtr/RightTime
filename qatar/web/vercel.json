@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cp config.vercel.js config.js",
+  "buildCommand": "cp config.vercel.js config.js && node ../ops/deploy-api-from-vercel.mjs",
   "outputDirectory": ".",
   "rewrites": [
     {
