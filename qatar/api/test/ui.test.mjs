@@ -74,7 +74,17 @@ async function walkQuiz(page) {
       } else {
         const want = text.includes("اللغة") ? "العربية" : text.includes("إنفاقك") ? "حتى 200" : null;
         const opt = want ? page.locator("label.option", { hasText: want }).first() : page.locator("label.option").first();
-        if (text.includes("فئتك العمرية")) await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
+        if (text.includes("فئتك العمرية")) {
+          await page.screenshot({ path: `${SHOTS}/02-quiz-question-ar.png` });
+          // "18–24" must read left to right inside Arabic text (it used to render as "24–18")
+          const range = page.locator("label.option bdi[dir=ltr]", { hasText: "18–24" });
+          assert.equal(await range.count(), 1, "age range is isolated left to right");
+          const box = await range.boundingBox();
+          const [a18, a24] = await Promise.all(["18", "24"].map((d) => range.evaluate((el, d) => {
+            const t = el.firstChild, i = t.textContent.indexOf(d), r = document.createRange(); r.setStart(t, i); r.setEnd(t, i + d.length);
+            return r.getBoundingClientRect().x; }, d)));
+          assert.ok(box && a18 < a24, "18 is drawn left of 24");
+        }
         await opt.click();
         if (await page.evaluate((h) => location.hash === h, hash)) await page.click("#nx").catch(() => {});
       }
@@ -340,6 +350,7 @@ test("document updates (privacy notice and terms): existing users see them on ho
   for (const s of await page.locator("#consent-upd summary").all()) await s.click();
   const banner = await page.locator("#consent-upd").innerText();
   assert.ok(banner.includes("نص إشعار الخصوصية المحدّث") && banner.includes("نص الشروط المحدّث"), banner.slice(0, 200));
+  assert.ok(!banner.includes("privacy-ui-3") && !banner.includes("terms-ui-2"), "internal version codes are not shown to members");
   await page.screenshot({ path: `${SHOTS}/15-privacy-update-ar.png`, fullPage: true });
   await page.click("#pv-ok");
   await page.waitForSelector(".event-card");

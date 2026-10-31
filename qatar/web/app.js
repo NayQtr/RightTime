@@ -29,6 +29,8 @@ const main = document.getElementById("main");
 const T = (k, vars = {}) => String(STRINGS[locale][k] ?? STRINGS.ar[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => (vars[n] ?? `{${n}}`));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (s) => `<bdi class="num">${esc(s)}</bdi>`;
+// a numeric range such as "18–24" is reordered to "24–18" inside Arabic text; keep it left to right
+const optLabel = (s) => (/^\d+\s*[–-]\s*\d+$/.test(s) ? `<bdi dir="ltr">${esc(s)}</bdi>` : esc(s));
 const intlLocale = () => (locale === "ar" ? "ar-QA-u-nu-latn" : "en-GB");
 const fmtDate = (iso, opts = { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) =>
   iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)) : "";
@@ -295,7 +297,7 @@ async function scrRegister() {
   const consent = (type, labelKey, req) => L[type] ? `
     <label class="check"><input type="checkbox" name="c" value="${type}" ${req ? "required" : ""}>
       <span>${esc(T(labelKey))} ${req ? `<span class="caption">(${esc(T("required"))})</span>` : ""}
-      <details><summary class="caption">${esc(T("readDoc"))} · ${num(L[type].document_version)}</summary><p class="caption">${esc(L[type].text)}</p></details></span></label>` : "";
+      <details><summary class="caption">${esc(T("readDoc"))}</summary><p class="caption">${esc(L[type].text)}</p></details></span></label>` : "";
   const quizName = store.get("quizName");
   view(T("regTitle"), `
     <h1>${esc(T("regTitle"))}</h1>
@@ -414,10 +416,10 @@ async function scrQuiz(stepStr) {
     body = `<div class="scale" role="radiogroup" aria-labelledby="qh">${qq.options.map((o, j) => `<label>${input(o).replace("<input ", `<input aria-label="${esc(o.label)}${j === 0 && qq.scale_low ? ` · ${esc(qq.scale_low)}` : ""}${j === last && qq.scale_high ? ` · ${esc(qq.scale_high)}` : ""}" `)}<span aria-hidden="true">${esc(o.label)}</span></label>`).join("")}</div>
       <div class="scale-ends caption" aria-hidden="true"><span>${esc(qq.scale_low || "")}</span><span>${esc(qq.scale_high || "")}</span></div>`;
   } else if (qq.layout === "chips") {
-    body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}<span>${esc(o.label)}</span></label>`).join("")}</div>`;
+    body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}<span>${optLabel(o.label)}</span></label>`).join("")}</div>`;
   } else {
     body = `<div class="options" role="${single ? "radiogroup" : "group"}" aria-labelledby="qh">${qq.options.map((o) => `
-      <label class="option ${single ? "radio" : ""}">${input(o)}<span class="txt">${esc(o.label)}</span><span class="tick" aria-hidden="true"></span></label>`).join("")}</div>`;
+      <label class="option ${single ? "radio" : ""}">${input(o)}<span class="txt">${optLabel(o.label)}</span><span class="tick" aria-hidden="true"></span></label>`).join("")}</div>`;
   }
   view(qq.text, `${quizHead(back, qq.section, { i: step.index + 1, n })}
     <form id="f" class="quiz-q" novalidate>
@@ -834,7 +836,7 @@ async function scrHome() {
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
     ${docs.length ? `<section class="banner banner-warning" id="consent-upd"><div class="stack"><p><strong>${esc(T(onlyPrivacy ? "privacyUpdTitle" : "docsUpdTitle"))}</strong></p>
       <p>${esc(T(onlyPrivacy ? "privacyUpdBody" : "docsUpdBody"))}</p>
-      ${docs.map((d) => `<details><summary>${esc(T(DOC_NAME[d.type]))} · ${num(d.document_version)}</summary><p class="caption legal-text">${esc(d.text)}</p></details>`).join("")}
+      ${docs.map((d) => `<details><summary>${esc(T(DOC_NAME[d.type]))}</summary><p class="caption legal-text">${esc(d.text)}</p></details>`).join("")}
       <button class="btn btn-primary" id="pv-ok">${esc(T("privacyAccept"))}</button><div id="pv-err" role="alert"></div></div></section>` : ""}
     ${askWoman ? `<section class="banner banner-warning" id="woman-upd"><div class="stack"><p><strong>${esc(T("womanUpdTitle"))}</strong></p>
       <p>${esc(T("womanUpdBody"))}</p><button class="btn btn-primary" id="woman-ok">${esc(T("womanLabel"))}</button><div id="woman-err" role="alert"></div></div></section>` : ""}
@@ -880,7 +882,7 @@ async function scrPrivacy() {
   loadingView();
   const r = await api("GET", "/api/v1/legal/current", undefined, { noAuth: true });
   const n = r.ok ? r.data.privacy_notice : null;
-  view(T("privacyTitle"), `<h1>${esc(T("privacyTitle"))}</h1>${n ? `<p class="caption">${num(n.document_version)}</p><div class="card"><p class="legal-text">${esc(n.text)}</p></div>` : errorBanner(r.data)}`);
+  view(T("privacyTitle"), `<h1>${esc(T("privacyTitle"))}</h1>${n ? `<div class="card"><p class="legal-text">${esc(n.text)}</p></div>` : errorBanner(r.data)}`);
 }
 
 async function scrEvents() {
