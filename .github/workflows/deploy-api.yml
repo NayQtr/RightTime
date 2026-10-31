@@ -1,0 +1,38 @@
+# Deploys the HerZone API (Supabase Edge Function "api") whenever its code changes on the rightime-app branch.
+# The function is qatar/api/edge-index.ts (as index.ts) plus qatar/api/src/. Needs the repository secret
+# SUPABASE_ACCESS_TOKEN (a Supabase personal access token); the token is only read by the Supabase CLI here.
+name: Deploy API
+
+on:
+  push:
+    branches: [rightime-app]
+    paths:
+      - "qatar/api/src/**"
+      - "qatar/api/edge-index.ts"
+      - ".github/workflows/deploy-api.yml"
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: fvodcnqmxskgzziwuwmz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Arrange the function the way the CLI expects
+        run: |
+          mkdir -p supabase/functions/api
+          cp qatar/api/edge-index.ts supabase/functions/api/index.ts
+          cp -r qatar/api/src supabase/functions/api/src
+          ls -R supabase/functions/api
+      - name: Deploy (the function does its own auth, so no JWT check at the gateway, as before)
+        run: supabase functions deploy api --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
