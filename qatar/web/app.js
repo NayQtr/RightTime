@@ -2,6 +2,7 @@
 import { STRINGS } from "./strings.js";
 import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf, energyOf } from "./quiz-flow.js";
 import { icon } from "./icons.js";
+import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
@@ -580,9 +581,73 @@ async function scrWhatYouGet() {
       <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi">${icon(ic)}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
     </section>
     <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
+    ${authed ? `<a class="card card-link plans-link" href="#/plans"><span><strong>${esc(T("plansTitle"))}</strong><br><span class="muted">${esc(T("plansTeaser"))}</span></span></a>` : ""}
     <h2>${esc(T("faqTitle"))}</h2>
     <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
     <div class="quiz-foot"><div>${plan.fee ? `<p class="caption foot-price" id="wyg-sum">${esc(T("wygSum", { fee: plan.fee }))}</p>` : ""}<a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
+}
+
+// Subscription plans (display-only, owner decision 2026-10-31): plan cards with placeholder QAR prices from plans.js,
+// a nudge from 1 to 3 months, a promo code check (codes are created in admin, never redeemed yet), the 14-day
+// guarantee, one-off payment with no auto-renewal, and a disabled "coming soon" button.
+async function scrPlans() {
+  if (!(await guard())) return;
+  let selected = DEFAULT_PLAN, pct = 0;
+  // the amount alone is isolated left to right; the currency stays in the sentence direction, and the pair never wraps
+  const qar = (n) => `<span class="money">${locale === "ar" ? `${num(n.toFixed(2))} ر.ق` : `QAR ${num(n.toFixed(2))}`}</span>`;
+  const nameOf = (p) => T(`plan_${p.id}`);
+  view(T("plansTitle"), `
+    <h1 class="display-title">${esc(T("plansTitle"))}</h1>
+    <p class="lead">${esc(T("plansSub"))}</p>
+    <h2>${esc(T("plansChoose"))}</h2>
+    <div class="plans" role="radiogroup" aria-label="${esc(T("plansChoose"))}" id="plans"></div>
+    <div id="nudge"></div>
+    <section class="card stack promo">
+      <label class="label" for="promo">${esc(T("promoLabel"))}</label>
+      <div class="row promo-row"><input class="input" id="promo" maxlength="24" autocomplete="off" autocapitalize="characters" dir="ltr">
+        <button type="button" class="btn btn-secondary" id="promo-go">${esc(T("promoCheck"))}</button></div>
+      <div id="promo-msg" aria-live="polite"></div>
+    </section>
+    <section class="card guarantee"><span class="bi">${icon("shield-check")}</span>
+      <span><strong>${esc(T("guaranteeTitle", { d: GUARANTEE_DAYS }))}</strong><br><span class="muted">${esc(T("guaranteeBody", { d: GUARANTEE_DAYS }))}</span></span></section>
+    <p class="caption">${esc(T("plansOneOff"))}</p>
+    <div class="quiz-foot"><div><p class="caption foot-price" id="plan-sum"></p>
+      <button class="btn btn-primary btn-block" type="button" disabled id="plan-go">${esc(T("plansSoon"))}</button>
+      <p class="caption foot-price">${esc(T("plansNow"))}</p></div></div>`);
+  const paint = () => {
+    $("#plans").innerHTML = PLANS.map((p) => {
+      const v = planPrices(p, pct);
+      return `<label class="plan ${p.id === selected ? "on" : ""}" data-plan="${p.id}">
+        ${p.popular ? `<span class="plan-flag">${esc(T("planPopular"))}</span>` : ""}
+        <input type="radio" name="plan" value="${p.id}" ${p.id === selected ? "checked" : ""}>
+        <span class="plan-main"><strong>${esc(nameOf(p))}</strong>
+          ${v.full > v.price ? `<s class="muted">${qar(v.full)}</s>` : ""}<span class="plan-price">${qar(v.price)}</span></span>
+        <span class="plan-side">${v.save ? `<span class="badge badge-success">${esc(T("planSave", { n: v.save }))}</span>` : ""}
+          <span>${esc(T("planPerWeek", { p: "\u0000" })).replace("\u0000", qar(v.perWeek))}</span></span></label>`;
+    }).join("");
+    $$("input[name=plan]").forEach((x) => (x.onchange = () => { selected = x.value; paint(); }));
+    const cur = PLANS.find((p) => p.id === selected);
+    const v = planPrices(cur, pct);
+    $("#plan-sum").innerHTML = esc(T("planSum", { p: "\u0000", plan: nameOf(cur) })).replace("\u0000", qar(v.price));
+    const up = PLANS.find((p) => p.popular);
+    $("#nudge").innerHTML = cur.months === 1 && up ? `<div class="banner banner-info nudge"><span class="icon">${icon("sparkle")}</span><div>
+      <strong>${esc(T("nudgeTitle", { n: planPrices(up).save, plan: nameOf(up) }))}</strong>
+      <button type="button" class="link-btn" id="nudge-go">${esc(T("nudgeCta", { plan: nameOf(up) }))}</button></div></div>` : "";
+    if ($("#nudge-go")) $("#nudge-go").onclick = () => { selected = up.id; paint(); };
+  };
+  paint();
+  $("#promo-go").onclick = async () => {
+    const code = $("#promo").value.trim();
+    if (!code) return;
+    $("#promo-go").disabled = true;
+    const r = await api("POST", "/api/v1/promo-codes:check", { code });
+    $("#promo-go").disabled = false;
+    if (!r.ok) { $("#promo-msg").innerHTML = errorBanner(r.data); return; }
+    pct = r.data.valid ? r.data.percent_off : 0;
+    $("#promo-msg").innerHTML = r.data.valid ? `<div class="banner banner-success"><div>${esc(T("promoOk", { n: pct }))}</div></div>`
+      : `<div class="banner banner-danger"><div>${esc(T("promoBad"))}</div></div>`;
+    paint();
+  };
 }
 
 // ------------------------------------------------------------------ SCR-04 sessions
@@ -1215,6 +1280,7 @@ async function scrProfile() {
       <span><strong>${esc(name)}</strong><br><span class="caption">${esc(T("eventsCount", { n: count }))}</span></span></section>
     <p class="section-label">${esc(T("secAccount"))}</p>
     <ul class="settings"><li><a class="chev" href="#/quiz/${INTERSTITIALS.start.length}"><span>${esc(T("myAnswers"))}</span></a></li>
+      <li><a class="chev" href="#/plans"><span>${esc(T("plansTitle"))}</span></a></li>
       <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
       <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li></ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
@@ -1265,7 +1331,7 @@ const ROUTES = [
   [/^#\/(?:questions\/\d+|summary)$/, () => go(`#/quiz/${INTERSTITIALS.start.length}`)], [/^#\/sessions(?:\?s=([\w-]+))?$/, scrSessions], [/^#\/events$/, scrEvents],
   [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
   [/^#\/booking\/([\w-]+)\/cancel$/, scrCancel], [/^#\/booking\/([\w-]+)\/choose$/, scrChoose], [/^#\/booking\/([\w-]+)\/feedback$/, scrFeedback],
-  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy],
+  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy], [/^#\/plans$/, scrPlans],
 ];
 
 async function route() {

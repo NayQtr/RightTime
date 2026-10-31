@@ -959,6 +959,23 @@ function supportContact(ctx) {
     whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null } }, { "Cache-Control": "public, max-age=300" });
 }
 
+// Promo code check (migration 012). Subscriptions are display-only, so this only tells the member whether a code is
+// valid and its percentage; nothing is redeemed. Every check is counted, at most 10 per member per hour, so codes
+// cannot be guessed; an unknown, expired, used-up or deactivated code all answer the same way.
+const PROMO_CHECKS_PER_HOUR = 10;
+async function checkPromoCode(ctx) {
+  const { sql, user } = ctx;
+  const code = String((ctx.body || {}).code || "").trim().toUpperCase();
+  if (!code || code.length > 24) fail(422, "VALIDATION_FAILED", [{ field: "code", code: "FORMAT" }]);
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
+  if (n >= PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
+  await sql`INSERT INTO app.promo_code_checks (user_id) VALUES (${user.id})`;
+  const [p] = await sql`SELECT percent_off FROM app.promo_codes
+                         WHERE code = ${code} AND is_active AND (expires_at IS NULL OR expires_at > now())
+                           AND (max_uses IS NULL OR uses < max_uses)`;
+  return json(200, p ? { valid: true, percent_off: p.percent_off } : { valid: false });
+}
+
 export const userRoutes = [
   { method: "POST", path: "/api/v1/auth/otp:request", auth: "none", idem: true, handler: otpRequest },
   { method: "POST", path: "/api/v1/auth/otp:verify", auth: "none", handler: otpVerify },
@@ -966,6 +983,7 @@ export const userRoutes = [
   { method: "POST", path: "/api/v1/auth/logout", auth: "user_any", handler: logout },
   { method: "GET", path: "/api/v1/legal/current", auth: "none", handler: legalCurrent },
   { method: "GET", path: "/api/v1/health", auth: "none", handler: health },
+  { method: "POST", path: "/api/v1/promo-codes:check", auth: "user", handler: checkPromoCode },
   { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },

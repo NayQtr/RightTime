@@ -485,3 +485,25 @@ a.option { text-decoration: none; color: inherit; }
 .next-steps { text-align: start; width: 100%; margin: 0; padding-inline-start: var(--s-5); display: grid; gap: var(--s-2); color: var(--c-textMuted); }
 .foot-price { text-align: center; margin: 0; }
 .inter .banner { width: 100%; }
+/* Subscription plans (display-only): selectable plan cards, promo field, guarantee. */
+.plans { display: grid; gap: var(--s-3); }
+.plan { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: var(--s-3); align-items: center; padding: var(--s-4);
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md); cursor: pointer; }
+.plan.on { border: 2px solid var(--c-primary); }
+.plan input { accent-color: var(--c-primary); width: 20px; height: 20px; margin: 0; }
+.plan-main { display: grid; gap: 2px; }
+.plan-main strong { font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; }
+.plan-side { display: grid; gap: var(--s-1); justify-items: end; text-align: end; font-weight: 600; }
+.plan-flag { position: absolute; inset-block-start: -11px; inset-inline-start: 50%; transform: translateX(-50%); background: var(--c-primary); color: var(--c-onPrimary);
+  font-size: 0.75rem; font-weight: 700; padding: 2px var(--s-3); border-radius: 999px; white-space: nowrap; }
+[dir="rtl"] .plan-flag { transform: translateX(50%); }
+.plans { padding-block-start: var(--s-2); }
+.promo-row { gap: var(--s-2); flex-wrap: nowrap; }
+.promo-row .input { flex: 1; min-width: 0; text-transform: uppercase; }
+.guarantee, .plans-link { display: grid; grid-template-columns: 40px 1fr; gap: var(--s-3); align-items: start; }
+.plans-link { grid-template-columns: 1fr; }
+.guarantee .bi { width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--c-primarySubtle); color: var(--c-primary); display: grid; place-items: center; }
+.guarantee .bi .i { width: 20px; height: 20px; }
+.nudge .link-btn { display: block; margin-block-start: var(--s-1); }
+.money { white-space: nowrap; }
+.plan-price { font-weight: 700; }

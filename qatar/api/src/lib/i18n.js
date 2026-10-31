@@ -11,6 +11,7 @@ export const ERRORS = {
   IDEMPOTENCY_KEY_REUSED: ["استُخدم هذا المفتاح لطلب مختلف.", "This Idempotency-Key was used for a different request."],
   IDEMPOTENCY_IN_PROGRESS: ["طلبك السابق ما زال قيد التنفيذ. انتظري لحظة.", "Your previous request is still being processed. Please wait a moment."],
   RATE_LIMITED: ["طلبات كثيرة. حاولي بعد قليل.", "Too many requests. Please try again shortly."],
+  PROMO_CODE_EXISTS: ["هذا الرمز موجود مسبقًا.", "This code already exists."],
   INTERNAL: ["حدث خطأ. حاولي مرة أخرى.", "Something went wrong. Please try again."],
   UNAVAILABLE: ["الخدمة غير متاحة مؤقتًا.", "The service is temporarily unavailable."],
   INVALID_PHONE: ["رقم الهاتف غير صحيح.", "That phone number isn't valid."],

@@ -51,6 +51,7 @@ const NAV = [
   ["#/cases", "Trust & Safety", ["trust_safety"]],
   ["#/approvals", "Approvals", ["owner", "ops", "finance", "trust_safety", "analyst"]],
   ["#/support", "Q07 private contact", ["owner", "ops"]],
+  ["#/promo-codes", "Promo codes", ["owner"]],
   ["#/audit", "Audit log", ["owner"]],
 ];
 
@@ -348,11 +349,49 @@ async function scrAudit() {
     ${(r.data.entries || []).map((e) => `<tr class="${e.action === "read_p4" ? "row-amber" : ""}"><td>${dt(e.at)}</td><td>${esc(e.actor)}</td><td>${esc(e.action)}</td><td>${esc(e.entity)} <span class="caption">${esc(e.entity_id || "")}</span></td><td>${esc(e.reason_code || "")}</td></tr>`).join("")}</tbody></table>`);
 }
 
+// Promo codes (migration 012). Plans are display-only for now: members can check a code and see the discounted
+// price, nothing is redeemed, so "Uses" stays 0 until purchases exist.
+async function scrPromoCodes() {
+  const r = await api("GET", `${A}/promo-codes`);
+  const rows = r.ok ? r.data.promo_codes : [];
+  const state = (c) => !c.is_active ? "Deactivated" : c.expires_at && new Date(c.expires_at) <= new Date() ? "Expired"
+    : c.max_uses !== null && c.uses >= c.max_uses ? "Used up" : "Active";
+  view("Promo codes", `<h1>Promo codes</h1>
+    <p class="caption">Plans are display-only for now: members can check a code on the plans page and see the discounted price. Nothing is charged or redeemed yet.</p>
+    <div id="flash"></div>
+    <form id="f" class="card stack narrow">
+      <div class="field"><label class="label" for="code">Code</label><input class="input" id="code" required maxlength="24" pattern="[A-Za-z0-9]{3,24}" autocomplete="off" aria-describedby="code-h">
+        <span class="caption" id="code-h">3–24 letters or digits; stored in capitals.</span></div>
+      <div class="field"><label class="label" for="pct">Discount (%)</label><input class="input" id="pct" type="number" min="1" max="100" step="1" required></div>
+      <div class="field"><label class="label" for="exp">Expires (optional)</label><input class="input" id="exp" type="datetime-local"></div>
+      <div class="field"><label class="label" for="max">Usage limit (optional)</label><input class="input" id="max" type="number" min="1" step="1"></div>
+      <button class="btn btn-primary" type="submit">Create code</button></form>
+    ${r.ok ? "" : msg(r)}
+    <table><thead><tr><th>Code</th><th>Discount</th><th>Expires</th><th>Uses</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.percent_off}%</td><td>${dt(c.expires_at)}</td>
+      <td>${c.uses}${c.max_uses !== null ? ` / ${c.max_uses}` : ""}</td><td>${state(c)}</td>
+      <td>${c.is_active ? `<button class="btn btn-ghost" data-off="${esc(c.id)}">Deactivate</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="6" class="caption">No codes yet.</td></tr>`}</tbody></table>`);
+  $("#f").onsubmit = async (e) => {
+    e.preventDefault();
+    const exp = $("#exp").value;
+    const body = { code: $("#code").value.trim(), percent_off: Number($("#pct").value),
+      expires_at: exp ? new Date(exp + ":00+03:00").toISOString() : null, max_uses: $("#max").value ? Number($("#max").value) : null };
+    const res = await api("POST", `${A}/promo-codes`, body);
+    if (res.ok) scrPromoCodes(); else flash(msg(res));
+  };
+  $$("[data-off]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("Deactivate this code? Members will no longer be able to use it.")) return;
+    const res = await api("POST", `${A}/promo-codes/${b.dataset.off}:deactivate`, {});
+    if (res.ok) scrPromoCodes(); else flash(msg(res));
+  }));
+}
+
 // ------------------------------------------------------------------ router
 const ROUTES = [
   [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
+  [/^#\/promo-codes$/, scrPromoCodes, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

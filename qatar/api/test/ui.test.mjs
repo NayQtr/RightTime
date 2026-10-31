@@ -344,6 +344,41 @@ test("women only: an account from before the change confirms once on home, then 
   assert.deepEqual(errors, []);
 });
 
+test("subscription plans (display-only): QAR plan cards, 1-month nudge, promo code check, guarantee, coming soon", async () => {
+  const call = client(env.base);
+  const owner = await adminLogin(call, env.sql, "owner@example.test");
+  assert.equal((await call("POST", "/api/admin/v1/promo-codes", { token: owner.token, body: { code: "HERZONE10", percent_off: 10 } })).status, 201);
+  const u = await signUp(call, { name: "Reem" });
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+    { access_token: u.token, refresh_token: u.refresh });
+  await page.goto(env.base + "/#/plans");
+  await page.waitForSelector(".plan[data-plan=m3].on");
+  await oneH1(page);
+  const m3 = await page.locator(".plan[data-plan=m3]").innerText();
+  assert.ok(m3.includes("119.99 ر.ق") && m3.includes("155.97 ر.ق") && m3.includes("وفّري 23%") && m3.includes("10.00 ر.ق في الأسبوع") && m3.includes("الأكثر اختيارًا"), m3);
+  assert.ok((await page.locator(".plan[data-plan=m12]").innerText()).includes("وفّري 64%"));
+  assert.equal(await page.locator("#plan-go").isDisabled(), true, "nothing can be bought yet");
+  assert.ok((await page.locator("main").innerText()).includes("بدون تجديد تلقائي") && (await page.locator(".guarantee").innerText()).includes("14 يومًا"));
+  await page.locator(".plan[data-plan=m1]").click();
+  await page.waitForSelector("#nudge-go");
+  await page.click("#nudge-go");
+  await page.waitForSelector(".plan[data-plan=m3].on");
+  await page.fill("#promo", "herzone10");
+  await page.click("#promo-go");
+  await page.waitForSelector("#promo-msg .banner-success");
+  assert.ok((await page.locator(".plan[data-plan=m3]").innerText()).includes("107.99 ر.ق"), "10% off shown");
+  assert.ok((await page.locator("#plan-sum").innerText()).includes("107.99 ر.ق"));
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: `${SHOTS}/14-plans-ar.png`, fullPage: true });
+  await page.fill("#promo", "NOPE");
+  await page.click("#promo-go");
+  await page.waitForSelector("#promo-msg .banner-danger");
+  assert.ok((await page.locator(".plan[data-plan=m3]").innerText()).includes("119.99 ر.ق"), "back to the full price");
+  assert.deepEqual(errors, []);
+});
+
 test("document updates (privacy notice and terms): existing users see them on home, read them and accept once", async () => {
   const call = client(env.base);
   const u = await signUp(call, { name: "Notice" });

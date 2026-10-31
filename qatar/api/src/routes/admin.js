@@ -762,6 +762,44 @@ async function configView(ctx) {
   return json(200, { config: rows, key_source: ctx.keys.source });
 }
 
+// Promo codes (migration 012): owner-managed. Subscriptions are display-only for now, so codes are only checked by
+// members, never redeemed; `uses` stays 0 until purchases exist.
+const promoOut = (r) => ({ id: r.id, code: r.code, percent_off: r.percent_off, expires_at: qa(r.expires_at), max_uses: r.max_uses,
+  uses: r.uses, is_active: r.is_active, created_at: qa(r.created_at) });
+
+async function listPromoCodes(ctx) {
+  const rows = await ctx.sql`SELECT * FROM app.promo_codes ORDER BY created_at DESC LIMIT 200`;
+  return json(200, { promo_codes: rows.map(promoOut) });
+}
+
+async function createPromoCode(ctx) {
+  const b = ctx.body || {};
+  const code = String(b.code || "").trim().toUpperCase();
+  const pct = Number(b.percent_off);
+  const errs = [];
+  if (!/^[A-Z0-9]{3,24}$/.test(code)) errs.push({ field: "code", code: "FORMAT" });
+  if (!Number.isInteger(pct) || pct < 1 || pct > 100) errs.push({ field: "percent_off", code: "RANGE" });
+  const maxUses = b.max_uses === undefined || b.max_uses === null || b.max_uses === "" ? null : Number(b.max_uses);
+  if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) errs.push({ field: "max_uses", code: "RANGE" });
+  const expires = b.expires_at ? new Date(b.expires_at) : null;
+  if (expires && (Number.isNaN(expires.getTime()) || expires <= new Date())) errs.push({ field: "expires_at", code: "FUTURE" });
+  if (errs.length) fail(422, "VALIDATION_FAILED", errs);
+  const [dupe] = await ctx.sql`SELECT 1 FROM app.promo_codes WHERE code = ${code}`;
+  if (dupe) fail(409, "PROMO_CODE_EXISTS");
+  const [r] = await ctx.sql`INSERT INTO app.promo_codes (code, percent_off, expires_at, max_uses, created_by)
+                            VALUES (${code}, ${pct}, ${expires}, ${maxUses}, ${ctx.admin.id}) RETURNING *`;
+  await audit(ctx.sql, ctx.admin.id, "promo_code_create", "promo_codes", r.id, `${pct}pct`);
+  return json(201, promoOut(r));
+}
+
+async function deactivatePromoCode(ctx) {
+  requireUuid(ctx.params.id, "promo_code_id");
+  const rows = await ctx.sql`UPDATE app.promo_codes SET is_active = false WHERE id = ${ctx.params.id} RETURNING *`;
+  if (!rows.length) fail(404, "NOT_FOUND");
+  await audit(ctx.sql, ctx.admin.id, "promo_code_deactivate", "promo_codes", ctx.params.id, null);
+  return json(200, promoOut(rows[0]));
+}
+
 const A = "/api/admin/v1";
 export const adminRoutes = [
   { method: "POST", path: `${A}/auth/enroll`, auth: "none", handler: enroll },
@@ -801,6 +839,9 @@ export const adminRoutes = [
   { method: "POST", path: `${A}/approvals/{id}:reject`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, false) },
   { method: "GET", path: `${A}/support-cases`, auth: "admin", roles: OPS, handler: supportCases },
   { method: "PATCH", path: `${A}/support-cases/{id}`, auth: "admin", roles: OPS, handler: updateSupportCase },
+  { method: "GET", path: `${A}/promo-codes`, auth: "admin", roles: OWNER, handler: listPromoCodes },
+  { method: "POST", path: `${A}/promo-codes`, auth: "admin", roles: OWNER, handler: createPromoCode },
+  { method: "POST", path: `${A}/promo-codes/{id}:deactivate`, auth: "admin", roles: OWNER, handler: deactivatePromoCode },
   { method: "GET", path: `${A}/audit`, auth: "admin", roles: OWNER, handler: auditLog },
   { method: "GET", path: `${A}/config`, auth: "admin", roles: OWNER, handler: configView },
 ];
