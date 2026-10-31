@@ -46,7 +46,7 @@ async function oneH1(page) {
 
 // Walks the quiz-first flow (spec 2026-10-28) until the sign-up name screen; returns what it saw on the way.
 async function walkQuiz(page) {
-  const seen = { keys: [], inters: [], timeleft: false };
+  const seen = { keys: [], inters: [], timeleft: false, dataText: "" };
   for (let guard = 0; guard < 80; guard += 1) {
     const hash = await page.evaluate(() => location.hash);
     if (hash === "#/name") return seen;
@@ -56,6 +56,8 @@ async function walkQuiz(page) {
     if (inter) {
       seen.inters.push(inter);
       if (inter === "vibe") await page.screenshot({ path: `${SHOTS}/04-quiz-vibe-ar.png` });
+      if (inter === "energy") await page.screenshot({ path: `${SHOTS}/04b-quiz-energy-ar.png` });
+      if (inter === "data") { seen.dataText = await page.locator("main").innerText(); await page.waitForTimeout(400); await noHorizontalScroll(page); await page.screenshot({ path: `${SHOTS}/04c-quiz-data-ar.png` }); }
       if (inter === "ready") await page.click("#yes"); else await page.click("#nx");
     } else {
       const text = await page.locator("main h1").innerText();
@@ -104,7 +106,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
   await page.click("#start");
   const seen = await walkQuiz(page);
-  assert.deepEqual(seen.inters, ["doha", "community", "how", "science", "vibe", "curating", "ready", "safety"]);
+  assert.deepEqual(seen.inters, ["doha", "community", "how", "energy", "science", "vibe", "curating", "ready", "safety", "data"]);
+  assert.ok(seen.dataText.includes("لنتحدث عن بياناتك") && seen.dataText.includes("لا يرين رقمكِ ولا إجاباتكِ"), "data screen before sign-up");
   assert.equal(seen.keys.length, 20, "20 questions in QA-2026-04");
   assert.ok(seen.keys.includes("ما الذي تبحثين عنه؟") && !seen.keys.some((k) => k.includes("تعرّف نفسك")), "addressed to a woman, no gender question");
   assert.equal(seen.timeleft, false, "no Timeleft text anywhere");
@@ -138,6 +141,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok(wyg.includes("هل HerZone تطبيق تعارف؟") && wyg.includes("طاولة من 4 إلى 6 سيدات"));
   assert.ok(!/Rightime/.test(wyg), "old name gone");
   assert.ok(wyg.includes("يشبهنكِ في القيم والشخصية والاهتمامات"), "copy describes personality matching (r2, owner-approved wording)");
+  assert.ok((await page.locator("#wyg-sum").innerText()).includes("59 ر.ق"), "price summary above the button");
   assert.equal((await page.locator("#toast").innerText()).trim(), "حفظنا إجاباتك.", "the save confirmation shows on the next screen");
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
@@ -181,6 +185,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.waitForSelector("[data-o=success]");
   await page.click("[data-o=success]");
   await page.waitForSelector("text=تم الدفع. نجمع طاولتك الآن.", { timeout: 15000 });
+  await page.waitForSelector(".all-set h1:has-text('كل شيء جاهز')");
+  assert.equal(await page.locator(".booking-peek").count(), 1, "the booked meetup is shown as a card");
   await page.screenshot({ path: `${SHOTS}/09-paid-ar.png` });
   // my events tab: the booking with its stepper
   await page.goto(env.base + "/#/events");

@@ -1,6 +1,6 @@
 // HerZone user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
-import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf } from "./quiz-flow.js";
+import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf, energyOf } from "./quiz-flow.js";
 import { icon } from "./icons.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
 
@@ -471,6 +471,7 @@ function scrInter(id, i, back) {
   const last = i === state.quiz.steps.length - 1;
   const done = () => { if (!last) go(`#/quiz/${i + 1}`); else if (signedIn()) finishQuiz(); else go("#/name"); };
   const vibe = id === "vibe" ? vibeOf(answersByKey()) : null;
+  const energy = id === "energy" ? energyOf(answersByKey()) : null;
   const screens = {
     doha: () => `<div class="art">${icon("map-pin")}</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
     community: () => `<div class="art">${icon("users")}</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
@@ -482,10 +483,15 @@ function scrInter(id, i, back) {
       <h1>${esc(T("curatingTitle"))}</h1><ul class="checklist" id="cl">${["cur1", "cur2", "cur3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
     ready: () => `<h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
       <div class="choice-stack"><button type="button" class="option plain" id="yes">${esc(T("readyYes"))}</button><a class="option plain" id="unsure" href="#/what-you-get">${esc(T("readyNo"))}</a></div>`,
+    energy: () => `<div class="art">${icon("sparkle")}</div><h1>${esc(T(`energy_${energy}`))}</h1><p class="lead">${esc(T(`energy_${energy}Body`))}</p>`,
+    data: () => `<div class="art">${icon("lock")}</div><h1>${esc(T("dataTitle"))}</h1><p class="lead">${esc(T("dataIntro"))}</p>
+      <ul class="benefits">${[["phone", "data1t", "data1b"], ["circle-user-round", "data2t", "data2b"], ["sparkle", "data3t", "data3b"], ["calendar-days", "data4t", "data4b"]]
+        .map(([ic, t, b]) => `<li><span class="bi">${icon(ic)}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
+      <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(T("dataShare"))} <a href="#/privacy">${esc(T("dataFull"))}</a></div></div>`,
     safety: () => `<div class="art">${icon("shield-check")}</div><h1>${esc(T("safetyTitle"))}</h1><ul class="benefits">${["safe1", "safe2", "safe3", "safe4"]
       .map((k) => `<li><span class="bi">${icon("check")}</span><span>${esc(T(k))}</span></li>`).join("")}</ul>`,
   };
-  view(T(id === "vibe" ? `vibe_${vibe}` : `${id}Title`), `${quizHead(back, "", null)}<section class="inter" data-inter="${id}">${screens[id]()}</section>
+  view(T(id === "vibe" ? `vibe_${vibe}` : id === "energy" ? `energy_${energy}` : `${id}Title`), `${quizHead(back, "", null)}<section class="inter" data-inter="${id}">${screens[id]()}</section>
     ${id === "ready" ? "" : `<div class="quiz-foot"><div><button class="btn btn-primary btn-block" id="nx">${esc(T("continue"))}</button></div></div>`}`);
   if (id === "ready") {
     state.quizReturn = i;
@@ -576,7 +582,7 @@ async function scrWhatYouGet() {
     <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
     <h2>${esc(T("faqTitle"))}</h2>
     <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
-    <div class="quiz-foot"><div><a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
+    <div class="quiz-foot"><div>${plan.fee ? `<p class="caption foot-price" id="wyg-sum">${esc(T("wygSum", { fee: plan.fee }))}</p>` : ""}<a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
 }
 
 // ------------------------------------------------------------------ SCR-04 sessions
@@ -738,8 +744,13 @@ async function scrPayReturn(id) {
   const started = Date.now();
   const draw = (phase, b) => {
     if (phase === "success") {
-      view(T("paidTitle"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("paidTitle"))}</h1>
-        <p>${esc(T("bookingRef"))} ${num(b.ref)}</p><a class="btn btn-primary" href="#/home">${esc(T("goDashboard"))}</a></div>`);
+      const it = b.item;
+      view(T("allSetTitle"), `<div class="center all-set"><div class="success-check">${icon("check")}</div><h1>${esc(T("allSetTitle"))}</h1>
+        <p class="lead">${esc(T("paidTitle"))}</p>
+        ${it ? `<div class="card booking-peek"><span class="bi">${icon(it.experience === "coffee" ? "coffee" : "utensils")}</span>
+          <span><strong>${esc(T(it.experience))}</strong><br><span>${esc(fmtDate(it.starts_at))}</span>${it.district ? `<br><span class="muted">${esc(it.district)}</span>` : ""}</span></div>` : ""}
+        <ol class="next-steps">${["allSet1", "allSet2", "allSet3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ol>
+        <p class="caption">${esc(T("bookingRef"))} ${num(b.ref)}</p><a class="btn btn-primary btn-block" href="#/home">${esc(T("goDashboard"))}</a></div>`);
     } else if (phase === "failed") {
       view(T("paymentFailed"), `<div class="center"><h1>${esc(T("paymentFailed"))}</h1><p class="muted">${esc(T("noDoubleCharge"))}</p>
         <a class="btn btn-primary" href="#/booking/${id}/review">${esc(T("payNow"))}</a></div>`);
@@ -753,6 +764,10 @@ async function scrPayReturn(id) {
   const poll = async () => {
     const r = await api("GET", `/api/v1/bookings/${id}`);
     if (!r.ok) return;
+    if (r.data.status === "paid_awaiting_group") {
+      const list = await api("GET", "/api/v1/bookings");
+      r.data.item = list.ok ? list.data.bookings.find((x) => x.id === id) || null : null;
+    }
     if (r.data.status !== "payment_pending") { clearTimers(); draw(r.data.status === "paid_awaiting_group" ? "success" : "other", r.data); if (r.data.status !== "paid_awaiting_group") go(`#/booking/${id}`); return; }
     if (r.data.payment && r.data.payment.status === "failed") { clearTimers(); draw("failed", r.data); return; }
     if (Date.now() - started > 60000 && !scrPayReturn.slow) { scrPayReturn.slow = true; clearTimers(); draw("slow"); every(10000, poll); }
@@ -889,7 +904,9 @@ async function scrPrivacy() {
   loadingView();
   const r = await api("GET", "/api/v1/legal/current", undefined, { noAuth: true });
   const n = r.ok ? r.data.privacy_notice : null;
-  view(T("privacyTitle"), `<h1>${esc(T("privacyTitle"))}</h1>${n ? `<div class="card"><p class="legal-text">${esc(n.text)}</p></div>` : errorBanner(r.data)}`);
+  view(T("privacyTitle"), `<h1>${esc(T("privacyTitle"))}</h1>${n ? `<div class="card"><p class="legal-text">${esc(n.text)}</p></div>` : errorBanner(r.data)}
+    ${history.length > 1 ? `<button type="button" class="btn btn-secondary btn-block" id="pv-back">${esc(T("back"))}</button>` : ""}`);
+  if ($("#pv-back")) $("#pv-back").onclick = () => history.back();
 }
 
 async function scrEvents() {

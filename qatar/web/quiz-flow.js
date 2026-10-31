@@ -4,10 +4,11 @@
 export const INTERSTITIALS = {
   start: ["doha", "community"],
   Q11: ["how"],
+  Q12: ["energy"],
   Q15: ["science"],
   Q05: ["vibe"],
   Q06: ["curating"],
-  end: ["ready", "safety"],
+  end: ["ready", "safety", "data"],
 };
 
 export const QUIZ_STORE_KEY = "quiz";
@@ -30,6 +31,12 @@ export function vibeOf(byKey) {
   if (has("Q12", "introvert") && has("Q13", "logic")) return "calm";
   if (has("Q13", "emotions")) return "warm";
   return "curious";
+}
+
+// The answer to Q12 (energy) for the reply screen after it; "any" when skipped or not one of the three levels.
+export function energyOf(byKey) {
+  const level = (byKey.Q12 || [])[0];
+  return ["introvert", "ambivert", "extrovert"].includes(level) ? level : "any";
 }
 
 // {question_id: option_ids[]} -> API answers, answered questions only.

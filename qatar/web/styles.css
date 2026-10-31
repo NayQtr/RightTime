@@ -475,3 +475,13 @@ a.option { text-decoration: none; color: inherit; }
 .shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }
 .shared-themes .lucide, .shared-themes svg { flex: none; width: 20px; height: 20px; color: var(--c-primary); margin-block-start: 2px; }
 .hero-welcome .quiz-length { margin: 0; text-align: center; color: var(--c-textMuted); }
+/* "You're all set" after payment: the booked meetup as a card, then what happens next. */
+.all-set { gap: var(--s-4); }
+.all-set .lead { margin: 0; }
+.booking-peek { display: grid; grid-template-columns: 40px 1fr; gap: var(--s-3); align-items: start; text-align: start; width: 100%; }
+.booking-peek .bi { width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--c-primarySubtle); color: var(--c-primary); display: grid; place-items: center; }
+.booking-peek .bi .i { width: 20px; height: 20px; }
+.booking-peek strong { font-family: var(--font-display); font-weight: 700; }
+.next-steps { text-align: start; width: 100%; margin: 0; padding-inline-start: var(--s-5); display: grid; gap: var(--s-2); color: var(--c-textMuted); }
+.foot-price { text-align: center; margin: 0; }
+.inter .banner { width: 100%; }
