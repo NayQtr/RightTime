@@ -137,7 +137,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok(wyg.includes("ماذا تحصلين مع HerZone") && wyg.includes("59 ر.ق") && wyg.includes("48 ساعة"), wyg.slice(0, 300));
   assert.ok(wyg.includes("هل HerZone تطبيق تعارف؟") && wyg.includes("طاولة من 4 إلى 6 سيدات"));
   assert.ok(!/Rightime/.test(wyg), "old name gone");
-  assert.ok(!/شخصيت/.test(wyg.replace("هل HerZone", "")) || !wyg.includes("حسب شخصيتك"), "no personality-matching claim");
+  assert.ok(wyg.includes("يشبهنكِ في القيم والشخصية والاهتمامات"), "copy describes personality matching (r2, owner-approved wording)");
+  assert.equal((await page.locator("#toast").innerText()).trim(), "حفظنا إجاباتك.", "the save confirmation shows on the next screen");
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
@@ -153,6 +154,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.click("#wyg-go");
   // home: Doha, sessions by week, tab bar, coordinator (audit F10)
   await page.waitForSelector(".event-card");
+  assert.equal((await page.locator("#toast").innerText()).trim(), "", "a toast does not follow the member to a second screen");
+  assert.equal(await page.locator("main .icon-btn[href='#/inbox']").count(), 0, "notifications are reached from the tab bar only");
   await oneH1(page);
   assert.equal((await page.locator("main h1").innerText()).trim().startsWith("الدوحة"), true);
   assert.equal(await page.locator("#tabbar a").count(), 4);
@@ -414,6 +417,8 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   await page.waitForSelector("#mf");
   await page.click("#mf button[type=submit]");
   await page.waitForSelector("text=dry_run");
+  const explain = await page.locator("#explain").innerText();
+  assert.ok(explain.includes("Closeness") && explain.includes("Energy mix") && explain.includes("values 32%"), "r2 dry run is explained in words: " + explain.slice(0, 300));
   await page.screenshot({ path: `${SHOTS}/21-admin-dry-run.png`, fullPage: true });
   await page.click("#nav a[href='#/live']");
   await page.waitForSelector("text=Tonight board");

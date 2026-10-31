@@ -144,7 +144,8 @@ async function scrSession(id) {
       <section class="card"><h2>Pool</h2><p>Seats ${s.seats_sold}/${s.max_seats} · holds in progress ${d.holds} · waitlist ${d.waitlist} · blocked pairs in pool ${d.blocks_in_pool}</p>
         <table><thead><tr><th>Language</th><th>Tier</th><th>Paid, awaiting group</th></tr></thead><tbody>${d.pool.map((p) => `<tr><td>${esc(p.language)}</td><td>${p.tier_rank}</td><td>${p.n}</td></tr>`).join("") || `<tr><td colspan="3">—</td></tr>`}</tbody></table></section>
       <section class="card"><h2>Matching</h2><form id="mf" class="grid-form">
-        <label>Rule version<select class="input" name="rule_version"><option value="r2-personality">r2-personality (all answers: values 32 · personality 28 · social 18 · interests 12 · lifestyle 10; energy balanced)</option><option value="r1-interest">r1-interest (0.6·I + 0.4·C)</option><option value="r1-baseline">r1-baseline (random)</option></select></label>
+        <label>Rule version<select class="input" name="rule_version"><option value="r2-personality">r2-personality · all answers (default)</option><option value="r1-interest">r1-interest · shared interests only</option><option value="r1-baseline">r1-baseline · random</option></select></label>
+        <p class="caption">r2 seats similar women together: values 32% · personality 28% · social 18% · interests 12% · lifestyle 10%, with energy (introvert ↔ extrovert) mixed at each table.</p>
         <label>Seed<input class="input" name="seed" type="number" value="${Math.floor(Math.random() * 1e6)}"></label>
         <label>Packing<select class="input" name="packing_mode"><option>min_leftovers</option><option>greedy_6</option></select></label>
         <label>Max tables (blank = venue tables)<input class="input" name="max_tables" type="number" min="0"></label>
@@ -160,18 +161,30 @@ async function scrSession(id) {
         ${ops && t.status === "forming" ? ` <select class="input inline" data-move="${m.booking_id}"><option value="">move to…</option>${d.tables.filter((x) => x.id !== t.id && x.status === "forming").map((x) => `<option value="${x.id}">${esc(x.code)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>
       ${ops ? `<div class="row">${t.status === "forming" ? `<button class="btn btn-primary" data-lock="${t.id}">Lock</button><button class="btn btn-danger" data-cq="${t.id}">Cancel (quorum)</button>` : ""}
         <button class="btn btn-ghost" data-vc="${t.id}">Venue confirmed (T-3h)</button></div>` : ""}</section>`).join("") || "<p class='muted'>No tables yet — run matching.</p>"}</div>
-    ${d.unassigned.length ? `<section class="card"><h2>Paid but not seated (leftovers)</h2><p>${d.unassigned.map((u) => `<span class="num">${esc(u.ref)}</span> ${esc(u.display_name || "")}`).join(" · ")}</p></section>` : ""}
+    ${d.unassigned.length ? `<section class="card"><h2>${d.tables.length ? "Paid but not seated (leftovers)" : "Paid, waiting for matching"}</h2><p>${d.unassigned.map((u) => `<span class="num">${esc(u.ref)}</span> ${esc(u.display_name || "")}`).join(" · ")}</p></section>` : ""}
     <h2>Matching runs</h2><table><thead><tr><th>When</th><th>Mode</th><th>Rule</th><th>Seed</th><th>Summary</th></tr></thead><tbody>
     ${d.runs.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.mode)}</td><td>${esc(x.rule_version)}</td><td class="num">${esc(x.seed)}</td><td><code>${esc(JSON.stringify(x.result_summary))}</code></td></tr>`).join("")}</tbody></table>`);
   const body = () => { const fd = Object.fromEntries(new FormData($("#mf"))); return { rule_version: fd.rule_version, seed: Number(fd.seed), packing_mode: fd.packing_mode, ...(fd.max_tables !== "" ? { max_tables: Number(fd.max_tables) } : {}) }; };
+  // r2-personality: the same explanation in words an operator can act on (all values are 0..1 from the engine)
+  const pct = (v) => (v === null || v === undefined ? "—" : `${Math.round(v * 100)}%`);
+  const personalityTable = (ex) => {
+    const w = ex.weights.dimensions;
+    return `<p class="caption">Weights: values ${pct(w.values)} · personality ${pct(w.personality)} · social ${pct(w.social)} · interests ${pct(w.interests)} · lifestyle ${pct(w.lifestyle)} · energy mix ${pct(ex.weights.energy_balance)} of the score.
+      Answers ignored (unknown or "prefer not to say"): ${ex.answers_dropped}.</p>
+      <table><thead><tr><th>Table</th><th>Lang</th><th>Tier</th><th>Size</th><th>Answered</th><th title="average similarity of every pair at the table">Closeness</th>
+        <th title="the member least similar to the others">Least-matched member</th><th title="100% = every energy level present">Energy mix</th><th>Score</th><th>Checks</th><th>Warnings</th></tr></thead><tbody>
+      ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.answered}/${t.size}</td>
+        <td>${pct(t.interest)}</td><td>${pct(t.cohesion)}</td><td>${pct(t.energy_balance)}</td><td>${pct(t.score)}</td>
+        <td>${Object.values(t.checks).every(Boolean) ? "✓ all" : "✗"}</td><td>${esc(t.warnings.join("; "))}</td></tr>`).join("")}</tbody></table>`;
+  };
   const showRun = (res) => {
     if (!res.ok) { $("#explain").innerHTML = msg(res); return; }
     const ex = res.data.explanations;
     $("#explain").innerHTML = `<section class="card"><h2>${esc(res.data.mode)} · seed ${res.data.seed} · inputs ${esc(res.data.inputs_hash.slice(0, 12))}…</h2>
       <p><code>${esc(JSON.stringify(res.data.summary))}</code></p>
-      <table><thead><tr><th>Table</th><th>Lang</th><th>Tier</th><th>Size</th><th>I</th><th>C</th><th>Score</th><th>Pseudonymous seats</th><th>Checks</th><th>Warnings</th></tr></thead><tbody>
+      ${ex.algorithm === "personality_v1" ? personalityTable(ex) : `<table><thead><tr><th>Table</th><th>Lang</th><th>Tier</th><th>Size</th><th>I</th><th>C</th><th>Score</th><th>Pseudonymous seats</th><th>Checks</th><th>Warnings</th></tr></thead><tbody>
       ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.interest ?? "—"}</td><td>${t.cohesion ?? "—"}</td><td>${t.score ?? "—"}</td>
-        <td class="caption">${t.seats.map(esc).join(" ")}</td><td>${Object.values(t.checks).every(Boolean) ? "✓ all" : "✗"}</td><td>${esc(t.warnings.join("; "))}</td></tr>`).join("")}</tbody></table>
+        <td class="caption">${t.seats.map(esc).join(" ")}</td><td>${Object.values(t.checks).every(Boolean) ? "✓ all" : "✗"}</td><td>${esc(t.warnings.join("; "))}</td></tr>`).join("")}</tbody></table>`}
       <p>Leftovers: ${ex.leftovers.map((l) => `${esc(l.seat)} (${esc(l.reason)})`).join(", ") || "none"} · Ineligible: ${ex.ineligible.length} · Venue warnings: ${esc(ex.venue_warnings.join("; ") || "none")}</p></section>`;
   };
   $("#mf").onsubmit = async (e) => { e.preventDefault(); showRun(await api("POST", `${A}/sessions/${id}/matching:dry-run`, body())); };

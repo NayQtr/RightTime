@@ -43,13 +43,20 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
 function clearTimers() { state.timers.forEach((t) => clearInterval(t)); state.timers = []; }
 function every(ms, fn) { const t = setInterval(fn, ms); state.timers.push(t); return t; }
 
-// Toasts hide after 4 s and can be dismissed by tapping so they never keep covering content.
+// Toasts hide after 4 s and can be dismissed by tapping so they never keep covering content. A toast survives the one
+// navigation that usually follows the action it confirms (e.g. quiz -> what you get), and is cleared on the next.
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
   el.onclick = () => { clearTimeout(toast.t); el.textContent = ""; };
   clearTimeout(toast.t);
   toast.t = setTimeout(() => { el.textContent = ""; }, 4000);
+  toast.navs = 1;
+}
+function toastOnNavigate() {
+  if (toast.navs > 0) { toast.navs--; return; }
+  clearTimeout(toast.t);
+  document.getElementById("toast").textContent = "";
 }
 
 // Direction of the last navigation: quiz steps enter from the reading direction going forward and from the other
@@ -204,7 +211,8 @@ function scrWelcome() {
         <a class="btn btn-primary btn-block" id="resume" href="${esc(resume)}">${esc(T("resumeCta"))}</a>
         <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
       <div class="stack">
-        ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>`}
+        ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>
+        <p class="caption quiz-length">${esc(T("quizLength"))}</p>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
       <p class="caption device-note">${esc(T("deviceNote"))}</p>
@@ -828,8 +836,7 @@ async function scrHome() {
   const groups = [["thisWeek", (w) => w <= 0], ["nextWeek", (w) => w === 1], ["later", (w) => w >= 2]]
     .map(([k, f]) => [k, sessions.filter((x) => f(weekOffset(x.starts_at)))]).filter(([, list]) => list.length);
   view(T("city"), `
-    <div class="home-head"><h1 class="display-title">${esc(T("city"))}</h1>
-      <a class="icon-btn" href="#/inbox" aria-label="${esc(T("inbox"))}">${icon("bell")}</a></div>
+    <div class="home-head"><h1 class="display-title">${esc(T("city"))}</h1></div>
     ${sessions[0] ? `<p class="home-sub">${esc(T("homeSub", { fee: sessions[0].price.display }))}</p>` : ""}
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
@@ -1246,6 +1253,7 @@ const ROUTES = [
 
 async function route() {
   clearTimers();
+  toastOnNavigate();
   const hash = location.hash || (store.get("tokens") ? "#/home" : "#/welcome");
   const quizStep = (h) => { const m = /^#\/quiz\/(\d+)$/.exec(h || ""); return m ? Number(m[1]) : null; };
   const from = quizStep(lastHash), to = quizStep(hash);

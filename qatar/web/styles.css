@@ -207,9 +207,9 @@ fieldset.card .check + .check { border-block-start: 1px solid var(--c-border); }
 .option:has(input:checked) { background: var(--c-primarySubtle); box-shadow: inset 0 0 0 2px var(--c-primary); }
 .option:has(input:checked) .tick { box-shadow: inset 0 0 0 7px var(--c-primary); }
 .option:not(.radio):has(input:checked) .tick { box-shadow: none; background: var(--c-primary); }
-.option:not(.radio):has(input:checked) .tick::after { content: ""; width: 10px; height: 6px; border-inline-start: 2px solid var(--c-onPrimary); border-block-end: 2px solid var(--c-onPrimary);
+/* a check mark is not mirrored in RTL: physical left + bottom borders turned -45deg draw a tick in both directions */
+.option:not(.radio):has(input:checked) .tick::after { content: ""; width: 10px; height: 6px; border-left: 2px solid var(--c-onPrimary); border-bottom: 2px solid var(--c-onPrimary);
   transform: translateY(-1px) rotate(-45deg); }
-:root[dir="rtl"] .option:not(.radio):has(input:checked) .tick::after { transform: translateY(-1px) rotate(45deg) scaleX(-1); }
 .option:has(input:focus-visible) { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 .option:has(input:disabled) { color: var(--c-textDisabled); cursor: not-allowed; }
 .option .emoji, .chip .emoji { display: none; }
@@ -474,3 +474,4 @@ a.option { text-decoration: none; color: inherit; }
 /* shared-themes line on a revealed table (r2-personality) */
 .shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }
 .shared-themes .lucide, .shared-themes svg { flex: none; width: 20px; height: 20px; color: var(--c-primary); margin-block-start: 2px; }
+.hero-welcome .quiz-length { margin: 0; text-align: center; color: var(--c-textMuted); }

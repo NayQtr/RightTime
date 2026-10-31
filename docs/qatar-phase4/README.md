@@ -120,7 +120,7 @@ The user app follows the pattern of the Timeleft screenshots in the `Rightime` D
 - `GET /api/v1/questionnaires/preview` (no auth) serves the questions to signed-out visitors, with no user data.
 - Users who answered an older questionnaire are not blocked. `GET /api/v1/questionnaires/current` returns `has_submitted_any` and `carried` answers (mapped by question and option key), and Home invites them to complete the card.
 - Matching (rule `r2-personality`, admin default since 2026-10-30, spec `docs/specs/2026-10-30-personality-matching-design.md`): language, budget, size and blocks are hard rules; every other answer except Q07 is scored, values 32% · personality 28% · social 18% · interests 12% · lifestyle 10% (Q23, Q24 included), with energy (Q12) balanced at each table. After reveal, members see up to three shared themes («يجمعكن: …»), never from age, work, family, children or marital status; a manual move clears them. Migration `011_personality_matching.sql`. `r1-interest` stays selectable.
-- Copy rule: the welcome and "what you get" texts still say tables follow language, budget and shared interests; they understate the matcher but say nothing false.
+- Copy rule (owner-approved, 2026-10-31): "what you get" and the FAQ say «نجمعكِ مع من يشبهنكِ في القيم والشخصية والاهتمامات، بلغتك وضمن ميزانيتك.» / "We seat you with women who share your values, personality and interests, in your language and within your budget." All 20 questions stay before sign-up (owner decision); the welcome says they are short and take a few minutes.
 
 ## Admin sign-in (TOTP)
 
