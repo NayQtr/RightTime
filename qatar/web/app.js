@@ -114,6 +114,7 @@ async function api(method, path, body, opts = {}) {
     store.del("tokens");
     go("#/welcome");
   }
+  if (res.status >= 500 && window.hzMonitor) window.hzMonitor.report(new Error(`API ${res.status} ${method} ${path.split("?")[0]}`), { request_id: res.headers.get("x-request-id") || "" });
   const text = res.status === 304 ? "" : await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }

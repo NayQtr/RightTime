@@ -25,6 +25,8 @@ export async function loadConfig(sql, getEnv) {
     adminLoginWindowMinutes: Number(get("ADMIN_LOGIN_WINDOW_MINUTES", "15")),
     coordinatorPhone: get("COORDINATOR_PHONE_E164", "").trim(),
     coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
+    sentryDsn: get("SENTRY_DSN", "").trim(),
+    sentryEnvironment: get("SENTRY_ENVIRONMENT", "staging"),
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
   };
   loadedAt = Date.now();

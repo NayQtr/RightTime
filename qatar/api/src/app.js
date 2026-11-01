@@ -5,6 +5,7 @@ import { randomToken, sha256hex } from "./lib/crypto.js";
 import { ApiError, fail, ipTrunc, json, mapPgError, problemBody } from "./lib/http.js";
 import { jwtVerify } from "./lib/crypto.js";
 import { loadKeys } from "./lib/keys.js";
+import { reportError } from "./lib/sentry.js";
 import { testPsp } from "./services/psp.js";
 import { userRoutes } from "./routes/user.js";
 import { paymentRoutes } from "./routes/payments.js";
@@ -151,6 +152,9 @@ export function createApp({ sql, getEnv = () => undefined }) {
       const requestId = ctx?.requestId || "req_unknown";
       if (!err) {
         console.error(requestId, e && e.stack ? e.stack : e);
+        // the DSN comes from the environment or app_config (a DSN is a public, write-only key)
+        const dsnEnv = (k) => getEnv(k) ?? (k === "SENTRY_DSN" ? cfg && cfg.sentryDsn : k === "SENTRY_ENVIRONMENT" ? cfg && cfg.sentryEnvironment : undefined);
+        await reportError(dsnEnv, e, { route: `${req.method} ${new URL(req.url).pathname}`, requestId });
         return json(500, problemBody(new ApiError(500, "INTERNAL"), locale, requestId), { "X-Request-Id": requestId, ...corsHeaders(req, cfg) });
       }
       const headers = { "X-Request-Id": requestId, ...corsHeaders(req, cfg) };
