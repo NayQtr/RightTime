@@ -18,7 +18,7 @@ function psql(db, args) {
 
 export function buildTemplate() {
   psql("postgres", ["-c", `DROP DATABASE IF EXISTS ${TEMPLATE}`, "-c", `CREATE DATABASE ${TEMPLATE}`]);
-  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "db/migrations/007_deny_policies.sql", "db/migrations/008_question_display.sql", "db/migrations/009_women_only.sql", "db/migrations/010_contact_requests.sql", "db/migrations/011_personality_matching.sql", "db/migrations/012_promo_codes.sql", "ops/seed_common.sql", "ops/seed_questionnaire_v2.sql", "ops/seed_privacy_v2.sql", "ops/seed_questionnaire_v3.sql", "ops/seed_privacy_v3.sql", "ops/seed_questionnaire_v4.sql", "ops/seed_privacy_v4.sql"]) {
+  for (const f of ["db/migrations/001_init.sql", "db/migrations/002_api_support.sql", "db/migrations/003_otp_phone.sql", "db/migrations/004_cron_and_indexes.sql", "db/migrations/005_late_ack_and_admin_throttle.sql", "db/migrations/006_support_contact.sql", "db/migrations/007_deny_policies.sql", "db/migrations/008_question_display.sql", "db/migrations/009_women_only.sql", "db/migrations/010_contact_requests.sql", "db/migrations/011_personality_matching.sql", "db/migrations/012_promo_codes.sql", "db/migrations/013_push_notifications.sql", "ops/seed_common.sql", "ops/seed_questionnaire_v2.sql", "ops/seed_privacy_v2.sql", "ops/seed_questionnaire_v3.sql", "ops/seed_privacy_v3.sql", "ops/seed_questionnaire_v4.sql", "ops/seed_privacy_v4.sql"]) {
     psql(TEMPLATE, ["-1", "-f", path.join(ROOT, f)]);
   }
 }

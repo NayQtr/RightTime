@@ -9,6 +9,7 @@ import { testPsp } from "./services/psp.js";
 import { userRoutes } from "./routes/user.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { adminRoutes } from "./routes/admin.js";
+import { pushRoutes } from "./routes/push.js";
 
 // Endpoints a suspended / banned user may still call (v0.3 §3.1 ACCOUNT_SUSPENDED applies to the rest)
 const SUSPENDED_ALLOWED = new Set(["GET /api/v1/users/me", "POST /api/v1/auth/logout", "GET /api/v1/notifications",
@@ -29,7 +30,7 @@ function compile(routes) {
 }
 
 export function createApp({ sql, getEnv = () => undefined }) {
-  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes]);
+  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes]);
   const app = { sql, getEnv, handle: null, psp: null };
 
   async function context(req) {
@@ -39,7 +40,7 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const fwd = req.headers.get("x-forwarded-for") || "";
     const locale = (req.headers.get("accept-language") || "ar").toLowerCase().startsWith("en") ? "en" : "ar";
     const psp = testPsp({ keys, cfg, deliver: (raw, headers) => deliverWebhook(raw, headers) });
-    return { req, url, keys, cfg, sql, locale, psp, ip: fwd.split(",")[0].trim() || null,
+    return { req, url, keys, cfg, sql, getEnv, locale, psp, ip: fwd.split(",")[0].trim() || null,
       ipTrunc: ipTrunc(fwd.split(",")[0].trim()), requestId: "req_" + randomToken(9) };
   }
 

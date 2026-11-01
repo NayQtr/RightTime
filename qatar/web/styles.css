@@ -507,3 +507,9 @@ a.option { text-decoration: none; color: inherit; }
 .nudge .link-btn { display: block; margin-block-start: var(--s-1); }
 .money { white-space: nowrap; }
 .plan-price { font-weight: 700; }
+/* "Turn on notifications": a sample phone notification card. */
+.push-sample { display: grid; grid-template-columns: 44px 1fr; gap: var(--s-3); align-items: center; width: 100%; padding: var(--s-4);
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--c-text) 30%, transparent); text-align: start; }
+.push-sample .app-ic { width: 44px; height: 44px; border-radius: 10px; background: var(--c-primary); color: var(--c-onPrimary); display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
+.inter[data-screen="notify"] .next-steps { color: var(--c-text); }

@@ -159,6 +159,7 @@ async function loadMe(force = false) {
   state.me = r.data.user;
   state.meToken = (store.get("tokens") || {}).access_token;
   state.meAt = Date.now();
+  syncPush().catch(() => {});
   return state.me;
 }
 
@@ -559,7 +560,81 @@ async function finishQuiz() {
   state.quiz = null;
   toast(r.data.derived && r.data.derived.private_contact_case_id ? T("q07Note") : T("answersSaved"));
   await loadQuestionnaire(true);
-  go(hadAny ? "#/home" : "#/what-you-get");
+  go(hadAny ? "#/home" : store.get("pushAsked") ? "#/what-you-get" : "#/notify?next=wyg");
+}
+
+// ------------------------------------------------------------------ phone notifications (Web Push, migration 013)
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+// ok | ios_install (iPhone: works only from the home-screen app) | denied | unsupported
+function pushSupport() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return isIOS() && !isStandalone() ? "ios_install" : "unsupported";
+  return Notification.permission === "denied" ? "denied" : "ok";
+}
+async function devicePushSub() {
+  try { const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/") : null; return reg && reg.pushManager ? await reg.pushManager.getSubscription() : null; }
+  catch { return null; }
+}
+const b64uBytes = (s) => { const t = s.replace(/-/g, "+").replace(/_/g, "/"); const b = atob(t + "=".repeat((4 - (t.length % 4)) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  return api("POST", "/api/v1/push/subscriptions", { endpoint: j.endpoint, keys: j.keys });
+}
+// Must start from a tap: iPhone only shows the permission prompt for a user gesture.
+async function enablePush() {
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return perm;
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  const k = await api("GET", "/api/v1/push/key", undefined, { noAuth: true });
+  if (!k.ok) return "error";
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(k.data.public_key) });
+  return (await saveSub(sub)).ok ? "granted" : "error";
+}
+async function disablePush() {
+  const sub = await devicePushSub();
+  if (!sub) return;
+  await api("POST", "/api/v1/push/subscriptions:delete", { endpoint: sub.endpoint }).catch(() => {});
+  await sub.unsubscribe().catch(() => {});
+}
+// Once per page load when signed in: if this device already allowed notifications, make sure the server has it.
+async function syncPush() {
+  if (syncPush.done || !signedIn() || !("Notification" in window) || Notification.permission !== "granted") return;
+  syncPush.done = true;
+  const sub = await devicePushSub();
+  if (sub) await saveSub(sub);
+}
+
+// "Enable notifications" (after sign-up, and from Profile): a sample notification, then what this device can do.
+async function scrNotify(next) {
+  if (!(await guard({ needQuestionnaire: false }))) return;
+  store.set("pushAsked", true);
+  const done = () => go(next === "profile" ? "#/profile" : next === "home" ? "#/home" : "#/what-you-get");
+  const support = pushSupport();
+  const on = support === "ok" && Notification.permission === "granted" && Boolean(await devicePushSub());
+  const sample = `<div class="push-sample" aria-hidden="true"><span class="app-ic">H</span>
+    <span><strong>HerZone</strong><br><span>${esc(T("pushSample"))}</span></span></div>
+    <p class="caption">${esc(T("pushSampleNote"))}</p>`;
+  const body = on ? `<div class="banner banner-success"><div>${esc(T("pushOn"))}</div></div>`
+    : support === "ios_install" ? `<h2>${esc(T("pushIosTitle"))}</h2><ol class="next-steps">${["pushIos1", "pushIos2", "pushIos3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ol>`
+    : support === "denied" ? `<div class="banner banner-info"><div>${esc(T("pushDenied"))}</div></div>`
+    : support === "unsupported" ? `<div class="banner banner-info"><div>${esc(T("pushUnsupported"))}</div></div>` : "";
+  view(T("pushTitle"), `<div class="quiz-head"><span></span><span></span><button type="button" class="link-btn" id="skip-push">${esc(T(next === "profile" ? "back" : "skipQ"))}</button></div>
+    <section class="inter" data-screen="notify"><h1>${esc(T("pushTitle"))}</h1><p class="lead">${esc(T("pushLead"))}</p>${sample}${body}<div id="push-msg" aria-live="polite"></div></section>
+    <div class="quiz-foot"><div>${support === "ok" && !on ? `<button class="btn btn-primary btn-block" id="push-go">${esc(T("pushEnable"))}</button>`
+      : on && next === "profile" ? `<button class="btn btn-secondary btn-block" id="push-off">${esc(T("pushDisable"))}</button>`
+      : `<button class="btn btn-primary btn-block" id="push-next">${esc(T("continue"))}</button>`}</div></div>`);
+  $("#skip-push").onclick = done;
+  if ($("#push-next")) $("#push-next").onclick = done;
+  if ($("#push-off")) $("#push-off").onclick = async () => { await disablePush(); toast(T("pushOffDone")); scrNotify(next); };
+  if ($("#push-go")) $("#push-go").onclick = async () => {
+    $("#push-go").disabled = true;
+    let r;
+    try { r = await enablePush(); } catch { r = "error"; }
+    if (r === "granted") { toast(T("pushOnDone")); done(); return; }
+    $("#push-go").disabled = false;
+    $("#push-msg").innerHTML = `<div class="banner banner-info"><div>${esc(T(r === "denied" ? "pushDenied" : r === "default" ? "pushLater" : "errGeneric"))}</div></div>`;
+  };
 }
 
 // "What you get" (spec §6): per-seat today; `plan.kind` is where a subscription would render its plan cards.
@@ -1281,6 +1356,7 @@ async function scrProfile() {
     <p class="section-label">${esc(T("secAccount"))}</p>
     <ul class="settings"><li><a class="chev" href="#/quiz/${INTERSTITIALS.start.length}"><span>${esc(T("myAnswers"))}</span></a></li>
       <li><a class="chev" href="#/plans"><span>${esc(T("plansTitle"))}</span></a></li>
+      <li><a class="chev" href="#/notify?next=profile"><span>${esc(T("pushSettings"))}</span></a></li>
       <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
       <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li></ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
@@ -1293,8 +1369,8 @@ async function scrProfile() {
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
   const forget = () => { store.del("tokens"); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
-  $("#out").onclick = async () => { const t = store.get("tokens"); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
-  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await api("DELETE", "/api/v1/users/me"); forget(); };
+  $("#out").onclick = async () => { const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
+  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
 }
 
 async function scrCases() {
@@ -1331,7 +1407,7 @@ const ROUTES = [
   [/^#\/(?:questions\/\d+|summary)$/, () => go(`#/quiz/${INTERSTITIALS.start.length}`)], [/^#\/sessions(?:\?s=([\w-]+))?$/, scrSessions], [/^#\/events$/, scrEvents],
   [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
   [/^#\/booking\/([\w-]+)\/cancel$/, scrCancel], [/^#\/booking\/([\w-]+)\/choose$/, scrChoose], [/^#\/booking\/([\w-]+)\/feedback$/, scrFeedback],
-  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy], [/^#\/plans$/, scrPlans],
+  [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy], [/^#\/plans$/, scrPlans], [/^#\/notify(?:\?next=(\w+))?$/, scrNotify],
 ];
 
 async function route() {

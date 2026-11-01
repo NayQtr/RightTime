@@ -65,3 +65,23 @@ export async function loadKeys(sql, getEnv) {
 }
 
 export function resetKeyCache() { cached = null; }
+
+// A key that only one feature needs (e.g. the Web Push VAPID key), loaded on first use instead of at start-up so a
+// problem with it can never take the whole API down. Same rules as above: environment variable first, otherwise one
+// row in app.server_keys, sealed with the KEK when it is set, generated once and never regenerated.
+export async function loadOptionalKey(sql, getEnv, name, generate) {
+  const fromEnv = getEnv(name);
+  if (fromEnv) return fromEnv.replace(/\\n/g, "\n");
+  const kek = kekFrom(getEnv("SERVER_KEYS_KEK"));
+  const [have] = await sql`SELECT value FROM app.server_keys WHERE name = ${name}`;
+  if (!have) {
+    const fresh = await generate();
+    await sql`INSERT INTO app.server_keys (name, value) VALUES (${name}, ${kek ? seal(kek, fresh) : fresh}) ON CONFLICT (name) DO NOTHING`;
+  }
+  const [row] = await sql`SELECT value FROM app.server_keys WHERE name = ${name}`;
+  const value = open(kek, name, row.value);
+  if (kek && !row.value.startsWith(ENC_PREFIX)) {
+    await sql`UPDATE app.server_keys SET value = ${seal(kek, value)} WHERE name = ${name} AND value = ${row.value}`;
+  }
+  return value;
+}

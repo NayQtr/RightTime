@@ -134,6 +134,16 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.check("#woman");
   for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
   await page.click("#go");
+  // turn on notifications (once, right after the first sign-up), then what you get
+  await page.waitForSelector("[data-screen=notify]");
+  await oneH1(page);
+  await noHorizontalScroll(page);
+  const notify = await page.locator("main").innerText();
+  assert.ok(notify.includes("فعّلي الإشعارات") && notify.includes("طاولتك مؤكدة!"), notify.slice(0, 200));
+  assert.equal(await page.locator("#push-go").count(), 1, "Chromium supports Web Push: the enable button is offered");
+  assert.equal((await page.locator("#toast").innerText()).trim(), "حفظنا إجاباتك.", "the save confirmation shows on the next screen");
+  await page.screenshot({ path: `${SHOTS}/04d-notify-ar.png` });
+  await page.click("#skip-push");
   // what you get (per seat; subscription-ready)
   await page.waitForSelector("#plan[data-kind=per_seat]");
   const wyg = await page.locator("main").innerText();
@@ -142,7 +152,6 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok(!/Rightime/.test(wyg), "old name gone");
   assert.ok(wyg.includes("يشبهنكِ في القيم والشخصية والاهتمامات"), "copy describes personality matching (r2, owner-approved wording)");
   assert.ok((await page.locator("#wyg-sum").innerText()).includes("59 ر.ق"), "price summary above the button");
-  assert.equal((await page.locator("#toast").innerText()).trim(), "حفظنا إجاباتك.", "the save confirmation shows on the next screen");
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
@@ -376,6 +385,32 @@ test("subscription plans (display-only): QAR plan cards, 1-month nudge, promo co
   await page.click("#promo-go");
   await page.waitForSelector("#promo-msg .banner-danger");
   assert.ok((await page.locator(".plan[data-plan=m3]").innerText()).includes("119.99 ر.ق"), "back to the full price");
+  assert.deepEqual(errors, []);
+});
+
+test("phone notifications: an iPhone in a Safari tab is told to add HerZone to the Home Screen; Profile opens the screen", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Dana" });
+  const { page, errors } = await newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "userAgent", { get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
+    delete window.PushManager;
+  });
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+    { access_token: u.token, refresh_token: u.refresh });
+  await page.goto(env.base + "/#/profile");
+  await page.click("a[href='#/notify?next=profile']");
+  await page.waitForSelector("[data-screen=notify]");
+  const t = await page.locator("main").innerText();
+  assert.ok(t.includes("أضيفي HerZone إلى الشاشة الرئيسية") && t.includes("إضافة إلى الشاشة الرئيسية"), t.slice(0, 300));
+  assert.equal(await page.locator("#push-go").count(), 0, "no enable button where the browser cannot do it");
+  await page.screenshot({ path: `${SHOTS}/13b-notify-iphone-ar.png` });
+  await page.click("#skip-push");
+  await page.waitForFunction(() => location.hash === "#/profile");
+  const man = await (await fetch(env.base + "/manifest.webmanifest")).json();
+  assert.equal(man.display, "standalone");
+  assert.ok((await (await fetch(env.base + "/sw.js")).text()).includes("showNotification"));
   assert.deepEqual(errors, []);
 });
 

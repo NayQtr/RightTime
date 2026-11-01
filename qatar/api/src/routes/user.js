@@ -274,6 +274,7 @@ async function updateConsents(ctx) {
 async function deleteMe(ctx) {
   await ctx.sql`UPDATE app.users SET status = 'deletion_requested' WHERE id = ${ctx.user.id} AND status = 'active'`;
   await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE subject_id = ${ctx.user.id} AND revoked_at IS NULL`;
+  await ctx.sql`DELETE FROM app.push_subscriptions WHERE user_id = ${ctx.user.id}`;
   return json(202, { status: "deletion_requested" });
 }
 
@@ -938,13 +939,18 @@ async function appeal(ctx) {
   return json(202, { case_ref: r.case_ref, status: "appealed" });
 }
 
+// The text of one notification in a language: the inbox and the phone notification (routes/push.js) show the same words.
+export function notificationText(n, locale) {
+  const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
+    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, locale)
+      : k === "name" && !v ? (locale === "en" ? "A tablemate" : "زميلة طاولتك") : v]));
+  return renderTemplate(n.template_key, locale, fmt(n.payload));
+}
+
 async function notifications(ctx) {
   const rows = await ctx.sql`SELECT * FROM app.notifications_outbox WHERE user_id = ${ctx.user.id} ORDER BY created_at DESC LIMIT 50`;
-  const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
-    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, ctx.locale)
-      : k === "name" && !v ? (ctx.locale === "en" ? "A tablemate" : "زميلة طاولتك") : v]));
   return json(200, { notifications: rows.map((n) => ({ id: n.id, template_key: n.template_key, created_at: qa(n.created_at),
-    booking_id: (n.payload || {}).booking_id || null, text: renderTemplate(n.template_key, ctx.locale, fmt(n.payload)) })) });
+    booking_id: (n.payload || {}).booking_id || null, text: notificationText(n, ctx.locale) })) });
 }
 
 // Health probe: confirms the API, database and server keys load; reports where the keys come from (audit F6).
