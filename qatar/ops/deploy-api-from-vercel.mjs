@@ -8,7 +8,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PROJECT_REF = "fvodcnqmxskgzziwuwmz";
+// Staging (qatar-mvp) unless the Vercel project sets SUPABASE_PROJECT_REF (herzone-production: pwxxulqgdydrkowmtkia).
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "fvodcnqmxskgzziwuwmz";
+if (!/^[a-z]{20}$/.test(PROJECT_REF)) { console.error(`[deploy-api] SUPABASE_PROJECT_REF is not a project ref: ${PROJECT_REF}`); process.exit(1); }
 const CLI = "supabase@2.120.0";
 const api = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../api");
 
