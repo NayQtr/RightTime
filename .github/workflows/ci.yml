@@ -1,0 +1,67 @@
+# Full test suite on every push and pull request: the Vercel build gate (syntax, tests without a database, npm audit),
+# then every API, database and browser test (Postgres 16 service, Chromium). Runs on GitHub-hosted runners, which are
+# free for public repositories.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST_PSQL: localhost
+      PGHOST_TCP: localhost
+      PGPORT: "5433"
+      PGUSER: app
+    defaults:
+      run:
+        working-directory: qatar/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: qatar/api/package-lock.json
+      - name: Install
+        run: |
+          npm ci
+          sudo apt-get update -q && sudo apt-get install -y -q postgresql-client
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e 'console.log(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Build gate (same checks as every Vercel deploy)
+        run: node ../ops/predeploy-gate.mjs
+      - name: All tests (API, database, browser)
+        run: npm test
+      - name: Screenshots from the browser tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: /tmp/rightime-ui-shots
+          if-no-files-found: ignore

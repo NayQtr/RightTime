@@ -13,7 +13,8 @@ export const PG = { host: process.env.PGHOST_TCP || "localhost", port: Number(pr
 const TEMPLATE = "qatar_api_tpl";
 
 function psql(db, args) {
-  return execFileSync("psql", ["-h", "/tmp", "-p", String(PG.port), "-U", PG.user, "-d", db, "-v", "ON_ERROR_STOP=1", "-q", ...args], { stdio: ["ignore", "pipe", "pipe"] }).toString();
+  // psql connects over the local socket in /tmp by default; CI points PGHOST_PSQL at the Postgres service (localhost)
+  return execFileSync("psql", ["-h", process.env.PGHOST_PSQL || "/tmp", "-p", String(PG.port), "-U", PG.user, "-d", db, "-v", "ON_ERROR_STOP=1", "-q", ...args], { stdio: ["ignore", "pipe", "pipe"] }).toString();
 }
 
 export function buildTemplate() {
