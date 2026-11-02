@@ -7,8 +7,8 @@
   },
   "servers": [
     {
-      "url": "https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1/api",
-      "description": "Staging (herzone.app today)"
+      "url": "https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1",
+      "description": "Staging (herzone.app today); add ?forceFunctionRegion=ap-south-1 to run next to the database"
     }
   ],
   "tags": [
