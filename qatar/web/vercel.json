@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cp config.vercel.js config.js && node ../ops/deploy-api-from-vercel.mjs",
+  "buildCommand": "node ../ops/predeploy-gate.mjs && cp config.vercel.js config.js && node ../ops/deploy-api-from-vercel.mjs",
   "outputDirectory": ".",
   "rewrites": [
     {
@@ -38,6 +38,10 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=(), payment=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains"
         }
       ]
     },
