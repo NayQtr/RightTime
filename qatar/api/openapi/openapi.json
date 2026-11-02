@@ -1,0 +1,4283 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HerZone member API",
+    "version": "1.0.0",
+    "description": "Small-table dinners for women in Qatar. Errors use one problem envelope (code + localised message). Times are ISO-8601 in Asia/Qatar (+03:00); money is in dirhams (minor units) with a display string. Every POST that changes data needs an Idempotency-Key; a retry with the same key replays the first answer. Access tokens last 15 minutes and stop working at once when their session ends; refresh tokens rotate on every use."
+  },
+  "servers": [
+    {
+      "url": "https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1/api",
+      "description": "Staging (herzone.app today)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Sign in with an SMS code; sessions and tokens"
+    },
+    {
+      "name": "public",
+      "description": "No sign-in needed"
+    },
+    {
+      "name": "account",
+      "description": "Registration, consents, deletion"
+    },
+    {
+      "name": "questionnaire",
+      "description": "The personality questionnaire"
+    },
+    {
+      "name": "bookings",
+      "description": "Dinners, seats, payment, cancellation, check-in, feedback"
+    },
+    {
+      "name": "contacts",
+      "description": "Staying in touch with tablemates after the dinner"
+    },
+    {
+      "name": "safety",
+      "description": "Private reports and appeals"
+    },
+    {
+      "name": "notifications",
+      "description": "Inbox and Web Push"
+    },
+    {
+      "name": "subscriptions",
+      "description": "Promo codes (plans are display-only)"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/otp:request": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Send a sign-in code by SMS to a Qatar mobile number",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone_e164": {
+                    "type": "string",
+                    "example": "+97455501234",
+                    "description": "+974 followed by 8 digits starting 3-7"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "ar",
+                      "en"
+                    ]
+                  }
+                },
+                "required": [
+                  "phone_e164"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Code sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "challenge_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 300
+                    },
+                    "resend_after": {
+                      "type": "integer",
+                      "example": 45
+                    },
+                    "code_length": {
+                      "type": "integer",
+                      "example": 6
+                    },
+                    "dev_code": {
+                      "type": "string",
+                      "description": "Staging only (OTP_DEV_MODE). Never present in production."
+                    }
+                  },
+                  "required": [
+                    "challenge_id",
+                    "expires_in",
+                    "resend_after",
+                    "code_length"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          },
+          "503": {
+            "$ref": "#/components/responses/E503"
+          }
+        },
+        "operationId": "postAuthOtpRequest",
+        "security": []
+      }
+    },
+    "/api/v1/auth/otp:verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Exchange the code for a session (creates the account on first sign-in)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "challenge_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "ar",
+                      "en"
+                    ]
+                  }
+                },
+                "required": [
+                  "challenge_id",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Tokens"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "is_new": {
+                              "type": "boolean"
+                            },
+                            "registration_status": {
+                              "$ref": "#/components/schemas/RegistrationStatus"
+                            },
+                            "locale": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "is_new",
+                            "registration_status",
+                            "locale",
+                            "status"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "user"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "410": {
+            "$ref": "#/components/responses/E410"
+          },
+          "423": {
+            "$ref": "#/components/responses/E423"
+          }
+        },
+        "operationId": "postAuthOtpVerify",
+        "security": []
+      }
+    },
+    "/api/v1/auth/token:refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rotate the refresh token. Presenting an already-used refresh token ends the whole session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tokens"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "postAuthTokenRefresh",
+        "security": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "End this session: its refresh token and access tokens stop working at once",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refresh_token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "postAuthLogout"
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Liveness of the API, database and server keys",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "key_source": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "key_source"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getHealth",
+        "security": []
+      }
+    },
+    "/api/v1/legal/current": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Current legal documents in the request language, with the versions to consent to",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Keys: terms, conduct, privacy_notice, marketing (each LegalDoc) and cancellation",
+                  "properties": {
+                    "terms": {
+                      "$ref": "#/components/schemas/LegalDoc"
+                    },
+                    "conduct": {
+                      "$ref": "#/components/schemas/LegalDoc"
+                    },
+                    "privacy_notice": {
+                      "$ref": "#/components/schemas/LegalDoc"
+                    },
+                    "marketing": {
+                      "$ref": "#/components/schemas/LegalDoc"
+                    },
+                    "cancellation": {
+                      "type": "object",
+                      "properties": {
+                        "document_version": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "document_version",
+                        "text"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getLegalCurrent",
+        "security": []
+      }
+    },
+    "/api/v1/support/contact": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Coordinator on duty (call and WhatsApp), or null when not configured",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "coordinator": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "phone_e164": {
+                              "type": "string"
+                            },
+                            "phone_display": {
+                              "type": "string"
+                            },
+                            "tel_url": {
+                              "type": "string"
+                            },
+                            "whatsapp_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "phone_e164",
+                            "phone_display",
+                            "tel_url",
+                            "whatsapp_url"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "coordinator"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getSupportContact",
+        "security": []
+      }
+    },
+    "/api/v1/questionnaires/preview": {
+      "get": {
+        "tags": [
+          "questionnaire"
+        ],
+        "summary": "Published questionnaire before sign-up (questions only, no user data)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "questionnaire_version_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Question"
+                      }
+                    }
+                  },
+                  "required": [
+                    "questionnaire_version_id",
+                    "code",
+                    "questions"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          }
+        },
+        "operationId": "getQuestionnairesPreview",
+        "security": []
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "Signed-in member",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "outdated_consents": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "terms",
+                                  "conduct",
+                                  "privacy_notice"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "outdated_consents"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "getUsersMe"
+      },
+      "delete": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "Request account deletion; every session ends at once",
+        "responses": {
+          "202": {
+            "description": "Deletion requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "deletion_requested"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "deleteUsersMe"
+      }
+    },
+    "/api/v1/users/me/registration": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Complete registration: name, language, age and women-only confirmation, consents",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 30,
+                        "description": "Letters, spaces and hyphens"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "ar",
+                      "en"
+                    ]
+                  },
+                  "age_eligibility_confirmed": {
+                    "const": true
+                  },
+                  "woman_confirmed": {
+                    "const": true
+                  },
+                  "consents": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Consent"
+                    }
+                  }
+                },
+                "required": [
+                  "locale",
+                  "age_eligibility_confirmed",
+                  "woman_confirmed",
+                  "consents"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    "next": {
+                      "type": "string",
+                      "enum": [
+                        "questionnaire"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "next"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postUsersMeRegistration"
+      }
+    },
+    "/api/v1/users/me/consents": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Accept an updated document, or confirm women-only for an older account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "consents": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Consent"
+                    }
+                  },
+                  "woman_confirmed": {
+                    "const": true
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outdated_consents": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "woman_confirmed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "outdated_consents",
+                    "woman_confirmed"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postUsersMeConsents"
+      }
+    },
+    "/api/v1/questionnaires/current": {
+      "get": {
+        "tags": [
+          "questionnaire"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Published questionnaire with the member's draft, submitted answers and answers carried from an older version",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "questionnaire_version_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "questions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Question"
+                      }
+                    },
+                    "draft": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AnswerSet"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "submitted": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AnswerSet"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "has_submitted_any": {
+                      "type": "boolean"
+                    },
+                    "carried": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "from_version_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "answers": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Answer"
+                              }
+                            }
+                          },
+                          "required": [
+                            "from_version_id",
+                            "answers"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "questionnaire_version_id",
+                    "code",
+                    "questions",
+                    "draft",
+                    "submitted",
+                    "has_submitted_any",
+                    "carried"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          }
+        },
+        "operationId": "getQuestionnairesCurrent"
+      }
+    },
+    "/api/v1/questionnaire-responses": {
+      "post": {
+        "tags": [
+          "questionnaire"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Save a draft or submit the answers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "questionnaire_version_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted"
+                    ]
+                  },
+                  "answers": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Answer"
+                    }
+                  }
+                },
+                "required": [
+                  "questionnaire_version_id",
+                  "status",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseSaved"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created or submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postQuestionnaireResponses"
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dinners on sale, with the member's language match and any booking she holds",
+        "parameters": [
+          {
+            "name": "experience",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profile_languages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Session"
+                      }
+                    }
+                  },
+                  "required": [
+                    "profile_languages",
+                    "sessions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          }
+        },
+        "operationId": "getSessions"
+      }
+    },
+    "/api/v1/sessions/{id}/waitlist": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Session id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Join the waitlist of a full dinner",
+        "responses": {
+          "201": {
+            "description": "On the waitlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "position": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "waiting"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "session_id",
+                    "position",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postSessionsIdWaitlist"
+      }
+    },
+    "/api/v1/bookings": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Hold a seat (minutes) and get the checkout link",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "session_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "alternate_session_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "session_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Seat held",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "booking_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "ref": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/BookingStatus"
+                    },
+                    "hold_expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                    },
+                    "checkout_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "null when the late no-refund acknowledgement is required first (POST .../checkout)"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "amount": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "cancellation": {
+                      "$ref": "#/components/schemas/RefundTerms"
+                    }
+                  },
+                  "required": [
+                    "booking_id",
+                    "ref",
+                    "status",
+                    "hold_expires_at",
+                    "checkout_url",
+                    "amount",
+                    "cancellation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postBookings"
+      },
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The member's bookings, newest dinner first",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bookings": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BookingSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "bookings"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          }
+        },
+        "operationId": "getBookings"
+      }
+    },
+    "/api/v1/bookings/{id}": {
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One booking with its payment and refund terms",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "ref": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/BookingStatus"
+                    },
+                    "hold_expires_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "amount": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "payment": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string"
+                            },
+                            "failure_code": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "failure_code"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "checkout_url": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cancellation": {
+                      "$ref": "#/components/schemas/RefundTerms"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ref",
+                    "status",
+                    "hold_expires_at",
+                    "amount",
+                    "payment",
+                    "checkout_url",
+                    "cancellation"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          }
+        },
+        "operationId": "getBookingsId"
+      }
+    },
+    "/api/v1/bookings/{id}/checkout": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "A new checkout link while the seat is held",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "acknowledge_late_no_refund": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkout_url": {
+                      "type": "string"
+                    },
+                    "hold_expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                    }
+                  },
+                  "required": [
+                    "checkout_url",
+                    "hold_expires_at"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postBookingsIdCheckout"
+      }
+    },
+    "/api/v1/bookings/{id}/event-details": {
+      "get": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Everything about the dinner, revealed by phase: table code and themes after reveal, venue and tablemates on the day. Supports If-None-Match.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDetails"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          }
+        },
+        "operationId": "getBookingsIdEventDetails"
+      }
+    },
+    "/api/v1/bookings/{id}/cancel": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Cancel before the dinner starts; refund per the cancellation terms",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason_code": {
+                    "type": "string",
+                    "enum": [
+                      "schedule_changed",
+                      "illness",
+                      "other"
+                    ]
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "cancelled_by_user"
+                      ]
+                    },
+                    "refund": {
+                      "type": "object",
+                      "properties": {
+                        "eligible": {
+                          "type": "boolean"
+                        },
+                        "amount": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "eligible",
+                        "amount",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "refund"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postBookingsIdCancel"
+      }
+    },
+    "/api/v1/bookings/{id}/resolution": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "After the organiser cancels: rebook into another dinner or take a refund",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "choice": {
+                        "const": "rebook"
+                      },
+                      "session_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "choice",
+                      "session_id"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "choice": {
+                        "const": "refund"
+                      }
+                    },
+                    "required": [
+                      "choice"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "choice": {
+                          "const": "rebook"
+                        },
+                        "booking": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "ref": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "$ref": "#/components/schemas/BookingStatus"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "ref",
+                            "status"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "choice",
+                        "booking"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "choice": {
+                          "const": "refund"
+                        },
+                        "refund": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "$ref": "#/components/schemas/Money"
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "amount"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "choice",
+                        "refund"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postBookingsIdResolution"
+      }
+    },
+    "/api/v1/bookings/{id}/check-in": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Check in at the venue on the day",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "checked_in"
+                      ]
+                    },
+                    "checked_in_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "checked_in_at"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postBookingsIdCheckIn"
+      }
+    },
+    "/api/v1/bookings/{id}/feedback": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Private feedback after the dinner (once)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "overall_rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comfort_rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "venue_rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "would_book_again": {
+                    "type": "boolean"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "overall_rating",
+                  "comfort_rating"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "saved": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "saved"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postBookingsIdFeedback"
+      }
+    },
+    "/api/v1/bookings/{id}/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tablemates and the stay-in-touch state with each, for 7 days after the dinner",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "boolean"
+                    },
+                    "closes_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seat": {
+                            "type": "string",
+                            "description": "Opaque per-viewer seat token"
+                          },
+                          "display_name": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "sent",
+                              "incoming",
+                              "connected"
+                            ]
+                          },
+                          "request_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "whatsapp_url": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "can_send": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "seat",
+                          "display_name",
+                          "state",
+                          "request_id",
+                          "whatsapp_url",
+                          "can_send"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "open",
+                    "closes_at",
+                    "members"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          }
+        },
+        "operationId": "getBookingsIdContacts"
+      }
+    },
+    "/api/v1/contact-requests": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Ask a tablemate to stay in touch (a refusal is never revealed)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "booking_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "seat": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "booking_id",
+                  "seat"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sent or connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "sent",
+                        "connected"
+                      ]
+                    },
+                    "whatsapp_url": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "whatsapp_url"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postContactRequests"
+      }
+    },
+    "/api/v1/contact-requests/{id}:accept": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Contact request id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Accept a request: both get each other's WhatsApp link",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postContactRequestsIdAccept"
+      }
+    },
+    "/api/v1/contact-requests/{id}:decline": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Contact request id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Decline a request (the sender is not told)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postContactRequestsIdDecline"
+      }
+    },
+    "/api/v1/reports": {
+      "post": {
+        "tags": [
+          "safety"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Private safety report about a dinner or a tablemate. immediate_danger shows the 999 screen.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "booking_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "harassment",
+                      "threat_violence",
+                      "photo_without_consent",
+                      "stalking_unwanted_contact",
+                      "fraud",
+                      "disruptive"
+                    ]
+                  },
+                  "timing": {
+                    "type": "string",
+                    "enum": [
+                      "during",
+                      "after"
+                    ]
+                  },
+                  "immediate_danger": {
+                    "type": "boolean"
+                  },
+                  "reported_seat": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "booking_id",
+                  "category",
+                  "timing"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "case_ref": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "emergency": {
+                      "type": "object",
+                      "properties": {
+                        "show": {
+                          "type": "boolean"
+                        },
+                        "number": {
+                          "type": "string",
+                          "enum": [
+                            "999"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "show",
+                        "number"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "case_ref",
+                    "severity",
+                    "status",
+                    "emergency"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postReports"
+      }
+    },
+    "/api/v1/cases/mine": {
+      "get": {
+        "tags": [
+          "safety"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Decisions taken about the member, with the appeal window",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cases": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "case_ref": {
+                            "type": "string"
+                          },
+                          "event_date": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "decision": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "appeal_until": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                          },
+                          "can_appeal": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "case_ref",
+                          "event_date",
+                          "category",
+                          "decision",
+                          "status",
+                          "appeal_until",
+                          "can_appeal"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "cases"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "getCasesMine"
+      }
+    },
+    "/api/v1/cases/{ref}/appeal": {
+      "post": {
+        "tags": [
+          "safety"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Case reference"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "Appeal a decision within 14 days",
+        "responses": {
+          "202": {
+            "description": "Appeal filed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "case_ref": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "appealed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "case_ref",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          }
+        },
+        "operationId": "postCasesRefAppeal"
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "Inbox: the latest 50 notifications, in the request language",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "notifications": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "template_key": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                          },
+                          "booking_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "template_key",
+                          "created_at",
+                          "booking_id",
+                          "text"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "notifications"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "getNotifications"
+      }
+    },
+    "/api/v1/push/key": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Web Push (VAPID) public key. The mobile app will use APNs and FCM instead (NMX-52).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "public_key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "public_key"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getPushKey",
+        "security": []
+      }
+    },
+    "/api/v1/push/subscriptions": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "Register this browser for Web Push",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "endpoint": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "keys": {
+                    "type": "object",
+                    "properties": {
+                      "p256dh": {
+                        "type": "string"
+                      },
+                      "auth": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "p256dh",
+                      "auth"
+                    ]
+                  }
+                },
+                "required": [
+                  "endpoint",
+                  "keys"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscribed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscribed": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "subscribed"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postPushSubscriptions"
+      }
+    },
+    "/api/v1/push/subscriptions:delete": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "Stop Web Push on this browser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "endpoint": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "endpoint"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscribed": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "subscribed"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "postPushSubscriptionsDelete"
+      }
+    },
+    "/api/v1/promo-codes:check": {
+      "post": {
+        "tags": [
+          "subscriptions"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Check a promo code (plans are display-only; nothing is redeemed). At most 10 checks per hour.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 24
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "valid": {
+                          "const": true
+                        },
+                        "percent_off": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "valid",
+                        "percent_off"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "valid": {
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "valid"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
+          }
+        },
+        "operationId": "postPromoCodesCheck"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "description": "A new UUID per action; reuse it only to retry the same request"
+      }
+    },
+    "responses": {
+      "E400": {
+        "description": "Malformed request",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E401": {
+        "description": "Not signed in, or the session has ended",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E403": {
+        "description": "Registration incomplete, account suspended, or not allowed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E404": {
+        "description": "Not found",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E409": {
+        "description": "Conflict with the current state",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E410": {
+        "description": "Code expired",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E422": {
+        "description": "Validation failed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E423": {
+        "description": "Too many wrong codes",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E429": {
+        "description": "Too many requests",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "E503": {
+        "description": "Service unavailable",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine code, e.g. OTP_INVALID, SESSION_FULL, BOOKING_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "Localised for Accept-Language (ar default, en)"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "retry_after": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "status",
+          "code",
+          "message",
+          "request_id",
+          "retryable"
+        ]
+      },
+      "Tokens": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 900
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "expires_in"
+        ]
+      },
+      "RegistrationStatus": {
+        "type": "string",
+        "enum": [
+          "consents_required",
+          "complete"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "ar",
+              "en"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "registration_status": {
+            "$ref": "#/components/schemas/RegistrationStatus"
+          },
+          "woman_confirmed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "locale",
+          "status",
+          "registration_status",
+          "woman_confirmed"
+        ]
+      },
+      "LegalDoc": {
+        "type": "object",
+        "properties": {
+          "document_version": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_version",
+          "required",
+          "text"
+        ]
+      },
+      "Consent": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "terms",
+              "conduct",
+              "privacy_notice",
+              "marketing"
+            ]
+          },
+          "document_version": {
+            "type": "string"
+          },
+          "granted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "document_version",
+          "granted"
+        ]
+      },
+      "Question": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string",
+            "example": "Q01"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "answer_type": {
+            "type": "string"
+          },
+          "is_required": {
+            "type": "boolean"
+          },
+          "max_selections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "type": "string"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scale_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scale_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "emoji": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "is_exclusive": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "key",
+                "label",
+                "emoji",
+                "is_exclusive"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "scope",
+          "answer_type",
+          "is_required",
+          "max_selections",
+          "layout",
+          "section",
+          "scale_low",
+          "scale_high",
+          "text",
+          "purpose",
+          "options"
+        ]
+      },
+      "Answer": {
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "option_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "question_id",
+          "option_ids"
+        ]
+      },
+      "AnswerSet": {
+        "type": "object",
+        "properties": {
+          "response_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Answer"
+            }
+          }
+        },
+        "required": [
+          "response_id",
+          "answers"
+        ]
+      },
+      "ResponseSaved": {
+        "type": "object",
+        "properties": {
+          "response_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted"
+            ]
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completeness": {
+            "type": "object",
+            "properties": {
+              "required_answered": {
+                "type": "integer"
+              },
+              "required_total": {
+                "type": "integer"
+              },
+              "optional_answered": {
+                "type": "integer"
+              },
+              "optional_total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "required_answered",
+              "required_total",
+              "optional_answered",
+              "optional_total"
+            ]
+          },
+          "derived": {
+            "type": "object",
+            "properties": {
+              "conversation_languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "budget_tier": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supported_languages_note": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "private_contact_case_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "conversation_languages",
+              "budget_tier",
+              "supported_languages_note",
+              "private_contact_case_id"
+            ]
+          },
+          "next": {
+            "type": "string",
+            "enum": [
+              "choose_session"
+            ]
+          }
+        },
+        "required": [
+          "response_id",
+          "status",
+          "completeness"
+        ]
+      },
+      "Money": {
+        "type": "object",
+        "properties": {
+          "amount_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "QAR"
+            ]
+          },
+          "display": {
+            "type": "string",
+            "example": "59 ر.ق"
+          }
+        },
+        "required": [
+          "amount_minor",
+          "currency",
+          "display"
+        ]
+      },
+      "BookingStatus": {
+        "type": "string",
+        "enum": [
+          "payment_pending",
+          "paid_awaiting_group",
+          "group_locked",
+          "revealed",
+          "checked_in",
+          "completed",
+          "cancelled_by_user",
+          "cancelled_by_organizer",
+          "expired",
+          "payment_failed",
+          "waitlisted"
+        ]
+      },
+      "Phase": {
+        "type": "string",
+        "enum": [
+          "pending_payment",
+          "forming",
+          "locked",
+          "revealed",
+          "day_of",
+          "completed",
+          "cancelled"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "experience": {
+            "type": "string"
+          },
+          "conversation_language": {
+            "type": "string"
+          },
+          "language_match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "district": {
+            "type": "string"
+          },
+          "seats_left": {
+            "type": "integer"
+          },
+          "is_full": {
+            "type": "boolean"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "group_size": {
+            "type": "string",
+            "example": "4–6"
+          },
+          "full_refund_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "full_refund_until_hours": {
+            "type": "integer"
+          },
+          "booking_closes_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "my_booking_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "experience",
+          "conversation_language",
+          "language_match",
+          "starts_at",
+          "ends_at",
+          "district",
+          "seats_left",
+          "is_full",
+          "price",
+          "group_size",
+          "full_refund_until",
+          "full_refund_until_hours",
+          "booking_closes_at",
+          "my_booking_id"
+        ]
+      },
+      "RefundTerms": {
+        "type": "object",
+        "properties": {
+          "full_refund_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "full_refund_until_hours": {
+            "type": "integer"
+          },
+          "full_refund_window_open": {
+            "type": "boolean"
+          },
+          "refund_if_cancelled_after_payment": {
+            "type": "string",
+            "enum": [
+              "full",
+              "partial",
+              "none"
+            ]
+          },
+          "late_cancel_refund_pct": {
+            "type": "integer"
+          },
+          "acknowledgement_required": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "late_no_refund"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "full_refund_until",
+          "full_refund_until_hours",
+          "full_refund_window_open",
+          "refund_if_cancelled_after_payment",
+          "late_cancel_refund_pct",
+          "acknowledgement_required"
+        ]
+      },
+      "BookingSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/Phase"
+          },
+          "experience": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "lock_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reveal_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "district": {
+            "type": "string"
+          },
+          "confirmed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hold_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ref",
+          "status",
+          "phase",
+          "experience",
+          "starts_at",
+          "ends_at",
+          "lock_at",
+          "reveal_at",
+          "district",
+          "confirmed_count",
+          "hold_expires_at"
+        ]
+      },
+      "Action": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "pay",
+              "check_in",
+              "report",
+              "feedback",
+              "resolution"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "POST"
+            ]
+          },
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "method",
+          "href"
+        ]
+      },
+      "EventDetails": {
+        "type": "object",
+        "properties": {
+          "booking": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/BookingStatus"
+              },
+              "cancel_reason": {
+                "type": "string"
+              },
+              "cancellation": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "ref",
+              "status",
+              "cancellation"
+            ]
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "experience": {
+                "type": "string"
+              },
+              "conversation_language": {
+                "type": "string"
+              },
+              "starts_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              "ends_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              "timezone": {
+                "type": "string",
+                "enum": [
+                  "Asia/Qatar"
+                ]
+              },
+              "district": {
+                "type": "string"
+              },
+              "food_price_band": {
+                "type": "object",
+                "properties": {
+                  "max_minor": {
+                    "type": "integer"
+                  },
+                  "display": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "max_minor",
+                  "display"
+                ]
+              },
+              "accessibility": {
+                "anyOf": [
+                  {},
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "group_size": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "experience",
+              "conversation_language",
+              "starts_at",
+              "ends_at",
+              "timezone",
+              "district",
+              "food_price_band",
+              "accessibility",
+              "group_size"
+            ]
+          },
+          "reveal": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "$ref": "#/components/schemas/Phase"
+              },
+              "lock_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reveal_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "check_in_opens_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "phase",
+              "lock_at",
+              "reveal_at",
+              "check_in_opens_at"
+            ]
+          },
+          "table": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "confirmed_count": {
+                    "type": "integer"
+                  },
+                  "capacity": {
+                    "type": "integer"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "shared_themes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "members": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "seat": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "seat",
+                        "display_name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "confirmed_count",
+                  "capacity"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "district": {
+                    "type": "string"
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "lat",
+                      "lng"
+                    ]
+                  },
+                  "map_url": {
+                    "type": "string"
+                  },
+                  "arrival_instructions": {
+                    "type": "string"
+                  },
+                  "bill_policy": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "address",
+                  "district",
+                  "location",
+                  "map_url",
+                  "arrival_instructions",
+                  "bill_policy"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "status"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            }
+          },
+          "feedback": {
+            "type": "object",
+            "properties": {
+              "submitted": {
+                "type": "boolean"
+              },
+              "open": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "submitted",
+              "open"
+            ]
+          },
+          "refund": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "amount": {
+                "$ref": "#/components/schemas/Money"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "rebooked_into": {
+            "type": "object",
+            "properties": {
+              "booking_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/components/schemas/BookingStatus"
+              }
+            },
+            "required": [
+              "booking_id",
+              "ref",
+              "status"
+            ]
+          },
+          "resolution": {
+            "type": "object",
+            "description": "Rebook or refund options after the organiser cancels"
+          }
+        },
+        "required": [
+          "booking",
+          "session",
+          "reveal",
+          "table",
+          "venue",
+          "payment",
+          "actions"
+        ]
+      },
+      "ContactDecision": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "declined"
+            ]
+          },
+          "whatsapp_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "whatsapp_url"
+        ]
+      }
+    }
+  }
+}
