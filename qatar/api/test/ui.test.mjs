@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signInAgain, signUp, startTestEnv } from "./helpers.mjs";
 import { sha256hex, totpAt } from "../src/lib/crypto.js";
 
 // Screenshots go to a temp dir so a test run never dirties the repo; UI_SHOTS=docs refreshes docs/qatar-phase4/screens.
@@ -311,12 +311,14 @@ test("auto-save when signed in: an edited answer is saved as a server draft and 
   const signIn = async () => {
     const { page, errors } = await newPage();
     await page.goto(env.base + "/");
-    await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, { access_token: u.token, refresh_token: u.refresh });
+    await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, await signInAgain(call, env.sql, u.phone));
     return { page, errors };
   };
   const a = await signIn();
   await a.page.goto(env.base + "/#/quiz/5");
   await a.page.waitForSelector("input[data-key=extrovert]");
+  const stored = await a.page.evaluate(() => JSON.parse(localStorage.getItem("q_tokens")));
+  assert.ok(stored.refresh_token && !("access_token" in stored), "the access token is kept in memory only, never in storage (NMX-17)");
   await a.page.locator("label.option", { has: a.page.locator("input[data-key=extrovert]") }).click();
   await a.page.waitForFunction(() => location.hash === "#/quiz/6");
   let draft = [];
@@ -558,4 +560,29 @@ test("contact request after the meetup: Fatima asks, Sara accepts, both get a Wh
   assert.equal(await f.page.locator(".contact-row [data-wa]").getAttribute("href"), `https://wa.me/${U["سارة"].phone.slice(1)}`);
   await f.page.screenshot({ path: `${SHOTS}/17-contact-connected-ar.png`, fullPage: true });
   assert.deepEqual([...f.errors, ...s.errors], []);
+});
+
+test("sessions (NMX-17): no network keeps the member signed in; signing out ends the session on the server too", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Lulwa" });
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); }, await signInAgain(call, env.sql, u.phone));
+  // the refresh cannot reach the server: she stays signed in and sees the offline message, not the welcome screen
+  await page.route(/token:refresh/, (r) => r.abort());
+  await page.goto(env.base + "/#/home");
+  await page.waitForTimeout(800);
+  assert.ok(await page.evaluate(() => Boolean(JSON.parse(localStorage.getItem("q_tokens") || "null"))), "still signed in on this device");
+  assert.equal(await page.evaluate(() => location.hash), "#/home", "no bounce to the welcome screen");
+  await page.waitForSelector("#retry-me");
+  // back online: home loads; then sign out from Profile
+  await page.unroute(/token:refresh/);
+  await page.goto(env.base + "/?online=1#/profile"); // a fresh page load, as when she opens the app again
+  await page.waitForSelector("#out");
+  const refresh = await page.evaluate(() => JSON.parse(localStorage.getItem("q_tokens")).refresh_token);
+  await page.click("#out");
+  await page.waitForFunction(() => location.hash === "#/welcome");
+  assert.equal(await page.evaluate(() => localStorage.getItem("q_tokens")), null);
+  assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: refresh }, idem: false })).status, 401, "the server ended the session");
+  assert.deepEqual(errors.filter((e) => !/token:refresh/.test(e)), []);
 });

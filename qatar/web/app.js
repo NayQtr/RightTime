@@ -85,11 +85,40 @@ function errorBanner(err) {
 
 function loadingView() { main.innerHTML = `<div class="center" aria-busy="true"><div class="spinner" role="img" aria-label="${esc(T("loading"))}"></div></div>`; }
 
+// ------------------------------------------------------------------ session (NMX-17, MASVS-STORAGE/AUTH)
+// The access token lives in memory only; storage keeps just the refresh token, which the server rotates on every use and
+// revokes on sign-out (the access token then stops working at once). Refreshes run one at a time across tabs (Web Locks),
+// so two tabs never present the same refresh token, which the server would treat as theft and end the session.
+let accessToken = null;
+let refreshing = null;
+const session = {
+  save(t) { accessToken = t.access_token; store.set("tokens", { refresh_token: t.refresh_token }); },
+  clear() { accessToken = null; store.del("tokens"); },
+};
+function refreshAccess() {
+  if (refreshing) return refreshing;
+  const run = async () => {
+    const tok = store.get("tokens");
+    if (!tok || !tok.refresh_token) return "signed_out";
+    const r = await fetch(apiUrl("/api/v1/auth/token:refresh"), { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: tok.refresh_token }) }).catch(() => null);
+    if (r && r.ok) { session.save(await r.json()); return "ok"; }
+    // only the server saying the session is over signs the member out; no network or a server error keeps her signed in
+    if (r && r.status === 401) { session.clear(); return "signed_out"; }
+    return "offline";
+  };
+  const locked = navigator.locks && navigator.locks.request ? () => navigator.locks.request("hz-refresh", run) : run;
+  refreshing = locked().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
 // ------------------------------------------------------------------ API client (bearer token, Idempotency-Key, refresh rotation)
 async function api(method, path, body, opts = {}) {
   const headers = { "Accept-Language": locale };
   const tok = store.get("tokens");
-  if (tok && !opts.noAuth) headers.Authorization = `Bearer ${tok.access_token}`;
+  if (tok && !opts.noAuth && !accessToken && (await refreshAccess()) === "offline")
+    return { ok: false, status: 0, data: { code: "OFFLINE", message: T("offline") } };
+  if (accessToken && !opts.noAuth) headers.Authorization = `Bearer ${accessToken}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") headers["Idempotency-Key"] = opts.idem || uuid();
   // One automatic retry on a dropped connection (and on a gateway error for reads). The retry reuses the same
@@ -105,13 +134,11 @@ async function api(method, path, body, opts = {}) {
   }
   if (method === "GET" && [502, 503, 504].includes(res.status)) { await pause(); res = await send().catch(() => res); }
   if (res.status === 401 && tok && tok.refresh_token && !opts.retried && !opts.noAuth) {
-    const r = await fetch(apiUrl("/api/v1/auth/token:refresh"), { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: tok.refresh_token }) }).catch(() => null);
-    if (r && r.ok) {
-      store.set("tokens", await r.json());
-      return api(method, path, body, { ...opts, retried: true });
-    }
-    store.del("tokens");
+    accessToken = null;
+    const again = await refreshAccess();
+    if (again === "ok") return api(method, path, body, { ...opts, retried: true });
+    if (again === "offline") return { ok: false, status: 0, data: { code: "OFFLINE", message: T("offline") } };
+    session.clear();
     go("#/welcome");
   }
   if (res.status >= 500 && window.hzMonitor) window.hzMonitor.report(new Error(`API ${res.status} ${method} ${path.split("?")[0]}`), { request_id: res.headers.get("x-request-id") || "" });
@@ -153,12 +180,13 @@ function setLocale(l) {
 // The signed-in user is cached per access token for 60 s (audit F7): every screen's guard used to refetch it.
 // The server still enforces status and registration on every call, so a short cache cannot widen access.
 async function loadMe(force = false) {
-  const tok = (store.get("tokens") || {}).access_token;
-  if (!force && state.me && state.meToken === tok && Date.now() - state.meAt < 60000) return state.me;
+  const tok = accessToken;
+  if (!force && tok && state.me && state.meToken === tok && Date.now() - state.meAt < 60000) return state.me;
   const r = await api("GET", "/api/v1/users/me");
+  state.meOffline = r.status === 0;
   if (!r.ok) return null;
   state.me = r.data.user;
-  state.meToken = (store.get("tokens") || {}).access_token;
+  state.meToken = accessToken;
   state.meAt = Date.now();
   syncPush().catch(() => {});
   return state.me;
@@ -188,6 +216,12 @@ function resumeStepFor(q) {
 async function guard({ needQuestionnaire = true } = {}) {
   if (!store.get("tokens")) { go("#/welcome"); return false; }
   const me = await loadMe();
+  // no connection: say so and offer a retry, never send a signed-in member to the welcome screen (which would bounce back)
+  if (!me && state.meOffline) {
+    main.innerHTML = `<div class="stack">${errorBanner({ message: T("offline") })}<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button></div>`;
+    $("#retry-me").onclick = () => route();
+    return false;
+  }
   if (!me) { go("#/welcome"); return false; }
   if (me.status === "suspended" || me.status === "banned") { state.suspended = true; }
   if (me.registration_status !== "complete") { go("#/register"); return false; }
@@ -289,7 +323,7 @@ function scrOtp() {
       $("#oerr").textContent = (r.data.message || T("errGeneric")) + (d && d.attempts_remaining != null ? ` · ${T("attemptsLeft", { n: d.attempts_remaining })}` : "");
       return;
     }
-    store.set("tokens", { access_token: r.data.access_token, refresh_token: r.data.refresh_token });
+    session.save(r.data);
     state.challenge = null;
     tabStore.del("challenge");
     renderTopbar();
@@ -1368,7 +1402,7 @@ async function scrProfile() {
     <div class="stack" style="margin-block-start: var(--s-6)">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
-  const forget = () => { store.del("tokens"); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
+  const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
   $("#out").onclick = async () => { const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };

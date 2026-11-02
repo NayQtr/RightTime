@@ -73,6 +73,15 @@ export async function signUp(call, { name = "Sara", locale = "ar", languages = [
   return { phone, token, userId: r2.body.user.id, refresh: r2.body.refresh_token, questionnaire: q, submit: sub };
 }
 
+// A second sign-in for the same member (its own session, as a second device gets): one refresh token is never copied
+// between devices, because presenting an already-rotated refresh token ends the session (theft signal).
+export async function signInAgain(call, sql, phone) {
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '1 hour'`; // past the resend wait
+  const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: phone, locale: "ar" } });
+  const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });
+  return { access_token: r2.body.access_token, refresh_token: r2.body.refresh_token };
+}
+
 export async function adminLogin(call, sql, email) {
   const token = "enr_test_" + randomUUID();
   await sql`UPDATE app.admin_users SET enroll_token_hash = ${sha256hex(token)}, enroll_expires_at = now() + interval '1 hour' WHERE email = ${email}`;

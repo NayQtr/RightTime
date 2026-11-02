@@ -56,7 +56,7 @@ step("syntax of web and API files", () => {
 });
 
 step("tests without database", () => {
-  const out = run(process.execPath, ["--test", "--test-concurrency=1", ...PURE_TESTS], { cwd: API });
+  const out = run(process.execPath, ["--test", "--test-reporter=tap", "--test-concurrency=1", ...PURE_TESTS], { cwd: API });
   const pass = /# pass (\d+)/.exec(out)?.[1];
   console.log(`[gate]      ${pass} tests passed`);
 });

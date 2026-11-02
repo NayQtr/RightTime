@@ -17,7 +17,8 @@ const SLA_HOURS = { 1: 24, 2: 72, 3: 168, 4: 336 };
 async function issueTokens(ctx, subjectType, subjectId, familyId = randomUUID()) {
   const now = Math.floor(Date.now() / 1000);
   const ttl = subjectType === "admin" ? ctx.cfg.adminTtl : ctx.cfg.accessTtl;
-  const access = jwtSign(ctx.keys.jwt.privateKey, ctx.keys.jwt.kid, { sub: subjectId, typ: subjectType, iat: now, exp: now + ttl, jti: randomToken(8) });
+  // sid = the session (refresh-token family): the access token is refused as soon as that session is revoked (app.js).
+  const access = jwtSign(ctx.keys.jwt.privateKey, ctx.keys.jwt.kid, { sub: subjectId, typ: subjectType, sid: familyId, iat: now, exp: now + ttl, jti: randomToken(8) });
   const refresh = "rt_" + randomToken(32);
   await ctx.sql`
     INSERT INTO app.refresh_tokens (subject_type, subject_id, family_id, token_hash, expires_at)

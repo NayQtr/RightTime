@@ -2,7 +2,7 @@
 // Steps share state and run in order; time is moved forward by rewriting session timestamps.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signInAgain, signUp, startTestEnv } from "./helpers.mjs";
 import { signWebhook } from "../src/services/psp.js";
 import { totpAt } from "../src/lib/crypto.js";
 
@@ -99,6 +99,9 @@ test("registration gate, consents, idempotent replay, refresh rotation", async (
   assert.equal(rt.status, 200);
   assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: S.first.refresh }, idem: false })).status, 401, "reuse rejected");
   assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: rt.body.refresh_token }, idem: false })).status, 401, "family revoked after reuse");
+  assert.equal((await call("GET", "/api/v1/users/me", { token: S.first.token })).status, 401, "and its access token stops working at once");
+  const fresh = await signInAgain(call, sql, "+97455501234");
+  S.first = { token: fresh.access_token, refresh: fresh.refresh_token };
 });
 
 // ===================================================================== questionnaire

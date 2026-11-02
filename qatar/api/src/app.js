@@ -66,6 +66,14 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const token = h.startsWith("Bearer ") ? h.slice(7) : null;
     if (route.auth === "none") return;
     const claims = token ? jwtVerify(ctx.keys.jwt.publicKey, token) : null;
+    // A session ends at once (NMX-17): sign-out, refresh-token reuse and account deletion revoke the session's refresh
+    // tokens, and its access tokens are refused from then on. Tokens issued before sessions were tracked carry no sid
+    // and expire on their own within the access TTL.
+    if (claims && claims.sid) {
+      const [live] = await sql`SELECT 1 FROM app.refresh_tokens WHERE family_id = ${claims.sid} AND subject_id = ${claims.sub}
+                                  AND revoked_at IS NULL AND expires_at > now() LIMIT 1`;
+      if (!live) fail(401, "UNAUTHENTICATED");
+    }
     if (route.auth === "user" || route.auth === "user_any") {
       if (!claims || claims.typ !== "user") fail(401, "UNAUTHENTICATED");
       const [u] = await sql`SELECT * FROM app.users WHERE id = ${claims.sub}`;
