@@ -5,7 +5,6 @@ import { safeEqual } from "../lib/crypto.js";
 import { fail, json } from "../lib/http.js";
 import { loadOptionalKey } from "../lib/keys.js";
 import { generateVapidKey, sendPush, vapidFromJwk } from "../services/webpush.js";
-import { notificationText } from "./user.js";
 
 // Only the browsers' own push services: the API never posts to an address a client made up.
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
@@ -59,6 +58,11 @@ async function unsubscribe(ctx) {
 // Sends due push-channel notifications to every device of their member. Rows are claimed first (so two runs never send
 // the same one), then marked sent (at least one device got it), failed (every device refused) or cancelled (no device,
 // or too old to push). A device is only sent what was queued after it subscribed. Dead subscriptions are removed.
+export const LOCK_SCREEN_TEXT = {
+  ar: "لديكِ تحديث جديد في HerZone. افتحي التطبيق لقراءته.",
+  en: "You have a new update in HerZone. Open the app to read it.",
+};
+
 export async function dispatchPush(sql, getEnv, { fetchImpl = fetch, limit = BATCH } = {}) {
   await sql`UPDATE app.notifications_outbox SET status = 'cancelled', provider_ref = 'push:stale'
              WHERE channel = 'push' AND status = 'queued' AND created_at < now() - make_interval(hours => ${FRESH_HOURS})`;
@@ -81,7 +85,9 @@ export async function dispatchPush(sql, getEnv, { fetchImpl = fetch, limit = BAT
       continue;
     }
     const ar = n.locale !== "en";
-    const message = { title: "HerZone", body: notificationText(n, n.locale), tag: n.id, lang: ar ? "ar" : "en", dir: ar ? "rtl" : "ltr",
+    // NMX-21: the lock screen shows one generic line, never a name, place, time or booking reference; the text itself
+    // is read in the app (inbox), behind sign-in, and in the mobile app behind Face ID / fingerprint (NMX-52).
+    const message = { title: "HerZone", body: ar ? LOCK_SCREEN_TEXT.ar : LOCK_SCREEN_TEXT.en, tag: n.id, lang: ar ? "ar" : "en", dir: ar ? "rtl" : "ltr",
       url: (n.payload || {}).booking_id ? `/#/booking/${n.payload.booking_id}` : "/#/inbox" };
     let delivered = 0;
     for (const d of devices) {

@@ -29,7 +29,7 @@ Status: **Done** (verified), **Server done** (the API side is in place; the app 
 | Control | HerZone | How we check | Status |
 |---|---|---|---|
 | MASVS-AUTH-1: secure authentication and authorization | SMS code sign-in; 15-minute access tokens tied to a session; refresh tokens rotate, and reusing one ends the session; sign-out and account deletion end sessions at once. The server decides every permission (member, admin role, suspended). | API tests: `session.test.mjs`, e2e; try a revoked token | Server done (NMX-17). Production SMS: NMX-23 |
-| MASVS-AUTH-2: performs local authentication securely | Optional Face ID / fingerprint unlock, only as a CryptoObject that decrypts the refresh token (never a true/false check that Frida can flip). | Try to bypass with Frida on a test device | Later (after launch) |
+| MASVS-AUTH-2: performs local authentication securely | Face ID / fingerprint before the inbox and notification details are shown (decision 2 Nov, NMX-21), and as the app unlock: only as a CryptoObject that decrypts the refresh token (never a true/false check that Frida can flip). | Try to bypass with Frida on a test device | To do: NMX-52 |
 | MASVS-AUTH-3: secures sensitive operations with extra authentication | Deleting the account and reporting are confirmed in the app; account deletion asks for a fresh sign-in code before it is sent. | Manual test | To do: NMX-51 |
 
 ## NETWORK
@@ -45,7 +45,7 @@ Status: **Done** (verified), **Server done** (the API side is in place; the app 
 |---|---|---|---|
 | MASVS-PLATFORM-1: uses IPC securely | Android: only the launcher activity is exported; deep links handled by App Links/Universal Links on herzone.app only, with every parameter validated. iOS: no custom URL scheme for sign-in. | `adb shell dumpsys package`, jadx manifest review; open crafted links | To do: NMX-54 |
 | MASVS-PLATFORM-2: uses WebViews securely | Checkout opens in the system browser tab (SFSafariViewController / Custom Tabs), not a WebView; no JavaScript bridge. | Code review | To do: NMX-51 |
-| MASVS-PLATFORM-3: uses the user interface securely | Hide sensitive screens in the app switcher; no sensitive data in notifications on the lock screen (wording decided in NMX-21). | Manual test on both systems | To do: NMX-21, NMX-53 |
+| MASVS-PLATFORM-3: uses the user interface securely | Lock-screen notifications carry one generic line (no name, place, time or booking reference); the text is read in the app, behind Face ID / fingerprint. Hide sensitive screens in the app switcher. | Read the push payload; manual test on both systems | Web done (NMX-21). App: NMX-52, NMX-53 |
 
 ## CODE
 

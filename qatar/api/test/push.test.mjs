@@ -92,7 +92,7 @@ test("subscriptions: only real push services, valid keys; one row per device, mo
   assert.equal((await sql`SELECT 1 FROM app.push_subscriptions WHERE endpoint = ${sub.endpoint}`).length, 0);
 });
 
-test("dispatcher: sends the inbox text in her language, removes dead devices, skips old or pre-subscription rows", async () => {
+test("dispatcher: lock-screen text is generic (no names, places or refs), removes dead devices, skips old or pre-subscription rows", async () => {
   const u = await signUp(call, { name: "Sara" });
   const queue = (key, payload, ago = "0 minutes") => sql`INSERT INTO app.notifications_outbox (user_id, channel, template_key, locale, payload, created_at, send_after)
     VALUES (${u.userId}, 'push', ${key}, 'ar', ${sql.json(payload)}, now() - ${ago}::interval, now() - ${ago}::interval) RETURNING id`;
@@ -116,7 +116,9 @@ test("dispatcher: sends the inbox text in her language, removes dead devices, sk
   assert.match(toLive.init.headers.Authorization, /^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]{87}$/);
   const msg = JSON.parse(await browserDecrypt(live, toLive.init.body));
   assert.equal(msg.title, "HerZone");
-  assert.equal(msg.body, "تم الدفع. نجمع طاولتك الآن. رقم الحجز RT-ABC123.");
+  // NMX-21: the lock screen shows the same generic line for every notification; the details stay in the app
+  assert.equal(msg.body, "لديكِ تحديث جديد في HerZone. افتحي التطبيق لقراءته.");
+  assert.ok(!JSON.stringify(msg).includes("RT-ABC123"), "no booking reference leaves the server in the push");
   assert.equal(msg.url, "/#/booking/00000000-0000-0000-0000-000000000123");
   assert.equal(msg.dir, "rtl");
 

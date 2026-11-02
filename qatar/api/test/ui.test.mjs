@@ -149,7 +149,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await oneH1(page);
   await noHorizontalScroll(page);
   const notify = await page.locator("main").innerText();
-  assert.ok(notify.includes("فعّلي الإشعارات") && notify.includes("طاولتك مؤكدة!"), notify.slice(0, 200));
+  assert.ok(notify.includes("فعّلي الإشعارات") && notify.includes("لديكِ تحديث جديد في HerZone") && notify.includes("شاشة القفل"), notify.slice(0, 200));
   assert.equal(await page.locator("#push-go").count(), 1, "Chromium supports Web Push: the enable button is offered");
   assert.equal((await page.locator("#toast").innerText()).trim(), "حفظنا إجاباتك.", "the save confirmation shows on the next screen");
   await page.screenshot({ path: `${SHOTS}/04d-notify-ar.png` });
