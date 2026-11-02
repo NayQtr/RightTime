@@ -47,12 +47,22 @@ async function oneH1(page) {
 // Walks the quiz-first flow (spec 2026-10-28) until the sign-up name screen; returns what it saw on the way.
 async function walkQuiz(page) {
   const seen = { keys: [], inters: [], timeleft: false, dataText: "" };
+  let prev = null; // the previous screen (heading + interstitial); the router renders a moment after the hash changes
   for (let guard = 0; guard < 80; guard += 1) {
     const hash = await page.evaluate(() => location.hash);
     if (hash === "#/name") return seen;
     await page.waitForSelector("main:not([aria-busy]) h1");
+    if (prev) await page.waitForFunction((p) => {
+      const h = document.querySelector("main h1"), i = document.querySelector("[data-inter]");
+      return `${h ? h.textContent : ""}|${i ? i.getAttribute("data-inter") : ""}` !== p;
+    }, prev, { timeout: 5000 }).catch(() => {});
+    const now = await page.evaluate(() => {
+      const h = document.querySelector("main h1"), i = document.querySelector("[data-inter]");
+      return { key: `${h ? h.textContent : ""}|${i ? i.getAttribute("data-inter") : ""}`, inter: i ? i.getAttribute("data-inter") : null };
+    });
+    prev = now.key;
     if (/timeleft/i.test(await page.locator("body").innerText())) seen.timeleft = true;
-    const inter = (await page.locator("[data-inter]").count()) ? await page.locator("[data-inter]").getAttribute("data-inter") : null;
+    const inter = now.inter;
     if (inter) {
       seen.inters.push(inter);
       if (inter === "vibe") await page.screenshot({ path: `${SHOTS}/04-quiz-vibe-ar.png` });
