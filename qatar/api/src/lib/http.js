@@ -69,9 +69,23 @@ export function requireUuid(v, field) {
   return v;
 }
 
+// Truncated client IP (IPv4 /24, IPv6 /48) so no full address is stored. IPv6 is expanded first: "2001:db8::1" has
+// only two groups before "::", and cutting the text at the third colon gave invalid values such as "2001:db8:::/48".
 export function ipTrunc(ip) {
   if (!ip) return null;
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return ip.split(".").slice(0, 3).join(".") + ".0/24";
-  if (ip.includes(":")) return ip.split(":").slice(0, 3).join(":") + "::/48";
-  return null;
+  let s = String(ip).trim().replace(/^\[|\]$/g, "").replace(/%.*$/, "");
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(s);
+  if (mapped) s = mapped[1];
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(s)) {
+    const p = s.split(".").map(Number);
+    return p.every((n) => n <= 255) ? `${p[0]}.${p[1]}.${p[2]}.0/24` : null;
+  }
+  if (!s.includes(":") || (s.match(/::/g) || []).length > 1) return null;
+  const [head, tail] = s.includes("::") ? s.split("::") : [s, null];
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const fill = tail === null ? 0 : 8 - left.length - right.length;
+  const groups = [...left, ...Array(Math.max(fill, 0)).fill("0"), ...right];
+  if (groups.length !== 8 || (tail !== null && fill < 1) || !groups.every((g) => /^[0-9a-f]{1,4}$/i.test(g))) return null;
+  return groups.slice(0, 3).map((g) => parseInt(g, 16).toString(16)).join(":") + "::/48";
 }
