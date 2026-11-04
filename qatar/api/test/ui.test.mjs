@@ -635,3 +635,16 @@ test("sessions (NMX-17): no network keeps the member signed in; signing out ends
   assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: refresh }, idem: false })).status, 401, "the server ended the session");
   assert.deepEqual(errors.filter((e) => !/token:refresh/.test(e)), []);
 });
+
+test("public account deletion page (Google Play): both languages, served under the real CSP, phone width", async () => {
+  const { page, errors } = await newPage();
+  await page.goto(`${env.base}/delete-account.html`);
+  await oneH1(page);
+  assert.equal(await page.locator("main h1").textContent(), "حذف حسابكِ في HerZone");
+  assert.equal(await page.locator("section[lang=en] h2").first().textContent(), "Delete your HerZone account");
+  assert.ok((await page.locator("main").textContent()).includes("14"), "states the 14-day period");
+  assert.equal(await page.locator('a[href="tel:+97460053006"]').count(), 2);
+  await noHorizontalScroll(page);
+  assert.deepEqual(errors, []);
+  await page.context().close();
+});

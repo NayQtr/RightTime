@@ -141,6 +141,10 @@ async function otpVerify(ctx) {
       ON CONFLICT (phone_lookup_hash) DO UPDATE SET last_login_at = now() RETURNING *`;
     isNew = true;
   }
+  // Signing in during the 14 days after a deletion request cancels it (privacy notice: "you can change your mind").
+  if (user.status === "deletion_requested") {
+    [user] = await sql`UPDATE app.users SET status = 'active' WHERE id = ${user.id} AND status = 'deletion_requested' RETURNING *`;
+  }
   await sql`UPDATE app.users SET last_login_at = now() WHERE id = ${user.id}`;
   const tokens = await issueTokens(ctx, "user", user.id);
   return json(200, { ...tokens, user: { id: user.id, is_new: isNew, registration_status: registrationStatus(user), locale: user.locale, status: user.status } });

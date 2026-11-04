@@ -597,3 +597,17 @@ test("NMX-63 admin: a TOTP code works once, sign-out ends the session, re-enrolm
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'admin_mfa_reset' AND entity_id = ${tsId}`;
   assert.equal(n, 1);
 });
+
+test("account deletion with a paid booking: personal data goes, the booking and payment records stay, anonymous", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 6 });
+  const M = await signUp(call, { name: "Moza" });
+  const bk = await bookAndPay(M.token, s);
+  assert.equal((await call("DELETE", "/api/v1/users/me", { token: M.token })).status, 202);
+  await sql`UPDATE app.users SET deletion_requested_at = now() - interval '15 days' WHERE id = ${M.userId}`;
+  await sql`SELECT app.finalize_account_deletions()`;
+  const [u] = await sql`SELECT status, display_name, octet_length(phone_e164_enc) AS enc FROM app.users WHERE id = ${M.userId}`;
+  assert.deepEqual([u.status, u.display_name, u.enc], ["deleted", null, 0]);
+  const [b] = await sql`SELECT user_id FROM app.bookings WHERE id = ${bk.booking_id}`;
+  assert.equal(b.user_id, M.userId, "the booking stays, linked to the anonymous account");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.payments WHERE booking_id = ${bk.booking_id}`)[0].n, 1);
+});
