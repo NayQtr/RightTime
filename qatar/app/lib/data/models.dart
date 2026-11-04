@@ -68,6 +68,9 @@ class EventDetails {
   final Map<String, dynamic> json;
 
   Map<String, dynamic> get _s => json['session'] as Map<String, dynamic>;
+
+  /// The name on her card is being reviewed (015): the venue and table code wait for it.
+  bool get identityCheckPending => json['identity_check'] == 'pending';
   Map<String, dynamic> get _b => json['booking'] as Map<String, dynamic>;
   Map<String, dynamic>? get _t => json['table'] as Map<String, dynamic>?;
   Map<String, dynamic>? get _v => json['venue'] as Map<String, dynamic>?;

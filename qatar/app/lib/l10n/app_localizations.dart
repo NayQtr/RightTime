@@ -98,6 +98,18 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @idCheckPending.
+  ///
+  /// In ar, this message translates to:
+  /// **'نراجع بيانات الدفع لحجزك. سنكشف لكِ المكان ورمز الطاولة بعد المراجعة.'**
+  String get idCheckPending;
+
+  /// No description provided for @cIdentity.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم بطاقة الدفع لا يطابق اسم الحساب'**
+  String get cIdentity;
+
   /// No description provided for @casesTitle.
   ///
   /// In ar, this message translates to:
@@ -635,13 +647,13 @@ abstract class AppLocalizations {
   /// No description provided for @nameLabel.
   ///
   /// In ar, this message translates to:
-  /// **'اسمك الأول أو لقبك (اختياري)'**
+  /// **'اسمك الأول كما في بطاقة الدفع'**
   String get nameLabel;
 
   /// No description provided for @nameHelp.
   ///
   /// In ar, this message translates to:
-  /// **'يظهر لزميلات الطاولة يوم اللقاء فقط.'**
+  /// **'يظهر لزميلات الطاولة يوم اللقاء. ونطابقه مع الاسم على بطاقة الدفع لحماية اللقاءات.'**
   String get nameHelp;
 
   /// No description provided for @womenOnly.

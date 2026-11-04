@@ -373,7 +373,7 @@ async function scrRegister() {
     <h1>${esc(T("regTitle"))}</h1>
     <form id="f" class="stack" novalidate>
       ${quizName ? "" : `<div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
-        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh"><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
+        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh" required><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
       <fieldset class="card">
         <p class="caption">${esc(T("womenOnly"))}</p>
         <label class="check"><input type="checkbox" id="woman" required><span>${esc(T("womanLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
@@ -386,8 +386,10 @@ async function scrRegister() {
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     const checked = new Set($$("input[name=c]:checked").map((i) => i.value));
+    const name = quizName || ($("#name") ? $("#name").value.trim() : "");
+    if (!name) { $("#err").innerHTML = `<div class="banner banner-danger" role="alert"><div>${esc(T("nameRequired"))}</div></div>`; $("#name").focus(); return; }
     const body = {
-      display_name: quizName || ($("#name") ? $("#name").value.trim() : "") || null, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
+      display_name: name, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
         .map((t) => ({ type: t, document_version: L[t].document_version, granted: checked.has(t) })),
     };
@@ -1172,7 +1174,9 @@ async function scrDetails(id) {
   const stage = { forming: 1, locked: 2, revealed: 3, day_of: 3, completed: 4 }[ph];
   const track = stage === undefined ? "" : `<ol class="track" aria-label="${esc(T("essentials"))}">${["step1", "step2", "step3", "step4"].map((k, j) =>
     `<li class="${j < stage ? "done" : j === stage ? "current" : ""}" ${j === stage ? 'aria-current="step"' : ""}>${esc(T(k))}</li>`).join("")}</ol>`;
-  view(T("detailsTitle"), `${offlineNote}
+  // identity check (015): the venue and table code wait for the review of the name on her card
+  const idNote = e.identity_check === "pending" ? `<div class="banner banner-info" id="id-check" role="status"><span class="icon">${icon("info")}</span><div>${esc(T("idCheckPending"))}</div></div>` : "";
+  view(T("detailsTitle"), `${offlineNote}${idNote}
     <header class="det-head">${statusBadge(e.booking)}
       <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
       <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
@@ -1468,7 +1472,7 @@ async function scrCases() {
   const cases = r.ok ? r.data.cases : [];
   view(T("casesTitle"), `<h1>${esc(T("casesTitle"))}</h1>${cases.length ? `<ul class="list">${cases.map((c) => `
     <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision_label || c.decision)}</span></div>
-    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(REPORT_CATS[c.category] || "cDisruptive"))}</p>
+    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(c.category === "identity_mismatch" ? "cIdentity" : REPORT_CATS[c.category] || "cDisruptive"))}</p>
     ${c.can_appeal ? `<p class="caption">${esc(T("appealUntil", { date: fmtDate(c.appeal_until) }))}</p><button class="btn btn-secondary" data-ref="${esc(c.case_ref)}">${esc(T("appeal"))}</button>` : ""}</li>`).join("")}</ul>`
     : `<p class="muted">—</p>`}<div id="msg" role="status"></div>`);
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {

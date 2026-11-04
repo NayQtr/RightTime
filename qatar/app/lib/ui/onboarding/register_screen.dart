@@ -44,7 +44,7 @@ class _RegisterFormState extends State<_RegisterForm> {
   final granted = <String>{};
   ApiError? error;
 
-  bool get ready => woman && adult && widget.docs.where((d) => d.required).every((d) => granted.contains(d.type));
+  bool get ready => _name.text.trim().isNotEmpty && woman && adult && widget.docs.where((d) => d.required).every((d) => granted.contains(d.type));
 
   @override
   void dispose() {
@@ -97,7 +97,7 @@ class _RegisterFormState extends State<_RegisterForm> {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-      TestId('name', child: TextField(key: const Key('name'), controller: _name, maxLength: 30, decoration: InputDecoration(labelText: t.nameLabel, helperText: t.nameHelp))),
+      TestId('name', child: TextField(key: const Key('name'), controller: _name, maxLength: 30, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: t.nameLabel, helperText: t.nameHelp))),
       const SizedBox(height: HzSpace.s4),
       Text(t.womenOnly, style: TextStyle(color: c.primary, fontWeight: FontWeight.w600)),
       TestId('woman', child: CheckboxListTile(key: const Key('woman'), contentPadding: EdgeInsets.zero, value: woman, onChanged: (v) => setState(() => woman = v!), title: Text(t.womanLabel))),

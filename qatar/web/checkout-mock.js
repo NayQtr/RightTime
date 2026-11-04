@@ -14,6 +14,8 @@ async function load() {
     <div class="kv"><span>المبلغ · Amount</span><strong class="num">${esc(d.amount.display)}</strong></div>
     <div class="kv"><span>الحجز · Booking</span><span class="num">${esc(d.booking_ref)}</span></div>
     <div class="kv"><span>البطاقة · Card</span><span class="num">4242 4242 4242 4242 · 3-D Secure</span></div>
+    <div class="field"><label class="label" for="card-name">الاسم على البطاقة · Name on card</label>
+      <input class="input" id="card-name" maxlength="100" autocomplete="cc-name" dir="ltr" placeholder="NOUR A ALI"></div>
     <div class="stack">
       <button class="btn btn-primary btn-block" data-o="success">ادفع (نجاح) · Pay (success)</button>
       <button class="btn btn-secondary btn-block" data-o="declined">رفض البطاقة · Card declined</button>
@@ -25,7 +27,7 @@ async function load() {
 async function pay(outcome, fallback) {
   box.setAttribute("aria-busy", "true");
   box.querySelectorAll("button").forEach((b) => (b.disabled = true));
-  const r = await fetch(apiUrl(`/api/mock-psp/checkout/${encodeURIComponent(pi)}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome }) });
+  const r = await fetch(apiUrl(`/api/mock-psp/checkout/${encodeURIComponent(pi)}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome, cardholder_name: (document.getElementById("card-name") || {}).value || undefined }) });
   const d = await r.json().catch(() => ({}));
   location.assign(d.return_url || fallback);
 }

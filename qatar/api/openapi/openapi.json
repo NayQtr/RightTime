@@ -705,16 +705,10 @@
                 "type": "object",
                 "properties": {
                   "display_name": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 30,
-                        "description": "Letters, spaces and hyphens"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30,
+                    "description": "First name, as on her payment card (required; compared with the name on the card). Letters, spaces and hyphens"
                   },
                   "locale": {
                     "type": "string",
@@ -737,6 +731,7 @@
                   }
                 },
                 "required": [
+                  "display_name",
                   "locale",
                   "age_eligibility_confirmed",
                   "woman_confirmed",
@@ -4103,6 +4098,13 @@
               "reveal_at",
               "check_in_opens_at"
             ]
+          },
+          "identity_check": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ],
+            "description": "Present while the name on her payment card is reviewed: venue, table code and tablemates stay hidden until it is approved"
           },
           "table": {
             "anyOf": [

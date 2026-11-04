@@ -106,11 +106,15 @@ void main() {
 
     // sign-up: continue stays off until women-only, age and the three required documents are confirmed
     expect(find.text('قبل أن نبدأ'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('name')), 'نورة');
-    for (final k in ['woman', 'adult', 'consent-terms', 'consent-conduct']) {
+    for (final k in ['woman', 'adult', 'consent-terms', 'consent-conduct', 'consent-privacy_notice']) {
       await tester.tap(find.byKey(Key(k)));
       await tester.pump();
     }
+    expect(tester.widget<FilledButton>(find.byKey(const Key('register'))).onPressed, isNull, reason: 'the first name is required');
+    await tester.tap(find.byKey(const Key('consent-privacy_notice')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('name')), 'نورة');
+    await tester.pump();
     expect(tester.widget<FilledButton>(find.byKey(const Key('register'))).onPressed, isNull, reason: 'privacy notice not yet accepted');
     await tester.tap(find.byKey(const Key('consent-privacy_notice')));
     await tester.pump();

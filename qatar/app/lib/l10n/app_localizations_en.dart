@@ -10,6 +10,14 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get idCheckPending =>
+      'We are reviewing the payment details of your booking. We will show you the venue and table code after the review.';
+
+  @override
+  String get cIdentity =>
+      'The name on the payment card does not match the account';
+
+  @override
   String get casesTitle => 'Decisions about you';
 
   @override
@@ -305,11 +313,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get regTitle => 'Before we start';
 
   @override
-  String get nameLabel => 'Your first name or nickname (optional)';
+  String get nameLabel => 'Your first name, as on your payment card';
 
   @override
   String get nameHelp =>
-      'Shown to your tablemates on the day of the event only.';
+      'Shown to your tablemates on the day of the event. We also match it with the name on your payment card, to keep meetups safe.';
 
   @override
   String get womenOnly => 'HerZone is for women only.';

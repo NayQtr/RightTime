@@ -49,6 +49,7 @@ const NAV = [
   ["#/venues", "Venues", ["owner", "ops"]],
   ["#/refunds", "Refunds & Payments", ["owner", "finance"]],
   ["#/cases", "Trust & Safety", ["trust_safety"]],
+  ["#/identity", "Identity checks", ["owner", "trust_safety"]],
   ["#/approvals", "Approvals", ["owner", "ops", "finance", "trust_safety", "analyst"]],
   ["#/support", "Q07 private contact", ["owner", "ops"]],
   ["#/promo-codes", "Promo codes", ["owner"]],
@@ -267,6 +268,39 @@ async function scrRefunds() {
   $("#gf").onsubmit = async (e) => { e.preventDefault(); const fd = Object.fromEntries(new FormData($("#gf"))); fd.amount_minor = Number(fd.amount_minor); flash(msg(await api("POST", `${A}/refunds:goodwill`, fd), "Proposed")); };
 }
 
+// ------------------------------------------------------------------ identity checks (card name vs registered name, 015)
+async function scrIdentity() {
+  const r = await api("GET", `${A}/identity-reviews`);
+  const rows = (r.data && r.data.reviews) || [];
+  view("Identity checks", `<h1>Identity checks</h1>
+    <p class="caption">Bookings where the name on the payment card did not match the member's registered first name (or she has no name).
+    She has paid, but the venue and table code stay hidden from her until you decide. Reading this list is recorded in the audit log.</p>
+    <p class="caption"><strong>Approve</strong>: the venue shows (a relative paying for her is a common reason).
+    <strong>Reject</strong>: the booking is cancelled <strong>without a refund</strong> and the account is suspended for 30 days; she can appeal under "Decisions about you", and an upheld appeal refunds the fee.</p>
+    <div id="flash"></div>
+    <table><thead><tr><th>Booking</th><th>Meetup</th><th>Registered name</th><th>Name on card</th><th>Result</th><th>Account</th><th></th></tr></thead><tbody>
+    ${rows.map((x) => `<tr><td class="num">${esc(x.booking_ref)}</td><td>${dt(x.starts_at)}</td><td>${esc(x.registered_name || "—")}</td>
+      <td>${esc(x.card_name || "—")}</td><td>${x.result === "no_name" ? "No registered name" : "Different name"}</td><td>${esc(x.member_status)}</td>
+      <td class="row"><button class="btn btn-primary" data-ok="${x.id}">Approve</button>
+        <button class="btn btn-danger" data-no="${x.id}">Reject…</button></td></tr>`).join("") || `<tr><td colspan="7">Nothing to review.</td></tr>`}
+    </tbody></table>`);
+  $$("[data-ok]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    const res = await api("POST", `${A}/identity-reviews/${b.dataset.ok}:decide`, { decision: "approve" });
+    flash(msg(res, "Approved: the venue now shows for her"));
+    if (res.ok) setTimeout(route, 800);
+  }));
+  $$("[data-no]").forEach((b) => (b.onclick = async () => {
+    const why = prompt("Reason for rejecting (kept encrypted, shown in the case):");
+    if (why === null) return;
+    if (!confirm("Cancel this booking WITHOUT a refund and suspend the account for 30 days?")) return;
+    b.disabled = true;
+    const res = await api("POST", `${A}/identity-reviews/${b.dataset.no}:decide`, { decision: "reject", rationale: why });
+    flash(msg(res, "Rejected: booking cancelled without refund, account suspended"));
+    if (res.ok) setTimeout(route, 800);
+  }));
+}
+
 // ------------------------------------------------------------------ trust & safety
 const REASONS = [["case_triage", "Case triage"], ["investigation", "Investigation"], ["second_approval", "Second approval"], ["appeal_review", "Appeal review"], ["legal_request", "Legal request"]];
 
@@ -392,7 +426,7 @@ const ROUTES = [
   [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
-  [/^#\/promo-codes$/, scrPromoCodes, true],
+  [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

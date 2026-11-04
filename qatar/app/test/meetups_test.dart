@@ -13,7 +13,8 @@ import 'sign_in_flow_test.dart' show config, j;
 
 const bookingId = '22222222-2222-4222-8222-222222222222';
 
-Map<String, dynamic> details({bool revealed = true}) => {
+Map<String, dynamic> details({bool revealed = true, bool idPending = false}) => {
+      if (idPending) 'identity_check': 'pending',
       'booking': {'ref': 'RT-ABC123', 'status': 'revealed'},
       'session': {'experience': 'dinner', 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل', 'conversation_language': 'ar', 'food_price_band': {'display': 'متوسط'}},
       'reveal': {'phase': revealed ? 'revealed' : 'forming', 'reveal_at': '2026-11-11T19:30:00+03:00'},
@@ -25,7 +26,7 @@ Map<String, dynamic> details({bool revealed = true}) => {
     };
 
 /// Signed-in member (refresh token on the device); `online` switches the network on and off.
-MockClient api({required bool Function() online, bool revealed = true}) => MockClient((r) async {
+MockClient api({required bool Function() online, bool revealed = true, bool idPending = false}) => MockClient((r) async {
       if (!online()) throw http.ClientException('offline');
       switch (r.url.path) {
         case '/api/v1/auth/token:refresh':
@@ -40,7 +41,7 @@ MockClient api({required bool Function() online, bool revealed = true}) => MockC
         case '/api/v1/bookings':
           return j({'bookings': [{'id': bookingId, 'ref': 'RT-ABC123', 'status': 'revealed', 'phase': 'revealed', 'experience': 'dinner', 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل'}]});
         case '/api/v1/bookings/$bookingId/event-details':
-          return j(details(revealed: revealed));
+          return j(details(revealed: revealed, idPending: idPending));
         case '/api/v1/questionnaires/current':
           return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
         case '/api/v1/support/contact':
@@ -116,5 +117,17 @@ void main() {
     await tester.tap(find.byKey(const Key('signOut')));
     await tester.pumpAndSettle();
     expect(trips.trips, isEmpty);
+  });
+
+  testWidgets('identity check pending: she is told the venue waits for the review of her payment details', (tester) async {
+    tallScreen(tester);
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(),
+        httpClientFactory: () => api(online: () => true, revealed: false, idPending: true)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('session-s1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('id-check')), findsOneWidget);
+    expect(find.textContaining('نراجع بيانات الدفع'), findsOneWidget);
+    expect(find.byKey(const Key('venue')), findsNothing);
   });
 }

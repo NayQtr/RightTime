@@ -1,4 +1,6 @@
 {
+  "idCheckPending": "We are reviewing the payment details of your booking. We will show you the venue and table code after the review.",
+  "cIdentity": "The name on the payment card does not match the account",
   "casesTitle": "Decisions about you",
   "noCases": "There are no decisions about you.",
   "appealUntil": "You can appeal until {date}",
@@ -89,8 +91,8 @@
   "quizDoneBody": "One last step: your mobile number, so we save your answers to your account.",
   "saveAnswers": "Save my answers",
   "regTitle": "Before we start",
-  "nameLabel": "Your first name or nickname (optional)",
-  "nameHelp": "Shown to your tablemates on the day of the event only.",
+  "nameLabel": "Your first name, as on your payment card",
+  "nameHelp": "Shown to your tablemates on the day of the event. We also match it with the name on your payment card, to keep meetups safe.",
   "womenOnly": "HerZone is for women only.",
   "womanLabel": "I confirm I am a woman",
   "ageLabel": "I confirm I am 18 or older",

@@ -67,6 +67,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 )),
                 const SizedBox(height: HzSpace.s4),
               ],
+              if (d.identityCheckPending) ...[
+                Container(
+                  key: const Key('id-check'),
+                  padding: const EdgeInsets.all(HzSpace.s3),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(HzRadius.sm)),
+                  child: Text(t.idCheckPending),
+                ),
+                const SizedBox(height: HzSpace.s4),
+              ],
               Text('${experienceName(t, d.experience)} · ${fmtWhen(d.startsAt, lang)}', style: tt.headlineMedium),
               const SizedBox(height: HzSpace.s1),
               Text('${t.bookingRef} ${d.ref}', style: tt.bodySmall),

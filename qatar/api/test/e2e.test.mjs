@@ -79,6 +79,9 @@ test("registration gate, consents, idempotent replay, refresh rotation", async (
   const legal = (await call("GET", "/api/v1/legal/current")).body;
   const base = { display_name: "سارة", locale: "ar", age_eligibility_confirmed: true, woman_confirmed: true };
   const cons = (types) => types.map((t) => ({ type: t, document_version: legal[t].document_version, granted: true }));
+  const noName = await call("POST", "/api/v1/users/me/registration", { token: S.first.token, body: { ...base, display_name: "  ", consents: cons(["terms", "conduct", "privacy_notice"]) } });
+  assert.equal(noName.body.code, "VALIDATION_FAILED", "the first name is required (card-name check)");
+  assert.equal(noName.body.details[0].field, "display_name");
   assert.equal((await call("POST", "/api/v1/users/me/registration", { token: S.first.token, body: { ...base, consents: cons(["terms", "conduct"]) } })).body.code, "CONSENT_REQUIRED");
   assert.equal((await call("POST", "/api/v1/users/me/registration", { token: S.first.token, body: { ...base, age_eligibility_confirmed: false, consents: cons(["terms", "conduct", "privacy_notice"]) } })).body.code, "AGE_NOT_ELIGIBLE");
   assert.equal((await call("POST", "/api/v1/users/me/registration", { token: S.first.token, body: { ...base, woman_confirmed: false, consents: cons(["terms", "conduct", "privacy_notice"]) } })).body.code, "WOMEN_ONLY");
@@ -633,4 +636,82 @@ test("NMX-38: a copy of my data has my account, answers, booking and payment, an
   const text = JSON.stringify(d);
   assert.ok(!text.includes("Shaikha") && !text.includes(other.phone), "no other member's data");
   assert.ok(!text.includes(M.userId), "no internal ids");
+});
+
+
+// ===================================================================== identity check: name on the card (015)
+async function bookPayWithCard(token, sessionId, cardName) {
+  const b = await call("POST", "/api/v1/bookings", { token, body: { session_id: sessionId } });
+  assert.equal(b.status, 201, JSON.stringify(b.body));
+  const p = await payViaMock(call, await checkoutUrlFor(call, token, b.body), "success", cardName);
+  assert.equal(p.status, 200, JSON.stringify(p.body));
+  return b.body.booking_id;
+}
+const paymentOf = async (bookingId) => (await sql`SELECT name_check, cardholder_name_enc FROM app.payments WHERE booking_id = ${bookingId} AND status = 'succeeded'`)[0];
+const reviewOf = async (bookingId) => (await sql`SELECT * FROM app.identity_reviews WHERE booking_id = ${bookingId}`)[0];
+const details = async (token, id) => (await call("GET", `/api/v1/bookings/${id}/event-details`, { token })).body;
+
+test("card name: another spelling of her name passes; the name is stored encrypted, never in the webhook log", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 7 });
+  const M = await signUp(call, { name: "Noor" });
+  const id = await bookPayWithCard(M.token, s, "NOUR A AL-ALI");
+  const p = await paymentOf(id);
+  assert.equal(p.name_check, "match");
+  assert.ok(p.cardholder_name_enc && !p.cardholder_name_enc.toString("utf8").includes("NOUR"), "encrypted");
+  assert.equal(await reviewOf(id), undefined, "no review");
+  assert.equal((await details(M.token, id)).identity_check, undefined);
+  const logs = await sql`SELECT payload::text AS t FROM app.payment_webhook_events WHERE payload::text LIKE '%cardholder_name%'`;
+  assert.ok(logs.length && logs.every((l) => !l.t.includes("NOUR")), "the webhook log never holds the card name");
+});
+
+test("card name: a different name opens a review; the venue stays hidden until an admin approves", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 7 });
+  const M = await signUp(call, { name: "فاطمة" });
+  const id = await bookPayWithCard(M.token, s, "MOHAMMED AL SALEH");
+  assert.equal((await paymentOf(id)).name_check, "mismatch");
+  assert.equal((await reviewOf(id)).status, "pending");
+  assert.equal((await details(M.token, id)).identity_check, "pending");
+  assert.equal((await call("GET", "/api/admin/v1/identity-reviews", { token: S.ops.token })).status, 403, "ops cannot read card names");
+  const list = (await call("GET", "/api/admin/v1/identity-reviews", { token: S.owner.token })).body.reviews;
+  const reviewId = (await reviewOf(id)).id;
+  const row = list.find((r) => r.id === reviewId);
+  assert.deepEqual([row.registered_name, row.card_name, row.result], ["فاطمة", "MOHAMMED AL SALEH", "mismatch"]);
+  assert.ok((await sql`SELECT 1 FROM app.audit_logs WHERE action = 'read_card_names'`).length, "reading card names is recorded");
+  const ok = await call("POST", `/api/admin/v1/identity-reviews/${row.id}:decide`, { token: S.owner.token, body: { decision: "approve" } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal((await details(M.token, id)).identity_check, undefined, "approved: nothing held back");
+  assert.equal((await call("POST", `/api/admin/v1/identity-reviews/${row.id}:decide`, { token: S.owner.token, body: { decision: "reject" } })).status, 409);
+});
+
+test("card name: rejection cancels without a refund and suspends, as an appealable case; an upheld appeal refunds", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 7 });
+  const s2 = await newSession({ admin: S.ops.token, startsInDays: 9 });
+  const M = await signUp(call, { name: "Reem" });
+  const id = await bookPayWithCard(M.token, s, "RASHID AHMED");
+  const other = await bookPayWithCard(M.token, s2, "REEM AHMED");
+  const ir = await reviewOf(id);
+  const no = await call("POST", `/api/admin/v1/identity-reviews/${ir.id}:decide`, { token: S.ts.token, body: { decision: "reject", rationale: "card name is a man's name" } });
+  assert.equal(no.status, 200, JSON.stringify(no.body));
+  const [b] = await sql`SELECT status, cancel_reason_code FROM app.bookings WHERE id = ${id}`;
+  assert.deepEqual([b.status, b.cancel_reason_code], ["cancelled_by_organizer", "identity_rejected"]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${id}`)[0].n, 0, "no refund for the rejected booking");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${other}`)[0].n, 1, "her other booking is refunded");
+  assert.equal((await sql`SELECT status FROM app.users WHERE id = ${M.userId}`)[0].status, "suspended");
+  // no rebook-or-refund choice, and the automatic refund of organiser cancellations skips it
+  await sql`UPDATE app.bookings SET cancelled_at = now() - interval '3 days' WHERE id = ${id}`;
+  await sql`SELECT app.refund_unresolved_organizer_cancels(now() - interval '48 hours')`;
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${id}`)[0].n, 0, "never refunded automatically");
+  assert.equal((await call("POST", `/api/v1/bookings/${id}/resolution`, { token: M.token, body: { choice: "refund" } })).status, 403, "suspended");
+  // she is told, and sees it under "Decisions about you" with the right to appeal
+  const inbox = (await call("GET", "/api/v1/notifications", { token: M.token })).body.notifications;
+  assert.ok(inbox.some((n) => n.template_key === "IDENTITY_DECISION"));
+  const mine = (await call("GET", "/api/v1/cases/mine", { token: M.token })).body.cases;
+  assert.equal(mine[0].category, "identity_mismatch");
+  assert.equal(mine[0].can_appeal, true);
+  assert.equal((await call("POST", `/api/v1/cases/${mine[0].case_ref}/appeal`, { token: M.token })).status, 202);
+  const [c] = await sql`SELECT id FROM app.safety_reports WHERE case_ref = ${mine[0].case_ref}`;
+  const up = await call("POST", `/api/admin/v1/cases/${c.id}/appeal-decision`, { token: S.owner.token, body: { decision: "upheld", rationale: "her mother's card" } });
+  assert.equal(up.status, 200, JSON.stringify(up.body));
+  assert.equal((await sql`SELECT status FROM app.users WHERE id = ${M.userId}`)[0].status, "active");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${id}`)[0].n, 1, "upheld appeal: the fee is refunded");
 });

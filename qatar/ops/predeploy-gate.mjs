@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API = path.join(ROOT, "api");
-const PURE_TESTS = ["design", "ip", "monitor", "openapi", "personality", "quiz-flow", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
+const PURE_TESTS = ["design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {

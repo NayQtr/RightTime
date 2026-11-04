@@ -210,8 +210,10 @@ async function register(ctx) {
   const { sql, body, user } = ctx;
   if (user.registration_completed_at) fail(409, "ALREADY_REGISTERED");
   const details = [];
-  if (body.display_name !== undefined && body.display_name !== null &&
-      !/^[\p{L} \-]{1,30}$/u.test(String(body.display_name))) details.push({ field: "display_name", code: "INVALID" });
+  // the first name is required (4 Nov): it is compared with the name on the payment card (identity check, 015)
+  const displayName = typeof body.display_name === "string" ? body.display_name.trim() : "";
+  if (!displayName) details.push({ field: "display_name", code: "REQUIRED" });
+  else if (!/^[\p{L} \-]{1,30}$/u.test(displayName)) details.push({ field: "display_name", code: "INVALID" });
   if (!["ar", "en"].includes(body.locale)) details.push({ field: "locale", code: "REQUIRED" });
   if (details.length) fail(422, "VALIDATION_FAILED", details);
   if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
@@ -226,7 +228,7 @@ async function register(ctx) {
       await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
                VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
     }
-    return tx`UPDATE app.users SET display_name = ${body.display_name || null}, locale = ${body.locale},
+    return tx`UPDATE app.users SET display_name = ${displayName}, locale = ${body.locale},
                      age_eligibility_confirmed_at = now(), woman_confirmed_at = now(), registration_completed_at = now()
                WHERE id = ${user.id} RETURNING *`;
   });
@@ -711,7 +713,11 @@ async function eventDetails(ctx) {
   };
   // NMX-63: a member whose account is not active (e.g. interim suspension after a danger report) sees no venue, table
   // code or tablemates' names while her case is reviewed, even for bookings made before
-  const restricted = ctx.user.status !== "active";
+  // Identity review (015): while the name on her card is being checked, the same things stay hidden.
+  const [review] = cfg.cardNameCheck ? await sql`SELECT status FROM app.identity_reviews WHERE booking_id = ${b.id}` : [];
+  const underReview = Boolean(review && review.status === "pending");
+  if (underReview) out.identity_check = "pending";
+  const restricted = ctx.user.status !== "active" || underReview;
   if (["locked", "revealed", "day_of", "completed"].includes(phase)) {
     out.table = { confirmed_count: t.confirmed_count, capacity: t.capacity };
     if (phase !== "locked" && !restricted) {
@@ -744,7 +750,7 @@ async function eventDetails(ctx) {
     const st = await resolutionState(sql, b.id);
     out.refund = st.refund ? { status: st.refund.status, amount: money(st.refund.amount_minor, locale) } : { status: "none" };
     if (st.child) out.rebooked_into = { booking_id: st.child.id, ref: st.child.booking_ref, status: st.child.status };
-    if (b.status === "cancelled_by_organizer" && !st.child && !st.refund) {
+    if (b.status === "cancelled_by_organizer" && b.cancel_reason_code !== "identity_rejected" && !st.child && !st.refund) {
       out.resolution = await resolutionOptions(sql, b, locale, cfg);
       if (out.resolution.open) out.actions.push({ type: "resolution", method: "POST", href: `/api/v1/bookings/${b.id}/resolution` });
     }
@@ -793,7 +799,7 @@ async function cancelBooking(ctx) {
 async function chooseResolution(ctx) {
   const { sql, body, locale, cfg, user } = ctx;
   const b = await ownedBooking(sql, ctx, ctx.params.id);
-  if (b.status !== "cancelled_by_organizer") fail(409, "RESOLUTION_NOT_AVAILABLE");
+  if (b.status !== "cancelled_by_organizer" || b.cancel_reason_code === "identity_rejected") fail(409, "RESOLUTION_NOT_AVAILABLE");
   const st = await resolutionState(sql, b.id);
   if (st.child || st.refund) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "already_resolved" }]);
   if (new Date() > new Date(new Date(b.cancelled_at).getTime() + cfg.rebookChoiceHours * 3600 * 1000)) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "deadline_passed" }]);

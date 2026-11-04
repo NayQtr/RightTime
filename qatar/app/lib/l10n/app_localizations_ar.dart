@@ -10,6 +10,13 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get idCheckPending =>
+      'نراجع بيانات الدفع لحجزك. سنكشف لكِ المكان ورمز الطاولة بعد المراجعة.';
+
+  @override
+  String get cIdentity => 'اسم بطاقة الدفع لا يطابق اسم الحساب';
+
+  @override
   String get casesTitle => 'قرارات تخصّك';
 
   @override
@@ -302,10 +309,11 @@ class AppLocalizationsAr extends AppLocalizations {
   String get regTitle => 'قبل أن نبدأ';
 
   @override
-  String get nameLabel => 'اسمك الأول أو لقبك (اختياري)';
+  String get nameLabel => 'اسمك الأول كما في بطاقة الدفع';
 
   @override
-  String get nameHelp => 'يظهر لزميلات الطاولة يوم اللقاء فقط.';
+  String get nameHelp =>
+      'يظهر لزميلات الطاولة يوم اللقاء. ونطابقه مع الاسم على بطاقة الدفع لحماية اللقاءات.';
 
   @override
   String get womenOnly => 'HerZone للنساء فقط.';

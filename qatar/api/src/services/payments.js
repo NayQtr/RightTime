@@ -1,9 +1,12 @@
 // Webhook processing and refund dispatch (v0.3 §3.5, v0.4 §1.3.2 I3–I8).
+import { encrypt } from "../lib/crypto.js";
 import { money } from "../lib/http.js";
+import { checkCardName } from "../lib/namematch.js";
 import { audit, notify } from "./common.js";
 
 // Applies one verified PSP event. Returns refund ids that must be sent to the PSP after commit.
-export async function applyPspEvent(sql, event) {
+// opts: { keys, cfg } for the card-name check (015), which runs only when cfg.cardNameCheck is on.
+export async function applyPspEvent(sql, event, opts = {}) {
   const toDispatch = [];
   await sql.begin(async (tx) => {
     const d = event.data || {};
@@ -44,6 +47,7 @@ export async function applyPspEvent(sql, event) {
       if (holdValid) {
         await tx`UPDATE app.bookings SET status = 'paid_awaiting_group', hold_expires_at = NULL WHERE id = ${b.id}`;
         await notify(tx, b.user_id, "PAYMENT_CONFIRMED", { ref: b.booking_ref, booking_id: b.id });
+        if (opts.cfg && opts.cfg.cardNameCheck) await checkIdentity(tx, opts.keys, p, b, d.cardholder_name);
       } else {
         // paid after the hold was gone (E-PAY-5): automatic full refund, reason seat_unavailable
         const [r] = await tx`
@@ -70,6 +74,20 @@ export async function applyPspEvent(sql, event) {
     throw new Error("UNSUPPORTED_EVENT_TYPE");
   });
   return toDispatch;
+}
+
+// Name on the card vs her registered first name (015). The card name is kept encrypted (owner's decision, 4 Nov). A
+// mismatch, or no registered name, opens an identity review: the venue stays hidden from her until an admin approves.
+async function checkIdentity(tx, keys, p, b, cardholderName) {
+  const name = cardholderName ? String(cardholderName).trim().slice(0, 100) : "";
+  const [u] = await tx`SELECT display_name FROM app.users WHERE id = ${b.user_id}`;
+  const result = checkCardName(u && u.display_name, name);
+  await tx`UPDATE app.payments SET name_check = ${result}, cardholder_name_enc = ${name ? encrypt(keys.dataKey, name) : null} WHERE id = ${p.id}`;
+  if (result === "mismatch" || result === "no_name") {
+    await tx`INSERT INTO app.identity_reviews (booking_id, payment_id, user_id, result) VALUES (${b.id}, ${p.id}, ${b.user_id}, ${result})
+             ON CONFLICT (booking_id) DO NOTHING`;
+    await audit(tx, null, "identity_review_opened", "bookings", b.id, result);
+  }
 }
 
 // Sends one refund to the PSP. requested -> processing (committed) -> PSP call -> refund.succeeded webhook -> refunded.

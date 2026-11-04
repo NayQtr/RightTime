@@ -2,7 +2,7 @@
 import { decrypt, encrypt, newTotpSecret, randomToken, sha256hex, totpStep } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { runMatching, MatchingError } from "../matching/engine.js";
-import { audit, capturedPayment, notify } from "../services/common.js";
+import { audit, capturedPayment, currentTable, notify } from "../services/common.js";
 import { dispatchRefund } from "../services/payments.js";
 import { issueTokens } from "./user.js";
 
@@ -362,6 +362,11 @@ async function reveal(ctx) {
          AND b.status = 'group_locked'
        RETURNING b.id, b.user_id, t.table_code, t.venue_id`;
     for (const r of rows) {
+      // a booking under identity review (015) gets the venue only once it is approved (see decideIdentityReview)
+      if (ctx.cfg.cardNameCheck) {
+        const [held] = await tx`SELECT 1 FROM app.identity_reviews WHERE booking_id = ${r.id} AND status = 'pending'`;
+        if (held) continue;
+      }
       const [v] = await tx`SELECT name, district_ar FROM app.venues WHERE id = ${r.venue_id}`;
       await notify(tx, r.user_id, "VENUE_REVEALED", { booking_id: r.id, venue: v.name, district: v.district_ar, code: r.table_code });
     }
@@ -687,6 +692,7 @@ async function appealDecision(ctx) {
   requireUuid(params.id, "case_id");
   if (!["upheld", "rejected"].includes(body.decision)) fail(422, "VALIDATION_FAILED", [{ field: "decision" }]);
   const action = body.decision === "upheld" ? "appeal_upheld" : "appeal_rejected";
+  const appealRefunds = [];
   const out = await sql.begin(async (tx) => {
     const [r] = await tx`SELECT * FROM app.safety_reports WHERE id = ${params.id} FOR UPDATE`;
     if (!r) fail(404, "CASE_NOT_FOUND");
@@ -696,6 +702,16 @@ async function appealDecision(ctx) {
     if (action === "appeal_upheld" && r.reported_user_id) {
       await tx`UPDATE app.users SET status = 'active' WHERE id = ${r.reported_user_id} AND status IN ('suspended','banned')`;
       await tx`UPDATE app.report_actions SET effective_to = now() WHERE report_id = ${r.id} AND action IN ('suspension','ban') AND effective_to IS NULL`;
+      // identity case (015): the fee kept on rejection is refunded once the appeal is upheld
+      if (r.category === "identity_mismatch" && r.booking_id) {
+        const p = await capturedPayment(tx, r.booking_id);
+        const [done] = await tx`SELECT 1 FROM app.refunds WHERE booking_id = ${r.booking_id} AND status <> 'failed'`;
+        if (p && !done) {
+          const [f] = await tx`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
+                               VALUES (${p.id}, ${r.booking_id}, ${p.amount_minor}, 'organizer_cancel', 'requested', ${"appeal-" + r.booking_id}) RETURNING id`;
+          appealRefunds.push(f.id);
+        }
+      }
     }
     await tx`UPDATE app.safety_reports SET status = 'closed' WHERE id = ${r.id}`;
     if (r.reported_user_id) {
@@ -704,7 +720,74 @@ async function appealDecision(ctx) {
     await audit(tx, admin.id, action, "safety_reports", r.id, "appeal_review");
     return { case_id: r.id, decision: action, status: "closed" };
   });
+  for (const id of appealRefunds) await dispatchRefund(sql, ctx.psp, id);
   return json(200, out);
+}
+
+// ------------------------------------------------------------------ identity reviews (015)
+// Bookings whose card name did not match the registered first name (or the member had no name). The venue stays hidden
+// from her until approved. Reading the card names is recorded, like any access to sensitive data.
+async function listIdentityReviews(ctx) {
+  const { sql, keys, admin, url } = ctx;
+  if (!ctx.cfg.cardNameCheck) return json(200, { reviews: [] });
+  const status = ["pending", "approved", "rejected"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "pending";
+  const rows = await sql`
+    SELECT ir.id, ir.result, ir.status, ir.created_at, ir.decided_at, b.booking_ref, s.starts_at, u.display_name, u.status AS member_status,
+           p.cardholder_name_enc
+      FROM app.identity_reviews ir JOIN app.bookings b ON b.id = ir.booking_id JOIN app.event_sessions s ON s.id = b.session_id
+      JOIN app.users u ON u.id = ir.user_id JOIN app.payments p ON p.id = ir.payment_id
+     WHERE ir.status = ${status} ORDER BY s.starts_at, ir.created_at LIMIT 100`;
+  if (rows.length) await audit(sql, admin.id, "read_card_names", "identity_reviews", null, `${status}_${rows.length}`, ctx.ipTrunc);
+  return json(200, { reviews: rows.map((r) => ({ id: r.id, booking_ref: r.booking_ref, starts_at: qa(r.starts_at), result: r.result, status: r.status,
+    registered_name: r.display_name, card_name: r.cardholder_name_enc ? decrypt(keys.dataKey, r.cardholder_name_enc) : null,
+    member_status: r.member_status, created_at: qa(r.created_at), decided_at: qa(r.decided_at) })) });
+}
+
+// approve: the venue shows (and its notice goes out if the session is already revealed).
+// reject (owner's decision, 4 Nov): the booking is cancelled WITHOUT a refund and the account is suspended, recorded as a
+// safety case about her (category identity_mismatch) so she sees it under "Decisions about you" and can appeal; an
+// upheld appeal reactivates her and refunds the fee (appealDecision). Her other upcoming bookings are refunded.
+async function decideIdentityReview(ctx) {
+  const { sql, params, body, admin, keys } = ctx;
+  requireUuid(params.id, "review_id");
+  if (!ctx.cfg.cardNameCheck) fail(404, "NOT_FOUND");
+  if (!["approve", "reject"].includes(body.decision)) fail(422, "VALIDATION_FAILED", [{ field: "decision" }]);
+  const refunds = await sql.begin(async (tx) => {
+    const [ir] = await tx`SELECT * FROM app.identity_reviews WHERE id = ${params.id} FOR UPDATE`;
+    if (!ir) fail(404, "NOT_FOUND");
+    if (ir.status !== "pending") fail(409, "CONFLICT", [{ status: ir.status }]);
+    const [b] = await tx`SELECT * FROM app.bookings WHERE id = ${ir.booking_id} FOR UPDATE`;
+    if (body.decision === "approve") {
+      await tx`UPDATE app.identity_reviews SET status = 'approved', decided_by = ${admin.id}, decided_at = now() WHERE id = ${ir.id}`;
+      if (b.status === "revealed") {
+        const t = await currentTable(tx, b.id);
+        const [v] = t && t.venue_id ? await tx`SELECT name, district_ar FROM app.venues WHERE id = ${t.venue_id}` : [null];
+        if (v) await notify(tx, b.user_id, "VENUE_REVEALED", { booking_id: b.id, venue: v.name, district: v.district_ar, code: t.table_code });
+      }
+      await audit(tx, admin.id, "identity_review_approved", "bookings", b.id, ir.result);
+      return [];
+    }
+    const t = await currentTable(tx, b.id);
+    const [r] = await tx`
+      INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, booking_id, table_id, category, timing, status)
+      VALUES (app.next_case_ref(), NULL, ${ir.user_id}, ${b.id}, ${t ? t.id : null}, 'identity_mismatch', 'during', 'actioned')
+      RETURNING *`;
+    await tx`INSERT INTO app.report_actions (report_id, action, actor_id, effective_to, rationale_enc)
+             VALUES (${r.id}, 'suspension', ${admin.id}, now() + interval '30 days',
+                     ${body.rationale ? encrypt(keys.dataKey, String(body.rationale)) : null})`;
+    await tx`UPDATE app.bookings SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer',
+                    cancel_reason_code = 'identity_rejected', hold_expires_at = NULL
+              WHERE id = ${b.id} AND status IN ('paid_awaiting_group','group_locked','revealed')`;
+    await tx`UPDATE app.users SET status = 'suspended' WHERE id = ${ir.user_id} AND status IN ('active','suspended')`;
+    const refundIds = await cancelFutureBookings(tx, ir.user_id, "account_suspended");
+    await tx`UPDATE app.identity_reviews SET status = 'rejected', decided_by = ${admin.id}, decided_at = now(), report_id = ${r.id} WHERE id = ${ir.id}`;
+    await notify(tx, ir.user_id, "IDENTITY_DECISION", { ref: b.booking_ref, booking_id: b.id,
+      appeal_until: new Date(Date.now() + 14 * 86400000).toISOString() });
+    await audit(tx, admin.id, "identity_review_rejected", "bookings", b.id, ir.result);
+    return refundIds;
+  });
+  for (const id of refunds) await dispatchRefund(sql, ctx.psp, id);
+  return json(200, { id: params.id, status: body.decision === "approve" ? "approved" : "rejected" });
 }
 
 // ------------------------------------------------------------------ approvals (maker-checker)
@@ -863,6 +946,8 @@ export const adminRoutes = [
   { method: "POST", path: `${A}/cases/{id}:triage`, auth: "admin", roles: TS, handler: triage },
   { method: "POST", path: `${A}/cases/{id}/actions`, auth: "admin", roles: TS, handler: caseAction },
   { method: "POST", path: `${A}/cases/{id}/appeal-decision`, auth: "admin", roles: [...TS, "owner"], handler: appealDecision },
+  { method: "GET", path: `${A}/identity-reviews`, auth: "admin", roles: [...TS, "owner"], handler: listIdentityReviews },
+  { method: "POST", path: `${A}/identity-reviews/{id}:decide`, auth: "admin", roles: [...TS, "owner"], handler: decideIdentityReview },
   { method: "GET", path: `${A}/approvals`, auth: "admin", roles: ANY, handler: listApprovals },
   { method: "POST", path: `${A}/approvals/{id}:approve`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, true) },
   { method: "POST", path: `${A}/approvals/{id}:reject`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, false) },

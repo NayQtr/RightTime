@@ -30,11 +30,12 @@ export function testPsp({ keys, cfg, deliver }) {
   return {
     name: "test_psp",
     checkoutUrl: (bookingId, intentId) => `${cfg.webBaseUrl}/checkout/mock/${bookingId}?pi=${encodeURIComponent(intentId)}`,
-    async completePayment(intent, outcome) {
+    async completePayment(intent, outcome, extra = {}) {
       const id = "evt_" + randomToken(12);
       if (outcome === "success") {
         return send({ id, type: "payment.succeeded", data: { payment_intent: intent.psp_payment_intent_id,
-          amount_minor: intent.amount_minor, currency: intent.currency, method_brand: "visa", card_last4: "4242" } });
+          amount_minor: intent.amount_minor, currency: intent.currency, method_brand: "visa", card_last4: "4242",
+          ...(extra.cardholder_name ? { cardholder_name: extra.cardholder_name } : {}) } });
       }
       const code = outcome === "3ds_failed" ? "3ds_failed" : outcome === "insufficient_funds" ? "insufficient_funds" : "declined";
       return send({ id, type: "payment.failed", data: { payment_intent: intent.psp_payment_intent_id, failure_code: code } });

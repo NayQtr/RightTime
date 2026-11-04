@@ -21,6 +21,7 @@ String categoryLabel(AppLocalizations t, String c) => switch (c) {
       'photo_without_consent' => t.cPhoto,
       'stalking_unwanted_contact' => t.cStalking,
       'fraud' => t.cFraud,
+      'identity_mismatch' => t.cIdentity,
       _ => t.cDisruptive,
     };
 
