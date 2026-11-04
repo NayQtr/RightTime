@@ -65,3 +65,28 @@ test("web: off without a DSN; with it, reports carry the route without ids, scru
   for (let i = 0; i < 20; i += 1) on.m.report(new Error("again"));
   assert.equal(on.sent.length, 10, "at most 10 reports per page load");
 });
+
+test("web: with a release, each page load is one session: started ok, ended exited on close or crashed on an uncaught error", () => {
+  const noRelease = loadWebMonitor({ sentryDsn: DSN });
+  assert.equal(noRelease.m.session(), null, "no session without a release");
+  const parse = (call) => call.init.body.trim().split("\n").map((l) => JSON.parse(l));
+  const a = loadWebMonitor({ sentryDsn: DSN, release: "herzone-web@abc1234", sentryEnvironment: "production" });
+  const [h, item, s0] = parse(a.sent[0]);
+  assert.equal(item.type, "session");
+  assert.equal(h.dsn, DSN);
+  assert.deepEqual([s0.init, s0.status, s0.errors, s0.attrs.release, s0.attrs.environment], [true, "ok", 0, "herzone-web@abc1234", "production"]);
+  assert.ok(!("did" in s0) && !("ip_address" in s0.attrs), "no user or device id, no IP");
+  a.m.report(new Error("api 503")); // handled: counted, no extra session request
+  assert.equal(a.sent.length, 2);
+  a.listeners.pagehide();
+  const s1 = parse(a.sent[2])[2];
+  assert.deepEqual([s1.init, s1.status, s1.errors, s1.sid], [false, "exited", 1, s0.sid]);
+  a.listeners.pagehide();
+  assert.equal(a.sent.length, 3, "a finished session is not sent again");
+  const b = loadWebMonitor({ sentryDsn: DSN, release: "herzone-web@abc1234" });
+  b.listeners.error({ error: new TypeError("x is undefined") });
+  const ev = parse(b.sent.find((c) => c.init.body.includes('"type":"event"')))[2];
+  assert.equal(ev.release, "herzone-web@abc1234");
+  const crashed = b.sent.map(parse).filter((p) => p[1].type === "session").pop()[2];
+  assert.deepEqual([crashed.status, crashed.errors], ["crashed", 1]);
+});

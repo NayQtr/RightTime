@@ -40,12 +40,16 @@ const PG_MAP = {
   P0043: [409, "CONFLICT"], P0044: [409, "CONFLICT"], P0045: [422, "VALIDATION_FAILED"], P0046: [422, "VALIDATION_FAILED"],
   P0050: [409, "CONFLICT"], P0051: [403, "FORBIDDEN"], P0052: [403, "FORBIDDEN"],
   "23505": [409, "CONFLICT"], "23514": [422, "VALIDATION_FAILED"], "22P02": [400, "MALFORMED_REQUEST"],
+  // database busy (no free connection, or starting up): a short, retryable 503, never a 500 (NMX-31)
+  "53300": [503, "UNAVAILABLE"], "57P03": [503, "UNAVAILABLE"],
 };
+const BUSY = new Set(["53300", "57P03"]);
 
 export function mapPgError(e) {
   if (e instanceof ApiError) return e;
   const m = e && PG_MAP[e.code];
   if (!m) return null;
+  if (BUSY.has(e.code)) { console.error("database busy:", e.code); return new ApiError(503, "UNAVAILABLE", [{ reason: "busy" }], { retry_after: 2 }); }
   return new ApiError(m[0], m[1], [{ reason: String(e.message || "").split("\n")[0].slice(0, 200) }]);
 }
 
