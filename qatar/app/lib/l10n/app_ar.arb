@@ -91,5 +91,49 @@
         "type": "String"
       }
     }
+  },
+  "welcomeHero": "تعرّفي على ناس.. تفهمك",
+  "welcomeSub": "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.",
+  "getStarted": "ابدئي",
+  "quizLength": "أسئلة قصيرة تأخذ دقائق قليلة.",
+  "haveAccount": "لديّ حساب",
+  "deviceNote": "نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.",
+  "qOf": "{i} من {n}",
+  "chooseUpTo": "اختاري حتى {n}",
+  "next": "التالي",
+  "skipQ": "تخطَّي",
+  "continueLabel": "متابعة",
+  "quizDoneTitle": "شكرًا لكِ",
+  "quizDoneBody": "خطوة أخيرة: رقم جوالك لنحفظ إجاباتك في حسابك.",
+  "saveAnswers": "احفظي إجاباتي",
+  "regTitle": "قبل أن نبدأ",
+  "nameLabel": "اسمك الأول أو لقبك (اختياري)",
+  "nameHelp": "يظهر لزميلات الطاولة يوم اللقاء فقط.",
+  "womenOnly": "HerZone للنساء فقط.",
+  "womanLabel": "أؤكد أنني امرأة",
+  "ageLabel": "أؤكد أن عمري 18 عامًا أو أكثر",
+  "termsLabel": "أوافق على الشروط",
+  "conductLabel": "أوافق على قواعد السلوك",
+  "privacyLabel": "قرأت إشعار الخصوصية",
+  "marketingLabel": "أرغب في رسائل تسويقية (اختياري)",
+  "readDoc": "اقرئي",
+  "required": "مطلوب",
+  "close": "إغلاق",
+  "@qOf": {
+    "placeholders": {
+      "i": {
+        "type": "int"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@chooseUpTo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

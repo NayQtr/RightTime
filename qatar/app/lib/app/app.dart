@@ -8,22 +8,25 @@ import '../core/config.dart';
 import '../core/token_store.dart';
 import '../data/auth_repository.dart';
 import '../data/meetups_repository.dart';
+import '../data/onboarding.dart';
 import '../data/trip_store.dart';
 import '../domain/locale_controller.dart';
 import '../domain/session.dart';
 import '../l10n/app_localizations.dart';
 import '../ui/auth/sign_in_view_model.dart';
+import '../ui/onboarding/quiz_view_model.dart';
 import '../ui/theme.dart';
 import 'router.dart';
 
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
-  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, this.httpClientFactory});
+  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.httpClientFactory});
 
   final AppConfig config;
   final TokenStore tokens;
   final TripStore trips;
+  final QuizStore quizStore;
   final dynamic Function()? httpClientFactory;
 
   @override
@@ -35,6 +38,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
   late final ApiClient api;
   late final AuthRepository auth;
   late final MeetupsRepository meetups;
+  late final OnboardingRepository onboarding;
   late final Session session;
   late final GoRouter router;
 
@@ -50,7 +54,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
     );
     auth = AuthRepository(api);
     meetups = MeetupsRepository(api, widget.trips);
-    session = Session(api, auth, clearDevice: meetups.forgetDevice)..restore();
+    onboarding = OnboardingRepository(api);
+    session = Session(api, auth, clearDevice: meetups.forgetDevice, onboarding: onboarding)..restore();
     router = buildRouter(session);
   }
 
@@ -62,6 +67,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
         ChangeNotifierProvider.value(value: session),
         Provider.value(value: auth),
         Provider.value(value: meetups),
+        Provider.value(value: onboarding),
+        ChangeNotifierProvider(create: (_) => QuizViewModel(onboarding, widget.quizStore, session)),
         ChangeNotifierProvider(create: (_) => SignInViewModel(auth, session, () => locale.code)),
       ],
       child: ListenableBuilder(

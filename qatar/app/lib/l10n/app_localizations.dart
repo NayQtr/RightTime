@@ -439,6 +439,168 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'زميلات الطاولة'**
   String get tablemates;
+
+  /// No description provided for @welcomeHero.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعرّفي على ناس.. تفهمك'**
+  String get welcomeHero;
+
+  /// No description provided for @welcomeSub.
+  ///
+  /// In ar, this message translates to:
+  /// **'طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.'**
+  String get welcomeSub;
+
+  /// No description provided for @getStarted.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابدئي'**
+  String get getStarted;
+
+  /// No description provided for @quizLength.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسئلة قصيرة تأخذ دقائق قليلة.'**
+  String get quizLength;
+
+  /// No description provided for @haveAccount.
+  ///
+  /// In ar, this message translates to:
+  /// **'لديّ حساب'**
+  String get haveAccount;
+
+  /// No description provided for @deviceNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.'**
+  String get deviceNote;
+
+  /// No description provided for @qOf.
+  ///
+  /// In ar, this message translates to:
+  /// **'{i} من {n}'**
+  String qOf(int i, int n);
+
+  /// No description provided for @chooseUpTo.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختاري حتى {n}'**
+  String chooseUpTo(int n);
+
+  /// No description provided for @next.
+  ///
+  /// In ar, this message translates to:
+  /// **'التالي'**
+  String get next;
+
+  /// No description provided for @skipQ.
+  ///
+  /// In ar, this message translates to:
+  /// **'تخطَّي'**
+  String get skipQ;
+
+  /// No description provided for @continueLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'متابعة'**
+  String get continueLabel;
+
+  /// No description provided for @quizDoneTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'شكرًا لكِ'**
+  String get quizDoneTitle;
+
+  /// No description provided for @quizDoneBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'خطوة أخيرة: رقم جوالك لنحفظ إجاباتك في حسابك.'**
+  String get quizDoneBody;
+
+  /// No description provided for @saveAnswers.
+  ///
+  /// In ar, this message translates to:
+  /// **'احفظي إجاباتي'**
+  String get saveAnswers;
+
+  /// No description provided for @regTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قبل أن نبدأ'**
+  String get regTitle;
+
+  /// No description provided for @nameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسمك الأول أو لقبك (اختياري)'**
+  String get nameLabel;
+
+  /// No description provided for @nameHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'يظهر لزميلات الطاولة يوم اللقاء فقط.'**
+  String get nameHelp;
+
+  /// No description provided for @womenOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'HerZone للنساء فقط.'**
+  String get womenOnly;
+
+  /// No description provided for @womanLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أؤكد أنني امرأة'**
+  String get womanLabel;
+
+  /// No description provided for @ageLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أؤكد أن عمري 18 عامًا أو أكثر'**
+  String get ageLabel;
+
+  /// No description provided for @termsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أوافق على الشروط'**
+  String get termsLabel;
+
+  /// No description provided for @conductLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أوافق على قواعد السلوك'**
+  String get conductLabel;
+
+  /// No description provided for @privacyLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'قرأت إشعار الخصوصية'**
+  String get privacyLabel;
+
+  /// No description provided for @marketingLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أرغب في رسائل تسويقية (اختياري)'**
+  String get marketingLabel;
+
+  /// No description provided for @readDoc.
+  ///
+  /// In ar, this message translates to:
+  /// **'اقرئي'**
+  String get readDoc;
+
+  /// No description provided for @required.
+  ///
+  /// In ar, this message translates to:
+  /// **'مطلوب'**
+  String get required;
+
+  /// No description provided for @close.
+  ///
+  /// In ar, this message translates to:
+  /// **'إغلاق'**
+  String get close;
 }
 
 class _AppLocalizationsDelegate

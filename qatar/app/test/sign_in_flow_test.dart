@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/config.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
 import 'package:herzone/main.dart' show scrub;
 import 'package:http/http.dart' as http;
@@ -30,6 +31,8 @@ MockClient fakeApi(List<String> log) => MockClient((r) async {
           return r.headers['Authorization'] == 'Bearer at_1'
               ? j({'user': {'id': 'u1', 'display_name': 'مريم', 'status': 'active', 'registration_status': 'complete'}})
               : j({'code': 'UNAUTHENTICATED'}, 401);
+        case '/api/v1/questionnaires/current':
+          return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
         case '/api/v1/auth/logout':
           return http.Response('', 204);
       }
@@ -40,10 +43,12 @@ void main() {
   testWidgets('Arabic first: sign in with a Qatar number and the code, land on the tabs, switch to English (LTR), sign out', (tester) async {
     final log = <String>[];
     final store = MemoryTokenStore();
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), httpClientFactory: () => fakeApi(log)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi(log)));
     await tester.pumpAndSettle();
 
-    // phone screen, right to left
+    // welcome, then "I have an account" opens the phone screen, right to left
+    await tester.tap(find.byKey(const Key('have-account')));
+    await tester.pumpAndSettle();
     expect(find.text('رقم جوالك'), findsOneWidget);
     expect(Directionality.of(tester.element(find.text('رقم جوالك'))), TextDirection.rtl);
     await tester.enterText(find.byKey(const Key('phone')), '1234');
@@ -81,7 +86,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(log, contains('POST /api/v1/auth/logout'));
     expect(store.token, isNull);
-    expect(find.text('Your mobile number'), findsOneWidget);
+    expect(find.text('Meet people who get you.'), findsOneWidget, reason: 'back to the welcome screen, in English');
     // the resend countdown timer must not outlive the test
     await tester.pump(const Duration(seconds: 60));
   });

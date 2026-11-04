@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -39,6 +40,8 @@ MockClient api({required bool Function() online, bool revealed = true}) => MockC
           return j({'bookings': [{'id': bookingId, 'ref': 'RT-ABC123', 'status': 'revealed', 'phase': 'revealed', 'experience': 'dinner', 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل'}]});
         case '/api/v1/bookings/$bookingId/event-details':
           return j(details(revealed: revealed));
+        case '/api/v1/questionnaires/current':
+          return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
         case '/api/v1/auth/logout':
           return http.Response('', 204);
       }
@@ -57,7 +60,7 @@ void main() {
     tallScreen(tester);
     var online = true;
     final trips = MemoryTripStore();
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, httpClientFactory: () => api(online: () => online)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, quizStore: QuizStore.memory(), httpClientFactory: () => api(online: () => online)));
     await tester.pumpAndSettle();
     expect(find.text('الدوحة، قطر'), findsOneWidget);
     expect(find.byKey(const Key('session-s1')), findsOneWidget);
@@ -83,7 +86,7 @@ void main() {
 
   testWidgets('before the reveal the venue is hidden, with the reveal time', (tester) async {
     tallScreen(tester);
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), httpClientFactory: () => api(online: () => true, revealed: false)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => api(online: () => true, revealed: false)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('لقاءاتي').last);
     await tester.pumpAndSettle();
@@ -96,7 +99,7 @@ void main() {
   testWidgets('signing out removes the saved meetups from the device', (tester) async {
     final trips = MemoryTripStore();
     await trips.save(bookingId, details());
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, httpClientFactory: () => api(online: () => true)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, quizStore: QuizStore.memory(), httpClientFactory: () => api(online: () => true)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();

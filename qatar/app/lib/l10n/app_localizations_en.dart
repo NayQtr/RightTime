@@ -195,4 +195,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tablemates => 'Your tablemates';
+
+  @override
+  String get welcomeHero => 'Meet people who get you.';
+
+  @override
+  String get welcomeSub =>
+      'A table of 4 to 6 women, in your language and within your budget, in Doha.';
+
+  @override
+  String get getStarted => 'Get started';
+
+  @override
+  String get quizLength => 'Short questions that take a few minutes.';
+
+  @override
+  String get haveAccount => 'I already have an account';
+
+  @override
+  String get deviceNote =>
+      'We keep your progress on this device only until you sign up, so you can pick up where you left off.';
+
+  @override
+  String qOf(int i, int n) {
+    return '$i of $n';
+  }
+
+  @override
+  String chooseUpTo(int n) {
+    return 'Choose up to $n';
+  }
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get skipQ => 'Skip';
+
+  @override
+  String get continueLabel => 'Continue';
+
+  @override
+  String get quizDoneTitle => 'Thank you';
+
+  @override
+  String get quizDoneBody =>
+      'One last step: your mobile number, so we save your answers to your account.';
+
+  @override
+  String get saveAnswers => 'Save my answers';
+
+  @override
+  String get regTitle => 'Before we start';
+
+  @override
+  String get nameLabel => 'Your first name or nickname (optional)';
+
+  @override
+  String get nameHelp =>
+      'Shown to your tablemates on the day of the event only.';
+
+  @override
+  String get womenOnly => 'HerZone is for women only.';
+
+  @override
+  String get womanLabel => 'I confirm I am a woman';
+
+  @override
+  String get ageLabel => 'I confirm I am 18 or older';
+
+  @override
+  String get termsLabel => 'I accept the terms';
+
+  @override
+  String get conductLabel => 'I accept the code of conduct';
+
+  @override
+  String get privacyLabel => 'I have read the privacy notice';
+
+  @override
+  String get marketingLabel => 'Send me marketing messages (optional)';
+
+  @override
+  String get readDoc => 'Read';
+
+  @override
+  String get required => 'Required';
+
+  @override
+  String get close => 'Close';
 }

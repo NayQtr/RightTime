@@ -193,4 +193,91 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tablemates => 'زميلات الطاولة';
+
+  @override
+  String get welcomeHero => 'تعرّفي على ناس.. تفهمك';
+
+  @override
+  String get welcomeSub =>
+      'طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.';
+
+  @override
+  String get getStarted => 'ابدئي';
+
+  @override
+  String get quizLength => 'أسئلة قصيرة تأخذ دقائق قليلة.';
+
+  @override
+  String get haveAccount => 'لديّ حساب';
+
+  @override
+  String get deviceNote =>
+      'نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.';
+
+  @override
+  String qOf(int i, int n) {
+    return '$i من $n';
+  }
+
+  @override
+  String chooseUpTo(int n) {
+    return 'اختاري حتى $n';
+  }
+
+  @override
+  String get next => 'التالي';
+
+  @override
+  String get skipQ => 'تخطَّي';
+
+  @override
+  String get continueLabel => 'متابعة';
+
+  @override
+  String get quizDoneTitle => 'شكرًا لكِ';
+
+  @override
+  String get quizDoneBody => 'خطوة أخيرة: رقم جوالك لنحفظ إجاباتك في حسابك.';
+
+  @override
+  String get saveAnswers => 'احفظي إجاباتي';
+
+  @override
+  String get regTitle => 'قبل أن نبدأ';
+
+  @override
+  String get nameLabel => 'اسمك الأول أو لقبك (اختياري)';
+
+  @override
+  String get nameHelp => 'يظهر لزميلات الطاولة يوم اللقاء فقط.';
+
+  @override
+  String get womenOnly => 'HerZone للنساء فقط.';
+
+  @override
+  String get womanLabel => 'أؤكد أنني امرأة';
+
+  @override
+  String get ageLabel => 'أؤكد أن عمري 18 عامًا أو أكثر';
+
+  @override
+  String get termsLabel => 'أوافق على الشروط';
+
+  @override
+  String get conductLabel => 'أوافق على قواعد السلوك';
+
+  @override
+  String get privacyLabel => 'قرأت إشعار الخصوصية';
+
+  @override
+  String get marketingLabel => 'أرغب في رسائل تسويقية (اختياري)';
+
+  @override
+  String get readDoc => 'اقرئي';
+
+  @override
+  String get required => 'مطلوب';
+
+  @override
+  String get close => 'إغلاق';
 }

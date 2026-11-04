@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
 
 import 'meetups_test.dart' as m;
+import 'onboarding_test.dart' as o;
 import 'sign_in_flow_test.dart' show config, fakeApi;
 
 Future<void> loadFonts() async {
@@ -35,7 +37,10 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), httpClientFactory: () => fakeApi([])));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi([])));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/welcome_ar.png'));
+    await tester.tap(find.byKey(const Key('have-account')));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_ar.png'));
     await tester.enterText(find.byKey(const Key('phone')), '5550 1234');
@@ -49,11 +54,27 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), httpClientFactory: () => m.api(online: () => true)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => m.api(online: () => true)));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/home_ar.png'));
     await tester.tap(find.byKey(const Key('session-s1')));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/details_ar.png'));
+  });
+
+  testWidgets('questionnaire (Arabic, 390x844)', skip: Platform.environment['HZ_SCREENSHOTS'] != '1', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final store = QuizStore.memory();
+    await store.write('v4', {'q1': {'o1'}, 'q2': {'o3'}}, 1);
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: store, httpClientFactory: o.FakeApi().client));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('start')));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/quiz_chips_ar.png'));
+    await tester.tap(find.byKey(const Key('next')));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/quiz_list_ar.png'));
   });
 }

@@ -4,6 +4,9 @@ import '../domain/session.dart';
 import '../ui/auth/otp_screen.dart';
 import '../ui/auth/phone_screen.dart';
 import '../ui/meetups/event_details_screen.dart';
+import '../ui/onboarding/quiz_screen.dart';
+import '../ui/onboarding/register_screen.dart';
+import '../ui/onboarding/welcome_screen.dart';
 import '../ui/meetups/events_tab.dart';
 import '../ui/meetups/home_tab.dart';
 import '../ui/meetups/inbox_tab.dart';
@@ -16,19 +19,25 @@ GoRouter buildRouter(Session session) => GoRouter(
       refreshListenable: session,
       redirect: (context, state) {
         final loc = state.matchedLocation;
-        final inSignIn = loc.startsWith('/sign-in');
+        final open = loc == '/welcome' || loc == '/quiz' || loc.startsWith('/sign-in');
         switch (session.status) {
           case SessionStatus.unknown:
             return loc == '/' ? null : '/';
           case SessionStatus.signedOut:
-            return inSignIn ? null : '/sign-in';
+            return open ? null : '/welcome';
           case SessionStatus.signedIn:
+            if (session.needsRegistration) return loc == '/register' ? null : '/register';
+            if (session.needsQuiz) return loc == '/quiz' ? null : '/quiz';
+            return open && loc != '/quiz' || loc == '/' || loc == '/register' ? '/home' : null;
           case SessionStatus.offline:
-            return inSignIn || loc == '/' ? '/home' : null;
+            return open || loc == '/' || loc == '/register' ? '/home' : null;
         }
       },
       routes: [
         GoRoute(path: '/', builder: (_, _) => const Splash()),
+        GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
+        GoRoute(path: '/quiz', builder: (_, _) => const QuizScreen()),
+        GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
         GoRoute(path: '/sign-in', builder: (_, _) => const PhoneScreen(), routes: [
           GoRoute(path: 'code', builder: (_, _) => const OtpScreen()),
         ]),
