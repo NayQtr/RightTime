@@ -156,6 +156,9 @@ lines += [
     "}",
 ]
 
-OUT.parent.mkdir(exist_ok=True)
-OUT.write_text("\n".join(lines) + "\n")
-print(f"wrote {OUT}")
+# the same file goes into the Flutter app (qatar/app), so the app always builds with the current tokens
+APP_OUT = HERE.parent / "app" / "lib" / "design" / "herzone_tokens.dart"
+for out in (OUT, APP_OUT):
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(lines) + "\n")
+    print(f"wrote {out}")

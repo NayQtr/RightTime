@@ -16,7 +16,7 @@ try {
   spec.servers = [{ url: `http://localhost:${port}` }];
   writeFileSync(path.join(out, "openapi-local.json"), JSON.stringify(spec));
   const auth = ["description=auth", "enabled=true", "matchtype=REQ_HEADER", "matchstr=Authorization", "regex=false", `replacement=Bearer ${u.token}`]
-    .map((kv) => `-config replacer.full_list(0).${kv}`).join(" ");
+    .map((kv) => `-config replacer.full_list(0).${kv}`).join(" ") + " -silent"; // -silent: no update checks (no internet here)
   const r = spawnSync("docker", ["run", "--rm", "--network", "host", "-v", `${out}:/zap/wrk:rw`, "ghcr.io/zaproxy/zaproxy:stable",
     "zap-api-scan.py", "-t", "/zap/wrk/openapi-local.json", "-f", "openapi", "-r", "api-local.html", "-J", "api-local.json", "-T", "12", "-z", auth],
     { stdio: "inherit" });
