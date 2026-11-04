@@ -47,8 +47,10 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('privacy-cover')), findsOneWidget, reason: 'the app switcher snapshot shows only the brand');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('inbox-locked')), findsOneWidget);
+    expect(find.byKey(const Key('privacy-cover')), findsNothing);
   });
 }

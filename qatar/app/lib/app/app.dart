@@ -15,6 +15,7 @@ import '../domain/locale_controller.dart';
 import '../domain/session.dart';
 import '../l10n/app_localizations.dart';
 import '../ui/auth/sign_in_view_model.dart';
+import '../ui/common/privacy_cover.dart';
 import '../ui/onboarding/quiz_view_model.dart';
 import '../ui/theme.dart';
 import 'router.dart';
@@ -97,6 +98,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
           theme: herZoneTheme(Brightness.light, locale.code),
           darkTheme: herZoneTheme(Brightness.dark, locale.code),
           routerConfig: router,
+          builder: (context, child) => PrivacyCover(child: child!),
         ),
       ),
     );
