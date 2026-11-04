@@ -6,7 +6,6 @@ import 'package:herzone/app/app.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
-import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'meetups_test.dart' show tallScreen;
