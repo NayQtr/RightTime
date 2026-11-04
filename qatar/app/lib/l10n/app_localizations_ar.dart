@@ -10,6 +10,18 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get docsTitle => 'الشروط والخصوصية';
+
+  @override
+  String get docTerms => 'الشروط';
+
+  @override
+  String get docConduct => 'قواعد السلوك';
+
+  @override
+  String get docPrivacy => 'إشعار الخصوصية';
+
+  @override
   String get updateTitle => 'حدّثي HerZone';
 
   @override

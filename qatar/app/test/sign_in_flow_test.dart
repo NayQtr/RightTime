@@ -36,6 +36,13 @@ MockClient fakeApi(List<String> log) => MockClient((r) async {
           return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
         case '/api/v1/auth/logout':
           return http.Response('', 204);
+        case '/api/v1/legal/current':
+          return j({
+            'terms': {'document_version': 'terms-1', 'required': true, 'text': 'نص الشروط'},
+            'conduct': {'document_version': 'conduct-1', 'required': true, 'text': 'نص قواعد السلوك'},
+            'privacy_notice': {'document_version': 'privacy-1', 'required': true, 'text': 'نص إشعار الخصوصية'},
+            'marketing': {'document_version': 'marketing-1', 'required': false, 'text': 'تسويق'},
+          });
         case '/api/v1/auth/token:refresh':
           return j({'access_token': 'at_1', 'refresh_token': 'rt_1', 'token_type': 'Bearer', 'expires_in': 900});
       }
@@ -153,6 +160,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.token, 'rt_1');
     expect(find.byKey(const Key('have-account')), findsNothing, reason: 'not the signed-out welcome screen');
+  });
+
+  testWidgets('the privacy notice, terms and code of conduct open from Account (App Store 5.1.1(i))', (tester) async {
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi([])));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حسابي').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('documents')));
+    await tester.pumpAndSettle();
+    expect(find.text('الشروط'), findsOneWidget);
+    expect(find.text('قواعد السلوك'), findsOneWidget);
+    expect(find.byKey(const Key('open-marketing')), findsNothing, reason: 'marketing is a choice, not a document to read here');
+    await tester.tap(find.byKey(const Key('open-privacy_notice')));
+    await tester.pumpAndSettle();
+    expect(find.text('نص إشعار الخصوصية'), findsOneWidget);
   });
 
   test('Sentry text is scrubbed of phone numbers, tokens and codes', () {

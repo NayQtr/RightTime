@@ -98,6 +98,30 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @docsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشروط والخصوصية'**
+  String get docsTitle;
+
+  /// No description provided for @docTerms.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشروط'**
+  String get docTerms;
+
+  /// No description provided for @docConduct.
+  ///
+  /// In ar, this message translates to:
+  /// **'قواعد السلوك'**
+  String get docConduct;
+
+  /// No description provided for @docPrivacy.
+  ///
+  /// In ar, this message translates to:
+  /// **'إشعار الخصوصية'**
+  String get docPrivacy;
+
   /// No description provided for @updateTitle.
   ///
   /// In ar, this message translates to:

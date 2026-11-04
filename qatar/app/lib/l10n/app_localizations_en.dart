@@ -10,6 +10,18 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get docsTitle => 'Terms and privacy';
+
+  @override
+  String get docTerms => 'Terms';
+
+  @override
+  String get docConduct => 'Code of conduct';
+
+  @override
+  String get docPrivacy => 'Privacy notice';
+
+  @override
   String get updateTitle => 'Update HerZone';
 
   @override
