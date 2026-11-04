@@ -10,7 +10,10 @@ export async function applyPspEvent(sql, event) {
     if (event.type === "payment.succeeded" || event.type === "payment.failed") {
       const [p] = await tx`SELECT * FROM app.payments WHERE psp_payment_intent_id = ${d.payment_intent} FOR UPDATE`;
       if (!p) throw new Error("UNKNOWN_PAYMENT_INTENT");
-      if (["succeeded", "refunded", "partially_refunded", "failed", "cancelled"].includes(p.status) && p.status !== "failed") return;
+      // NMX-63: a charge that succeeds after the member cancelled (her checkout page was still open) is not ignored: it
+      // goes on as a late payment and is refunded automatically below (seat_unavailable), like an expired hold.
+      const chargedAfterCancel = p.status === "cancelled" && !p.succeeded_at && event.type === "payment.succeeded";
+      if (["succeeded", "refunded", "partially_refunded", "cancelled"].includes(p.status) && !chargedAfterCancel) return;
       const [b] = await tx`SELECT * FROM app.bookings WHERE id = ${p.booking_id} FOR UPDATE`;
       if (event.type === "payment.failed") {
         await tx`UPDATE app.payments SET status = 'failed', failure_code = ${d.failure_code || "other"} WHERE id = ${p.id}`;

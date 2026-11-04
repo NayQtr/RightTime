@@ -49,3 +49,27 @@ test("an admin access token stops working when its session is revoked", async ()
   await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE subject_type = 'admin' AND revoked_at IS NULL`;
   assert.equal((await call("GET", "/api/admin/v1/me", { token })).status, 401);
 });
+
+test("NMX-63: the same refresh token sent twice at once never leaves two working sessions", async () => {
+  for (let round = 0; round < 5; round++) {
+    const u = await signUp(call, { name: "Dana" });
+    const send = () => call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: u.refresh }, idem: false });
+    const [a, b] = await Promise.all([send(), send()]);
+    const ok = [a, b].filter((r) => r.status === 200);
+    assert.ok(ok.length <= 1, `round ${round}: both refreshes succeeded`);
+    // whatever happened, at most one live refresh token remains in that session
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.refresh_tokens WHERE subject_id = ${u.userId} AND revoked_at IS NULL`;
+    assert.ok(n <= 1, `round ${round}: ${n} live refresh tokens`);
+  }
+});
+
+test("NMX-63: 30 parallel wrong OTP guesses are counted; never more than 5 are checked", async () => {
+  const r = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455577001", locale: "ar" } });
+  const wrong = String((Number(r.body.dev_code) + 1) % 1000000).padStart(6, "0");
+  const rs = await Promise.all(Array.from({ length: 30 }, () => call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r.body.challenge_id, code: wrong } })));
+  assert.equal(rs.filter((x) => x.status === 400).length, 5, rs.map((x) => x.status).join(","));
+  const [ch] = await sql`SELECT attempts FROM app.otp_challenges WHERE id = ${r.body.challenge_id}`;
+  assert.equal(ch.attempts, 5);
+  const right = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r.body.challenge_id, code: r.body.dev_code } });
+  assert.equal(right.status, 423, "locked: even the right code is not accepted");
+});

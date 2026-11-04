@@ -1,5 +1,5 @@
 // Admin API (v0.3 §4; permission matrix §4.0.1; maker-checker via app.admin_approvals; P4 reads audited with a reason).
-import { decrypt, encrypt, newTotpSecret, randomToken, sha256hex, totpVerify } from "../lib/crypto.js";
+import { decrypt, encrypt, newTotpSecret, randomToken, sha256hex, totpStep } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { runMatching, MatchingError } from "../matching/engine.js";
 import { audit, capturedPayment, notify } from "../services/common.js";
@@ -44,11 +44,11 @@ async function throttledAttempt(ctx, kind, email, verify) {
   const emailHash = sha256hex(email);
   const out = await ctx.sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext(${`admin-auth:${kind}:${emailHash}`}))`;
-    const locked = await lockedFor(tx, kind, emailHash, ctx.ipTrunc, ctx.cfg);
+    const locked = await lockedFor(tx, kind, emailHash, ctx.ipBucket, ctx.cfg);
     if (locked) return { locked };
     const ok = await verify(tx);
     await tx`INSERT INTO app.admin_auth_attempts (kind, email_hash, ip_trunc, succeeded)
-             VALUES (${kind}, ${emailHash}, ${ctx.ipTrunc}::inet, ${!!ok})`;
+             VALUES (${kind}, ${emailHash}, ${ctx.ipBucket}::inet, ${!!ok})`;
     return { ok };
   });
   if (out.locked) {
@@ -68,8 +68,9 @@ async function enroll(ctx) {
     const [a] = await tx`SELECT * FROM app.admin_users WHERE lower(email) = ${email} AND status = 'active'`;
     if (!a || !a.enroll_token_hash || a.enroll_token_hash.trim() !== sha256hex(String(body.enroll_token || "")) || new Date(a.enroll_expires_at) < new Date())
       return false;
+    // a new secret: codes of the old one are void, so the single-use marker (last_login_at) starts afresh
     await tx`UPDATE app.admin_users SET totp_secret_enc = ${encrypt(keys.dataKey, secret)}, mfa_enabled = true,
-                    enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = ${a.id}`;
+                    enroll_token_hash = NULL, enroll_expires_at = NULL, last_login_at = NULL WHERE id = ${a.id}`;
     await audit(tx, a.id, "admin_mfa_enrolled", "admin_users", a.id, "totp");
     admin = a;
     return true;
@@ -84,10 +85,16 @@ async function login(ctx) {
   let a = null;
   const ok = await throttledAttempt(ctx, "login", email, async (tx) => {
     [a] = await tx`SELECT * FROM app.admin_users WHERE lower(email) = ${email} AND status = 'active'`;
-    return !!(a && a.totp_secret_enc && totpVerify(decrypt(keys.dataKey, a.totp_secret_enc), String(body.totp_code || "")));
+    if (!a || !a.totp_secret_enc) return false;
+    const step = totpStep(decrypt(keys.dataKey, a.totp_secret_enc), String(body.totp_code || ""));
+    if (step === null) return false;
+    // NMX-63: a code is accepted once. A sign-in in the same or a later 30-second step means this code was already used
+    // (the per-email lock in throttledAttempt makes this check and the update below one step).
+    if (a.last_login_at && step <= Math.floor(new Date(a.last_login_at).getTime() / 30000)) return false;
+    await tx`UPDATE app.admin_users SET last_login_at = now() WHERE id = ${a.id}`;
+    return true;
   });
   if (!ok) fail(401, "LOGIN_FAILED");
-  await sql`UPDATE app.admin_users SET last_login_at = now() WHERE id = ${a.id}`;
   await audit(sql, a.id, "admin_login", "admin_users", a.id, "totp", ctx.ipTrunc);
   const tokens = await issueTokens(ctx, "admin", a.id);
   return json(200, { access_token: tokens.access_token, token_type: "Bearer", expires_in: tokens.expires_in,
@@ -96,12 +103,33 @@ async function login(ctx) {
 
 const me = async (ctx) => json(200, { admin: ctx.admin });
 
+// NMX-63: signing out ends the admin session on the server, not only in the browser
+async function adminLogout(ctx) {
+  if (ctx.claims && ctx.claims.sid) await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${ctx.claims.sid} AND subject_id = ${ctx.admin.id} AND revoked_at IS NULL`;
+  await audit(ctx.sql, ctx.admin.id, "admin_logout", "admin_users", ctx.admin.id, null);
+  return json(204, null);
+}
+
 async function issueEnrollToken(ctx) {
   requireUuid(ctx.params.id, "admin_id");
+  // NMX-63: an enrolment token replaces the admin's authenticator. Never for the caller herself, and for an admin who
+  // already has one only with an explicit reset (reset_mfa: true), which ends her sessions and is audited, so the owner
+  // cannot quietly take over another admin's identity (and with it the two-person approval rule).
+  if (ctx.params.id === ctx.admin.id) fail(403, "FORBIDDEN", [{ reason: "own_account" }]);
+  const [target] = await ctx.sql`SELECT id, totp_secret_enc FROM app.admin_users WHERE id = ${ctx.params.id}`;
+  if (!target) fail(404, "NOT_FOUND");
+  if (target.totp_secret_enc && ctx.body.reset_mfa !== true) fail(409, "CONFLICT", [{ reason: "mfa_enabled", hint: "send reset_mfa: true to reset it" }]);
   const token = "enr_" + randomToken(24);
-  const rows = await ctx.sql`UPDATE app.admin_users SET enroll_token_hash = ${sha256hex(token)}, enroll_expires_at = now() + interval '24 hours'
-                              WHERE id = ${ctx.params.id} RETURNING id, email`;
-  if (!rows.length) fail(404, "NOT_FOUND");
+  const rows = await ctx.sql.begin(async (tx) => {
+    if (target.totp_secret_enc) {
+      // the old authenticator stops working at once (an active admin keeps mfa_enabled; she signs in only after enrolling)
+      await tx`UPDATE app.admin_users SET totp_secret_enc = NULL WHERE id = ${target.id}`;
+      await tx`UPDATE app.refresh_tokens SET revoked_at = now() WHERE subject_type = 'admin' AND subject_id = ${target.id} AND revoked_at IS NULL`;
+      await audit(tx, ctx.admin.id, "admin_mfa_reset", "admin_users", target.id, "reset");
+    }
+    return tx`UPDATE app.admin_users SET enroll_token_hash = ${sha256hex(token)}, enroll_expires_at = now() + interval '24 hours'
+               WHERE id = ${target.id} RETURNING id, email`;
+  });
   await audit(ctx.sql, ctx.admin.id, "admin_enroll_token", "admin_users", ctx.params.id, "issued");
   return json(201, { email: rows[0].email, enroll_token: token, expires_in: 86400 });
 }
@@ -804,6 +832,7 @@ const A = "/api/admin/v1";
 export const adminRoutes = [
   { method: "POST", path: `${A}/auth/enroll`, auth: "none", handler: enroll },
   { method: "POST", path: `${A}/auth/login`, auth: "none", handler: login },
+  { method: "POST", path: `${A}/auth/logout`, auth: "admin", handler: adminLogout },
   { method: "GET", path: `${A}/me`, auth: "admin", roles: ANY, handler: me },
   { method: "POST", path: `${A}/admins/{id}:enroll-token`, auth: "admin", roles: OWNER, handler: issueEnrollToken },
   { method: "GET", path: `${A}/sessions`, auth: "admin", roles: [...OPS, "analyst", "finance"], handler: listSessions },

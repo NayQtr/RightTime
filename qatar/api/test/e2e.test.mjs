@@ -210,6 +210,22 @@ test("E-PAY-5: payment after the hold expired is refunded automatically", async 
   assert.deepEqual({ ...r }, { reason: "seat_unavailable", status: "refunded", pay: "refunded" });
 });
 
+test("NMX-63: a charge that succeeds after the member cancelled her unpaid booking is refunded, not kept", async () => {
+  const u = await signUp(call, { name: "Mai" });
+  const b = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: S.s3 } });
+  assert.equal((await call("POST", `/api/v1/bookings/${b.body.booking_id}/cancel`, { token: u.token, body: {} })).status, 200);
+  const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.body.booking_id}`;
+  assert.equal(p.status, "cancelled");
+  const [{ value: secret }] = await sql`SELECT value FROM app.server_keys WHERE name = 'PSP_WEBHOOK_SECRET'`;
+  const raw = JSON.stringify({ id: "evt_after_cancel_" + p.id, type: "payment.succeeded",
+    data: { payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor, currency: p.currency } });
+  const res = await fetch(`${env.base}/api/v1/payments/webhooks/test_psp`, { method: "POST", headers: { "content-type": "application/json", ...signWebhook(secret, raw) }, body: raw });
+  assert.equal(res.status, 200);
+  const [r] = await sql`SELECT reason FROM app.refunds WHERE payment_id = ${p.id}`;
+  assert.ok(r, "an automatic refund exists");
+  assert.equal(r.reason, "seat_unavailable");
+});
+
 // ===================================================================== matching, lock, reveal, day-of
 test("12 paid in S1 -> dry-run + publish (2 x 6), phases forming -> locked -> revealed -> day_of with ETag", async () => {
   S.reported = await signUp(call, { name: "Omar", topics: ["sport", "tech"] });
@@ -288,6 +304,12 @@ test("S1 report: 999 flag, interim block + suspension, P4 reason gate, ban by T&
   const [{ n_block }] = await sql`SELECT count(*)::int AS n_block FROM app.blocked_pairs WHERE ${S.reported.userId} IN (user_a, user_b)`;
   assert.equal(n_block, 1);
   assert.equal((await call("GET", "/api/v1/sessions", { token: S.reported.token })).body.code, "ACCOUNT_SUSPENDED");
+  // NMX-63: while suspended she still opens her booking but sees no venue, table code or tablemates
+  const [hers] = await sql`SELECT b.id FROM app.bookings b JOIN app.table_assignments a ON a.booking_id = b.id AND a.is_current WHERE b.user_id = ${S.reported.userId} LIMIT 1`;
+  const held = await call("GET", `/api/v1/bookings/${hers.id}/event-details`, { token: S.reported.token });
+  assert.equal(held.status, 200);
+  assert.equal(held.body.venue, null);
+  assert.ok(held.body.table && !("code" in held.body.table) && !("members" in held.body.table), JSON.stringify(held.body.table));
   const [enc] = await sql`SELECT description_enc FROM app.safety_reports WHERE case_ref = ${rep.body.case_ref}`;
   assert.ok(!Buffer.from(enc.description_enc).toString("latin1").includes("threatened"), "narrative encrypted at rest");
   // live board pins the incident (category only)
@@ -490,7 +512,7 @@ test("F1: inside the refund window no acknowledgement is needed; after the cut-o
 
 test("F5: admin sign-in and enrolment brute force get 429 + Retry-After per e-mail and per IP", async () => {
   await sql`DELETE FROM app.admin_auth_attempts`;
-  const from = (n) => ({ "x-forwarded-for": `198.51.${n}.7` });
+  const from = (n) => ({ "x-real-ip": `198.51.${n}.7` });
   const login = (email, code, n) => call("POST", "/api/admin/v1/auth/login", { headers: from(n), body: { email, totp_code: code } });
   const owner = "owner@example.test";
   const good = () => totpAt(S.owner.secret, Date.now());
@@ -504,12 +526,14 @@ test("F5: admin sign-in and enrolment brute force get 429 + Retry-After per e-ma
   assert.equal((await login(owner, good(), 2)).status, 429, "the right code is not even checked while the e-mail is locked");
   assert.equal((await login("nobody@example.test", wrong(), 1)).status, 401, "other e-mails from that IP are not locked yet");
   await sql`UPDATE app.admin_auth_attempts SET attempted_at = attempted_at - interval '16 minutes'`;
+  await sql`UPDATE app.admin_users SET last_login_at = now() - interval '2 minutes' WHERE email = ${owner}`; // codes are single-use (NMX-63)
   assert.equal((await login(owner, good(), 1)).status, 200, "lock lifts after the window");
   assert.equal((await login(owner, wrong(), 1)).status, 401, "counter restarts after a success");
   // per IP prefix: 20 failures with any e-mail lock the prefix, other prefixes are unaffected
   await sql`DELETE FROM app.admin_auth_attempts`;
   for (let i = 0; i < 20; i++) assert.equal((await login(`guess${i}@example.test`, "000000", 3)).status, 401);
   assert.equal((await login(owner, good(), 3)).status, 429, "IP prefix locked");
+  await sql`UPDATE app.admin_users SET last_login_at = now() - interval '2 minutes' WHERE email = ${owner}`; // a later code (NMX-63: codes are single-use)
   assert.equal((await login(owner, good(), 4)).status, 200, "another prefix signs in");
   // enrolment tokens are throttled the same way
   await sql`DELETE FROM app.admin_auth_attempts`;
@@ -528,4 +552,48 @@ test("F10 + F6 probes: coordinator contact from config, health reports the key s
   await sql`UPDATE app.app_config SET value = 'false' WHERE key = 'COORDINATOR_WHATSAPP'`;
   const h = await call("GET", "/api/v1/health");
   assert.deepEqual(h.body, { status: "ok", key_source: "db-fallback" });
+});
+
+test("NMX-63: a refund choice sent while a rebook of the same booking is in progress is refused (no meetup plus refund)", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 5, district: ["الدفنة", "Dafna"] });
+  const M = await signUp(call, { name: "Hessa" });
+  const bk = await bookAndPay(M.token, s);
+  await sql`UPDATE app.bookings SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer' WHERE id = ${bk.booking_id}`;
+  // a rebook in progress: rebook_booking locks the booking and creates the child; its transaction is still open
+  let refund;
+  await sql.begin(async (tx) => {
+    await tx`SELECT app.rebook_booking(${bk.booking_id}, ${M.userId}, ${S.s3})`;
+    refund = call("POST", `/api/v1/bookings/${bk.booking_id}/resolution`, { token: M.token, body: { choice: "refund" } });
+    await new Promise((r) => setTimeout(r, 400)); // the refund request is now waiting on the row lock
+  });
+  const r = await refund;
+  assert.equal(r.status, 409, JSON.stringify(r.body));
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${bk.booking_id}`;
+  assert.equal(n, 0, "no refund next to the rebooked seat");
+});
+
+test("NMX-63 admin: a TOTP code works once, sign-out ends the session, re-enrolment needs an explicit reset", async () => {
+  await sql`DELETE FROM app.admin_auth_attempts`;
+  const ts = await adminLogin(call, sql, "ts.second@example.test");
+  // replay of a code: wait for a fresh step, sign in, then send the same code again
+  await new Promise((r) => setTimeout(r, 30000 - (Date.now() % 30000) + 50));
+  const code = totpAt(ts.secret, Date.now());
+  assert.equal((await call("POST", "/api/admin/v1/auth/login", { body: { email: "ts.second@example.test", totp_code: code } })).status, 200);
+  assert.equal((await call("POST", "/api/admin/v1/auth/login", { body: { email: "ts.second@example.test", totp_code: code } })).status, 401, "same code refused");
+  // sign-out revokes the token on the server
+  assert.equal((await call("GET", "/api/admin/v1/me", { token: ts.token })).status, 200);
+  assert.equal((await call("POST", "/api/admin/v1/auth/logout", { token: ts.token })).status, 204);
+  assert.equal((await call("GET", "/api/admin/v1/me", { token: ts.token })).status, 401);
+  // enrolment tokens: never for oneself; for an enrolled admin only with reset_mfa, which ends her sessions
+  const [{ id: tsId }] = await sql`SELECT id FROM app.admin_users WHERE email = 'ts.second@example.test'`;
+  const [{ id: ownerId }] = await sql`SELECT id FROM app.admin_users WHERE email = 'owner@example.test'`;
+  const ownerTok = (await adminLogin(call, sql, "owner@example.test")).token;
+  assert.equal((await call("POST", `/api/admin/v1/admins/${ownerId}:enroll-token`, { token: ownerTok, body: {} })).status, 403);
+  assert.equal((await call("POST", `/api/admin/v1/admins/${tsId}:enroll-token`, { token: ownerTok, body: {} })).status, 409);
+  const ts2 = await adminLogin(call, sql, "ts.second@example.test");
+  const reset = await call("POST", `/api/admin/v1/admins/${tsId}:enroll-token`, { token: ownerTok, body: { reset_mfa: true } });
+  assert.equal(reset.status, 201);
+  assert.equal((await call("GET", "/api/admin/v1/me", { token: ts2.token })).status, 401, "her sessions ended");
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'admin_mfa_reset' AND entity_id = ${tsId}`;
+  assert.equal(n, 1);
 });

@@ -62,7 +62,8 @@ function renderNav() {
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
   const lo = document.getElementById("logout");
-  if (lo) lo.onclick = () => { ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
+  // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
+  if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
 }
 
 // ------------------------------------------------------------------ auth

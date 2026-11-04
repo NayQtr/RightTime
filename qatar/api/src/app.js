@@ -41,8 +41,13 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const fwd = req.headers.get("x-forwarded-for") || "";
     const locale = (req.headers.get("accept-language") || "ar").toLowerCase().startsWith("en") ? "en" : "ar";
     const psp = testPsp({ keys, cfg, deliver: (raw, headers) => deliverWebhook(raw, headers) });
-    return { req, url, keys, cfg, sql, getEnv, locale, psp, ip: fwd.split(",")[0].trim() || null,
-      ipTrunc: ipTrunc(fwd.split(",")[0].trim()), requestId: "req_" + randomToken(9) };
+    // Client IP (NMX-63): the address Cloudflare or the gateway saw (cf-connecting-ip / x-real-ip, which a client cannot
+    // set), and only without them the first X-Forwarded-For entry. Rate limits use ipBucket: an address that cannot be
+    // read shares one bucket ("0.0.0.0") instead of skipping the per-IP limit.
+    const rawIp = (req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || fwd.split(",")[0] || "").trim();
+    const trunc = ipTrunc(rawIp);
+    return { req, url, keys, cfg, sql, getEnv, locale, psp, ip: rawIp || null,
+      ipTrunc: trunc, ipBucket: trunc || "0.0.0.0", requestId: "req_" + randomToken(9) };
   }
 
   // In-process delivery used by the mock PSP: goes through the full webhook route (signature, dedupe, processing).
@@ -66,6 +71,7 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const token = h.startsWith("Bearer ") ? h.slice(7) : null;
     if (route.auth === "none") return;
     const claims = token ? jwtVerify(ctx.keys.jwt.publicKey, token) : null;
+    ctx.claims = claims;
     // A session ends at once (NMX-17): sign-out, refresh-token reuse and account deletion revoke the session's refresh
     // tokens, and its access tokens are refused from then on. Tokens issued before sessions were tracked carry no sid
     // and expire on their own within the access TTL.

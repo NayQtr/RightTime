@@ -542,6 +542,7 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   const ts = "enr_ui_ts_" + crypto.randomUUID();
   await env.sql`UPDATE app.admin_users SET enroll_token_hash = ${sha256hex(ts)}, enroll_expires_at = now() + interval '1 hour' WHERE email = 'ts.primary@example.test'`;
   await page.click("#logout");
+  await page.waitForSelector("#code"); // sign-out ends the session on the server first (NMX-63), then shows sign-in
   await page.goto(env.base + "/admin/#/enroll");
   await page.fill("#em", "ts.primary@example.test"); await page.fill("#tok", ts); await page.click("button[type=submit]");
   const s2 = (await page.locator("code.num").innerText()).trim();

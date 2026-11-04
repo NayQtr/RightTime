@@ -103,17 +103,15 @@ async function otpRequest(ctx) {
   }
   const [{ n_phone }] = await sql`SELECT count(*)::int AS n_phone FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} AND created_at > now() - interval '1 hour'`;
   if (n_phone >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  if (ctx.ipTrunc) {
-    const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipTrunc}::inet AND created_at > now() - interval '1 hour'`;
-    if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  }
+  const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipBucket}::inet AND created_at > now() - interval '1 hour'`;
+  if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
   if (!cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
   const id = randomUUID();
   const code = randomDigits(6);
   await sql`
     INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc)
     VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
-            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipTrunc}::inet)`;
+            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet)`;
   return json(202, { challenge_id: id, expires_in: cfg.otpTtl, resend_after: cfg.otpResendAfter, code_length: 6,
     ...(cfg.otpDevMode ? { dev_code: code } : {}) });
 }
@@ -125,10 +123,12 @@ async function otpVerify(ctx) {
   const [ch] = await sql`SELECT * FROM app.otp_challenges WHERE id = ${body.challenge_id}`;
   if (!ch) fail(404, "CHALLENGE_NOT_FOUND");
   if (ch.consumed_at || new Date(ch.expires_at) < new Date()) fail(410, "OTP_EXPIRED");
-  if (ch.attempts >= cfg.otpMaxAttempts) fail(423, "OTP_LOCKED", null, { retry_after: cfg.otpResendAfter });
+  // NMX-63: take an attempt atomically before comparing, so parallel guesses (even across function copies) can never
+  // exceed the attempt limit
+  const [slot] = await sql`UPDATE app.otp_challenges SET attempts = attempts + 1 WHERE id = ${ch.id} AND attempts < ${cfg.otpMaxAttempts} RETURNING attempts`;
+  if (!slot) fail(423, "OTP_LOCKED", null, { retry_after: cfg.otpResendAfter });
   if (!safeEqual(hmacB64(keys.phonePepper, `${ch.id}:${body.code}`), ch.code_hash.trim())) {
-    const [u] = await sql`UPDATE app.otp_challenges SET attempts = attempts + 1 WHERE id = ${ch.id} RETURNING attempts`;
-    fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: Math.max(0, cfg.otpMaxAttempts - u.attempts) }]);
+    fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: Math.max(0, cfg.otpMaxAttempts - slot.attempts) }]);
   }
   const consumed = await sql`UPDATE app.otp_challenges SET consumed_at = now() WHERE id = ${ch.id} AND consumed_at IS NULL RETURNING id`;
   if (!consumed.length) fail(410, "OTP_EXPIRED");
@@ -156,9 +156,15 @@ async function refreshTokens(ctx, subjectType) {
     fail(401, "UNAUTHENTICATED");
   }
   if (new Date(rt.expires_at) < new Date()) fail(401, "UNAUTHENTICATED");
+  // NMX-63: claim the token atomically before issuing new ones. Two requests with the same token at the same moment:
+  // only one claims it; the other is treated as reuse and ends the whole session (it used to split it into two).
+  const [claimed] = await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE id = ${rt.id} AND revoked_at IS NULL RETURNING id`;
+  if (!claimed) {
+    await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${rt.family_id} AND revoked_at IS NULL`;
+    fail(401, "UNAUTHENTICATED");
+  }
   const tokens = await issueTokens(ctx, subjectType, rt.subject_id, rt.family_id);
-  await sql`UPDATE app.refresh_tokens SET revoked_at = now(),
-              replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
+  await sql`UPDATE app.refresh_tokens SET replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
              WHERE id = ${rt.id}`;
   return json(200, tokens);
 }
@@ -629,18 +635,21 @@ async function eventDetails(ctx) {
     payment: p ? { amount: money(p.amount_minor, locale), status: p.status } : null,
     actions: [],
   };
+  // NMX-63: a member whose account is not active (e.g. interim suspension after a danger report) sees no venue, table
+  // code or tablemates' names while her case is reviewed, even for bookings made before
+  const restricted = ctx.user.status !== "active";
   if (["locked", "revealed", "day_of", "completed"].includes(phase)) {
     out.table = { confirmed_count: t.confirmed_count, capacity: t.capacity };
-    if (phase !== "locked") {
+    if (phase !== "locked" && !restricted) {
       out.table.code = t.table_code;
       out.table.shared_themes = (t.match_themes || []).map((th) => (locale === "en" ? th.en : th.ar));
     }
-    if (["day_of", "completed"].includes(phase)) {
+    if (["day_of", "completed"].includes(phase) && !restricted) {
       const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
       out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null }));
     }
   }
-  if (["revealed", "day_of", "completed"].includes(phase) && v) {
+  if (["revealed", "day_of", "completed"].includes(phase) && v && !restricted) {
     out.venue = { name: v.name, address: v.address_line, district: locale === "en" ? v.district_en : v.district_ar,
       location: { lat: Number(v.lat), lng: Number(v.lng) }, map_url: `https://maps.google.com/?q=${Number(v.lat)},${Number(v.lng)}`,
       arrival_instructions: (locale === "en" ? v.arrival_instructions_en : v.arrival_instructions_ar).replace("{code}", t.table_code),
@@ -721,6 +730,12 @@ async function chooseResolution(ctx) {
   }
   if (body.choice === "refund") {
     const out = await sql.begin(async (tx) => {
+      // NMX-63: lock the booking as rebook_booking does, then re-check, so a rebook and a refund sent at the same time
+      // cannot both succeed (one free meetup plus a full refund)
+      await tx`SELECT id FROM app.bookings WHERE id = ${b.id} FOR UPDATE`;
+      const [done] = await tx`SELECT 1 FROM app.bookings WHERE rebooked_from_booking_id = ${b.id}
+                              UNION ALL SELECT 1 FROM app.refunds WHERE booking_id = ${b.id} AND status <> 'failed' LIMIT 1`;
+      if (done) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "already_resolved" }]);
       const p = await capturedPayment(tx, b.id);
       if (!p) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "no_payment" }]);
       const [r] = await tx`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
@@ -974,9 +989,10 @@ async function checkPromoCode(ctx) {
   const { sql, user } = ctx;
   const code = String((ctx.body || {}).code || "").trim().toUpperCase();
   if (!code || code.length > 24) fail(422, "VALIDATION_FAILED", [{ field: "code", code: "FORMAT" }]);
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
-  if (n >= PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
+  // NMX-63: record the check first, then count (including this one), so parallel requests cannot all pass the limit
   await sql`INSERT INTO app.promo_code_checks (user_id) VALUES (${user.id})`;
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
+  if (n > PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
   const [p] = await sql`SELECT percent_off FROM app.promo_codes
                          WHERE code = ${code} AND is_active AND (expires_at IS NULL OR expires_at > now())
                            AND (max_uses IS NULL OR uses < max_uses)`;
