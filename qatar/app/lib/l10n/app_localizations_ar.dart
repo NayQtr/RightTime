@@ -494,4 +494,40 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get foodNote => 'طعامكِ وشرابكِ تدفعينه للمكان مباشرة.';
+
+  @override
+  String get imHere => 'أنا هنا';
+
+  @override
+  String get checkedIn => 'تم تسجيل وصولك';
+
+  @override
+  String get rateIt => 'قيّمي اللقاء';
+
+  @override
+  String get fbThanks => 'شكرًا! وصلنا تقييمك.';
+
+  @override
+  String get fbTitle => 'كيف كانت التجربة؟';
+
+  @override
+  String get overall => 'التقييم العام';
+
+  @override
+  String get comfort => 'هل شعرتِ بالراحة في الحوار؟';
+
+  @override
+  String get venueRating => 'تقييم المكان (اختياري)';
+
+  @override
+  String get commentLabel => 'تعليق خاص (اختياري)';
+
+  @override
+  String get send => 'إرسال';
+
+  @override
+  String get wouldBookAgain => 'سأحجز مرة أخرى';
+
+  @override
+  String get commentHelp => 'لن يراه أحد من الطاولة';
 }

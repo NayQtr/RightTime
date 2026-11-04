@@ -991,6 +991,78 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'طعامكِ وشرابكِ تدفعينه للمكان مباشرة.'**
   String get foodNote;
+
+  /// No description provided for @imHere.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنا هنا'**
+  String get imHere;
+
+  /// No description provided for @checkedIn.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تسجيل وصولك'**
+  String get checkedIn;
+
+  /// No description provided for @rateIt.
+  ///
+  /// In ar, this message translates to:
+  /// **'قيّمي اللقاء'**
+  String get rateIt;
+
+  /// No description provided for @fbThanks.
+  ///
+  /// In ar, this message translates to:
+  /// **'شكرًا! وصلنا تقييمك.'**
+  String get fbThanks;
+
+  /// No description provided for @fbTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'كيف كانت التجربة؟'**
+  String get fbTitle;
+
+  /// No description provided for @overall.
+  ///
+  /// In ar, this message translates to:
+  /// **'التقييم العام'**
+  String get overall;
+
+  /// No description provided for @comfort.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل شعرتِ بالراحة في الحوار؟'**
+  String get comfort;
+
+  /// No description provided for @venueRating.
+  ///
+  /// In ar, this message translates to:
+  /// **'تقييم المكان (اختياري)'**
+  String get venueRating;
+
+  /// No description provided for @commentLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعليق خاص (اختياري)'**
+  String get commentLabel;
+
+  /// No description provided for @send.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال'**
+  String get send;
+
+  /// No description provided for @wouldBookAgain.
+  ///
+  /// In ar, this message translates to:
+  /// **'سأحجز مرة أخرى'**
+  String get wouldBookAgain;
+
+  /// No description provided for @commentHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'لن يراه أحد من الطاولة'**
+  String get commentHelp;
 }
 
 class _AppLocalizationsDelegate

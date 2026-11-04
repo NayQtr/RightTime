@@ -108,4 +108,17 @@ class MeetupsRepository {
     final r = await _api.send('POST', '/api/v1/bookings/$bookingId/checkout', body: {'acknowledge_late_no_refund': ?(acknowledgeLate ? true : null)});
     return r!['checkout_url'] as String;
   }
+
+  /// "I'm here" at the venue on the day.
+  Future<void> checkIn(String bookingId) => _api.send('POST', '/api/v1/bookings/$bookingId/check-in', body: {});
+
+  /// Private feedback after the meetup (once).
+  Future<void> feedback(String bookingId, {required int overall, required int comfort, int? venue, bool? again, String? comment}) =>
+      _api.send('POST', '/api/v1/bookings/$bookingId/feedback', body: {
+        'overall_rating': overall,
+        'comfort_rating': comfort,
+        'venue_rating': ?venue,
+        'would_book_again': ?again,
+        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+      });
 }

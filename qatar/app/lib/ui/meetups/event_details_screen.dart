@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_error.dart';
 import '../../core/link_opener.dart';
 import '../../data/meetups_repository.dart';
 import '../../design/herzone_tokens.dart';
@@ -17,10 +18,27 @@ import 'home_tab.dart' show experienceName;
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
-class EventDetailsScreen extends StatelessWidget {
+class EventDetailsScreen extends StatefulWidget {
   const EventDetailsScreen({super.key, required this.bookingId});
 
   final String bookingId;
+
+  @override
+  State<EventDetailsScreen> createState() => _EventDetailsScreenState();
+}
+
+class _EventDetailsScreenState extends State<EventDetailsScreen> {
+  int _reload = 0;
+  String get bookingId => widget.bookingId;
+
+  Future<void> _checkIn(BuildContext context) async {
+    try {
+      await context.read<MeetupsRepository>().checkIn(bookingId);
+    } on ApiError catch (_) {
+      // the reloaded screen shows the current state either way
+    }
+    if (mounted) setState(() => _reload++);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +49,7 @@ class EventDetailsScreen extends StatelessWidget {
       appBar: AppBar(title: Text(t.detailsTitle)),
       body: SafeArea(
         child: Loader<DetailsResult>(
-          key: ValueKey(lang),
+          key: ValueKey('$lang-$_reload'),
           load: () => repo.eventDetails(bookingId),
           builder: (context, r, _) {
             final d = r.details;
@@ -100,6 +118,18 @@ class EventDetailsScreen extends StatelessWidget {
                     ]),
                   ),
                 ),
+              if (r.offlineSavedAt == null && d.action('check_in')) ...[
+                const SizedBox(height: HzSpace.s4),
+                FilledButton(key: const Key('check-in'), onPressed: () => _checkIn(context), child: Text(t.imHere)),
+              ],
+              if (d.status == 'checked_in') ...[
+                const SizedBox(height: HzSpace.s4),
+                Text(t.checkedIn, key: const Key('checked-in'), style: TextStyle(color: c.success, fontWeight: FontWeight.w600)),
+              ],
+              if (r.offlineSavedAt == null && d.action('feedback')) ...[
+                const SizedBox(height: HzSpace.s4),
+                FilledButton(key: const Key('rate'), onPressed: () => context.push('/booking/$bookingId/feedback'), child: Text(t.rateIt)),
+              ],
               if (d.phase == 'completed' && r.offlineSavedAt == null) ...[const SizedBox(height: HzSpace.s4), ContactsSection(bookingId: bookingId)],
               const SizedBox(height: HzSpace.s6),
               const _CoordinatorButtons(),

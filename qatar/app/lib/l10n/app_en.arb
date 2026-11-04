@@ -193,5 +193,17 @@
         "type": "String"
       }
     }
-  }
+  },
+  "imHere": "I'm here",
+  "checkedIn": "You're checked in",
+  "rateIt": "Rate the event",
+  "fbThanks": "Thank you! We received your feedback.",
+  "fbTitle": "How was it?",
+  "overall": "Overall rating",
+  "comfort": "Did you feel comfortable in the conversation?",
+  "venueRating": "Venue rating (optional)",
+  "commentLabel": "Private comment (optional)",
+  "send": "Send",
+  "wouldBookAgain": "I'd book again",
+  "commentHelp": "No one at your table will see it"
 }

@@ -501,4 +501,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get foodNote => 'You pay the venue directly for your food and drinks.';
+
+  @override
+  String get imHere => 'I\'m here';
+
+  @override
+  String get checkedIn => 'You\'re checked in';
+
+  @override
+  String get rateIt => 'Rate the event';
+
+  @override
+  String get fbThanks => 'Thank you! We received your feedback.';
+
+  @override
+  String get fbTitle => 'How was it?';
+
+  @override
+  String get overall => 'Overall rating';
+
+  @override
+  String get comfort => 'Did you feel comfortable in the conversation?';
+
+  @override
+  String get venueRating => 'Venue rating (optional)';
+
+  @override
+  String get commentLabel => 'Private comment (optional)';
+
+  @override
+  String get send => 'Send';
+
+  @override
+  String get wouldBookAgain => 'I\'d book again';
+
+  @override
+  String get commentHelp => 'No one at your table will see it';
 }

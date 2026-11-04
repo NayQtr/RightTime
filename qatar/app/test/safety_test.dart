@@ -19,6 +19,7 @@ class Fake {
   final String? refund;
   final sent = <String, Map<String, dynamic>>{};
   String contactState = 'none';
+  bool checkedIn = false;
 
   MockClient client() => MockClient((r) async {
         final body = r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body) as Map<String, dynamic>;
@@ -34,13 +35,17 @@ class Fake {
             return j({'bookings': [{'id': bookingId, 'ref': 'RT-ABC123', 'status': 'paid_awaiting_group', 'phase': phase, 'experience': 'dinner', 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل'}]});
           case '/api/v1/bookings/$bookingId/event-details':
             return j({
-              'booking': {'ref': 'RT-ABC123', 'status': 'paid_awaiting_group', 'cancellation': {'can_cancel': phase == 'forming', 'refund_if_cancelled_now': refund, 'full_refund_until': '2026-11-10T19:30:00+03:00'}},
+              'booking': {'ref': 'RT-ABC123', 'status': checkedIn ? 'checked_in' : 'paid_awaiting_group', 'cancellation': {'can_cancel': phase == 'forming', 'refund_if_cancelled_now': refund, 'full_refund_until': '2026-11-10T19:30:00+03:00'}},
               'session': {'experience': 'dinner', 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل', 'conversation_language': 'ar'},
               'reveal': {'phase': phase, 'reveal_at': '2026-11-11T19:30:00+03:00'},
               'payment': {'amount': {'display': '59 ر.ق'}, 'status': 'succeeded'},
               'table': phase == 'completed' ? {'confirmed_count': 5, 'capacity': 6, 'members': [{'seat': 'seat_sara', 'display_name': 'سارة'}]} : null,
               'venue': null,
-              'actions': phase == 'forming' ? [{'type': 'cancel'}] : [],
+              'actions': [
+                if (phase == 'forming') {'type': 'cancel'},
+                if (phase == 'day_of' && !checkedIn) {'type': 'check_in'},
+                if (phase == 'completed') {'type': 'feedback'},
+              ],
             });
           case '/api/v1/bookings/$bookingId/cancel':
             return j({'status': 'cancelled_by_user'});
@@ -49,6 +54,11 @@ class Fake {
               {'seat': 'seat_sara', 'display_name': 'سارة', 'state': contactState, 'request_id': contactState == 'incoming' ? 'req1' : null,
                'whatsapp_url': contactState == 'connected' ? 'https://wa.me/97455501234' : null, 'can_send': contactState == 'none'},
             ]});
+          case '/api/v1/bookings/$bookingId/check-in':
+            checkedIn = true;
+            return j({'status': 'checked_in'});
+          case '/api/v1/bookings/$bookingId/feedback':
+            return j({'saved': true}, 201);
           case '/api/v1/contact-requests':
             contactState = 'sent';
             return j({'state': 'sent'}, 201);
@@ -135,5 +145,32 @@ void main() {
     });
     expect(find.byKey(const Key('report-sent')), findsOneWidget);
     expect(find.textContaining('HZ-0042'), findsOneWidget);
+  });
+
+  testWidgets('on the day: "I am here" checks her in', (tester) async {
+    final f = Fake('day_of');
+    await openDetails(tester, f);
+    await tester.tap(find.byKey(const Key('check-in')));
+    await tester.pumpAndSettle();
+    expect(f.sent.containsKey('/api/v1/bookings/$bookingId/check-in'), true);
+    expect(find.byKey(const Key('checked-in')), findsOneWidget);
+    expect(find.byKey(const Key('check-in')), findsNothing);
+  });
+
+  testWidgets('after the meetup: private rating, two required stars, then thanks', (tester) async {
+    final f = Fake('completed');
+    await openDetails(tester, f);
+    await tester.tap(find.byKey(const Key('rate')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('send-feedback'))).onPressed, isNull);
+    await tester.tap(find.byKey(const Key('overall-5')));
+    await tester.tap(find.byKey(const Key('comfort-4')));
+    await tester.tap(find.byKey(const Key('again')));
+    await tester.enterText(find.byKey(const Key('comment')), 'أمسية جميلة');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('send-feedback')));
+    await tester.pumpAndSettle();
+    expect(f.sent['/api/v1/bookings/$bookingId/feedback'], {'overall_rating': 5, 'comfort_rating': 4, 'would_book_again': true, 'comment': 'أمسية جميلة'});
+    expect(find.byKey(const Key('fb-thanks')), findsOneWidget);
   });
 }
