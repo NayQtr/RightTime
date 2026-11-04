@@ -344,6 +344,7 @@ test("S1 report: 999 flag, interim block + suspension, P4 reason gate, ban by T&
   assert.ok(!raw.p.includes(reporterRow.reporter_user_id));
   const mine = (await call("GET", "/api/v1/cases/mine", { token: S.reported.token })).body.cases;
   assert.equal(mine[0].can_appeal, true);
+  assert.ok(mine[0].decision_label && mine[0].decision_label !== mine[0].decision, "the decision in words, not a code");
   assert.equal((await call("POST", `/api/v1/cases/${rep.body.case_ref}/appeal`, { token: S.reported.token })).status, 202);
   assert.equal((await call("POST", `/api/admin/v1/cases/${c.id}/appeal-decision`, { token: S.ts.token, body: { decision: "rejected" } })).status, 403, "decider can never review");
   const fin = await call("POST", `/api/admin/v1/cases/${c.id}/appeal-decision`, { token: S.owner.token, body: { decision: "rejected", rationale: "evidence consistent" } });

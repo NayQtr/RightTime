@@ -1,4 +1,10 @@
 {
+  "casesTitle": "قرارات تخصّك",
+  "noCases": "لا توجد قرارات تخصّك.",
+  "appealUntil": "يمكنكِ الاعتراض حتى {date}",
+  "appeal": "اعتراض",
+  "appealSent": "استلمنا اعتراضكِ. سيراجعه شخص لم يتخذ القرار الأصلي.",
+  "@appealUntil": {"placeholders": {"date": {"type": "String"}}},
   "docsTitle": "الشروط والخصوصية",
   "docTerms": "الشروط",
   "docConduct": "قواعد السلوك",

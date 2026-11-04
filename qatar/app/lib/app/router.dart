@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../domain/session.dart';
+import '../ui/account/cases_screen.dart';
 import '../ui/account/documents_screen.dart';
 import '../ui/auth/otp_screen.dart';
 import '../ui/auth/phone_screen.dart';
@@ -53,6 +54,7 @@ GoRouter buildRouter(Session session) => GoRouter(
         GoRoute(path: '/booking/:id/cancel', builder: (_, state) => CancelScreen(bookingId: state.pathParameters['id']!)),
         GoRoute(path: '/report/:id', builder: (_, state) => ReportScreen(bookingId: state.pathParameters['id']!)),
         GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
+        GoRoute(path: '/cases', builder: (_, _) => const CasesScreen()),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => ShellScreen(shell: shell),
           branches: [

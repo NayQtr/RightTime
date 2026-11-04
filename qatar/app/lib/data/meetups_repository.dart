@@ -84,6 +84,11 @@ class MeetupsRepository {
   }
 
   /// The coordinator's public number, kept from the last successful load so "call" works with no data connection.
+  Future<List<CaseDecision>> cases() async =>
+      [for (final c in ((await _api.send('GET', '/api/v1/cases/mine'))!['cases'] as List)) CaseDecision.fromJson(c as Map<String, dynamic>)];
+
+  Future<void> appeal(String caseRef) => _api.send('POST', '/api/v1/cases/${Uri.encodeComponent(caseRef)}/appeal', body: {});
+
   Future<Coordinator?> coordinator() async {
     Map<String, dynamic>? c;
     try {

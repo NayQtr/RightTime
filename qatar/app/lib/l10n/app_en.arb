@@ -1,4 +1,9 @@
 {
+  "casesTitle": "Decisions about you",
+  "noCases": "There are no decisions about you.",
+  "appealUntil": "You can appeal until {date}",
+  "appeal": "Appeal",
+  "appealSent": "We received your appeal. Someone who did not make the original decision will review it.",
   "docsTitle": "Terms and privacy",
   "docTerms": "Terms",
   "docConduct": "Code of conduct",

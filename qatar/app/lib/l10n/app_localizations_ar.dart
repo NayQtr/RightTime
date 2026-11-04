@@ -10,6 +10,24 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get casesTitle => 'قرارات تخصّك';
+
+  @override
+  String get noCases => 'لا توجد قرارات تخصّك.';
+
+  @override
+  String appealUntil(String date) {
+    return 'يمكنكِ الاعتراض حتى $date';
+  }
+
+  @override
+  String get appeal => 'اعتراض';
+
+  @override
+  String get appealSent =>
+      'استلمنا اعتراضكِ. سيراجعه شخص لم يتخذ القرار الأصلي.';
+
+  @override
   String get docsTitle => 'الشروط والخصوصية';
 
   @override

@@ -18,7 +18,9 @@ http.Response j(Object body, [int status = 200]) =>
     http.Response.bytes(utf8.encode(jsonEncode(body)), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
 /// A small fake of the HerZone API: OTP request/verify, refresh, me, logout.
-MockClient fakeApi(List<String> log) => MockClient((r) async {
+MockClient fakeApi(List<String> log) => MockClient(fakeHandler(log));
+
+Future<http.Response> Function(http.Request) fakeHandler(List<String> log) => (r) async {
       log.add('${r.method} ${r.url.path}');
       final body = r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body) as Map<String, dynamic>;
       switch (r.url.path) {
@@ -48,7 +50,7 @@ MockClient fakeApi(List<String> log) => MockClient((r) async {
       }
       if (r.method == 'DELETE' && r.url.path == '/api/v1/users/me') return j({'status': 'deletion_requested'}, 202);
       return j({'code': 'NOT_FOUND'}, 404);
-    });
+    };
 
 void main() {
   testWidgets('Arabic first: sign in with a Qatar number and the code, land on the tabs, switch to English (LTR), sign out', (tester) async {

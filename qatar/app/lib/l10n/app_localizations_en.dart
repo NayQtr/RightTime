@@ -10,6 +10,24 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get casesTitle => 'Decisions about you';
+
+  @override
+  String get noCases => 'There are no decisions about you.';
+
+  @override
+  String appealUntil(String date) {
+    return 'You can appeal until $date';
+  }
+
+  @override
+  String get appeal => 'Appeal';
+
+  @override
+  String get appealSent =>
+      'We received your appeal. Someone who did not make the original decision will review it.';
+
+  @override
   String get docsTitle => 'Terms and privacy';
 
   @override

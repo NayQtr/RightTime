@@ -1370,7 +1370,7 @@ async function scrReport(id) {
   const r = await api("GET", `/api/v1/bookings/${id}/event-details`);
   const members = r.ok && r.data.table && r.data.table.members ? r.data.table.members : [];
   const ph = r.ok ? r.data.reveal.phase : "completed";
-  const cats = [["harassment", "cHarassment"], ["threat_violence", "cThreat"], ["photo_without_consent", "cPhoto"], ["stalking_unwanted_contact", "cStalking"], ["fraud", "cFraud"], ["disruptive", "cDisruptive"]];
+  const cats = Object.entries(REPORT_CATS);
   view(T("reportTitle"), `
     <h1>${esc(T("reportTitle"))}</h1>
     <p class="muted">${esc(T("reportIntro"))}</p>
@@ -1458,14 +1458,17 @@ async function scrProfile() {
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
 }
 
+// report categories and their labels (report form and "Decisions about you")
+const REPORT_CATS = { harassment: "cHarassment", threat_violence: "cThreat", photo_without_consent: "cPhoto", stalking_unwanted_contact: "cStalking", fraud: "cFraud", disruptive: "cDisruptive" };
+
 async function scrCases() {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
   const r = await api("GET", "/api/v1/cases/mine");
   const cases = r.ok ? r.data.cases : [];
   view(T("casesTitle"), `<h1>${esc(T("casesTitle"))}</h1>${cases.length ? `<ul class="list">${cases.map((c) => `
-    <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision)}</span></div>
-    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(c.category)}</p>
+    <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision_label || c.decision)}</span></div>
+    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(REPORT_CATS[c.category] || "cDisruptive"))}</p>
     ${c.can_appeal ? `<p class="caption">${esc(T("appealUntil", { date: fmtDate(c.appeal_until) }))}</p><button class="btn btn-secondary" data-ref="${esc(c.case_ref)}">${esc(T("appeal"))}</button>` : ""}</li>`).join("")}</ul>`
     : `<p class="muted">—</p>`}<div id="msg" role="status"></div>`);
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {

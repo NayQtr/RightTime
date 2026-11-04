@@ -147,7 +147,7 @@ export const paths = {
     responses: { 201: ok(obj({ case_ref: str(), severity: { type: "integer", minimum: 1, maximum: 4 }, status: str(),
       emergency: obj({ show: { type: "boolean" }, number: str({ enum: ["999"] }) }) }), "Report received"), ...errors(400, 401, 403, 404, 422) } } },
   "/api/v1/cases/mine": { get: { tags: ["safety"], ...user, summary: "Decisions taken about the member, with the appeal window",
-    responses: { 200: ok(obj({ cases: { type: "array", items: obj({ case_ref: str(), event_date: nullable(ts), category: str(), decision: str(), status: str(),
+    responses: { 200: ok(obj({ cases: { type: "array", items: obj({ case_ref: str(), event_date: nullable(ts), category: str(), decision: str(), decision_label: str({ description: "The decision in the request's language" }), status: str(),
       appeal_until: ts, can_appeal: { type: "boolean" } }) } })), ...errors(401) } } },
   "/api/v1/cases/{ref}/appeal": { post: { tags: ["safety"], ...user, ...idem, summary: "Appeal a decision within 14 days",
     parameters: [idParam("ref", "Case reference"), ...idem.parameters],

@@ -2583,6 +2583,10 @@
                           "decision": {
                             "type": "string"
                           },
+                          "decision_label": {
+                            "type": "string",
+                            "description": "The decision in the request's language"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -2600,6 +2604,7 @@
                           "event_date",
                           "category",
                           "decision",
+                          "decision_label",
                           "status",
                           "appeal_until",
                           "can_appeal"

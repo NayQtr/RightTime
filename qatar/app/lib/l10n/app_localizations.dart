@@ -98,6 +98,36 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @casesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قرارات تخصّك'**
+  String get casesTitle;
+
+  /// No description provided for @noCases.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد قرارات تخصّك.'**
+  String get noCases;
+
+  /// No description provided for @appealUntil.
+  ///
+  /// In ar, this message translates to:
+  /// **'يمكنكِ الاعتراض حتى {date}'**
+  String appealUntil(String date);
+
+  /// No description provided for @appeal.
+  ///
+  /// In ar, this message translates to:
+  /// **'اعتراض'**
+  String get appeal;
+
+  /// No description provided for @appealSent.
+  ///
+  /// In ar, this message translates to:
+  /// **'استلمنا اعتراضكِ. سيراجعه شخص لم يتخذ القرار الأصلي.'**
+  String get appealSent;
+
   /// No description provided for @docsTitle.
   ///
   /// In ar, this message translates to:

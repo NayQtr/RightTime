@@ -1003,7 +1003,7 @@ async function myCases(ctx) {
       FROM app.safety_reports r LEFT JOIN app.bookings b ON b.id = r.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
      WHERE r.reported_user_id = ${ctx.user.id}`;
   return json(200, { cases: rows.filter((r) => r.decision).map((r) => ({
-    case_ref: r.case_ref, event_date: qa(r.starts_at), category: r.category, decision: r.decision, status: r.status,
+    case_ref: r.case_ref, event_date: qa(r.starts_at), category: r.category, decision: r.decision, decision_label: decisionLabel(r.decision, ctx.locale), status: r.status,
     appeal_until: qa(new Date(new Date(r.decided_at).getTime() + 14 * 86400000)),
     can_appeal: r.status === "actioned" && r.decision !== "no_action" && Date.now() < new Date(r.decided_at).getTime() + 14 * 86400000,
   })) });

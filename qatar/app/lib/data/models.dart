@@ -151,6 +151,24 @@ class Notice {
       Notice(id: j['id'] as String, text: (j['text'] as String?) ?? '', createdAt: j['created_at'] as String, bookingId: j['booking_id'] as String?);
 }
 
+/// A decision taken about the member after a report ("Decisions about you"), with the 14-day appeal window.
+class CaseDecision {
+  const CaseDecision({required this.ref, required this.category, required this.decision, required this.status, this.eventDate, required this.appealUntil, required this.canAppeal});
+  final String ref, category, decision, status, appealUntil;
+  final String? eventDate;
+  final bool canAppeal;
+
+  factory CaseDecision.fromJson(Map<String, dynamic> j) => CaseDecision(
+        ref: j['case_ref'] as String,
+        category: j['category'] as String,
+        decision: (j['decision_label'] as String?) ?? (j['decision'] as String),
+        status: j['status'] as String,
+        eventDate: j['event_date'] as String?,
+        appealUntil: j['appeal_until'] as String,
+        canAppeal: (j['can_appeal'] as bool?) ?? false,
+      );
+}
+
 class Tablemate {
   const Tablemate({required this.seat, required this.name, required this.state, this.requestId, this.whatsappUrl, required this.canSend});
   final String seat;
