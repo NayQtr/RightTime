@@ -4,6 +4,7 @@ import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { runMatching, MatchingError } from "../matching/engine.js";
 import { audit, capturedPayment, currentTable, notify } from "../services/common.js";
 import { dispatchRefund } from "../services/payments.js";
+import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
 import { issueTokens } from "./user.js";
 
 const OWNER = ["owner"], OPS = ["owner", "ops"], FIN = ["owner", "finance"], TS = ["trust_safety"];
@@ -731,16 +732,18 @@ async function listIdentityReviews(ctx) {
   const { sql, keys, admin, url } = ctx;
   if (!ctx.cfg.cardNameCheck) return json(200, { reviews: [] });
   const status = ["pending", "approved", "rejected"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "pending";
+  if (status === "pending") await runAiOpinions(sql, ctx, { limit: 10 }); // ask again for any Gemini could not answer before
   const rows = await sql`
-    SELECT ir.id, ir.result, ir.status, ir.created_at, ir.decided_at, b.booking_ref, s.starts_at, u.display_name, u.status AS member_status,
-           p.cardholder_name_enc
+    SELECT ir.id, ir.result, ir.status, ir.created_at, ir.decided_at, ir.decided_by_ai, ir.ai_same_name, ir.ai_card_gender, ir.ai_confidence,
+           b.booking_ref, s.starts_at, u.display_name, u.status AS member_status, p.cardholder_name_enc
       FROM app.identity_reviews ir JOIN app.bookings b ON b.id = ir.booking_id JOIN app.event_sessions s ON s.id = b.session_id
       JOIN app.users u ON u.id = ir.user_id JOIN app.payments p ON p.id = ir.payment_id
-     WHERE ir.status = ${status} ORDER BY s.starts_at, ir.created_at LIMIT 100`;
+     WHERE ir.status = ${status} ORDER BY (ir.ai_card_gender = 'male') DESC NULLS LAST, s.starts_at, ir.created_at LIMIT 100`;
   if (rows.length) await audit(sql, admin.id, "read_card_names", "identity_reviews", null, `${status}_${rows.length}`, ctx.ipTrunc);
   return json(200, { reviews: rows.map((r) => ({ id: r.id, booking_ref: r.booking_ref, starts_at: qa(r.starts_at), result: r.result, status: r.status,
     registered_name: r.display_name, card_name: r.cardholder_name_enc ? decrypt(keys.dataKey, r.cardholder_name_enc) : null,
-    member_status: r.member_status, created_at: qa(r.created_at), decided_at: qa(r.decided_at) })) });
+    member_status: r.member_status, created_at: qa(r.created_at), decided_at: qa(r.decided_at), decided_by_ai: r.decided_by_ai,
+    ai: r.ai_card_gender ? { same_name: r.ai_same_name, card_name_gender: r.ai_card_gender, confidence: Number(r.ai_confidence) } : null })) });
 }
 
 // approve: the venue shows (and its notice goes out if the session is already revealed).
@@ -759,11 +762,7 @@ async function decideIdentityReview(ctx) {
     const [b] = await tx`SELECT * FROM app.bookings WHERE id = ${ir.booking_id} FOR UPDATE`;
     if (body.decision === "approve") {
       await tx`UPDATE app.identity_reviews SET status = 'approved', decided_by = ${admin.id}, decided_at = now() WHERE id = ${ir.id}`;
-      if (b.status === "revealed") {
-        const t = await currentTable(tx, b.id);
-        const [v] = t && t.venue_id ? await tx`SELECT name, district_ar FROM app.venues WHERE id = ${t.venue_id}` : [null];
-        if (v) await notify(tx, b.user_id, "VENUE_REVEALED", { booking_id: b.id, venue: v.name, district: v.district_ar, code: t.table_code });
-      }
+      await sendHeldVenueNotice(tx, b.id);
       await audit(tx, admin.id, "identity_review_approved", "bookings", b.id, ir.result);
       return [];
     }

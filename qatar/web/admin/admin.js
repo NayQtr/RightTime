@@ -275,14 +275,17 @@ async function scrIdentity() {
   view("Identity checks", `<h1>Identity checks</h1>
     <p class="caption">Bookings where the name on the payment card did not match the member's registered first name (or she has no name).
     She has paid, but the venue and table code stay hidden from her until you decide. Reading this list is recorded in the audit log.</p>
+    <p class="caption"><strong>Gemini</strong> gives a second opinion on different names (first name only, no number). When it is confident the name is the same (a nickname or another spelling) it clears the check by itself; a card name that is usually male is listed first. Gemini never rejects anyone.</p>
     <p class="caption"><strong>Approve</strong>: the venue shows (a relative paying for her is a common reason).
     <strong>Reject</strong>: the booking is cancelled <strong>without a refund</strong> and the account is suspended for 30 days; she can appeal under "Decisions about you", and an upheld appeal refunds the fee.</p>
     <div id="flash"></div>
-    <table><thead><tr><th>Booking</th><th>Meetup</th><th>Registered name</th><th>Name on card</th><th>Result</th><th>Account</th><th></th></tr></thead><tbody>
+    <table><thead><tr><th>Booking</th><th>Meetup</th><th>Registered name</th><th>Name on card</th><th>Result</th><th>Gemini</th><th>Account</th><th></th></tr></thead><tbody>
     ${rows.map((x) => `<tr><td class="num">${esc(x.booking_ref)}</td><td>${dt(x.starts_at)}</td><td>${esc(x.registered_name || "—")}</td>
-      <td>${esc(x.card_name || "—")}</td><td>${x.result === "no_name" ? "No registered name" : "Different name"}</td><td>${esc(x.member_status)}</td>
+      <td>${esc(x.card_name || "—")}</td><td>${x.result === "no_name" ? "No registered name" : "Different name"}</td>
+      <td>${x.ai ? `${x.ai.same_name ? "Same name" : "Different name"} · card name ${x.ai.card_name_gender === "male" ? `<span class="badge badge-danger">usually male</span>` : esc(x.ai.card_name_gender)} · ${Math.round(x.ai.confidence * 100)}%` : "—"}</td>
+      <td>${esc(x.member_status)}</td>
       <td class="row"><button class="btn btn-primary" data-ok="${x.id}">Approve</button>
-        <button class="btn btn-danger" data-no="${x.id}">Reject…</button></td></tr>`).join("") || `<tr><td colspan="7">Nothing to review.</td></tr>`}
+        <button class="btn btn-danger" data-no="${x.id}">Reject…</button></td></tr>`).join("") || `<tr><td colspan="8">Nothing to review.</td></tr>`}
     </tbody></table>`);
   $$("[data-ok]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;

@@ -1746,6 +1746,7 @@ END $$;
 -- the booking stays paid but the venue, table code and tablemates are not shown to her until an admin approves.
 -- A rejection is recorded as a safety case about her (category identity_mismatch): the booking is cancelled without a
 -- refund, the account is suspended, and she can appeal under "Decisions about you"; an upheld appeal refunds the fee.
+-- A mismatch also gets a second opinion from Gemini when GEMINI_API_KEY is set (lib/ai.js).
 -- Needs 014 first. Re-running this file is safe.
 SET search_path = app, pg_temp;
 
@@ -1763,9 +1764,16 @@ CREATE TABLE IF NOT EXISTS identity_reviews (
   decided_by  uuid REFERENCES admin_users(id),
   decided_at  timestamptz,
   report_id   uuid REFERENCES safety_reports(id),
+  -- Gemini's second opinion on a mismatch (lib/ai.js): same first name? the card name's usual gender; confidence.
+  -- It can only clear a false alarm (decided_by_ai) or raise priority; a rejection is always a person's decision.
+  ai_same_name   boolean,
+  ai_card_gender varchar(8) CHECK (ai_card_gender IS NULL OR ai_card_gender IN ('female','male','unclear')),
+  ai_confidence  numeric(3,2),
+  ai_checked_at  timestamptz,
+  decided_by_ai  boolean NOT NULL DEFAULT false,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT identity_review_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL))
+  CONSTRAINT identity_review_decided CHECK (status = 'pending' OR (decided_at IS NOT NULL AND (decided_by IS NOT NULL OR (decided_by_ai AND status = 'approved'))))
 );
 CREATE INDEX IF NOT EXISTS identity_reviews_pending ON identity_reviews (created_at) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS identity_reviews_user_id_fk_idx ON identity_reviews (user_id);

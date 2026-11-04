@@ -3,6 +3,7 @@ import { randomToken } from "../lib/crypto.js";
 import { fail, json, money } from "../lib/http.js";
 import { applyPspEvent, dispatchRefund } from "../services/payments.js";
 import { verifyWebhook } from "../services/psp.js";
+import { runAiOpinions } from "../services/identity.js";
 
 // The webhook log keeps the event for audit, but never the name on the card (that is stored encrypted, on the payment).
 const withoutCardName = (event) => (event && event.data && event.data.cardholder_name
@@ -29,6 +30,7 @@ async function webhook(ctx) {
   try {
     refunds = await applyPspEvent(sql, event, { keys, cfg: ctx.cfg });
     await sql`UPDATE app.payment_webhook_events SET processed_at = now() WHERE id = ${inserted[0].id}`;
+    await runAiOpinions(sql, ctx, { limit: 3 }); // after commit; never fails the webhook
   } catch (e) {
     await sql`UPDATE app.payment_webhook_events SET processing_error = ${String(e.message).slice(0, 500)} WHERE id = ${inserted[0].id}`;
     return json(200, { received: true, processed: false });
