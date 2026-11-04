@@ -889,6 +889,24 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'العودة إلى الرئيسية'**
   String get backHome;
+
+  /// No description provided for @inboxLocked.
+  ///
+  /// In ar, this message translates to:
+  /// **'إشعاراتك محمية. افتحيها بالبصمة أو بوجهك أو برمز جوالك.'**
+  String get inboxLocked;
+
+  /// No description provided for @unlock.
+  ///
+  /// In ar, this message translates to:
+  /// **'افتحي'**
+  String get unlock;
+
+  /// No description provided for @unlockReason.
+  ///
+  /// In ar, this message translates to:
+  /// **'لعرض إشعاراتك في HerZone'**
+  String get unlockReason;
 }
 
 class _AppLocalizationsDelegate

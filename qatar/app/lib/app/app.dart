@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/config.dart';
+import '../core/device_unlock.dart';
 import '../core/token_store.dart';
 import '../data/auth_repository.dart';
 import '../data/meetups_repository.dart';
@@ -21,12 +22,15 @@ import 'router.dart';
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
-  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.httpClientFactory});
+  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.deviceUnlock, this.httpClientFactory});
 
   final AppConfig config;
   final TokenStore tokens;
   final TripStore trips;
   final QuizStore quizStore;
+
+  /// Face ID / fingerprint check; tests pass a fake.
+  final DeviceUnlock? deviceUnlock;
   final dynamic Function()? httpClientFactory;
 
   @override
@@ -35,6 +39,7 @@ class HerZoneApp extends StatefulWidget {
 
 class _HerZoneAppState extends State<HerZoneApp> {
   final locale = LocaleController();
+  late final PrivacyLock privacyLock = PrivacyLock(widget.deviceUnlock ?? LocalDeviceUnlock());
   late final ApiClient api;
   late final AuthRepository auth;
   late final MeetupsRepository meetups;
@@ -57,6 +62,10 @@ class _HerZoneAppState extends State<HerZoneApp> {
     onboarding = OnboardingRepository(api);
     session = Session(api, auth, clearDevice: meetups.forgetDevice, onboarding: onboarding)..restore();
     router = buildRouter(session);
+    // a new session never inherits an unlocked inbox
+    session.addListener(() {
+      if (session.status == SessionStatus.signedOut) privacyLock.unlocked = false;
+    });
   }
 
   @override
@@ -65,6 +74,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
       providers: [
         ChangeNotifierProvider.value(value: locale),
         ChangeNotifierProvider.value(value: session),
+        ChangeNotifierProvider.value(value: privacyLock),
         Provider.value(value: auth),
         Provider.value(value: meetups),
         Provider.value(value: onboarding),

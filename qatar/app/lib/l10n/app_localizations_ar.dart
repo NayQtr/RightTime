@@ -434,4 +434,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get backHome => 'العودة إلى الرئيسية';
+
+  @override
+  String get inboxLocked =>
+      'إشعاراتك محمية. افتحيها بالبصمة أو بوجهك أو برمز جوالك.';
+
+  @override
+  String get unlock => 'افتحي';
+
+  @override
+  String get unlockReason => 'لعرض إشعاراتك في HerZone';
 }

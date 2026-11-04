@@ -162,5 +162,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "inboxLocked": "Your notifications are protected. Open them with Face ID, your fingerprint or your phone's passcode.",
+  "unlock": "Open",
+  "unlockReason": "To show your HerZone notifications"
 }

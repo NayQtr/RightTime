@@ -440,4 +440,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backHome => 'Back to home';
+
+  @override
+  String get inboxLocked =>
+      'Your notifications are protected. Open them with Face ID, your fingerprint or your phone\'s passcode.';
+
+  @override
+  String get unlock => 'Open';
+
+  @override
+  String get unlockReason => 'To show your HerZone notifications';
 }
