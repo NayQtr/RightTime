@@ -165,5 +165,33 @@
   },
   "inboxLocked": "Your notifications are protected. Open them with Face ID, your fingerprint or your phone's passcode.",
   "unlock": "Open",
-  "unlockReason": "To show your HerZone notifications"
+  "unlockReason": "To show your HerZone notifications",
+  "bookSeat": "Book your seat",
+  "reviewTitle": "Review your booking",
+  "payNow": "Pay now",
+  "lateAck": "I understand and agree that the organising fee isn't refunded if I cancel this booking.",
+  "policyBox": "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",
+  "lateWarning": "This meetup is soon: if you cancel after paying, the organising fee isn't refunded.",
+  "serviceFee": "Organising fee",
+  "holdUntil": "Your seat is held for you until {time}.",
+  "waitingPayment": "Finish paying on the page that opened, then come back here.",
+  "checkPayment": "Check payment",
+  "paidTitle": "Paid. We're forming your table now.",
+  "payFailed": "The payment didn't go through. You can try again while the seat is held.",
+  "holdExpired": "Your seat hold has ended. Please choose the session again.",
+  "foodNote": "You pay the venue directly for your food and drinks.",
+  "@policyBox": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@holdUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

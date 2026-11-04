@@ -96,4 +96,16 @@ class MeetupsRepository {
     }
     return c == null ? null : Coordinator(telUrl: c['tel_url'] as String, phoneDisplay: c['phone_display'] as String, whatsappUrl: c['whatsapp_url'] as String?);
   }
+
+  /// Holds a seat for a few minutes and returns what the review needs (and the checkout link when no acknowledgement
+  /// is needed).
+  Future<BookingStart> book(String sessionId) async => BookingStart.fromJson((await _api.send('POST', '/api/v1/bookings', body: {'session_id': sessionId}))!);
+
+  Future<BookingStart> booking(String bookingId) async => BookingStart.fromJson((await _api.send('GET', '/api/v1/bookings/$bookingId'))!);
+
+  /// A checkout link while the seat is held; after the full-refund cut-off it records her acknowledgement.
+  Future<String> checkout(String bookingId, {required bool acknowledgeLate}) async {
+    final r = await _api.send('POST', '/api/v1/bookings/$bookingId/checkout', body: {'acknowledge_late_no_refund': ?(acknowledgeLate ? true : null)});
+    return r!['checkout_url'] as String;
+  }
 }

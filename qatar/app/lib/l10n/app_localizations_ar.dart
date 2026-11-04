@@ -444,4 +444,54 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get unlockReason => 'لعرض إشعاراتك في HerZone';
+
+  @override
+  String get bookSeat => 'احجزي مقعدك';
+
+  @override
+  String get reviewTitle => 'راجعي حجزك';
+
+  @override
+  String get payNow => 'ادفعي الآن';
+
+  @override
+  String get lateAck =>
+      'أفهم وأوافق على أن رسم التنظيم لا يُسترد إذا ألغيت هذا الحجز.';
+
+  @override
+  String policyBox(String deadline) {
+    return 'يمكنك الإلغاء مع استرداد كامل حتى $deadline. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.';
+  }
+
+  @override
+  String get lateWarning =>
+      'موعد هذا اللقاء قريب: إذا ألغيتِ بعد الدفع فلن يُسترد رسم التنظيم.';
+
+  @override
+  String get serviceFee => 'رسم التنظيم';
+
+  @override
+  String holdUntil(String time) {
+    return 'مقعدك محجوز لكِ حتى $time.';
+  }
+
+  @override
+  String get waitingPayment =>
+      'أكملي الدفع في الصفحة التي فُتحت، ثم عودي إلى هنا.';
+
+  @override
+  String get checkPayment => 'تحققي من الدفع';
+
+  @override
+  String get paidTitle => 'تم الدفع. نجمع طاولتك الآن.';
+
+  @override
+  String get payFailed =>
+      'لم يكتمل الدفع. يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.';
+
+  @override
+  String get holdExpired => 'انتهت مدة حجز المقعد. اختاري الموعد مرة أخرى.';
+
+  @override
+  String get foodNote => 'طعامكِ وشرابكِ تدفعينه للمكان مباشرة.';
 }

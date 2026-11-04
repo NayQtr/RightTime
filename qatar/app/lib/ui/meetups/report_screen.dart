@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_error.dart';
+import '../../core/link_opener.dart';
 import '../../data/meetups_repository.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
@@ -84,7 +84,7 @@ class _ReportFormState extends State<_ReportForm> {
                 style: FilledButton.styleFrom(backgroundColor: c.danger, foregroundColor: c.onDanger),
                 icon: const Icon(Icons.call),
                 label: Text(t.emCall),
-                onPressed: () => launchUrl(Uri.parse('tel:999')),
+                onPressed: () => context.read<LinkOpener>().open(Uri.parse('tel:999')),
               ),
               TextButton(onPressed: () => Navigator.pop(context), child: Text(t.close)),
             ],

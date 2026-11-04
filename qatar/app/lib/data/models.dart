@@ -160,3 +160,33 @@ class Coordinator {
   final String telUrl, phoneDisplay;
   final String? whatsappUrl;
 }
+
+/// A held seat (POST /bookings, GET /bookings/{id}): what the review and payment screens need.
+class BookingStart {
+  const BookingStart({required this.id, required this.ref, required this.status, required this.amount, this.holdExpiresAt, this.checkoutUrl,
+      required this.ackRequired, this.fullRefundUntil, required this.refundWindowOpen, this.paymentStatus});
+
+  final String id, ref, status, amount;
+  final String? holdExpiresAt, checkoutUrl, fullRefundUntil, paymentStatus;
+  final bool ackRequired, refundWindowOpen;
+
+  bool get paid => const ['paid_awaiting_group', 'group_locked', 'revealed', 'checked_in', 'completed'].contains(status);
+  bool get expired => const ['expired', 'payment_failed', 'cancelled_by_user', 'cancelled_by_organizer'].contains(status);
+  bool get paymentFailed => paymentStatus == 'failed';
+
+  factory BookingStart.fromJson(Map<String, dynamic> j) {
+    final c = (j['cancellation'] as Map<String, dynamic>?) ?? const {};
+    return BookingStart(
+      id: (j['booking_id'] ?? j['id']) as String,
+      ref: j['ref'] as String,
+      status: j['status'] as String,
+      amount: Money.fromJson(j['amount'])?.display ?? '',
+      holdExpiresAt: j['hold_expires_at'] as String?,
+      checkoutUrl: j['checkout_url'] as String?,
+      ackRequired: c['acknowledgement_required'] == 'late_no_refund',
+      fullRefundUntil: c['full_refund_until'] as String?,
+      refundWindowOpen: (c['full_refund_window_open'] as bool?) ?? true,
+      paymentStatus: (j['payment'] as Map<String, dynamic>?)?['status'] as String?,
+    );
+  }
+}

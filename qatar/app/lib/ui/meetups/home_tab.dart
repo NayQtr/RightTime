@@ -13,7 +13,7 @@ import '../theme.dart';
 
 String experienceName(AppLocalizations t, String e) => e == 'coffee' ? t.coffee : t.dinner;
 
-/// Home: Doha, upcoming sessions in the member's languages. Booking itself is on the website for now (NMX-51 next).
+/// Home: Doha, upcoming sessions in the member's languages; tap one to book it, or to open a booked one.
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
@@ -31,8 +31,6 @@ class HomeTab extends StatelessWidget {
           const SizedBox(height: HzSpace.s4),
           if (sessions.isEmpty) Text(t.noSessions),
           for (final s in sessions) _SessionCard(s),
-          const SizedBox(height: HzSpace.s4),
-          Text(t.bookOnWeb, style: Theme.of(context).textTheme.bodySmall),
         ]),
       ),
     );
@@ -57,7 +55,11 @@ class _SessionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.md), side: BorderSide(color: c.border)),
       child: InkWell(
         borderRadius: BorderRadius.circular(HzRadius.md),
-        onTap: s.myBookingId == null ? null : () => context.push('/booking/${s.myBookingId}'),
+        onTap: s.myBookingId != null
+            ? () => context.push('/booking/${s.myBookingId}')
+            : s.isFull
+                ? null
+                : () => context.push('/book', extra: s),
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.s4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

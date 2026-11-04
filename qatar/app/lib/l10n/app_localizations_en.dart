@@ -450,4 +450,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unlockReason => 'To show your HerZone notifications';
+
+  @override
+  String get bookSeat => 'Book your seat';
+
+  @override
+  String get reviewTitle => 'Review your booking';
+
+  @override
+  String get payNow => 'Pay now';
+
+  @override
+  String get lateAck =>
+      'I understand and agree that the organising fee isn\'t refunded if I cancel this booking.';
+
+  @override
+  String policyBox(String deadline) {
+    return 'You can cancel with a full refund until $deadline. If the table doesn\'t fill, we cancel it and refund you in full or move you to another session — your choice.';
+  }
+
+  @override
+  String get lateWarning =>
+      'This meetup is soon: if you cancel after paying, the organising fee isn\'t refunded.';
+
+  @override
+  String get serviceFee => 'Organising fee';
+
+  @override
+  String holdUntil(String time) {
+    return 'Your seat is held for you until $time.';
+  }
+
+  @override
+  String get waitingPayment =>
+      'Finish paying on the page that opened, then come back here.';
+
+  @override
+  String get checkPayment => 'Check payment';
+
+  @override
+  String get paidTitle => 'Paid. We\'re forming your table now.';
+
+  @override
+  String get payFailed =>
+      'The payment didn\'t go through. You can try again while the seat is held.';
+
+  @override
+  String get holdExpired =>
+      'Your seat hold has ended. Please choose the session again.';
+
+  @override
+  String get foodNote => 'You pay the venue directly for your food and drinks.';
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_error.dart';
+import '../../core/link_opener.dart';
 import '../../data/meetups_repository.dart';
 import '../../data/models.dart';
 import '../../design/herzone_tokens.dart';
@@ -82,7 +82,7 @@ class _ContactsSectionState extends State<ContactsSection> {
                       style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                       icon: const Icon(Icons.chat),
                       label: Text(t.contactWhatsapp),
-                      onPressed: () => launchUrl(Uri.parse(m.whatsappUrl!), mode: LaunchMode.externalApplication),
+                      onPressed: () => context.read<LinkOpener>().open(Uri.parse(m.whatsappUrl!)),
                     ),
                   if (m.state == 'sent') Text(t.contactSent),
                   if (m.state == 'incoming' && m.requestId != null) ...[

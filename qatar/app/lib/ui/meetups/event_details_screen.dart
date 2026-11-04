@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/link_opener.dart';
 import '../../data/meetups_repository.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
@@ -143,7 +143,7 @@ class _CoordinatorButtons extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: HzSpace.s3),
           child: Row(children: [
             Expanded(
-              child: OutlinedButton.icon(key: const Key('call-coord'), icon: const Icon(Icons.call), label: Text(t.callCoordinator), onPressed: () => launchUrl(Uri.parse(c.telUrl))),
+              child: OutlinedButton.icon(key: const Key('call-coord'), icon: const Icon(Icons.call), label: Text(t.callCoordinator), onPressed: () => context.read<LinkOpener>().open(Uri.parse(c.telUrl))),
             ),
             if (c.whatsappUrl != null) ...[
               const SizedBox(width: HzSpace.s2),
@@ -152,7 +152,7 @@ class _CoordinatorButtons extends StatelessWidget {
                   key: const Key('wa-coord'),
                   icon: const Icon(Icons.chat),
                   label: Text(t.whatsappCoordinator),
-                  onPressed: () => launchUrl(Uri.parse(c.whatsappUrl!), mode: LaunchMode.externalApplication),
+                  onPressed: () => context.read<LinkOpener>().open(Uri.parse(c.whatsappUrl!)),
                 ),
               ),
             ],

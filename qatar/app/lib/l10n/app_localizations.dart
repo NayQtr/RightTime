@@ -907,6 +907,90 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'لعرض إشعاراتك في HerZone'**
   String get unlockReason;
+
+  /// No description provided for @bookSeat.
+  ///
+  /// In ar, this message translates to:
+  /// **'احجزي مقعدك'**
+  String get bookSeat;
+
+  /// No description provided for @reviewTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'راجعي حجزك'**
+  String get reviewTitle;
+
+  /// No description provided for @payNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'ادفعي الآن'**
+  String get payNow;
+
+  /// No description provided for @lateAck.
+  ///
+  /// In ar, this message translates to:
+  /// **'أفهم وأوافق على أن رسم التنظيم لا يُسترد إذا ألغيت هذا الحجز.'**
+  String get lateAck;
+
+  /// No description provided for @policyBox.
+  ///
+  /// In ar, this message translates to:
+  /// **'يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.'**
+  String policyBox(String deadline);
+
+  /// No description provided for @lateWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'موعد هذا اللقاء قريب: إذا ألغيتِ بعد الدفع فلن يُسترد رسم التنظيم.'**
+  String get lateWarning;
+
+  /// No description provided for @serviceFee.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسم التنظيم'**
+  String get serviceFee;
+
+  /// No description provided for @holdUntil.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقعدك محجوز لكِ حتى {time}.'**
+  String holdUntil(String time);
+
+  /// No description provided for @waitingPayment.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكملي الدفع في الصفحة التي فُتحت، ثم عودي إلى هنا.'**
+  String get waitingPayment;
+
+  /// No description provided for @checkPayment.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحققي من الدفع'**
+  String get checkPayment;
+
+  /// No description provided for @paidTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم الدفع. نجمع طاولتك الآن.'**
+  String get paidTitle;
+
+  /// No description provided for @payFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يكتمل الدفع. يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.'**
+  String get payFailed;
+
+  /// No description provided for @holdExpired.
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت مدة حجز المقعد. اختاري الموعد مرة أخرى.'**
+  String get holdExpired;
+
+  /// No description provided for @foodNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'طعامكِ وشرابكِ تدفعينه للمكان مباشرة.'**
+  String get foodNote;
 }
 
 class _AppLocalizationsDelegate

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
+import 'package:herzone/core/link_opener.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
@@ -60,9 +61,12 @@ class Fake {
       });
 }
 
+final links = RecordingLinkOpener();
+
 Future<void> openDetails(WidgetTester tester, Fake f) async {
   tallScreen(tester);
-  await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: f.client));
+  links.opened.clear();
+  await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), linkOpener: links, httpClientFactory: f.client));
   await tester.pumpAndSettle();
   await tester.tap(find.text('لقاءاتي').last);
   await tester.pumpAndSettle();
@@ -117,7 +121,8 @@ void main() {
     await tester.tap(find.byKey(const Key('danger')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('emergency')), findsOneWidget);
-    expect(find.byKey(const Key('call-999')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('call-999')));
+    expect(links.opened.last.toString(), 'tel:999');
     await tester.tap(find.text('إغلاق'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('cat-threat_violence')));

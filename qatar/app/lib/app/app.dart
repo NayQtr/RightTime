@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/config.dart';
 import '../core/device_unlock.dart';
+import '../core/link_opener.dart';
 import '../core/token_store.dart';
 import '../data/auth_repository.dart';
 import '../data/meetups_repository.dart';
@@ -23,7 +24,7 @@ import 'router.dart';
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
-  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.deviceUnlock, this.httpClientFactory});
+  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.deviceUnlock, this.linkOpener = const LinkOpener(), this.httpClientFactory});
 
   final AppConfig config;
   final TokenStore tokens;
@@ -32,6 +33,7 @@ class HerZoneApp extends StatefulWidget {
 
   /// Face ID / fingerprint check; tests pass a fake.
   final DeviceUnlock? deviceUnlock;
+  final LinkOpener linkOpener;
   final dynamic Function()? httpClientFactory;
 
   @override
@@ -76,6 +78,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
         ChangeNotifierProvider.value(value: locale),
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: privacyLock),
+        Provider.value(value: widget.linkOpener),
         Provider.value(value: auth),
         Provider.value(value: meetups),
         Provider.value(value: onboarding),
