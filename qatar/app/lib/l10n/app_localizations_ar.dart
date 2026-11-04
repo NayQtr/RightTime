@@ -280,4 +280,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get close => 'إغلاق';
+
+  @override
+  String get myAnswers => 'إجاباتي';
 }

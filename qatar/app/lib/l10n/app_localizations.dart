@@ -601,6 +601,12 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'إغلاق'**
   String get close;
+
+  /// No description provided for @myAnswers.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجاباتي'**
+  String get myAnswers;
 }
 
 class _AppLocalizationsDelegate

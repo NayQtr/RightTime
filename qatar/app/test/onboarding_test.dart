@@ -36,6 +36,8 @@ class FakeApi {
             return j({'questionnaire_version_id': 'v4', 'questions': questions, 'submitted': submitted ? {'answers': []} : null, 'has_submitted_any': submitted});
           case '/api/v1/auth/otp:request':
             return j({'challenge_id': '11111111-1111-4111-8111-111111111111', 'resend_after': 45, 'dev_code': '482913'}, 202);
+          case '/api/v1/auth/token:refresh':
+            return j({'access_token': 'at_1', 'refresh_token': 'rt_2'});
           case '/api/v1/auth/otp:verify':
             return j({'access_token': 'at_1', 'refresh_token': 'rt_1'});
           case '/api/v1/users/me':
@@ -137,5 +139,27 @@ void main() {
     await tester.tap(find.byKey(const Key('opt-no_say')));
     await tester.pumpAndSettle();
     expect((await store.read())!.answers['q3'], {'o7'});
+  });
+
+  testWidgets('a member edits her answers from Account; the change is submitted and she returns to the tabs', (tester) async {
+    tallScreen(tester);
+    final api = FakeApi()
+      ..registered = true
+      ..submitted = true;
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: api.client));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حسابي').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('my-answers')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opt-en')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opt-single')));
+    await tester.pumpAndSettle();
+    expect(api.response!['status'], 'submitted');
+    expect((api.response!['answers'] as List).first['option_ids'], ['o2']);
+    expect(find.text('الدوحة، قطر'), findsOneWidget);
   });
 }

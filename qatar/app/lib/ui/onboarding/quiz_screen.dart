@@ -30,6 +30,14 @@ class _QuizScreenState extends State<QuizScreen> {
     final c = hzColors(context);
     final tt = Theme.of(context).textTheme;
     final q = vm.current;
+    // a signed-in member who finished (first time or editing) goes to the tabs
+    if (vm.done && vm.signedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        vm.done = false;
+        context.go('/home');
+      });
+    }
     Widget body;
     if (vm.busy && vm.q == null) {
       body = const Center(child: CircularProgressIndicator());

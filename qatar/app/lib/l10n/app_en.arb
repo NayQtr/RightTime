@@ -83,5 +83,6 @@
   "marketingLabel": "Send me marketing messages (optional)",
   "readDoc": "Read",
   "required": "Required",
-  "close": "Close"
+  "close": "Close",
+  "myAnswers": "My answers"
 }

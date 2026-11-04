@@ -45,6 +45,8 @@ class AccountTab extends StatelessWidget {
         const SizedBox(height: HzSpace.s2),
         if (session.me?.displayName != null) Text(session.me!.displayName!),
         const SizedBox(height: HzSpace.s6),
+        OutlinedButton(key: const Key('my-answers'), onPressed: () => context.push('/quiz'), child: Text(t.myAnswers)),
+        const SizedBox(height: HzSpace.s3),
         OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language)),
         const SizedBox(height: HzSpace.s3),
         FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut)),
