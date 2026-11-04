@@ -611,3 +611,25 @@ test("account deletion with a paid booking: personal data goes, the booking and 
   assert.equal(b.user_id, M.userId, "the booking stays, linked to the anonymous account");
   assert.equal((await sql`SELECT count(*)::int AS n FROM app.payments WHERE booking_id = ${bk.booking_id}`)[0].n, 1);
 });
+
+test("NMX-38: a copy of my data has my account, answers, booking and payment, and nothing about other members", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 6 });
+  const M = await signUp(call, { name: "Noura" });
+  const other = await signUp(call, { name: "Shaikha" });
+  const bk = await bookAndPay(M.token, s);
+  await bookAndPay(other.token, s);
+  const r = await call("GET", "/api/v1/users/me/export", { token: M.token, locale: "en" });
+  assert.equal(r.status, 200);
+  const d = r.body;
+  const [{ booking_ref: ref }] = await sql`SELECT booking_ref FROM app.bookings WHERE id = ${bk.booking_id}`;
+  assert.equal(d.account.phone_e164, M.phone);
+  assert.equal(d.account.display_name, "Noura");
+  assert.ok(d.consents.some((c) => c.type === "privacy_notice" && c.granted));
+  assert.ok(d.questionnaire.answers.some((a) => a.key === "Q11" && a.answers.length === 1), "age range answer, in words");
+  assert.deepEqual(d.bookings.map((b) => b.booking_ref), [ref]);
+  assert.equal(d.payments[0].booking_ref, ref);
+  assert.equal(d.payments[0].status, "succeeded");
+  const text = JSON.stringify(d);
+  assert.ok(!text.includes("Shaikha") && !text.includes(other.phone), "no other member's data");
+  assert.ok(!text.includes(M.userId), "no internal ids");
+});

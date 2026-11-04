@@ -628,6 +628,12 @@ test("sessions (NMX-17): no network keeps the member signed in; signing out ends
   await page.unroute(/token:refresh/);
   await page.goto(env.base + "/?online=1#/profile"); // a fresh page load, as when she opens the app again
   await page.waitForSelector("#out");
+  // a copy of her data downloads as a JSON file (NMX-38)
+  const [download] = await Promise.all([page.waitForEvent("download"), page.click("#mydata")]);
+  assert.match(download.suggestedFilename(), /^herzone-my-data-\d{4}-\d{2}-\d{2}\.json$/);
+  const file = JSON.parse(readFileSync(await download.path(), "utf8"));
+  assert.equal(file.account.phone_e164, u.phone);
+  assert.equal(file.account.display_name, "Lulwa");
   const refresh = await page.evaluate(() => JSON.parse(localStorage.getItem("q_tokens")).refresh_token);
   await page.click("#out");
   await page.waitForFunction(() => location.hash === "#/welcome");

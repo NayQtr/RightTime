@@ -631,6 +631,55 @@
         "operationId": "deleteUsersMe"
       }
     },
+    "/api/v1/users/me/export": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings, reports I made. Other members' data is never included",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "exported_at",
+                    "account",
+                    "consents",
+                    "questionnaire",
+                    "bookings",
+                    "payments",
+                    "refunds",
+                    "ratings",
+                    "reports_made"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "attachment; filename=\"herzone-my-data-2026-11-04.json\""
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "getUsersMeExport"
+      }
+    },
     "/api/v1/users/me/registration": {
       "post": {
         "tags": [

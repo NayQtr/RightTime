@@ -15,7 +15,7 @@ import { pushRoutes } from "./routes/push.js";
 // Endpoints a suspended / banned user may still call (v0.3 §3.1 ACCOUNT_SUSPENDED applies to the rest)
 const SUSPENDED_ALLOWED = new Set(["GET /api/v1/users/me", "POST /api/v1/auth/logout", "GET /api/v1/notifications",
   "GET /api/v1/cases/mine", "POST /api/v1/cases/{ref}/appeal", "GET /api/v1/bookings", "GET /api/v1/bookings/{id}",
-  "GET /api/v1/bookings/{id}/event-details"]);
+  "GET /api/v1/bookings/{id}/event-details", "GET /api/v1/users/me/export"]);
 
 function compile(routes) {
   return routes.map((r) => {

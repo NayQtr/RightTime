@@ -1432,7 +1432,8 @@ async function scrProfile() {
       <li><a class="chev" href="#/plans"><span>${esc(T("plansTitle"))}</span></a></li>
       <li><a class="chev" href="#/notify?next=profile"><span>${esc(T("pushSettings"))}</span></a></li>
       <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
-      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li></ul>
+      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li>
+      <li><button class="chev" id="mydata"><span>${esc(T("myData"))}</span></button></li></ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
     <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
       <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
@@ -1443,6 +1444,16 @@ async function scrProfile() {
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
   const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
+  // a copy of her data (right of access, NMX-38): saved as a JSON file on the device, nothing kept in the page
+  $("#mydata").onclick = async () => {
+    const r = await api("GET", "/api/v1/users/me/export");
+    if (!r.ok) return toast((r.data && r.data.message) || T("errGeneric"));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(T("myDataDone"));
+  };
   $("#out").onclick = async () => { const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
 }

@@ -267,6 +267,64 @@ async function outdatedConsents(sql, user, current = null) {
 
 const me = async (ctx) => json(200, { user: { ...userView(ctx.user), outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
 
+// A copy of the member's own data (right of access, PDPPL; NMX-38): one JSON file with her account, consents, latest
+// answers, bookings, payments, refunds, ratings and the reports she made. Other members' data is never included (no
+// names, no reported person). Never cached.
+async function exportMe(ctx) {
+  const { sql, user, keys, locale } = ctx;
+  const L = (row, f) => (locale === "en" ? row[`${f}_en`] : row[`${f}_ar`]);
+  const [u] = await sql`SELECT * FROM app.users WHERE id = ${user.id}`;
+  const consents = await sql`SELECT consent_type, document_version, granted, recorded_at, source FROM app.user_consents
+                              WHERE user_id = ${user.id} ORDER BY recorded_at`;
+  const [resp] = await sql`SELECT id, submitted_at FROM app.questionnaire_responses WHERE user_id = ${user.id} AND status = 'submitted'
+                            ORDER BY submitted_at DESC LIMIT 1`;
+  const answers = resp ? await sql`
+    SELECT q.key, q.text_ar, q.text_en, o.label_ar, o.label_en FROM app.answers a
+      JOIN app.questions q ON q.id = a.question_id JOIN app.question_options o ON o.id = a.option_id
+     WHERE a.response_id = ${resp.id} ORDER BY q.sort_order, o.sort_order` : [];
+  const byQuestion = [];
+  for (const r of answers) {
+    const last = byQuestion[byQuestion.length - 1];
+    if (last && last.key === r.key) last.answers.push(L(r, "label"));
+    else byQuestion.push({ key: r.key, question: L(r, "text"), answers: [L(r, "label")] });
+  }
+  const bookings = await sql`
+    SELECT b.id, b.booking_ref, b.status, b.price_minor, b.created_at, b.cancelled_at, s.experience, s.starts_at
+      FROM app.bookings b JOIN app.event_sessions s ON s.id = b.session_id WHERE b.user_id = ${user.id} ORDER BY s.starts_at`;
+  const refOf = Object.fromEntries(bookings.map((b) => [b.id, b.booking_ref]));
+  const payments = await sql`SELECT booking_id, amount_minor, status, method_brand, card_last4, succeeded_at, created_at
+                               FROM app.payments WHERE user_id = ${user.id} ORDER BY created_at`;
+  const refunds = await sql`SELECT r.booking_id, r.amount_minor, r.reason, r.status, r.completed_at, r.created_at
+                              FROM app.refunds r JOIN app.payments p ON p.id = r.payment_id WHERE p.user_id = ${user.id} ORDER BY r.created_at`;
+  const feedback = await sql`SELECT booking_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private, submitted_at
+                               FROM app.event_feedback WHERE user_id = ${user.id} ORDER BY submitted_at`;
+  const reports = await sql`SELECT case_ref, booking_id, category, timing, immediate_danger, description_enc, status, created_at
+                              FROM app.safety_reports WHERE reporter_user_id = ${user.id} ORDER BY created_at`;
+  const body = {
+    exported_at: qa(new Date()),
+    account: {
+      phone_e164: u.phone_e164_enc?.length ? decrypt(keys.dataKey, u.phone_e164_enc) : null,
+      display_name: u.display_name, locale: u.locale, status: u.status, created_at: qa(u.created_at),
+      registration_completed_at: qa(u.registration_completed_at), woman_confirmed_at: qa(u.woman_confirmed_at),
+      age_eligibility_confirmed_at: qa(u.age_eligibility_confirmed_at), last_login_at: qa(u.last_login_at),
+    },
+    consents: consents.map((c) => ({ type: c.consent_type, document_version: c.document_version, granted: c.granted, recorded_at: qa(c.recorded_at), source: c.source })),
+    questionnaire: resp ? { submitted_at: qa(resp.submitted_at), answers: byQuestion } : null,
+    bookings: bookings.map((b) => ({ booking_ref: b.booking_ref, experience: b.experience, starts_at: qa(b.starts_at), status: b.status,
+      fee: money(b.price_minor, locale), booked_at: qa(b.created_at), cancelled_at: qa(b.cancelled_at) })),
+    payments: payments.map((p) => ({ booking_ref: refOf[p.booking_id] ?? null, amount: money(p.amount_minor, locale), status: p.status,
+      card: p.method_brand ? `${p.method_brand} ${p.card_last4 ?? ""}`.trim() : null, paid_at: qa(p.succeeded_at), created_at: qa(p.created_at) })),
+    refunds: refunds.map((r) => ({ booking_ref: refOf[r.booking_id] ?? null, amount: money(r.amount_minor, locale), reason: r.reason, status: r.status,
+      completed_at: qa(r.completed_at), created_at: qa(r.created_at) })),
+    ratings: feedback.map((f) => ({ booking_ref: refOf[f.booking_id] ?? null, overall: f.overall_rating, comfort: f.comfort_rating, venue: f.venue_rating,
+      would_book_again: f.would_book_again, private_comment: f.comment_private, submitted_at: qa(f.submitted_at) })),
+    reports_made: reports.map((r) => ({ case_ref: r.case_ref, booking_ref: refOf[r.booking_id] ?? null, category: r.category, timing: r.timing,
+      immediate_danger: r.immediate_danger, description: r.description_enc ? decrypt(keys.dataKey, r.description_enc) : null, status: r.status, created_at: qa(r.created_at) })),
+  };
+  const day = qa(new Date()).slice(0, 10);
+  return json(200, body, { "Cache-Control": "no-store", "Content-Disposition": `attachment; filename="herzone-my-data-${day}.json"` });
+}
+
 // Accepting an updated document after registration, and the women-only confirmation of accounts registered before it
 // was asked at sign-up. Required consents are withdrawn by deleting the account, not here.
 async function updateConsents(ctx) {
@@ -1019,6 +1077,7 @@ export const userRoutes = [
   { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
+  { method: "GET", path: "/api/v1/users/me/export", auth: "user_any", handler: exportMe },
   { method: "POST", path: "/api/v1/users/me/consents", auth: "user", idem: true, handler: updateConsents },
   { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },
   { method: "GET", path: "/api/v1/questionnaires/preview", auth: "none", handler: questionnairePreview },
