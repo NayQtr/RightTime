@@ -93,7 +93,23 @@ let accessToken = null;
 let refreshing = null;
 const session = {
   save(t) { accessToken = t.access_token; store.set("tokens", { refresh_token: t.refresh_token }); },
-  clear() { accessToken = null; store.del("tokens"); },
+  clear() { accessToken = null; store.del("tokens"); store.del("trips"); },
+};
+// Upcoming bookings kept on this device so the venue, arrival notes and table code open without a connection (NMX-16).
+// Only the member's own event details, only until the meetup is over; removed on sign-out.
+const trips = {
+  all() {
+    const t = store.get("trips") || {};
+    const live = Object.entries(t).filter(([, v]) => v && v.data && new Date(v.data.session.starts_at).getTime() > Date.now() - 6 * 3600000);
+    return Object.fromEntries(live);
+  },
+  save(id, data) {
+    const t = this.all();
+    if (["cancelled", "completed"].includes(data.reveal.phase)) delete t[id]; else t[id] = { saved_at: new Date().toISOString(), data };
+    const keep = Object.entries(t).sort((a, b) => new Date(a[1].data.session.starts_at) - new Date(b[1].data.session.starts_at)).slice(0, 5);
+    store.set("trips", Object.fromEntries(keep));
+  },
+  get(id) { return this.all()[id] || null; },
 };
 function refreshAccess() {
   if (refreshing) return refreshing;
@@ -213,12 +229,16 @@ function resumeStepFor(q) {
 }
 
 // gate: signed in -> registered -> questionnaire submitted
-async function guard({ needQuestionnaire = true } = {}) {
+async function guard({ needQuestionnaire = true, offlineOk = false } = {}) {
   if (!store.get("tokens")) { go("#/welcome"); return false; }
   const me = await loadMe();
   // no connection: say so and offer a retry, never send a signed-in member to the welcome screen (which would bounce back)
   if (!me && state.meOffline) {
-    main.innerHTML = `<div class="stack">${errorBanner({ message: T("offline") })}<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button></div>`;
+    if (offlineOk) return "offline";
+    const saved = Object.entries(trips.all());
+    main.innerHTML = `<div class="stack">${errorBanner({ message: T("offline") })}<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button>
+      ${saved.length ? `<h2>${esc(T("savedTrips"))}</h2><ul class="list">${saved.map(([id, v]) => `<li><a class="card card-link" href="#/booking/${esc(id)}">
+        ${esc(T(v.data.session.experience))} · ${esc(fmtDate(v.data.session.starts_at, { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</a></li>`).join("")}</ul>` : ""}</div>`;
     $("#retry-me").onclick = () => route();
     return false;
   }
@@ -892,7 +912,9 @@ async function scrReview(id) {
 async function loadContact() {
   if (state.contact !== undefined) return state.contact;
   const r = await api("GET", "/api/v1/support/contact", undefined, { noAuth: true });
-  state.contact = r.ok ? r.data.coordinator : null;
+  // the coordinator's number is public; keep the last one so "call" still works with no data connection
+  if (r.ok) store.set("contact", r.data.coordinator);
+  state.contact = r.ok ? r.data.coordinator : r.data && r.data.code === "OFFLINE" ? store.get("contact") : null;
   return state.contact;
 }
 function contactButtons(c) {
@@ -1123,11 +1145,20 @@ async function scrEvents() {
 
 // ------------------------------------------------------------------ SCR-07 event details
 async function scrDetails(id) {
-  if (!(await guard({ needQuestionnaire: false }))) return;
+  const g = await guard({ needQuestionnaire: false, offlineOk: true });
+  if (!g) return;
   loadingView();
-  const [r, contact] = await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadContact()]);
-  if (!r.ok) { view(T("detailsTitle"), `<h1>${esc(T("detailsTitle"))}</h1>${errorBanner(r.data)}`); return; }
-  const e = r.data, ph = e.reveal.phase, act = (t) => e.actions.find((a) => a.type === t);
+  const [r, contact] = g === "offline" ? [{ ok: false, data: { code: "OFFLINE" } }, store.get("contact")] : await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadContact()]);
+  // no connection: show the copy saved on this device, read-only (no check-in, cancel or contacts until back online)
+  const saved = !r.ok && r.data && r.data.code === "OFFLINE" ? trips.get(id) : null;
+  if (!r.ok && !saved) {
+    view(T("detailsTitle"), `<h1>${esc(T("detailsTitle"))}</h1>${errorBanner(r.data)}${r.data && r.data.code === "OFFLINE" ? `<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button>` : ""}`);
+    if ($("#retry-me")) $("#retry-me").onclick = () => route();
+    return;
+  }
+  if (r.ok) trips.save(id, r.data);
+  const e = saved ? { ...saved.data, actions: [] } : r.data, ph = e.reveal.phase, act = (t) => e.actions.find((a) => a.type === t);
+  const offlineNote = saved ? `<div class="banner banner-warning" id="offline-copy"><span class="icon">${icon("info")}</span><div>${esc(T("offlineCopy", { at: fmtDate(saved.saved_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) }))}</div></div>` : "";
   if (ph === "pending_payment") { go(`#/booking/${id}/review`); return; }
   if (e.resolution) { go(`#/booking/${id}/choose`); return; }
   const acc = e.session.accessibility ? Object.entries(e.session.accessibility).filter(([, v]) => v).map(([k]) => k).join(" · ") : "";
@@ -1136,7 +1167,7 @@ async function scrDetails(id) {
   const stage = { forming: 1, locked: 2, revealed: 3, day_of: 3, completed: 4 }[ph];
   const track = stage === undefined ? "" : `<ol class="track" aria-label="${esc(T("essentials"))}">${["step1", "step2", "step3", "step4"].map((k, j) =>
     `<li class="${j < stage ? "done" : j === stage ? "current" : ""}" ${j === stage ? 'aria-current="step"' : ""}>${esc(T(k))}</li>`).join("")}</ol>`;
-  view(T("detailsTitle"), `
+  view(T("detailsTitle"), `${offlineNote}
     <header class="det-head">${statusBadge(e.booking)}
       <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
       <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
@@ -1170,7 +1201,7 @@ async function scrDetails(id) {
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
     <section class="stack" style="margin-block-start: var(--s-6)"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
-      ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
+      ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
@@ -1476,3 +1507,5 @@ document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
 document.querySelector(".skip").textContent = T("skip");
 renderTopbar();
 route();
+// offline copy of the app's own files (sw.js, NMX-16); registering asks nothing of the member
+if ("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null));

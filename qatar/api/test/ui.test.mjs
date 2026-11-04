@@ -115,6 +115,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await noHorizontalScroll(page);
   await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
   await page.click("#start");
+  await page.waitForSelector(".hero-welcome", { state: "detached" }); // the quiz has replaced the welcome screen
   const seen = await walkQuiz(page);
   assert.deepEqual(seen.inters, ["doha", "community", "how", "energy", "science", "vibe", "curating", "ready", "safety", "data"]);
   assert.ok(seen.dataText.includes("لنتحدث عن بياناتك") && seen.dataText.includes("لا يرين رقمكِ ولا إجاباتكِ"), "data screen before sign-up");
@@ -219,6 +220,19 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");
   assert.equal(await page.locator("#tabbar").isHidden(), true, "no tab bar on detail screens");
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });
+  // NMX-16: with no connection the details open from the copy saved on this device, read-only
+  const detailsUrl = page.url();
+  await page.route(/\/api\/v1\//, (r) => r.abort());
+  await page.goto(detailsUrl.replace("/#", "/?offline=1#"));
+  await page.waitForSelector("#offline-copy");
+  const offlineText = await page.locator("main").innerText();
+  assert.ok(offlineText.includes("نكشف اسم المكان") && offlineText.includes("أنتِ غير متصلة"), offlineText.slice(0, 300));
+  assert.equal(await page.locator("a[href$='/cancel']").count(), 0, "no cancel while offline");
+  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "the coordinator can still be called");
+  await page.screenshot({ path: `${SHOTS}/11b-event-offline-ar.png`, fullPage: true });
+  await page.unroute(/\/api\/v1\//);
+  await page.goto(detailsUrl);
+  await page.waitForSelector("a[href$='/cancel']");
   await page.click("a[href$='/cancel']");
   await page.waitForSelector("text=تأكيد الإلغاء");
   await page.screenshot({ path: `${SHOTS}/12-cancel-ar.png`, fullPage: true });

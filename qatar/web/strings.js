@@ -140,6 +140,7 @@ export const STRINGS = {
     inboxEmptyBody: "ستجدين هنا تحديثات لقاءاتك.", eventsCount: "اللقاءات: {n}", secAccount: "الحساب", secPrefs: "التفضيلات", secHelp: "المساعدة", cityLabel: "المدينة",
     // errors
     errGeneric: "حدث خطأ. حاولي مرة أخرى.", offline: "لا يوجد اتصال بالإنترنت.",
+    savedTrips: "لقاءاتكِ المحفوظة على هذا الجهاز", offlineCopy: "أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ({at}). الحجز والإلغاء يعودان عند الاتصال.",
   },
   en: {
     brand: "HerZone", staging: "Staging", skip: "Skip to content", langToggle: "العربية", back: "Back", next: "Next", continue: "Continue",
@@ -268,5 +269,6 @@ export const STRINGS = {
     eventsTitle: "My events", noEventsTitle: "No upcoming events", noEventsBody: "Book your seat to meet new friends.", bookSeat: "Book your seat",
     inboxEmptyBody: "Updates about your events will appear here.", eventsCount: "Events: {n}", secAccount: "Account", secPrefs: "Preferences", secHelp: "Help", cityLabel: "City",
     errGeneric: "Something went wrong. Please try again.", offline: "You're offline.",
+    savedTrips: "Meetups saved on this device", offlineCopy: "You're offline. This is the copy saved on your device ({at}). Booking and cancelling come back when you reconnect.",
   },
 };
