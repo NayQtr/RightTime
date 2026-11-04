@@ -31,9 +31,14 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Store signing comes with the Google Play account (NMX-45): the upload key stays out of this repository.
+            // Until then release builds use the debug key, so they can only be installed for testing.
             signingConfig = signingConfigs.getByName("debug")
+            // NMX-54: shrink and obfuscate the Java/Kotlin side; the Dart side is obfuscated with
+            // `flutter build appbundle --obfuscate --split-debug-info=build/symbols` (see README).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
 }

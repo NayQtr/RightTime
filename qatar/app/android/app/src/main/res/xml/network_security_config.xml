@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HerZone (NMX-53, MASVS-NETWORK): HTTPS only, and only the system's certificate authorities. Certificates a
+     user (or malware) installs on the phone are not trusted, so traffic cannot be read by a proxy on the device. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
