@@ -215,6 +215,20 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/events");
   await oneH1(page);
   await page.screenshot({ path: `${SHOTS}/10-events-ar.png`, fullPage: true });
+  // NMX-18: unread count on the Notifications tab until the inbox is opened; the logo is 48px
+  assert.equal(Math.round((await page.locator(".brand .mark").boundingBox()).width), 48);
+  const [{ n: notes }] = await env.sql`SELECT count(*)::int AS n FROM app.notifications_outbox o JOIN app.users u ON u.id = o.user_id WHERE u.display_name = 'مريم'`;
+  if (notes > 0) {
+    await page.waitForSelector("#inbox-badge:not([hidden])");
+    assert.equal(await page.locator("#inbox-badge").innerText(), notes > 9 ? "9+" : String(notes));
+    await page.screenshot({ path: `${SHOTS}/10b-inbox-badge-ar.png` });
+    await page.click("#tabbar a[href='#/inbox']");
+    await page.waitForSelector(".list .is-new");
+    await page.goto(env.base + "/#/events");
+    await page.waitForSelector(".hero");
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator("#inbox-badge").isHidden(), true, "badge cleared after the inbox was opened");
+  }
   await page.click(".hero a.btn-primary");
   await page.waitForSelector(".det-head h1");
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");

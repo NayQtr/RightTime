@@ -93,7 +93,7 @@ let accessToken = null;
 let refreshing = null;
 const session = {
   save(t) { accessToken = t.access_token; store.set("tokens", { refresh_token: t.refresh_token }); },
-  clear() { accessToken = null; store.del("tokens"); store.del("trips"); },
+  clear() { accessToken = null; store.del("tokens"); store.del("trips"); store.del("inboxSeen"); },
 };
 // Upcoming bookings kept on this device so the venue, arrival notes and table code open without a connection (NMX-16).
 // Only the member's own event details, only until the meetup is over; removed on sign-out.
@@ -1403,8 +1403,11 @@ async function scrInbox() {
   loadingView();
   const r = await api("GET", "/api/v1/notifications");
   const list = r.ok ? r.data.notifications : [];
+  const seen = store.get("inboxSeen");
+  const isNew = (n) => !seen || new Date(n.created_at) > new Date(seen);
+  if (r.ok) { if (list.length) store.set("inboxSeen", list[0].created_at); inboxFetch = null; showInboxBadge(0); }
   view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
-    <li class="card"><p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
+    <li class="card${isNew(n) ? " is-new" : ""}">${isNew(n) ? `<span class="badge badge-info new-tag">${esc(T("newTag"))}</span>` : ""}<p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
     ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
 }
 
@@ -1464,7 +1467,32 @@ function renderTabbar(hash) {
   nav.hidden = !(active && store.get("tokens"));
   if (nav.hidden) { nav.innerHTML = ""; return; }
   nav.setAttribute("aria-label", T("tabsLabel"));
-  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${h === "#/inbox"
+    ? `<span class="ti-wrap">${icon(ic, "ti")}<span class="tab-badge" id="inbox-badge" hidden></span></span>` : icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  if (hash !== "#/inbox") refreshInboxBadge();
+}
+
+// Unread count on the Notifications tab (NMX-18): notifications newer than the last time the inbox was opened on this
+// device. Also shown on the home-screen app icon where the phone supports it (Badging API).
+let inboxFetch = null;
+async function refreshInboxBadge() {
+  if (!inboxFetch || Date.now() - inboxFetch.at > 60000) inboxFetch = { at: Date.now(), p: api("GET", "/api/v1/notifications") };
+  const r = await inboxFetch.p;
+  if (!r.ok) return;
+  showInboxBadge(unreadOf(r.data.notifications));
+}
+function unreadOf(list) {
+  const seen = store.get("inboxSeen");
+  return list.filter((n) => !seen || new Date(n.created_at) > new Date(seen)).length;
+}
+function showInboxBadge(n) {
+  const b = document.getElementById("inbox-badge");
+  if (b) {
+    b.hidden = n === 0;
+    b.textContent = n > 9 ? "9+" : String(n);
+    b.closest("a").setAttribute("aria-label", n ? `${T("tabInbox")}، ${T("unreadCount", { n })}` : T("tabInbox"));
+  }
+  try { if (navigator.setAppBadge) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => null); } catch { /* unsupported */ }
 }
 
 const ROUTES = [
