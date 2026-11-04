@@ -257,5 +257,41 @@
   "commentLabel": "تعليق خاص (اختياري)",
   "send": "إرسال",
   "wouldBookAgain": "سأحجز مرة أخرى",
-  "commentHelp": "لن يراه أحد من الطاولة"
+  "commentHelp": "لن يراه أحد من الطاولة",
+  "alternateTag": "من بدائلك",
+  "chooseNow": "اختاري الآن",
+  "confirmChoice": "تأكيد اختياري",
+  "defaultRefund": "إن لم تختاري قبل {deadline} سنرد المبلغ كاملًا تلقائيًا.",
+  "optRebook": "موعد آخر",
+  "optRebookHelp": "ننقل رسمك كما هو.",
+  "optRefund": "استرداد كامل",
+  "optRefundHelp": "{fee} إلى وسيلة الدفع الأصلية خلال {days} أيام عمل.",
+  "orgBody": "لم يكتمل الحد الأدنى (4 سيدات) لهذا الموعد، لذلك ألغينا الطاولة. لا تتحملين أي رسوم.",
+  "orgTitle": "نعتذر، لم تكتمل طاولتك",
+  "stOrganizer": "ألغينا هذه الطاولة. اختاري: استرداد أو موعد آخر.",
+  "rebookedInto": "نقلناك إلى الحجز {ref}.",
+  "@defaultRefund": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@optRefundHelp": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@rebookedInto": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  }
 }

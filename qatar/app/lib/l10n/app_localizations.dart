@@ -1063,6 +1063,78 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'لن يراه أحد من الطاولة'**
   String get commentHelp;
+
+  /// No description provided for @alternateTag.
+  ///
+  /// In ar, this message translates to:
+  /// **'من بدائلك'**
+  String get alternateTag;
+
+  /// No description provided for @chooseNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختاري الآن'**
+  String get chooseNow;
+
+  /// No description provided for @confirmChoice.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد اختياري'**
+  String get confirmChoice;
+
+  /// No description provided for @defaultRefund.
+  ///
+  /// In ar, this message translates to:
+  /// **'إن لم تختاري قبل {deadline} سنرد المبلغ كاملًا تلقائيًا.'**
+  String defaultRefund(String deadline);
+
+  /// No description provided for @optRebook.
+  ///
+  /// In ar, this message translates to:
+  /// **'موعد آخر'**
+  String get optRebook;
+
+  /// No description provided for @optRebookHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'ننقل رسمك كما هو.'**
+  String get optRebookHelp;
+
+  /// No description provided for @optRefund.
+  ///
+  /// In ar, this message translates to:
+  /// **'استرداد كامل'**
+  String get optRefund;
+
+  /// No description provided for @optRefundHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'{fee} إلى وسيلة الدفع الأصلية خلال {days} أيام عمل.'**
+  String optRefundHelp(String fee, int days);
+
+  /// No description provided for @orgBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يكتمل الحد الأدنى (4 سيدات) لهذا الموعد، لذلك ألغينا الطاولة. لا تتحملين أي رسوم.'**
+  String get orgBody;
+
+  /// No description provided for @orgTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'نعتذر، لم تكتمل طاولتك'**
+  String get orgTitle;
+
+  /// No description provided for @stOrganizer.
+  ///
+  /// In ar, this message translates to:
+  /// **'ألغينا هذه الطاولة. اختاري: استرداد أو موعد آخر.'**
+  String get stOrganizer;
+
+  /// No description provided for @rebookedInto.
+  ///
+  /// In ar, this message translates to:
+  /// **'نقلناك إلى الحجز {ref}.'**
+  String rebookedInto(String ref);
 }
 
 class _AppLocalizationsDelegate

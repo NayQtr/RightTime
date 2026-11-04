@@ -537,4 +537,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commentHelp => 'No one at your table will see it';
+
+  @override
+  String get alternateTag => 'From your alternates';
+
+  @override
+  String get chooseNow => 'Choose now';
+
+  @override
+  String get confirmChoice => 'Confirm my choice';
+
+  @override
+  String defaultRefund(String deadline) {
+    return 'If you don\'t choose before $deadline, we\'ll refund you in full automatically.';
+  }
+
+  @override
+  String get optRebook => 'Another session';
+
+  @override
+  String get optRebookHelp => 'We transfer your fee as it is.';
+
+  @override
+  String get optRefund => 'Full refund';
+
+  @override
+  String optRefundHelp(String fee, int days) {
+    return '$fee to your original payment method within $days business days.';
+  }
+
+  @override
+  String get orgBody =>
+      'The minimum (4 women) wasn\'t reached for this session, so we cancelled the table. You won\'t pay anything.';
+
+  @override
+  String get orgTitle => 'Sorry, your table didn\'t fill';
+
+  @override
+  String get stOrganizer =>
+      'We cancelled this table. Choose: refund or another session.';
+
+  @override
+  String rebookedInto(String ref) {
+    return 'We moved you to booking $ref.';
+  }
 }

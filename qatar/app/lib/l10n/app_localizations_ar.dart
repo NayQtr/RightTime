@@ -530,4 +530,47 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get commentHelp => 'لن يراه أحد من الطاولة';
+
+  @override
+  String get alternateTag => 'من بدائلك';
+
+  @override
+  String get chooseNow => 'اختاري الآن';
+
+  @override
+  String get confirmChoice => 'تأكيد اختياري';
+
+  @override
+  String defaultRefund(String deadline) {
+    return 'إن لم تختاري قبل $deadline سنرد المبلغ كاملًا تلقائيًا.';
+  }
+
+  @override
+  String get optRebook => 'موعد آخر';
+
+  @override
+  String get optRebookHelp => 'ننقل رسمك كما هو.';
+
+  @override
+  String get optRefund => 'استرداد كامل';
+
+  @override
+  String optRefundHelp(String fee, int days) {
+    return '$fee إلى وسيلة الدفع الأصلية خلال $days أيام عمل.';
+  }
+
+  @override
+  String get orgBody =>
+      'لم يكتمل الحد الأدنى (4 سيدات) لهذا الموعد، لذلك ألغينا الطاولة. لا تتحملين أي رسوم.';
+
+  @override
+  String get orgTitle => 'نعتذر، لم تكتمل طاولتك';
+
+  @override
+  String get stOrganizer => 'ألغينا هذه الطاولة. اختاري: استرداد أو موعد آخر.';
+
+  @override
+  String rebookedInto(String ref) {
+    return 'نقلناك إلى الحجز $ref.';
+  }
 }

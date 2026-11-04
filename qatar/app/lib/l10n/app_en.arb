@@ -205,5 +205,17 @@
   "commentLabel": "Private comment (optional)",
   "send": "Send",
   "wouldBookAgain": "I'd book again",
-  "commentHelp": "No one at your table will see it"
+  "commentHelp": "No one at your table will see it",
+  "alternateTag": "From your alternates",
+  "chooseNow": "Choose now",
+  "confirmChoice": "Confirm my choice",
+  "defaultRefund": "If you don't choose before {deadline}, we'll refund you in full automatically.",
+  "optRebook": "Another session",
+  "optRebookHelp": "We transfer your fee as it is.",
+  "optRefund": "Full refund",
+  "optRefundHelp": "{fee} to your original payment method within {days} business days.",
+  "orgBody": "The minimum (4 women) wasn't reached for this session, so we cancelled the table. You won't pay anything.",
+  "orgTitle": "Sorry, your table didn't fill",
+  "stOrganizer": "We cancelled this table. Choose: refund or another session.",
+  "rebookedInto": "We moved you to booking {ref}."
 }

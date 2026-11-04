@@ -15,6 +15,7 @@ import '../format.dart';
 import '../theme.dart';
 import 'contacts_section.dart';
 import 'home_tab.dart' show experienceName;
+import 'resolution_section.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -118,6 +119,21 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                     ]),
                   ),
                 ),
+              if (r.offlineSavedAt == null && d.resolution != null && d.resolution!.open && d.rebookedInto == null) ...[
+                const SizedBox(height: HzSpace.s4),
+                ResolutionSection(bookingId: bookingId, details: d, onDone: () => setState(() => _reload++)),
+              ],
+              if (d.rebookedInto != null) ...[
+                const SizedBox(height: HzSpace.s4),
+                ListTile(
+                  key: const Key('rebooked'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.event_available, color: c.success),
+                  title: Text(t.rebookedInto(d.rebookedInto!.ref)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/booking/${d.rebookedInto!.id}'),
+                ),
+              ],
               if (r.offlineSavedAt == null && d.action('check_in')) ...[
                 const SizedBox(height: HzSpace.s4),
                 FilledButton(key: const Key('check-in'), onPressed: () => _checkIn(context), child: Text(t.imHere)),

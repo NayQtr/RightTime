@@ -20,6 +20,7 @@ class Fake {
   final sent = <String, Map<String, dynamic>>{};
   String contactState = 'none';
   bool checkedIn = false;
+  bool rebooked = false;
 
   MockClient client() => MockClient((r) async {
         final body = r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body) as Map<String, dynamic>;
@@ -41,6 +42,12 @@ class Fake {
               'payment': {'amount': {'display': '59 ر.ق'}, 'status': 'succeeded'},
               'table': phase == 'completed' ? {'confirmed_count': 5, 'capacity': 6, 'members': [{'seat': 'seat_sara', 'display_name': 'سارة'}]} : null,
               'venue': null,
+              if (phase == 'cancelled' && !rebooked)
+                'resolution': {'choice_deadline': '2026-11-14T19:30:00+03:00', 'default_if_no_choice': 'refund', 'open': true, 'options': [
+                  {'type': 'rebook', 'sessions': [{'session_id': 'alt1', 'starts_at': '2026-11-19T19:30:00+03:00', 'district': 'مشيرب', 'seats_left': 4, 'is_alternate': true}]},
+                  {'type': 'refund', 'amount': {'display': '59 ر.ق'}},
+                ]},
+              if (rebooked) 'rebooked_into': {'booking_id': 'b-new', 'ref': 'RT-NEW9', 'status': 'paid_awaiting_group'},
               'actions': [
                 if (phase == 'forming') {'type': 'cancel'},
                 if (phase == 'day_of' && !checkedIn) {'type': 'check_in'},
@@ -54,6 +61,9 @@ class Fake {
               {'seat': 'seat_sara', 'display_name': 'سارة', 'state': contactState, 'request_id': contactState == 'incoming' ? 'req1' : null,
                'whatsapp_url': contactState == 'connected' ? 'https://wa.me/97455501234' : null, 'can_send': contactState == 'none'},
             ]});
+          case '/api/v1/bookings/$bookingId/resolution':
+            rebooked = body['choice'] == 'rebook';
+            return j({'choice': body['choice']});
           case '/api/v1/bookings/$bookingId/check-in':
             checkedIn = true;
             return j({'status': 'checked_in'});
@@ -172,5 +182,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(f.sent['/api/v1/bookings/$bookingId/feedback'], {'overall_rating': 5, 'comfort_rating': 4, 'would_book_again': true, 'comment': 'أمسية جميلة'});
     expect(find.byKey(const Key('fb-thanks')), findsOneWidget);
+  });
+
+  testWidgets('the organiser cancelled: she moves to her alternate session (same fee) and sees the new booking', (tester) async {
+    final f = Fake('cancelled', refund: null);
+    await openDetails(tester, f);
+    expect(find.byKey(const Key('resolution')), findsOneWidget);
+    expect(find.textContaining('من بدائلك'), findsOneWidget);
+    expect(find.textContaining('59 ر.ق إلى وسيلة الدفع الأصلية'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('rebook-alt1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-choice')));
+    await tester.pumpAndSettle();
+    expect(f.sent['/api/v1/bookings/$bookingId/resolution'], {'choice': 'rebook', 'session_id': 'alt1'});
+    expect(find.text('نقلناك إلى الحجز RT-NEW9.'), findsOneWidget);
+    expect(find.byKey(const Key('resolution')), findsNothing);
   });
 }

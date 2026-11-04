@@ -113,6 +113,29 @@ class EventDetails {
       .map((m) => (seat: m['seat'] as String, name: (m['display_name'] as String?) ?? ''))
       .toList();
 
+  /// After the organiser cancelled: the choice between another session and a refund, while it is open.
+  ({bool open, String deadline, List<({String id, String startsAt, String district, bool alternate})> sessions, String? refund})? get resolution {
+    final r = json['resolution'] as Map<String, dynamic>?;
+    if (r == null) return null;
+    final opts = (r['options'] as List).cast<Map<String, dynamic>>();
+    final rebook = opts.firstWhere((o) => o['type'] == 'rebook', orElse: () => const {});
+    final refund = opts.firstWhere((o) => o['type'] == 'refund', orElse: () => const {});
+    return (
+      open: (r['open'] as bool?) ?? false,
+      deadline: r['choice_deadline'] as String,
+      sessions: ((rebook['sessions'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map((x) => (id: x['session_id'] as String, startsAt: x['starts_at'] as String, district: (x['district'] as String?) ?? '', alternate: (x['is_alternate'] as bool?) ?? false))
+          .toList(),
+      refund: Money.fromJson(refund['amount'])?.display,
+    );
+  }
+
+  ({String id, String ref})? get rebookedInto {
+    final r = json['rebooked_into'] as Map<String, dynamic>?;
+    return r == null ? null : (id: r['booking_id'] as String, ref: r['ref'] as String);
+  }
+
   /// Stage on the tracker (paid, forming, confirmed, revealed), or null when there is no tracker (cancelled, completed).
   int? get stage => const {'forming': 1, 'locked': 2, 'revealed': 3, 'day_of': 3}[phase];
 

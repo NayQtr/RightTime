@@ -121,4 +121,8 @@ class MeetupsRepository {
         'would_book_again': ?again,
         if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
       });
+
+  /// After the organiser cancelled: move to another session (the fee carries over) or take the full refund.
+  Future<void> resolve(String bookingId, {String? rebookSessionId}) => _api.send('POST', '/api/v1/bookings/$bookingId/resolution',
+      body: rebookSessionId == null ? {'choice': 'refund'} : {'choice': 'rebook', 'session_id': rebookSessionId});
 }
