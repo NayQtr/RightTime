@@ -4,6 +4,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'app/app.dart';
 import 'core/config.dart';
 import 'core/token_store.dart';
+import 'data/trip_store.dart';
 
 /// Removes phone numbers, tokens and 6-digit codes from text sent to Sentry (same rules as web/monitor.js).
 String scrub(String s) => s
@@ -14,7 +15,7 @@ String scrub(String s) => s
 
 Future<void> main() async {
   const config = AppConfig.fromEnvironment;
-  final app = HerZoneApp(config: config, tokens: SecureTokenStore());
+  final app = HerZoneApp(config: config, tokens: SecureTokenStore(), trips: SecureTripStore());
   if (config.sentryDsn.isEmpty) return runApp(app);
   // Crash-free sessions (NMX-62) and error reports. No user, IP or request bodies; messages scrubbed.
   await SentryFlutter.init((o) {

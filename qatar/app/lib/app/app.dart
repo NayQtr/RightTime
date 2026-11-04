@@ -7,6 +7,8 @@ import '../core/api_client.dart';
 import '../core/config.dart';
 import '../core/token_store.dart';
 import '../data/auth_repository.dart';
+import '../data/meetups_repository.dart';
+import '../data/trip_store.dart';
 import '../domain/locale_controller.dart';
 import '../domain/session.dart';
 import '../l10n/app_localizations.dart';
@@ -17,10 +19,11 @@ import 'router.dart';
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
-  const HerZoneApp({super.key, required this.config, required this.tokens, this.httpClientFactory});
+  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, this.httpClientFactory});
 
   final AppConfig config;
   final TokenStore tokens;
+  final TripStore trips;
   final dynamic Function()? httpClientFactory;
 
   @override
@@ -31,6 +34,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
   final locale = LocaleController();
   late final ApiClient api;
   late final AuthRepository auth;
+  late final MeetupsRepository meetups;
   late final Session session;
   late final GoRouter router;
 
@@ -45,7 +49,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
       onSignedOut: () => session.signedOutByServer(),
     );
     auth = AuthRepository(api);
-    session = Session(api, auth)..restore();
+    meetups = MeetupsRepository(api, widget.trips);
+    session = Session(api, auth, clearDevice: meetups.forgetDevice)..restore();
     router = buildRouter(session);
   }
 
@@ -56,6 +61,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
         ChangeNotifierProvider.value(value: locale),
         ChangeNotifierProvider.value(value: session),
         Provider.value(value: auth),
+        Provider.value(value: meetups),
         ChangeNotifierProvider(create: (_) => SignInViewModel(auth, session, () => locale.code)),
       ],
       child: ListenableBuilder(

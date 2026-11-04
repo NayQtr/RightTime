@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/config.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/trip_store.dart';
 import 'package:herzone/main.dart' show scrub;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -39,7 +40,7 @@ void main() {
   testWidgets('Arabic first: sign in with a Qatar number and the code, land on the tabs, switch to English (LTR), sign out', (tester) async {
     final log = <String>[];
     final store = MemoryTokenStore();
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, httpClientFactory: () => fakeApi(log)));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), httpClientFactory: () => fakeApi(log)));
     await tester.pumpAndSettle();
 
     // phone screen, right to left

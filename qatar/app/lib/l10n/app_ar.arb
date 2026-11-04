@@ -16,7 +16,13 @@
   "verify": "تحقّقي",
   "resend": "إعادة الإرسال",
   "resendIn": "إعادة الإرسال بعد {s} ث",
-  "@resendIn": { "placeholders": { "s": { "type": "int" } } },
+  "@resendIn": {
+    "placeholders": {
+      "s": {
+        "type": "int"
+      }
+    }
+  },
   "devCode": "بيئة تجريبية: الرمز هو",
   "tabHome": "الرئيسية",
   "tabEvents": "لقاءاتي",
@@ -25,5 +31,65 @@
   "errGeneric": "حدث خطأ. حاولي مرة أخرى.",
   "offline": "لا يوجد اتصال بالإنترنت.",
   "comingSoon": "هذه الشاشة قيد البناء في التطبيق. كل شيء متاح الآن على herzone.app.",
-  "language": "English"
+  "language": "English",
+  "dinner": "عشاء",
+  "coffee": "قهوة",
+  "seatsLeft": "{n} مقاعد متبقية",
+  "full": "ممتلئ",
+  "alreadyBooked": "محجوز",
+  "langAr": "طاولة بالعربية",
+  "langEn": "طاولة بالإنجليزية",
+  "noSessions": "لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.",
+  "cityFull": "الدوحة، قطر",
+  "dateTime": "الموعد",
+  "district": "المنطقة",
+  "tableLanguage": "لغة الطاولة",
+  "bookingRef": "رقم الحجز",
+  "viewDetails": "عرض التفاصيل",
+  "detailsTitle": "تفاصيل اللقاء",
+  "yourTable": "طاولتك",
+  "confirmedCount": "{n} سيدات مؤكدات",
+  "arrival": "تعليمات الوصول",
+  "tableCode": "رمز طاولتك",
+  "mentionCode": "اذكري \"HerZone\" ورمز الطاولة لموظف الاستقبال.",
+  "venueHidden": "نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في {revealAt}.",
+  "foodBandLabel": "ميزانية الطعام",
+  "noNotifications": "لا إشعارات بعد.",
+  "inboxEmptyBody": "ستجدين هنا تحديثات لقاءاتك.",
+  "noBookings": "لم تحجزي أي لقاء بعد.",
+  "bookOnWeb": "الحجز والدفع متاحان الآن على herzone.app، ويصلان إلى التطبيق قريبًا.",
+  "offlineCopy": "أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ({at}).",
+  "step1": "تم الدفع",
+  "step2": "تكوين الطاولة",
+  "step3": "تأكيد الطاولة",
+  "step4": "كشف المكان",
+  "tablemates": "زميلات الطاولة",
+  "@seatsLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@confirmedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@venueHidden": {
+    "placeholders": {
+      "revealAt": {
+        "type": "String"
+      }
+    }
+  },
+  "@offlineCopy": {
+    "placeholders": {
+      "at": {
+        "type": "String"
+      }
+    }
+  }
 }

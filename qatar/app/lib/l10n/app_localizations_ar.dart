@@ -87,4 +87,110 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get language => 'English';
+
+  @override
+  String get dinner => 'عشاء';
+
+  @override
+  String get coffee => 'قهوة';
+
+  @override
+  String seatsLeft(int n) {
+    return '$n مقاعد متبقية';
+  }
+
+  @override
+  String get full => 'ممتلئ';
+
+  @override
+  String get alreadyBooked => 'محجوز';
+
+  @override
+  String get langAr => 'طاولة بالعربية';
+
+  @override
+  String get langEn => 'طاولة بالإنجليزية';
+
+  @override
+  String get noSessions =>
+      'لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.';
+
+  @override
+  String get cityFull => 'الدوحة، قطر';
+
+  @override
+  String get dateTime => 'الموعد';
+
+  @override
+  String get district => 'المنطقة';
+
+  @override
+  String get tableLanguage => 'لغة الطاولة';
+
+  @override
+  String get bookingRef => 'رقم الحجز';
+
+  @override
+  String get viewDetails => 'عرض التفاصيل';
+
+  @override
+  String get detailsTitle => 'تفاصيل اللقاء';
+
+  @override
+  String get yourTable => 'طاولتك';
+
+  @override
+  String confirmedCount(int n) {
+    return '$n سيدات مؤكدات';
+  }
+
+  @override
+  String get arrival => 'تعليمات الوصول';
+
+  @override
+  String get tableCode => 'رمز طاولتك';
+
+  @override
+  String get mentionCode => 'اذكري \"HerZone\" ورمز الطاولة لموظف الاستقبال.';
+
+  @override
+  String venueHidden(String revealAt) {
+    return 'نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في $revealAt.';
+  }
+
+  @override
+  String get foodBandLabel => 'ميزانية الطعام';
+
+  @override
+  String get noNotifications => 'لا إشعارات بعد.';
+
+  @override
+  String get inboxEmptyBody => 'ستجدين هنا تحديثات لقاءاتك.';
+
+  @override
+  String get noBookings => 'لم تحجزي أي لقاء بعد.';
+
+  @override
+  String get bookOnWeb =>
+      'الحجز والدفع متاحان الآن على herzone.app، ويصلان إلى التطبيق قريبًا.';
+
+  @override
+  String offlineCopy(String at) {
+    return 'أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ($at).';
+  }
+
+  @override
+  String get step1 => 'تم الدفع';
+
+  @override
+  String get step2 => 'تكوين الطاولة';
+
+  @override
+  String get step3 => 'تأكيد الطاولة';
+
+  @override
+  String get step4 => 'كشف المكان';
+
+  @override
+  String get tablemates => 'زميلات الطاولة';
 }

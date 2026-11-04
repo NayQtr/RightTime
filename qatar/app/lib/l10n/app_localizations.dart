@@ -247,6 +247,198 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'English'**
   String get language;
+
+  /// No description provided for @dinner.
+  ///
+  /// In ar, this message translates to:
+  /// **'عشاء'**
+  String get dinner;
+
+  /// No description provided for @coffee.
+  ///
+  /// In ar, this message translates to:
+  /// **'قهوة'**
+  String get coffee;
+
+  /// No description provided for @seatsLeft.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} مقاعد متبقية'**
+  String seatsLeft(int n);
+
+  /// No description provided for @full.
+  ///
+  /// In ar, this message translates to:
+  /// **'ممتلئ'**
+  String get full;
+
+  /// No description provided for @alreadyBooked.
+  ///
+  /// In ar, this message translates to:
+  /// **'محجوز'**
+  String get alreadyBooked;
+
+  /// No description provided for @langAr.
+  ///
+  /// In ar, this message translates to:
+  /// **'طاولة بالعربية'**
+  String get langAr;
+
+  /// No description provided for @langEn.
+  ///
+  /// In ar, this message translates to:
+  /// **'طاولة بالإنجليزية'**
+  String get langEn;
+
+  /// No description provided for @noSessions.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.'**
+  String get noSessions;
+
+  /// No description provided for @cityFull.
+  ///
+  /// In ar, this message translates to:
+  /// **'الدوحة، قطر'**
+  String get cityFull;
+
+  /// No description provided for @dateTime.
+  ///
+  /// In ar, this message translates to:
+  /// **'الموعد'**
+  String get dateTime;
+
+  /// No description provided for @district.
+  ///
+  /// In ar, this message translates to:
+  /// **'المنطقة'**
+  String get district;
+
+  /// No description provided for @tableLanguage.
+  ///
+  /// In ar, this message translates to:
+  /// **'لغة الطاولة'**
+  String get tableLanguage;
+
+  /// No description provided for @bookingRef.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الحجز'**
+  String get bookingRef;
+
+  /// No description provided for @viewDetails.
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض التفاصيل'**
+  String get viewDetails;
+
+  /// No description provided for @detailsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تفاصيل اللقاء'**
+  String get detailsTitle;
+
+  /// No description provided for @yourTable.
+  ///
+  /// In ar, this message translates to:
+  /// **'طاولتك'**
+  String get yourTable;
+
+  /// No description provided for @confirmedCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} سيدات مؤكدات'**
+  String confirmedCount(int n);
+
+  /// No description provided for @arrival.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعليمات الوصول'**
+  String get arrival;
+
+  /// No description provided for @tableCode.
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز طاولتك'**
+  String get tableCode;
+
+  /// No description provided for @mentionCode.
+  ///
+  /// In ar, this message translates to:
+  /// **'اذكري \"HerZone\" ورمز الطاولة لموظف الاستقبال.'**
+  String get mentionCode;
+
+  /// No description provided for @venueHidden.
+  ///
+  /// In ar, this message translates to:
+  /// **'نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في {revealAt}.'**
+  String venueHidden(String revealAt);
+
+  /// No description provided for @foodBandLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'ميزانية الطعام'**
+  String get foodBandLabel;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا إشعارات بعد.'**
+  String get noNotifications;
+
+  /// No description provided for @inboxEmptyBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستجدين هنا تحديثات لقاءاتك.'**
+  String get inboxEmptyBody;
+
+  /// No description provided for @noBookings.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تحجزي أي لقاء بعد.'**
+  String get noBookings;
+
+  /// No description provided for @bookOnWeb.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحجز والدفع متاحان الآن على herzone.app، ويصلان إلى التطبيق قريبًا.'**
+  String get bookOnWeb;
+
+  /// No description provided for @offlineCopy.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ({at}).'**
+  String offlineCopy(String at);
+
+  /// No description provided for @step1.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم الدفع'**
+  String get step1;
+
+  /// No description provided for @step2.
+  ///
+  /// In ar, this message translates to:
+  /// **'تكوين الطاولة'**
+  String get step2;
+
+  /// No description provided for @step3.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الطاولة'**
+  String get step3;
+
+  /// No description provided for @step4.
+  ///
+  /// In ar, this message translates to:
+  /// **'كشف المكان'**
+  String get step4;
+
+  /// No description provided for @tablemates.
+  ///
+  /// In ar, this message translates to:
+  /// **'زميلات الطاولة'**
+  String get tablemates;
 }
 
 class _AppLocalizationsDelegate

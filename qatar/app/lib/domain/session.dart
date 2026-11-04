@@ -9,10 +9,13 @@ enum SessionStatus { unknown, signedOut, signedIn, offline }
 /// The one place that knows whether the member is signed in. The router listens to it (redirects), screens read it.
 /// No network never signs her out: it becomes [SessionStatus.offline] until the next successful refresh.
 class Session extends ChangeNotifier {
-  Session(this._api, this._auth);
+  Session(this._api, this._auth, {this.clearDevice});
 
   final ApiClient _api;
   final AuthRepository _auth;
+
+  /// Removes what this device keeps for the member (saved meetup details) when the session ends.
+  final Future<void> Function()? clearDevice;
 
   SessionStatus status = SessionStatus.unknown;
   Me? me;
@@ -37,11 +40,13 @@ class Session extends ChangeNotifier {
   /// Called by the API client when the server ends the session (refresh refused).
   void signedOutByServer() {
     me = null;
+    clearDevice?.call();
     _set(SessionStatus.signedOut);
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
+    await clearDevice?.call();
     me = null;
     _set(SessionStatus.signedOut);
   }

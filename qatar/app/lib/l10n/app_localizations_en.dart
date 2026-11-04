@@ -88,4 +88,111 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get language => 'العربية';
+
+  @override
+  String get dinner => 'Dinner';
+
+  @override
+  String get coffee => 'Coffee';
+
+  @override
+  String seatsLeft(int n) {
+    return '$n seats left';
+  }
+
+  @override
+  String get full => 'Full';
+
+  @override
+  String get alreadyBooked => 'Booked';
+
+  @override
+  String get langAr => 'Arabic table';
+
+  @override
+  String get langEn => 'English table';
+
+  @override
+  String get noSessions =>
+      'There are no sessions in your languages right now. We run Arabic and English tables only.';
+
+  @override
+  String get cityFull => 'Doha, Qatar';
+
+  @override
+  String get dateTime => 'Date & time';
+
+  @override
+  String get district => 'Area';
+
+  @override
+  String get tableLanguage => 'Table language';
+
+  @override
+  String get bookingRef => 'Booking ref';
+
+  @override
+  String get viewDetails => 'View details';
+
+  @override
+  String get detailsTitle => 'Event details';
+
+  @override
+  String get yourTable => 'Your table';
+
+  @override
+  String confirmedCount(int n) {
+    return '$n women confirmed';
+  }
+
+  @override
+  String get arrival => 'Arrival instructions';
+
+  @override
+  String get tableCode => 'Your table code';
+
+  @override
+  String get mentionCode =>
+      'Mention \"HerZone\" and the table code at reception.';
+
+  @override
+  String venueHidden(String revealAt) {
+    return 'We reveal the venue name and address after the table is confirmed, at $revealAt.';
+  }
+
+  @override
+  String get foodBandLabel => 'Food budget';
+
+  @override
+  String get noNotifications => 'No notifications yet.';
+
+  @override
+  String get inboxEmptyBody => 'Updates about your meetups will appear here.';
+
+  @override
+  String get noBookings => 'You haven\'t booked a meetup yet.';
+
+  @override
+  String get bookOnWeb =>
+      'Booking and payment are available now on herzone.app and are coming to the app soon.';
+
+  @override
+  String offlineCopy(String at) {
+    return 'You\'re offline. This is the copy saved on your device ($at).';
+  }
+
+  @override
+  String get step1 => 'Paid';
+
+  @override
+  String get step2 => 'Forming the table';
+
+  @override
+  String get step3 => 'Table confirmed';
+
+  @override
+  String get step4 => 'Venue revealed';
+
+  @override
+  String get tablemates => 'Your tablemates';
 }

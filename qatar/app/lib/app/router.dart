@@ -1,9 +1,12 @@
 import 'package:go_router/go_router.dart';
 
 import '../domain/session.dart';
-import '../l10n/app_localizations.dart';
 import '../ui/auth/otp_screen.dart';
 import '../ui/auth/phone_screen.dart';
+import '../ui/meetups/event_details_screen.dart';
+import '../ui/meetups/events_tab.dart';
+import '../ui/meetups/home_tab.dart';
+import '../ui/meetups/inbox_tab.dart';
 import '../ui/shell/shell_screen.dart';
 import 'splash.dart';
 
@@ -29,12 +32,13 @@ GoRouter buildRouter(Session session) => GoRouter(
         GoRoute(path: '/sign-in', builder: (_, _) => const PhoneScreen(), routes: [
           GoRoute(path: 'code', builder: (_, _) => const OtpScreen()),
         ]),
+        GoRoute(path: '/booking/:id', builder: (_, state) => EventDetailsScreen(bookingId: state.pathParameters['id']!)),
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => ShellScreen(shell: shell),
           branches: [
-            StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, _) => PlaceholderTab(title: (AppLocalizations t) => t.tabHome))]),
-            StatefulShellBranch(routes: [GoRoute(path: '/events', builder: (_, _) => PlaceholderTab(title: (AppLocalizations t) => t.tabEvents))]),
-            StatefulShellBranch(routes: [GoRoute(path: '/inbox', builder: (_, _) => PlaceholderTab(title: (AppLocalizations t) => t.tabInbox))]),
+            StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, _) => const HomeTab())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/events', builder: (_, _) => const EventsTab())]),
+            StatefulShellBranch(routes: [GoRoute(path: '/inbox', builder: (_, _) => const InboxTab())]),
             StatefulShellBranch(routes: [GoRoute(path: '/account', builder: (_, _) => const AccountTab())]),
           ],
         ),

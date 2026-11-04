@@ -7,8 +7,7 @@ import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
 
-/// The four tabs of the web app (home, my events, notifications, account). Tab content arrives with NMX-51; for now
-/// each tab says so, and Account can switch language and sign out.
+/// The four tabs of the web app: home, my meetups, notifications, account.
 class ShellScreen extends StatelessWidget {
   const ShellScreen({super.key, required this.shell});
 
@@ -29,24 +28,6 @@ class ShellScreen extends StatelessWidget {
           NavigationDestination(icon: const Icon(Icons.account_circle_outlined), selectedIcon: const Icon(Icons.account_circle), label: t.tabProfile),
         ],
       ),
-    );
-  }
-}
-
-class PlaceholderTab extends StatelessWidget {
-  const PlaceholderTab({super.key, required this.title});
-
-  final String Function(AppLocalizations) title;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    return SafeArea(
-      child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-        Text(title(t), style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: HzSpace.s4),
-        Text(t.comingSoon),
-      ]),
     );
   }
 }

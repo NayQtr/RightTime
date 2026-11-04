@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/trip_store.dart';
 
+import 'meetups_test.dart' as m;
 import 'sign_in_flow_test.dart' show config, fakeApi;
 
 Future<void> loadFonts() async {
@@ -33,7 +35,7 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), httpClientFactory: () => fakeApi([])));
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), httpClientFactory: () => fakeApi([])));
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_ar.png'));
     await tester.enterText(find.byKey(const Key('phone')), '5550 1234');
@@ -41,5 +43,17 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/code_ar.png'));
     await tester.pump(const Duration(seconds: 60));
+  });
+
+  testWidgets('home and meetup details (Arabic, 390x844)', skip: Platform.environment['HZ_SCREENSHOTS'] != '1', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), httpClientFactory: () => m.api(online: () => true)));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/home_ar.png'));
+    await tester.tap(find.byKey(const Key('session-s1')));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/details_ar.png'));
   });
 }
