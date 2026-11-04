@@ -11,7 +11,7 @@ class LinkOpener {
   /// The payment provider's checkout host, set at build time once it is chosen (NMX-24): `--dart-define=LINK_HOSTS=pay.example.com`.
   final Set<String> extraHosts;
 
-  static const ownHosts = {'herzone.app', 'www.herzone.app', 'qatar-mvp-staging.vercel.app', 'wa.me', 'maps.google.com'};
+  static const ownHosts = {'herzone.app', 'www.herzone.app', 'qatar-mvp-staging.vercel.app', 'wa.me', 'maps.google.com', 'play.google.com', 'apps.apple.com'};
   static final _tel = RegExp(r'^\+?\d{3,15}$');
 
   static Set<String> hostsFromEnvironment() => const String.fromEnvironment('LINK_HOSTS')

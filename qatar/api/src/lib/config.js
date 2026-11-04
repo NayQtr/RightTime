@@ -27,6 +27,10 @@ export async function loadConfig(sql, getEnv) {
     coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
     sentryDsn: get("SENTRY_DSN", "").trim(),
     sentryEnvironment: get("SENTRY_ENVIRONMENT", "staging"),
+    // Forced update (NMX-61): mobile apps older than this are told to update. Empty = no minimum.
+    minAppVersion: get("MIN_APP_VERSION", "").trim(),
+    appStoreUrl: get("APP_STORE_URL", "").trim(),
+    playStoreUrl: get("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=app.herzone").trim(),
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
   };
   loadedAt = Date.now();

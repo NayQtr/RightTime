@@ -10,6 +10,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get updateTitle => 'Update HerZone';
+
+  @override
+  String get updateBody =>
+      'A newer version of HerZone is available. Please update the app to continue.';
+
+  @override
+  String get updateButton => 'Update the app';
+
+  @override
   String get openMap => 'Open in Maps';
 
   @override

@@ -22,6 +22,8 @@ class ApiClient {
     required this.locale,
     http.Client? httpClient,
     this.onSignedOut,
+    this.onUpdateRequired,
+    this.appVersion = '',
     this.retryPause = const Duration(milliseconds: 1200),
     this.timeout = const Duration(seconds: 15),
   }) : _http = httpClient ?? http.Client();
@@ -30,6 +32,13 @@ class ApiClient {
   final TokenStore tokens;
   final String Function() locale;
   final void Function()? onSignedOut;
+
+  /// Called when the server refuses this app version (426). Arguments: the store link, if given, and the server's
+  /// localised message.
+  final void Function(String? storeUrl, String message)? onUpdateRequired;
+
+  /// Sent as `X-HerZone-App` on every call, e.g. "1.0.0+1 android", so the server can require an update (NMX-61).
+  final String appVersion;
   final Duration retryPause;
 
   /// A stalled connection (weak signal at the venue) counts as offline after this, so the saved copy shows instead of a
@@ -63,13 +72,21 @@ class ApiClient {
     http.Response res;
     try {
       res = await _http.post(Uri.parse('$baseUrl/api/v1/auth/token:refresh'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'refresh_token': rt})).timeout(timeout);
+          headers: {'Content-Type': 'application/json', if (appVersion.isNotEmpty) 'X-HerZone-App': appVersion},
+          body: jsonEncode({'refresh_token': rt})).timeout(timeout);
     } catch (_) {
       return RefreshOutcome.offline;
     }
     if (res.statusCode == 200) {
       await saveTokens(jsonDecode(res.body) as Map<String, dynamic>);
       return RefreshOutcome.ok;
+    }
+    if (res.statusCode == 426) {
+      // too old to talk to the server: keep the session for after the update
+      final m = jsonDecode(utf8.decode(res.bodyBytes));
+      final d = m is Map<String, dynamic> ? ((m['details'] as List?) ?? const []).whereType<Map<String, dynamic>>() : const <Map<String, dynamic>>[];
+      onUpdateRequired?.call(d.isEmpty ? null : d.first['store_url'] as String?, m is Map<String, dynamic> ? (m['message'] as String?) ?? '' : '');
+      return RefreshOutcome.offline;
     }
     if (res.statusCode == 401) {
       await clearSession();
@@ -88,6 +105,7 @@ class ApiClient {
     final key = method == 'GET' ? null : (idem ?? _uuid.v4());
     final headers = <String, String>{
       'Accept-Language': locale(),
+      if (appVersion.isNotEmpty) 'X-HerZone-App': appVersion,
       if (auth && _accessToken != null) 'Authorization': 'Bearer $_accessToken',
       if (body != null) 'Content-Type': 'application/json',
       'Idempotency-Key': ?key,
@@ -118,6 +136,10 @@ class ApiClient {
     final decoded = res.body.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) return decoded is Map<String, dynamic> ? decoded : null;
     final m = decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
+    if (res.statusCode == 426) {
+      final d = ((m['details'] as List?) ?? const []).whereType<Map<String, dynamic>>();
+      onUpdateRequired?.call(d.isEmpty ? null : d.first['store_url'] as String?, (m['message'] as String?) ?? '');
+    }
     throw ApiError(
       status: res.statusCode,
       code: (m['code'] as String?) ?? 'HTTP_${res.statusCode}',

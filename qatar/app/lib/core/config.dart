@@ -11,6 +11,10 @@ class AppConfig {
 
   bool get isStaging => environment != 'production';
 
+  /// This build's version, the same as `version:` in pubspec.yaml (a test keeps them equal). Sent to the server so it
+  /// can require an update (NMX-61).
+  static const appVersion = '1.0.0+1';
+
   static const _release = bool.fromEnvironment('dart.vm.product');
   static const stagingApi = 'https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1';
   static const productionApi = 'https://pwxxulqgdydrkowmtkia.supabase.co/functions/v1';

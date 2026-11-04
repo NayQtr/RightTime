@@ -185,7 +185,7 @@ const TAGS = { auth: "Sign in with an SMS code; sessions and tokens", public: "N
 export const spec = {
   openapi: "3.1.0",
   info: { title: "HerZone member API", version: "1.0.0",
-    description: "Small-table dinners for women in Qatar. Errors use one problem envelope (code + localised message). Times are ISO-8601 in Asia/Qatar (+03:00); money is in dirhams (minor units) with a display string. Every POST that changes data needs an Idempotency-Key; a retry with the same key replays the first answer. Access tokens last 15 minutes and stop working at once when their session ends; refresh tokens rotate on every use." },
+    description: "Small-table dinners for women in Qatar. Errors use one problem envelope (code + localised message). Times are ISO-8601 in Asia/Qatar (+03:00); money is in dirhams (minor units) with a display string. Every POST that changes data needs an Idempotency-Key; a retry with the same key replays the first answer. Access tokens last 15 minutes and stop working at once when their session ends; refresh tokens rotate on every use. The mobile app sends `X-HerZone-App: <version> <ios|android>` on every call; below the server's minimum version (MIN_APP_VERSION) any call returns 426 APP_UPDATE_REQUIRED, with min_version and store_url in details, and the app shows only an update screen." },
   servers: [{ url: "https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1", description: "Staging (herzone.app today); add ?forceFunctionRegion=ap-south-1 to run next to the database" }],
   tags: Object.entries(TAGS).map(([name, description]) => ({ name, description })),
   paths,

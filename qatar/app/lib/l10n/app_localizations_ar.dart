@@ -10,6 +10,16 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get updateTitle => 'حدّثي HerZone';
+
+  @override
+  String get updateBody =>
+      'يتوفر إصدار أحدث من HerZone. حدّثي التطبيق للمتابعة.';
+
+  @override
+  String get updateButton => 'تحديث التطبيق';
+
+  @override
   String get openMap => 'افتحي المكان في الخريطة';
 
   @override

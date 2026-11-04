@@ -1,4 +1,7 @@
 {
+  "updateTitle": "Update HerZone",
+  "updateBody": "A newer version of HerZone is available. Please update the app to continue.",
+  "updateButton": "Update the app",
   "openMap": "Open in Maps",
   "deleteAccount": "Request account deletion",
   "deleteConfirm": "We'll delete your data under our retention policy. Are you sure?",

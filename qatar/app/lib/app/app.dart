@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -14,9 +15,11 @@ import '../data/onboarding.dart';
 import '../data/trip_store.dart';
 import '../domain/locale_controller.dart';
 import '../domain/session.dart';
+import '../domain/update_gate.dart';
 import '../l10n/app_localizations.dart';
 import '../ui/auth/sign_in_view_model.dart';
 import '../ui/common/privacy_cover.dart';
+import '../ui/common/update_screen.dart';
 import '../ui/onboarding/quiz_view_model.dart';
 import '../ui/theme.dart';
 import 'router.dart';
@@ -42,6 +45,7 @@ class HerZoneApp extends StatefulWidget {
 
 class _HerZoneAppState extends State<HerZoneApp> {
   final locale = LocaleController();
+  final updateGate = UpdateGate();
   late final PrivacyLock privacyLock = PrivacyLock(widget.deviceUnlock ?? LocalDeviceUnlock());
   late final ApiClient api;
   late final AuthRepository auth;
@@ -61,6 +65,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
       locale: () => locale.code,
       httpClient: widget.httpClientFactory?.call(),
       onSignedOut: () => session.signedOutByServer(),
+      onUpdateRequired: (store, message) => updateGate.require(storeUrl: store, message: message),
+      appVersion: '${AppConfig.appVersion} ${defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : defaultTargetPlatform.name.toLowerCase()}',
     );
     auth = AuthRepository(api);
     meetups = MeetupsRepository(api, widget.trips);
@@ -98,6 +104,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: locale),
+        ChangeNotifierProvider.value(value: updateGate),
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: privacyLock),
         Provider.value(value: widget.linkOpener),
@@ -123,7 +130,10 @@ class _HerZoneAppState extends State<HerZoneApp> {
           theme: herZoneTheme(Brightness.light, locale.code),
           darkTheme: herZoneTheme(Brightness.dark, locale.code),
           routerConfig: router,
-          builder: (context, child) => PrivacyCover(child: child!),
+          // a required update replaces everything (NMX-61)
+          builder: (context, child) => PrivacyCover(
+            child: ListenableBuilder(listenable: updateGate, builder: (context, _) => updateGate.required ? const UpdateScreen() : child!),
+          ),
         ),
       ),
     );

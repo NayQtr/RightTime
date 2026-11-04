@@ -153,6 +153,15 @@ export function createApp({ sql, getEnv = () => undefined }) {
         try { ctx.body = JSON.parse(ctx.rawBody); } catch { fail(400, "MALFORMED_REQUEST"); }
         if (ctx.body === null || typeof ctx.body !== "object" || Array.isArray(ctx.body)) fail(400, "MALFORMED_REQUEST");
       }
+      // Forced update (NMX-61): the mobile app sends "X-HerZone-App: <version> <platform>". Below MIN_APP_VERSION (for
+      // example after a security fix) every call is refused with 426, and the app shows only "Update". The website
+      // sends no such header and is never affected.
+      const appVersion = req.headers.get("x-herzone-app");
+      if (appVersion && cfg.minAppVersion && versionBelow(appVersion, cfg.minAppVersion)) {
+        const ios = /\bios\b/i.test(appVersion);
+        const store = ios ? cfg.appStoreUrl : cfg.playStoreUrl;
+        fail(426, "APP_UPDATE_REQUIRED", [{ field: "app_version", code: "BELOW_MINIMUM", min_version: cfg.minAppVersion, ...(store ? { store_url: store } : {}) }]);
+      }
       await authenticate(ctx, route);
       const run = () => route.handler(ctx);
       let res = route.idem ? await withIdempotency(ctx, route, run) : await run();
@@ -179,3 +188,15 @@ export function createApp({ sql, getEnv = () => undefined }) {
   };
   return app;
 }
+
+// "1.4.2+17 android" below "1.5.0"? Compares major.minor.patch; the build number is ignored. A version that cannot be
+// read counts as below, so a broken client is asked to update rather than let through.
+export function versionBelow(header, min) {
+  const parse = (v) => { const m = /^\s*(\d+)\.(\d+)\.(\d+)/.exec(String(v)); return m ? m.slice(1, 4).map(Number) : null; };
+  const a = parse(header), b = parse(min);
+  if (!b) return false;
+  if (!a) return true;
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] < b[i];
+  return false;
+}
+

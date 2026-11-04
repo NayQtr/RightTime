@@ -98,6 +98,24 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @updateTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حدّثي HerZone'**
+  String get updateTitle;
+
+  /// No description provided for @updateBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'يتوفر إصدار أحدث من HerZone. حدّثي التطبيق للمتابعة.'**
+  String get updateBody;
+
+  /// No description provided for @updateButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديث التطبيق'**
+  String get updateButton;
+
   /// No description provided for @openMap.
   ///
   /// In ar, this message translates to:

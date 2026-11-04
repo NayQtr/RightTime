@@ -52,3 +52,14 @@ maestro test .maestro
 Or on GitHub: Actions → "App journey (Maestro)" → Run workflow (Android 14 emulator; manual only).
 
 Elements the flows use carry a stable id (`TestId`, `lib/ui/common/test_id.dart`): `resource-id` on Android and `accessibilityIdentifier` on iOS, the same names as the widget keys in the Flutter tests. Buttons are found by their Arabic text.
+
+## Forcing an update (NMX-61)
+
+The app sends `X-HerZone-App: <version> <ios|android>` on every call (the version is `AppConfig.appVersion`, kept equal to `version:` in pubspec.yaml by a test). To make every older copy update, for example after a security fix, set `MIN_APP_VERSION` on the server:
+
+```sql
+INSERT INTO app.app_config (key, value, description) VALUES ('MIN_APP_VERSION', '1.2.0', 'Oldest app version allowed (NMX-61)')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+```
+
+Within 30 seconds, apps below 1.2.0 show only "Update HerZone" with a button to the store (`PLAY_STORE_URL`, `APP_STORE_URL` once the App Store listing exists). The website is not affected. Remove the row to lift it.
