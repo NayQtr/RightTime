@@ -73,6 +73,7 @@ export function errorMessage(code, locale) {
 
 // v0.3 §4.3 + v0.4 additions. Placeholders {name} are filled from the notification payload.
 export const TEMPLATES = {
+  NEW_SIGN_IN: ["تم تسجيل الدخول إلى حسابكِ من جهاز آخر في {date}. إن لم تكوني أنتِ، اتصلي بمنسق HerZone فورًا.", "Your account was signed in on another device on {date}. If this wasn't you, call the HerZone coordinator right away."],
   TABLE_LOCKED: ["طاولتك مؤكدة! سنكشف المكان في {reveal_at}.", "Your table is confirmed! We'll reveal the venue at {reveal_at}."],
   VENUE_REVEALED: ["المكان: {venue} في {district}. رمز طاولتك {code}.", "Venue: {venue}, {district}. Your table code is {code}."],
   QUORUM_FAIL_CHOICE: ["نعتذر، لم يكتمل الحد الأدنى لطاولتك يوم {date}. اختاري موعدًا آخر أو استردادًا كاملًا قبل {deadline}.", "Sorry, your table on {date} didn't reach the minimum. Choose another date or a full refund before {deadline}."],

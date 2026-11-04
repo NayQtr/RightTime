@@ -146,6 +146,13 @@ async function otpVerify(ctx) {
     [user] = await sql`UPDATE app.users SET status = 'active' WHERE id = ${user.id} AND status = 'deletion_requested' RETURNING *`;
   }
   await sql`UPDATE app.users SET last_login_at = now() WHERE id = ${user.id}`;
+  // A sign-in while another session of this account is still active: tell her (NMX-38). The lock screen shows only the
+  // generic line (NMX-21); the text is in her inbox.
+  if (!isNew) {
+    const [other] = await sql`SELECT 1 FROM app.refresh_tokens WHERE subject_type = 'user' AND subject_id = ${user.id}
+                                AND revoked_at IS NULL AND expires_at > now() LIMIT 1`;
+    if (other) await notify(sql, user.id, "NEW_SIGN_IN", { date: new Date().toISOString() });
+  }
   const tokens = await issueTokens(ctx, "user", user.id);
   return json(200, { ...tokens, user: { id: user.id, is_new: isNew, registration_status: registrationStatus(user), locale: user.locale, status: user.status } });
 }

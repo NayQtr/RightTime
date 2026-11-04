@@ -89,3 +89,24 @@ test("every API response, success or error, has X-Content-Type-Options: nosniff"
   assert.equal((await call("GET", "/api/v1/health")).headers.get("x-content-type-options"), "nosniff");
   assert.equal((await call("GET", "/api/v1/users/me")).headers.get("x-content-type-options"), "nosniff");
 });
+
+test("NMX-38: a sign-in while another session is active tells the member, in her inbox; the first sign-in does not", async () => {
+  const a = await signUp(call, { name: "Hind" });
+  const inbox = async (token) => (await call("GET", "/api/v1/notifications", { token })).body.notifications.filter((n) => n.template_key === "NEW_SIGN_IN");
+  assert.equal((await inbox(a.token)).length, 0, "signing up is not an alert");
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '1 hour'`;
+  const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: a.phone, locale: "ar" } });
+  const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });
+  assert.equal(r2.status, 200);
+  const alerts = await inbox(a.token);
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0].text, /جهاز آخر/);
+
+  // after signing out everywhere, the next sign-in is not "another device"
+  await call("POST", "/api/v1/auth/logout", { token: a.token, body: { refresh_token: a.refresh } });
+  await call("POST", "/api/v1/auth/logout", { token: r2.body.access_token, body: { refresh_token: r2.body.refresh_token } });
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '1 hour'`;
+  const r3 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: a.phone, locale: "ar" } });
+  const r4 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r3.body.challenge_id, code: r3.body.dev_code } });
+  assert.equal((await inbox(r4.body.access_token)).length, 1, "no new alert");
+});
