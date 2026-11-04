@@ -283,4 +283,155 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get myAnswers => 'إجاباتي';
+
+  @override
+  String get cancelBooking => 'إلغاء الحجز';
+
+  @override
+  String get confirmCancel => 'تأكيد الإلغاء';
+
+  @override
+  String get cancelled => 'تم إلغاء حجزك.';
+
+  @override
+  String refundFull(String fee, int days) {
+    return 'ستستردين $fee كاملة إلى بطاقتك خلال $days أيام عمل.';
+  }
+
+  @override
+  String refundNone(String deadline) {
+    return 'انتهت مهلة الاسترداد ($deadline). لن يُرد رسم التنظيم.';
+  }
+
+  @override
+  String get refundNoPayment => 'لم يتم الدفع بعد، فلا يوجد مبلغ للاسترداد.';
+
+  @override
+  String get reasonLegend => 'السبب (اختياري)';
+
+  @override
+  String get reasonSchedule => 'تغيّر موعدي';
+
+  @override
+  String get reasonIllness => 'مرض';
+
+  @override
+  String get reasonOther => 'سبب آخر';
+
+  @override
+  String get contactLegend => 'التواصل بعد اللقاء';
+
+  @override
+  String get contactHelp =>
+      'أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.';
+
+  @override
+  String get contactSend => 'طلب تواصل';
+
+  @override
+  String get contactSent => 'أُرسل الطلب';
+
+  @override
+  String get contactIncoming => 'ترغب بالتواصل معكِ';
+
+  @override
+  String get contactAccept => 'قبول';
+
+  @override
+  String get contactDecline => 'اعتذار';
+
+  @override
+  String get contactWhatsapp => 'واتساب';
+
+  @override
+  String contactUntil(String date) {
+    return 'متاح حتى $date';
+  }
+
+  @override
+  String get contactClosed => 'انتهت مدة طلبات التواصل لهذا اللقاء.';
+
+  @override
+  String get contactDeclined => 'تم. لن نخبرها باعتذاركِ.';
+
+  @override
+  String get contactAccepted => 'تم. يظهر لكما الآن زر واتساب.';
+
+  @override
+  String get unnamed => 'ضيفة';
+
+  @override
+  String get privateReport => 'إبلاغ خاص';
+
+  @override
+  String get reportIntro => 'بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.';
+
+  @override
+  String get category => 'نوع المشكلة';
+
+  @override
+  String get cHarassment => 'تحرش أو إزعاج';
+
+  @override
+  String get cThreat => 'تهديد أو عنف';
+
+  @override
+  String get cPhoto => 'تصوير دون إذن';
+
+  @override
+  String get cStalking => 'ملاحقة أو تواصل غير مرغوب';
+
+  @override
+  String get cFraud => 'احتيال';
+
+  @override
+  String get cDisruptive => 'سلوك مزعج أو غير محترم';
+
+  @override
+  String get whenLegend => 'متى حدث ذلك؟';
+
+  @override
+  String get during => 'أثناء اللقاء';
+
+  @override
+  String get afterEv => 'بعد اللقاء';
+
+  @override
+  String get whoLegend => 'من الشخص؟ (اختياري)';
+
+  @override
+  String get notSure => 'لا أعرف / لا أريد التحديد';
+
+  @override
+  String get describe => 'ماذا حدث؟ (اختياري)';
+
+  @override
+  String get dangerLabel => 'أنا في خطر الآن';
+
+  @override
+  String get submitReport => 'إرسال البلاغ';
+
+  @override
+  String reportSent(String caseRef) {
+    return 'وصلنا بلاغك ($caseRef). لن نكشف هويتك للشخص المُبلَّغ عنه.';
+  }
+
+  @override
+  String get emTitle => 'اتصلي بالطوارئ 999 فورًا';
+
+  @override
+  String get emCall => 'اتصال 999';
+
+  @override
+  String get emBody =>
+      'سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.';
+
+  @override
+  String get callCoordinator => 'اتصلي بالمنسق';
+
+  @override
+  String get whatsappCoordinator => 'واتساب المنسق';
+
+  @override
+  String get backHome => 'العودة إلى الرئيسية';
 }

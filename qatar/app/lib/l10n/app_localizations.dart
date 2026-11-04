@@ -607,6 +607,288 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'إجاباتي'**
   String get myAnswers;
+
+  /// No description provided for @cancelBooking.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء الحجز'**
+  String get cancelBooking;
+
+  /// No description provided for @confirmCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الإلغاء'**
+  String get confirmCancel;
+
+  /// No description provided for @cancelled.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إلغاء حجزك.'**
+  String get cancelled;
+
+  /// No description provided for @refundFull.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستستردين {fee} كاملة إلى بطاقتك خلال {days} أيام عمل.'**
+  String refundFull(String fee, int days);
+
+  /// No description provided for @refundNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت مهلة الاسترداد ({deadline}). لن يُرد رسم التنظيم.'**
+  String refundNone(String deadline);
+
+  /// No description provided for @refundNoPayment.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يتم الدفع بعد، فلا يوجد مبلغ للاسترداد.'**
+  String get refundNoPayment;
+
+  /// No description provided for @reasonLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'السبب (اختياري)'**
+  String get reasonLegend;
+
+  /// No description provided for @reasonSchedule.
+  ///
+  /// In ar, this message translates to:
+  /// **'تغيّر موعدي'**
+  String get reasonSchedule;
+
+  /// No description provided for @reasonIllness.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرض'**
+  String get reasonIllness;
+
+  /// No description provided for @reasonOther.
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب آخر'**
+  String get reasonOther;
+
+  /// No description provided for @contactLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'التواصل بعد اللقاء'**
+  String get contactLegend;
+
+  /// No description provided for @contactHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.'**
+  String get contactHelp;
+
+  /// No description provided for @contactSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب تواصل'**
+  String get contactSend;
+
+  /// No description provided for @contactSent.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسل الطلب'**
+  String get contactSent;
+
+  /// No description provided for @contactIncoming.
+  ///
+  /// In ar, this message translates to:
+  /// **'ترغب بالتواصل معكِ'**
+  String get contactIncoming;
+
+  /// No description provided for @contactAccept.
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول'**
+  String get contactAccept;
+
+  /// No description provided for @contactDecline.
+  ///
+  /// In ar, this message translates to:
+  /// **'اعتذار'**
+  String get contactDecline;
+
+  /// No description provided for @contactWhatsapp.
+  ///
+  /// In ar, this message translates to:
+  /// **'واتساب'**
+  String get contactWhatsapp;
+
+  /// No description provided for @contactUntil.
+  ///
+  /// In ar, this message translates to:
+  /// **'متاح حتى {date}'**
+  String contactUntil(String date);
+
+  /// No description provided for @contactClosed.
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت مدة طلبات التواصل لهذا اللقاء.'**
+  String get contactClosed;
+
+  /// No description provided for @contactDeclined.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم. لن نخبرها باعتذاركِ.'**
+  String get contactDeclined;
+
+  /// No description provided for @contactAccepted.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم. يظهر لكما الآن زر واتساب.'**
+  String get contactAccepted;
+
+  /// No description provided for @unnamed.
+  ///
+  /// In ar, this message translates to:
+  /// **'ضيفة'**
+  String get unnamed;
+
+  /// No description provided for @privateReport.
+  ///
+  /// In ar, this message translates to:
+  /// **'إبلاغ خاص'**
+  String get privateReport;
+
+  /// No description provided for @reportIntro.
+  ///
+  /// In ar, this message translates to:
+  /// **'بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.'**
+  String get reportIntro;
+
+  /// No description provided for @category.
+  ///
+  /// In ar, this message translates to:
+  /// **'نوع المشكلة'**
+  String get category;
+
+  /// No description provided for @cHarassment.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحرش أو إزعاج'**
+  String get cHarassment;
+
+  /// No description provided for @cThreat.
+  ///
+  /// In ar, this message translates to:
+  /// **'تهديد أو عنف'**
+  String get cThreat;
+
+  /// No description provided for @cPhoto.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصوير دون إذن'**
+  String get cPhoto;
+
+  /// No description provided for @cStalking.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحقة أو تواصل غير مرغوب'**
+  String get cStalking;
+
+  /// No description provided for @cFraud.
+  ///
+  /// In ar, this message translates to:
+  /// **'احتيال'**
+  String get cFraud;
+
+  /// No description provided for @cDisruptive.
+  ///
+  /// In ar, this message translates to:
+  /// **'سلوك مزعج أو غير محترم'**
+  String get cDisruptive;
+
+  /// No description provided for @whenLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'متى حدث ذلك؟'**
+  String get whenLegend;
+
+  /// No description provided for @during.
+  ///
+  /// In ar, this message translates to:
+  /// **'أثناء اللقاء'**
+  String get during;
+
+  /// No description provided for @afterEv.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعد اللقاء'**
+  String get afterEv;
+
+  /// No description provided for @whoLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'من الشخص؟ (اختياري)'**
+  String get whoLegend;
+
+  /// No description provided for @notSure.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا أعرف / لا أريد التحديد'**
+  String get notSure;
+
+  /// No description provided for @describe.
+  ///
+  /// In ar, this message translates to:
+  /// **'ماذا حدث؟ (اختياري)'**
+  String get describe;
+
+  /// No description provided for @dangerLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنا في خطر الآن'**
+  String get dangerLabel;
+
+  /// No description provided for @submitReport.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال البلاغ'**
+  String get submitReport;
+
+  /// No description provided for @reportSent.
+  ///
+  /// In ar, this message translates to:
+  /// **'وصلنا بلاغك ({caseRef}). لن نكشف هويتك للشخص المُبلَّغ عنه.'**
+  String reportSent(String caseRef);
+
+  /// No description provided for @emTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصلي بالطوارئ 999 فورًا'**
+  String get emTitle;
+
+  /// No description provided for @emCall.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصال 999'**
+  String get emCall;
+
+  /// No description provided for @emBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.'**
+  String get emBody;
+
+  /// No description provided for @callCoordinator.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصلي بالمنسق'**
+  String get callCoordinator;
+
+  /// No description provided for @whatsappCoordinator.
+  ///
+  /// In ar, this message translates to:
+  /// **'واتساب المنسق'**
+  String get whatsappCoordinator;
+
+  /// No description provided for @backHome.
+  ///
+  /// In ar, this message translates to:
+  /// **'العودة إلى الرئيسية'**
+  String get backHome;
 }
 
 class _AppLocalizationsDelegate

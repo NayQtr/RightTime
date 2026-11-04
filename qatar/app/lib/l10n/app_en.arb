@@ -84,5 +84,83 @@
   "readDoc": "Read",
   "required": "Required",
   "close": "Close",
-  "myAnswers": "My answers"
+  "myAnswers": "My answers",
+  "cancelBooking": "Cancel booking",
+  "confirmCancel": "Confirm cancellation",
+  "cancelled": "Your booking has been cancelled.",
+  "refundFull": "You'll get {fee} back to your card within {days} business days.",
+  "refundNone": "The refund deadline has passed ({deadline}). The organising fee isn't refunded.",
+  "refundNoPayment": "You haven't paid yet, so there's nothing to refund.",
+  "reasonLegend": "Reason (optional)",
+  "reasonSchedule": "My plans changed",
+  "reasonIllness": "Illness",
+  "reasonOther": "Another reason",
+  "contactLegend": "Contact after the event",
+  "contactHelp": "Ask a tablemate you'd like to see again. If she accepts, you both get a WhatsApp button. We never tell anyone if a request isn't accepted.",
+  "contactSend": "Ask to stay in touch",
+  "contactSent": "Request sent",
+  "contactIncoming": "would like to stay in touch",
+  "contactAccept": "Accept",
+  "contactDecline": "Decline",
+  "contactWhatsapp": "WhatsApp",
+  "contactUntil": "Open until {date}",
+  "contactClosed": "Contact requests for this meetup are closed.",
+  "contactDeclined": "Done. We won't tell her you declined.",
+  "contactAccepted": "Done. You both now have a WhatsApp button.",
+  "unnamed": "Guest",
+  "privateReport": "Private report",
+  "reportIntro": "Your report is confidential. We won't reveal your identity to the person reported.",
+  "category": "What happened?",
+  "cHarassment": "Harassment",
+  "cThreat": "Threat or violence",
+  "cPhoto": "Photographed without consent",
+  "cStalking": "Stalking or unwanted contact",
+  "cFraud": "Fraud",
+  "cDisruptive": "Disruptive or disrespectful behaviour",
+  "whenLegend": "When did it happen?",
+  "during": "During the event",
+  "afterEv": "After the event",
+  "whoLegend": "Who? (optional)",
+  "notSure": "I don't know / prefer not to say",
+  "describe": "Tell us what happened (optional)",
+  "dangerLabel": "I'm in danger right now",
+  "submitReport": "Send report",
+  "reportSent": "We received your report ({caseRef}). We won't reveal your identity to the person reported.",
+  "emTitle": "Call emergency services on 999 now",
+  "emCall": "Call 999",
+  "emBody": "Your safety comes first. Call emergency services and ask the venue staff for help. Our coordinator on duty has been alerted.",
+  "callCoordinator": "Call the coordinator",
+  "whatsappCoordinator": "WhatsApp the coordinator",
+  "backHome": "Back to home",
+  "@refundFull": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@refundNone": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@contactUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@reportSent": {
+    "placeholders": {
+      "caseRef": {
+        "type": "String"
+      }
+    }
+  }
 }

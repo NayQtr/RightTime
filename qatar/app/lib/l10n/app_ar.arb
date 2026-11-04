@@ -136,5 +136,83 @@
       }
     }
   },
-  "myAnswers": "إجاباتي"
+  "myAnswers": "إجاباتي",
+  "cancelBooking": "إلغاء الحجز",
+  "confirmCancel": "تأكيد الإلغاء",
+  "cancelled": "تم إلغاء حجزك.",
+  "refundFull": "ستستردين {fee} كاملة إلى بطاقتك خلال {days} أيام عمل.",
+  "refundNone": "انتهت مهلة الاسترداد ({deadline}). لن يُرد رسم التنظيم.",
+  "refundNoPayment": "لم يتم الدفع بعد، فلا يوجد مبلغ للاسترداد.",
+  "reasonLegend": "السبب (اختياري)",
+  "reasonSchedule": "تغيّر موعدي",
+  "reasonIllness": "مرض",
+  "reasonOther": "سبب آخر",
+  "contactLegend": "التواصل بعد اللقاء",
+  "contactHelp": "أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.",
+  "contactSend": "طلب تواصل",
+  "contactSent": "أُرسل الطلب",
+  "contactIncoming": "ترغب بالتواصل معكِ",
+  "contactAccept": "قبول",
+  "contactDecline": "اعتذار",
+  "contactWhatsapp": "واتساب",
+  "contactUntil": "متاح حتى {date}",
+  "contactClosed": "انتهت مدة طلبات التواصل لهذا اللقاء.",
+  "contactDeclined": "تم. لن نخبرها باعتذاركِ.",
+  "contactAccepted": "تم. يظهر لكما الآن زر واتساب.",
+  "unnamed": "ضيفة",
+  "privateReport": "إبلاغ خاص",
+  "reportIntro": "بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.",
+  "category": "نوع المشكلة",
+  "cHarassment": "تحرش أو إزعاج",
+  "cThreat": "تهديد أو عنف",
+  "cPhoto": "تصوير دون إذن",
+  "cStalking": "ملاحقة أو تواصل غير مرغوب",
+  "cFraud": "احتيال",
+  "cDisruptive": "سلوك مزعج أو غير محترم",
+  "whenLegend": "متى حدث ذلك؟",
+  "during": "أثناء اللقاء",
+  "afterEv": "بعد اللقاء",
+  "whoLegend": "من الشخص؟ (اختياري)",
+  "notSure": "لا أعرف / لا أريد التحديد",
+  "describe": "ماذا حدث؟ (اختياري)",
+  "dangerLabel": "أنا في خطر الآن",
+  "submitReport": "إرسال البلاغ",
+  "reportSent": "وصلنا بلاغك ({caseRef}). لن نكشف هويتك للشخص المُبلَّغ عنه.",
+  "emTitle": "اتصلي بالطوارئ 999 فورًا",
+  "emCall": "اتصال 999",
+  "emBody": "سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.",
+  "callCoordinator": "اتصلي بالمنسق",
+  "whatsappCoordinator": "واتساب المنسق",
+  "backHome": "العودة إلى الرئيسية",
+  "@refundFull": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@refundNone": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@contactUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@reportSent": {
+    "placeholders": {
+      "caseRef": {
+        "type": "String"
+      }
+    }
+  }
 }

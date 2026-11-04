@@ -11,6 +11,7 @@ class MeetupsRepository {
 
   final ApiClient _api;
   final TripStore _trips;
+  static const _coordinatorKey = 'coordinator';
 
   Future<List<SessionSummary>> sessions() async {
     final r = await _api.send('GET', '/api/v1/sessions');
@@ -50,4 +51,49 @@ class MeetupsRepository {
   }
 
   Future<void> forgetDevice() => _trips.clear();
+
+  /// reason: schedule_changed | illness | other | null
+  Future<void> cancel(String bookingId, String? reason) async {
+    await _api.send('POST', '/api/v1/bookings/$bookingId/cancel', body: {'reason_code': ?reason});
+    await _trips.remove(bookingId);
+  }
+
+  Future<Contacts> contacts(String bookingId) async {
+    final r = (await _api.send('GET', '/api/v1/bookings/$bookingId/contacts'))!;
+    return Contacts(
+      open: (r['open'] as bool?) ?? false,
+      closesAt: r['closes_at'] as String?,
+      members: ((r['members'] as List?) ?? const []).map((m) => Tablemate.fromJson(m as Map<String, dynamic>)).toList(),
+    );
+  }
+
+  Future<void> requestContact(String bookingId, String seat) => _api.send('POST', '/api/v1/contact-requests', body: {'booking_id': bookingId, 'seat': seat});
+  Future<void> answerContact(String requestId, {required bool accept}) => _api.send('POST', '/api/v1/contact-requests/$requestId:${accept ? 'accept' : 'decline'}', body: {});
+
+  /// Returns the case reference.
+  Future<String> report({required String bookingId, required String category, required String timing, required bool danger, String? seat, String? description}) async {
+    final r = await _api.send('POST', '/api/v1/reports', body: {
+      'booking_id': bookingId,
+      'category': category,
+      'timing': timing,
+      'immediate_danger': danger,
+      'reported_seat': ?seat,
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+    });
+    return (r?['case_ref'] as String?) ?? '';
+  }
+
+  /// The coordinator's public number, kept from the last successful load so "call" works with no data connection.
+  Future<Coordinator?> coordinator() async {
+    Map<String, dynamic>? c;
+    try {
+      final r = await _api.send('GET', '/api/v1/support/contact', auth: false);
+      c = r?['coordinator'] as Map<String, dynamic>?;
+      if (c != null) await _trips.save(_coordinatorKey, c);
+    } on ApiError catch (e) {
+      if (!e.isOffline) rethrow;
+      c = (await _trips.read(_coordinatorKey))?.json;
+    }
+    return c == null ? null : Coordinator(telUrl: c['tel_url'] as String, phoneDisplay: c['phone_display'] as String, whatsappUrl: c['whatsapp_url'] as String?);
+  }
 }

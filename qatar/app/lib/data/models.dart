@@ -96,6 +96,23 @@ class EventDetails {
           billPolicy: (_v!['bill_policy'] as String?) ?? '',
         );
 
+  Map<String, dynamic> get _c => (_b['cancellation'] as Map<String, dynamic>?) ?? const {};
+  bool get canCancel => (_c['can_cancel'] as bool?) ?? false;
+
+  /// full | partial | none | null (not paid yet)
+  String? get refundIfCancelledNow => _c['refund_if_cancelled_now'] as String?;
+  String? get fullRefundUntil => _c['full_refund_until'] as String?;
+  String? get amountPaid => Money.fromJson((json['payment'] as Map<String, dynamic>?)?['amount'])?.display;
+  bool get hasAction => (json['actions'] as List? ?? const []).isNotEmpty;
+  bool action(String type) => (json['actions'] as List? ?? const []).any((a) => (a as Map)['type'] == type);
+
+  /// Tablemates with their seat token (only on the day and after); used to name someone in a private report.
+  List<({String seat, String name})> get seats => ((_t?['members'] as List?) ?? const [])
+      .map((m) => m as Map<String, dynamic>)
+      .where((m) => m['seat'] != null)
+      .map((m) => (seat: m['seat'] as String, name: (m['display_name'] as String?) ?? ''))
+      .toList();
+
   /// Stage on the tracker (paid, forming, confirmed, revealed), or null when there is no tracker (cancelled, completed).
   int? get stage => const {'forming': 1, 'locked': 2, 'revealed': 3, 'day_of': 3}[phase];
 
@@ -109,4 +126,37 @@ class Notice {
 
   factory Notice.fromJson(Map<String, dynamic> j) =>
       Notice(id: j['id'] as String, text: (j['text'] as String?) ?? '', createdAt: j['created_at'] as String, bookingId: j['booking_id'] as String?);
+}
+
+class Tablemate {
+  const Tablemate({required this.seat, required this.name, required this.state, this.requestId, this.whatsappUrl, required this.canSend});
+  final String seat;
+  final String? name;
+
+  /// none | sent | incoming | connected
+  final String state;
+  final String? requestId, whatsappUrl;
+  final bool canSend;
+
+  factory Tablemate.fromJson(Map<String, dynamic> j) => Tablemate(
+        seat: j['seat'] as String,
+        name: j['display_name'] as String?,
+        state: j['state'] as String,
+        requestId: j['request_id'] as String?,
+        whatsappUrl: j['whatsapp_url'] as String?,
+        canSend: (j['can_send'] as bool?) ?? false,
+      );
+}
+
+class Contacts {
+  const Contacts({required this.open, this.closesAt, required this.members});
+  final bool open;
+  final String? closesAt;
+  final List<Tablemate> members;
+}
+
+class Coordinator {
+  const Coordinator({required this.telUrl, required this.phoneDisplay, this.whatsappUrl});
+  final String telUrl, phoneDisplay;
+  final String? whatsappUrl;
 }

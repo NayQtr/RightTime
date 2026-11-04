@@ -287,4 +287,157 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myAnswers => 'My answers';
+
+  @override
+  String get cancelBooking => 'Cancel booking';
+
+  @override
+  String get confirmCancel => 'Confirm cancellation';
+
+  @override
+  String get cancelled => 'Your booking has been cancelled.';
+
+  @override
+  String refundFull(String fee, int days) {
+    return 'You\'ll get $fee back to your card within $days business days.';
+  }
+
+  @override
+  String refundNone(String deadline) {
+    return 'The refund deadline has passed ($deadline). The organising fee isn\'t refunded.';
+  }
+
+  @override
+  String get refundNoPayment =>
+      'You haven\'t paid yet, so there\'s nothing to refund.';
+
+  @override
+  String get reasonLegend => 'Reason (optional)';
+
+  @override
+  String get reasonSchedule => 'My plans changed';
+
+  @override
+  String get reasonIllness => 'Illness';
+
+  @override
+  String get reasonOther => 'Another reason';
+
+  @override
+  String get contactLegend => 'Contact after the event';
+
+  @override
+  String get contactHelp =>
+      'Ask a tablemate you\'d like to see again. If she accepts, you both get a WhatsApp button. We never tell anyone if a request isn\'t accepted.';
+
+  @override
+  String get contactSend => 'Ask to stay in touch';
+
+  @override
+  String get contactSent => 'Request sent';
+
+  @override
+  String get contactIncoming => 'would like to stay in touch';
+
+  @override
+  String get contactAccept => 'Accept';
+
+  @override
+  String get contactDecline => 'Decline';
+
+  @override
+  String get contactWhatsapp => 'WhatsApp';
+
+  @override
+  String contactUntil(String date) {
+    return 'Open until $date';
+  }
+
+  @override
+  String get contactClosed => 'Contact requests for this meetup are closed.';
+
+  @override
+  String get contactDeclined => 'Done. We won\'t tell her you declined.';
+
+  @override
+  String get contactAccepted => 'Done. You both now have a WhatsApp button.';
+
+  @override
+  String get unnamed => 'Guest';
+
+  @override
+  String get privateReport => 'Private report';
+
+  @override
+  String get reportIntro =>
+      'Your report is confidential. We won\'t reveal your identity to the person reported.';
+
+  @override
+  String get category => 'What happened?';
+
+  @override
+  String get cHarassment => 'Harassment';
+
+  @override
+  String get cThreat => 'Threat or violence';
+
+  @override
+  String get cPhoto => 'Photographed without consent';
+
+  @override
+  String get cStalking => 'Stalking or unwanted contact';
+
+  @override
+  String get cFraud => 'Fraud';
+
+  @override
+  String get cDisruptive => 'Disruptive or disrespectful behaviour';
+
+  @override
+  String get whenLegend => 'When did it happen?';
+
+  @override
+  String get during => 'During the event';
+
+  @override
+  String get afterEv => 'After the event';
+
+  @override
+  String get whoLegend => 'Who? (optional)';
+
+  @override
+  String get notSure => 'I don\'t know / prefer not to say';
+
+  @override
+  String get describe => 'Tell us what happened (optional)';
+
+  @override
+  String get dangerLabel => 'I\'m in danger right now';
+
+  @override
+  String get submitReport => 'Send report';
+
+  @override
+  String reportSent(String caseRef) {
+    return 'We received your report ($caseRef). We won\'t reveal your identity to the person reported.';
+  }
+
+  @override
+  String get emTitle => 'Call emergency services on 999 now';
+
+  @override
+  String get emCall => 'Call 999';
+
+  @override
+  String get emBody =>
+      'Your safety comes first. Call emergency services and ask the venue staff for help. Our coordinator on duty has been alerted.';
+
+  @override
+  String get callCoordinator => 'Call the coordinator';
+
+  @override
+  String get whatsappCoordinator => 'WhatsApp the coordinator';
+
+  @override
+  String get backHome => 'Back to home';
 }

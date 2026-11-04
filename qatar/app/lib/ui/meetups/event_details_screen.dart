@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/meetups_repository.dart';
 import '../../design/herzone_tokens.dart';
@@ -10,6 +12,7 @@ import '../auth/widgets.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
+import 'contacts_section.dart';
 import 'home_tab.dart' show experienceName;
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
@@ -97,10 +100,65 @@ class EventDetailsScreen extends StatelessWidget {
                     ]),
                   ),
                 ),
+              if (d.phase == 'completed' && r.offlineSavedAt == null) ...[const SizedBox(height: HzSpace.s4), ContactsSection(bookingId: bookingId)],
+              const SizedBox(height: HzSpace.s6),
+              const _CoordinatorButtons(),
+              if (r.offlineSavedAt == null && ['forming', 'locked', 'revealed', 'day_of', 'completed'].contains(d.phase))
+                OutlinedButton.icon(
+                  key: const Key('report'),
+                  icon: const Icon(Icons.flag_outlined),
+                  label: Text(t.privateReport),
+                  onPressed: () => context.push('/report/$bookingId'),
+                ),
+              if (d.action('cancel') && r.offlineSavedAt == null) ...[
+                const SizedBox(height: HzSpace.s3),
+                TextButton(
+                  key: const Key('cancel'),
+                  style: TextButton.styleFrom(foregroundColor: c.danger),
+                  onPressed: () => context.push('/booking/$bookingId/cancel'),
+                  child: Text(t.cancelBooking),
+                ),
+              ],
             ]);
           },
         ),
       ),
+    );
+  }
+}
+
+/// Call or WhatsApp the coordinator on duty. Kept on the device, so calling works with no data connection.
+class _CoordinatorButtons extends StatelessWidget {
+  const _CoordinatorButtons();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return FutureBuilder(
+      future: context.read<MeetupsRepository>().coordinator().catchError((Object _) => null),
+      builder: (context, snap) {
+        final c = snap.data;
+        if (c == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: HzSpace.s3),
+          child: Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(key: const Key('call-coord'), icon: const Icon(Icons.call), label: Text(t.callCoordinator), onPressed: () => launchUrl(Uri.parse(c.telUrl))),
+            ),
+            if (c.whatsappUrl != null) ...[
+              const SizedBox(width: HzSpace.s2),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('wa-coord'),
+                  icon: const Icon(Icons.chat),
+                  label: Text(t.whatsappCoordinator),
+                  onPressed: () => launchUrl(Uri.parse(c.whatsappUrl!), mode: LaunchMode.externalApplication),
+                ),
+              ),
+            ],
+          ]),
+        );
+      },
     );
   }
 }
