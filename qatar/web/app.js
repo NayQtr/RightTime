@@ -37,8 +37,9 @@ const num = (s) => `<bdi class="num">${esc(s)}</bdi>`;
 // a numeric range such as "18–24" is reordered to "24–18" inside Arabic text; keep it left to right
 const optLabel = (s) => (/^\d+\s*[–-]\s*\d+$/.test(s) ? `<bdi dir="ltr">${esc(s)}</bdi>` : esc(s));
 const intlLocale = () => (locale === "ar" ? "ar-QA-u-nu-latn" : "en-GB");
+// The time and its "م" / "PM" never split across lines (no-break space), as in the app.
 const fmtDate = (iso, opts = { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) =>
-  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)) : "";
+  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)).replace(/(\d)[ \u202F](م|ص|AM|PM)/g, "$1\u00A0$2") : "";
 const fmtTime = (iso) => fmtDate(iso, { weekday: "short", hour: "numeric", minute: "2-digit" });
 const $ = (sel, root = main) => root.querySelector(sel);
 const $$ = (sel, root = main) => [...root.querySelectorAll(sel)];
