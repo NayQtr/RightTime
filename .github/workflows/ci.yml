@@ -88,5 +88,7 @@ jobs:
       - run: flutter --disable-analytics && flutter pub get
       - name: Tokens match the design source
         run: python3 ../design/build_tokens_dart.py && git diff --exit-code lib/design/herzone_tokens.dart
+      - name: No known vulnerabilities in app packages (OSV)
+        run: python3 tool/osv_check.py
       - run: flutter analyze
       - run: flutter test
