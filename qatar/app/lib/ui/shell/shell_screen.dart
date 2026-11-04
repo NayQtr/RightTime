@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_error.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
@@ -50,7 +51,40 @@ class AccountTab extends StatelessWidget {
         OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language)),
         const SizedBox(height: HzSpace.s3),
         FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut)),
+        const SizedBox(height: HzSpace.s6),
+        TextButton(
+          key: const Key('deleteAccount'),
+          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+          onPressed: () => _confirmDelete(context, session),
+          child: Text(t.deleteAccount),
+        ),
       ]),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, Session session) async {
+    final t = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        content: Text(t.deleteConfirm),
+        actions: [
+          TextButton(key: const Key('deleteNo'), onPressed: () => Navigator.pop(c, false), child: Text(t.deleteNo)),
+          TextButton(
+            key: const Key('deleteYes'),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(c).colorScheme.error),
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(t.deleteYes),
+          ),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    try {
+      await session.deleteAccount();
+    } on ApiError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.isOffline ? t.offline : (e.message.isNotEmpty ? e.message : t.errGeneric))));
+    }
   }
 }

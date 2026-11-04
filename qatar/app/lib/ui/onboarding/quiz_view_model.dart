@@ -26,6 +26,17 @@ class QuizViewModel extends ChangeNotifier {
   bool get canNext => current != null && (!current!.required || selected.isNotEmpty);
   int get total => q?.questions.length ?? 0;
 
+  /// Forgets the previous person's answers when a session ends on this device (app review #5).
+  void reset() {
+    q = null;
+    answers = {};
+    step = 0;
+    busy = false;
+    done = false;
+    error = null;
+    notifyListeners();
+  }
+
   Future<void> load() async {
     busy = true;
     error = null;

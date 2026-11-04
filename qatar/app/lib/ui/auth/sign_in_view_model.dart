@@ -21,6 +21,17 @@ class SignInViewModel extends ChangeNotifier {
   int resendIn = 0;
   Timer? _timer;
 
+  /// Forgets the previous phone number and code challenge when a session ends on this device (app review #5).
+  void reset() {
+    _timer?.cancel();
+    challenge = null;
+    busy = false;
+    error = null;
+    phoneInvalid = false;
+    resendIn = 0;
+    notifyListeners();
+  }
+
   Future<bool> sendCode(String local) async {
     final phone = AuthRepository.toE164(local);
     phoneInvalid = phone == null;

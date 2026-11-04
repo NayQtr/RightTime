@@ -12,6 +12,7 @@ test("API: scrub removes phone numbers, tokens and 6-digit codes, keeps ordinary
   const s = scrub("user +974 5550 1234 code 482913 jwt eyJhbGc.eyJzdWIi.c2ln refresh rt_abcdefghijklmnopqrstuvwxyz booking 12");
   assert.equal(s, "user [phone] code [code] jwt [token] refresh [token] booking 12");
   assert.equal(scrub("id 3fa85f64-5717-4562-b3fc-2c963f66afa6"), "id 3fa85f64-5717-4562-b3fc-2c963f66afa6", "UUID digits are not codes");
+  assert.equal(scrub("local 5550 1234 or 55501234"), "local [phone] or [phone]", "local 8-digit numbers too (app review #9)");
 });
 
 test("API: envelope has header, item and event with frames oldest-first and ids removed from the route", () => {
@@ -62,6 +63,7 @@ test("web: off without a DSN; with it, reports carry the route without ids, scru
   assert.equal(ev.transaction, "/#/booking/{id}");
   assert.equal(ev.exception.values[0].value, "failed for 0555 code [code]");
   assert.equal(ev.platform, "javascript");
+  assert.equal(on.m.scrub("typed 6601 2345"), "typed [phone]", "local 8-digit numbers too (app review #9)");
   for (let i = 0; i < 20; i += 1) on.m.report(new Error("again"));
   assert.equal(on.sent.length, 10, "at most 10 reports per page load");
 });

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -111,10 +110,12 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       const SizedBox(height: HzSpace.s3),
                       Text(v.billPolicy, style: tt.bodySmall),
                       if (v.mapUrl.isNotEmpty)
+                        // opened, not copied: the clipboard is readable by other apps and keyboards (app review #10)
                         TextButton.icon(
-                          icon: const Icon(Icons.copy, size: 18),
-                          label: Ltr(Text(v.mapUrl, overflow: TextOverflow.ellipsis)),
-                          onPressed: () => Clipboard.setData(ClipboardData(text: v.mapUrl)),
+                          key: const Key('open-map'),
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: Text(t.openMap),
+                          onPressed: () => context.read<LinkOpener>().open(Uri.parse(v.mapUrl)),
                         ),
                     ]),
                   ),

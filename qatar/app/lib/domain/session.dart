@@ -43,7 +43,14 @@ class Session extends ChangeNotifier {
       needsQuiz = !needsRegistration && onboarding != null && !(await onboarding!.current()).submitted;
       _set(SessionStatus.signedIn);
     } on ApiError catch (e) {
-      _set(e.isOffline ? SessionStatus.offline : SessionStatus.signedOut);
+      // 401 is handled by the API client (refresh, then signedOutByServer, which wipes the device). Anything else (a
+      // server error, no network) keeps the session: showing "signed out" while the tokens and saved meetups stay
+      // would let the next person sign in on top of them (app review #6).
+      if (e.status != 401) return _set(SessionStatus.offline);
+      me = null;
+      await _api.clearSession();
+      await clearDevice?.call();
+      _set(SessionStatus.signedOut);
     }
   }
 
@@ -56,6 +63,14 @@ class Session extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _auth.signOut();
+    await clearDevice?.call();
+    me = null;
+    _set(SessionStatus.signedOut);
+  }
+
+  /// Store rule (App Store 5.1.1(v), Google Play): the account can be deleted from inside the app.
+  Future<void> deleteAccount() async {
+    await _auth.deleteAccount();
     await clearDevice?.call();
     me = null;
     _set(SessionStatus.signedOut);

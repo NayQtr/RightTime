@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:herzone/app/app.dart';
+import 'package:herzone/core/link_opener.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
@@ -62,7 +63,8 @@ void main() {
     tallScreen(tester);
     var online = true;
     final trips = MemoryTripStore();
-    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, quizStore: QuizStore.memory(), httpClientFactory: () => api(online: () => online)));
+    final links = RecordingLinkOpener();
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: trips, quizStore: QuizStore.memory(), linkOpener: links, httpClientFactory: () => api(online: () => online)));
     await tester.pumpAndSettle();
     expect(find.text('الدوحة، قطر'), findsOneWidget);
     expect(find.byKey(const Key('session-s1')), findsOneWidget);
@@ -75,6 +77,8 @@ void main() {
     expect(find.text('مطعم الريم'), findsOneWidget);
     expect(find.text('T-7K'), findsOneWidget);
     expect(trips.trips.containsKey(bookingId), true, reason: 'saved on the device');
+    await tester.tap(find.byKey(const Key('open-map')));
+    expect(links.opened.single.toString(), 'https://maps.google.com/?q=25.4,51.5', reason: 'the map opens; nothing goes to the clipboard');
 
     // no connection: the same screen opens from the device copy, with a banner
     online = false;

@@ -23,6 +23,7 @@ class ApiClient {
     http.Client? httpClient,
     this.onSignedOut,
     this.retryPause = const Duration(milliseconds: 1200),
+    this.timeout = const Duration(seconds: 15),
   }) : _http = httpClient ?? http.Client();
 
   final String baseUrl;
@@ -30,6 +31,10 @@ class ApiClient {
   final String Function() locale;
   final void Function()? onSignedOut;
   final Duration retryPause;
+
+  /// A stalled connection (weak signal at the venue) counts as offline after this, so the saved copy shows instead of a
+  /// spinner that never ends (app review #8). A timed-out write is retried with the same Idempotency-Key.
+  final Duration timeout;
   final http.Client _http;
   static const _uuid = Uuid();
 
@@ -58,7 +63,7 @@ class ApiClient {
     http.Response res;
     try {
       res = await _http.post(Uri.parse('$baseUrl/api/v1/auth/token:refresh'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'refresh_token': rt}));
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'refresh_token': rt})).timeout(timeout);
     } catch (_) {
       return RefreshOutcome.offline;
     }
@@ -90,7 +95,7 @@ class ApiClient {
     Future<http.Response> once() async {
       final req = http.Request(method, Uri.parse('$baseUrl$path'))..headers.addAll(headers);
       if (body != null) req.body = jsonEncode(body);
-      return http.Response.fromStream(await _http.send(req));
+      return _http.send(req).then(http.Response.fromStream).timeout(timeout);
     }
 
     http.Response res;

@@ -172,7 +172,12 @@ export { refreshTokens };
 
 async function logout(ctx) {
   const token = String(ctx.body.refresh_token || "");
-  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE token_hash = ${sha256hex(token)} AND subject_id = ${ctx.user.id} AND revoked_at IS NULL`;
+  // Also end the session the access token belongs to (its sid): a client may send a refresh token that a refresh
+  // rotated a moment ago, and signing out must still end the session it is in.
+  const sid = ctx.claims?.sid ?? null;
+  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now()
+                 WHERE subject_id = ${ctx.user.id} AND revoked_at IS NULL
+                   AND (token_hash = ${sha256hex(token)} OR (${sid}::uuid IS NOT NULL AND family_id = ${sid}::uuid))`;
   return json(204, null);
 }
 

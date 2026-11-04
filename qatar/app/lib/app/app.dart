@@ -49,6 +49,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
   late final OnboardingRepository onboarding;
   late final Session session;
   late final GoRouter router;
+  late final QuizViewModel quiz;
+  late final SignInViewModel signIn;
 
   @override
   void initState() {
@@ -63,12 +65,32 @@ class _HerZoneAppState extends State<HerZoneApp> {
     auth = AuthRepository(api);
     meetups = MeetupsRepository(api, widget.trips);
     onboarding = OnboardingRepository(api);
-    session = Session(api, auth, clearDevice: meetups.forgetDevice, onboarding: onboarding)..restore();
+    // When a session ends, nothing of that person stays on the device: saved meetups and unsent quiz answers.
+    session = Session(api, auth, clearDevice: () async {
+      await meetups.forgetDevice();
+      await widget.quizStore.clear();
+    }, onboarding: onboarding)..restore();
     router = buildRouter(session);
-    // a new session never inherits an unlocked inbox
+    quiz = QuizViewModel(onboarding, widget.quizStore, session);
+    signIn = SignInViewModel(auth, session, () => locale.code);
+    // a new session never inherits an unlocked inbox, or the previous person's answers and phone number
+    var was = session.status;
     session.addListener(() {
-      if (session.status == SessionStatus.signedOut) privacyLock.unlocked = false;
+      final now = session.status;
+      if (now == SessionStatus.signedOut) privacyLock.unlocked = false;
+      if (now == SessionStatus.signedOut && (was == SessionStatus.signedIn || was == SessionStatus.offline)) {
+        quiz.reset();
+        signIn.reset();
+      }
+      was = now;
     });
+  }
+
+  @override
+  void dispose() {
+    quiz.dispose();
+    signIn.dispose();
+    super.dispose();
   }
 
   @override
@@ -82,8 +104,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
         Provider.value(value: auth),
         Provider.value(value: meetups),
         Provider.value(value: onboarding),
-        ChangeNotifierProvider(create: (_) => QuizViewModel(onboarding, widget.quizStore, session)),
-        ChangeNotifierProvider(create: (_) => SignInViewModel(auth, session, () => locale.code)),
+        ChangeNotifierProvider.value(value: quiz),
+        ChangeNotifierProvider.value(value: signIn),
       ],
       child: ListenableBuilder(
         listenable: locale,

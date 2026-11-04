@@ -1,4 +1,9 @@
 {
+  "openMap": "Open in Maps",
+  "deleteAccount": "Request account deletion",
+  "deleteConfirm": "We'll delete your data under our retention policy. Are you sure?",
+  "deleteYes": "Delete my account",
+  "deleteNo": "Keep my account",
   "@@locale": "en",
   "brand": "HerZone",
   "staging": "Staging",

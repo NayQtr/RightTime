@@ -7,7 +7,8 @@ import 'package:herzone/core/config.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
-import 'package:herzone/main.dart' show scrub;
+import 'package:herzone/main.dart' show scrub, scrubEvent;
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -35,7 +36,10 @@ MockClient fakeApi(List<String> log) => MockClient((r) async {
           return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
         case '/api/v1/auth/logout':
           return http.Response('', 204);
+        case '/api/v1/auth/token:refresh':
+          return j({'access_token': 'at_1', 'refresh_token': 'rt_1', 'token_type': 'Bearer', 'expires_in': 900});
       }
+      if (r.method == 'DELETE' && r.url.path == '/api/v1/users/me') return j({'status': 'deletion_requested'}, 202);
       return j({'code': 'NOT_FOUND'}, 404);
     });
 
@@ -91,7 +95,80 @@ void main() {
     await tester.pump(const Duration(seconds: 60));
   });
 
+  testWidgets('account deletion from inside the app (store rule): confirm first, server first, then the device is wiped', (tester) async {
+    final log = <String>[];
+    final store = MemoryTokenStore()..token = 'rt_1';
+    final trips = MemoryTripStore();
+    await trips.save('b1', {'id': 'b1', 'venue': 'x'});
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: trips, quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi(log)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حسابي').last);
+    await tester.pumpAndSettle();
+
+    // "keep my account" sends nothing
+    await tester.tap(find.byKey(const Key('deleteAccount')));
+    await tester.pumpAndSettle();
+    expect(find.text('سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('deleteNo')));
+    await tester.pumpAndSettle();
+    expect(log, isNot(contains('DELETE /api/v1/users/me')));
+    expect(store.token, 'rt_1');
+
+    await tester.tap(find.byKey(const Key('deleteAccount')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('deleteYes')));
+    await tester.pumpAndSettle();
+    expect(log, contains('DELETE /api/v1/users/me'));
+    expect(store.token, isNull);
+    expect(trips.trips, isEmpty, reason: 'saved meetup details leave the device with the account');
+    expect(find.byKey(const Key('have-account')), findsOneWidget, reason: 'back to the welcome screen');
+  });
+
+  testWidgets('sign-out also forgets unsent quiz answers on this device (app review #5)', (tester) async {
+    final log = <String>[];
+    final store = MemoryTokenStore()..token = 'rt_1';
+    final quiz = QuizStore.memory();
+    await quiz.write('v1', {'q1': {'o1'}}, 1);
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), quizStore: quiz, httpClientFactory: () => fakeApi(log)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حسابي').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('signOut')));
+    await tester.pumpAndSettle();
+    expect(await quiz.read(), isNull);
+  });
+
+  testWidgets('a server error while loading her profile is not shown as signed out, and keeps her session (app review #6)', (tester) async {
+    final log = <String>[];
+    final store = MemoryTokenStore()..token = 'rt_1';
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => MockClient((r) async {
+      log.add('${r.method} ${r.url.path}');
+      if (r.url.path == '/api/v1/auth/token:refresh') return j({'access_token': 'at_1', 'refresh_token': 'rt_1', 'token_type': 'Bearer', 'expires_in': 900});
+      return j({'code': 'INTERNAL'}, 500);
+    })));
+    await tester.pumpAndSettle();
+    expect(store.token, 'rt_1');
+    expect(find.byKey(const Key('have-account')), findsNothing, reason: 'not the signed-out welcome screen');
+  });
+
   test('Sentry text is scrubbed of phone numbers, tokens and codes', () {
     expect(scrub('user +974 5550 1234 code 482913 jwt eyJhbGc.eyJzdWIi.c2ln'), 'user [phone] code [code] jwt [token]');
+    expect(scrub('local 5550 1234 or 55501234, table T03'), 'local [phone] or [phone], table [table]');
+    expect(scrub('booking 2b9c1f0e-1111-4111-8111-111111111111 at 19:30'), 'booking 2b9c1f0e-1111-4111-8111-111111111111 at 19:30');
+  });
+
+  test('the whole error report is scrubbed: message, exceptions and breadcrumbs (app review #9)', () {
+    final e = scrubEvent(SentryEvent(
+      message: SentryMessage('failed for 5550 1234', template: 'failed for %s', params: ['5550 1234']),
+      exceptions: [SentryException(type: 'X', value: 'code 482913')],
+      breadcrumbs: [Breadcrumb(message: 'typed 6601 2345', data: {'phone': '+97455501234', 'nested': {'t': 'T07'}})],
+      user: SentryUser(id: 'u1'),
+    ));
+    expect(e.user, isNull);
+    expect(e.message!.formatted, 'failed for [phone]');
+    expect(e.message!.params, isNull);
+    expect(e.exceptions!.single.value, 'code [code]');
+    expect(e.breadcrumbs!.single.message, 'typed [phone]');
+    expect(e.breadcrumbs!.single.data, {'phone': '[phone]', 'nested': {'t': '[table]'}});
   });
 }

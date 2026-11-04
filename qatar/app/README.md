@@ -15,9 +15,11 @@ iPhone and Android app for HerZone, on the same API as herzone.app (`qatar/api`,
 flutter test                      # unit and widget tests
 flutter analyze
 HZ_SCREENSHOTS=1 flutter test --update-goldens test/screens_golden_test.dart   # screenshots in test/goldens
-flutter run --dart-define=HZ_ENV=staging   # staging API (default)
+flutter run --dart-define=HZ_ENV=staging   # staging API (default for debug runs; release builds default to production)
 flutter build ipa --dart-define=HZ_ENV=production --dart-define=API_BASE=https://pwxxulqgdydrkowmtkia.supabase.co/functions/v1 --dart-define=SENTRY_DSN=https://3fb67a1705758dee095b424fd43737c2@o4512359059488768.ingest.de.sentry.io/4512371282542672
 ```
+Once the payment provider is chosen (NMX-24), add its checkout host to the link allowlist: `--dart-define=LINK_HOSTS=pay.example.com`. Links to any other host are refused.
+
 Release builds always obfuscate the Dart code and keep the symbols out of the app (for Sentry):
 ```
 flutter build appbundle --obfuscate --split-debug-info=build/symbols --dart-define=HZ_ENV=production ...

@@ -10,6 +10,22 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get openMap => 'Open in Maps';
+
+  @override
+  String get deleteAccount => 'Request account deletion';
+
+  @override
+  String get deleteConfirm =>
+      'We\'ll delete your data under our retention policy. Are you sure?';
+
+  @override
+  String get deleteYes => 'Delete my account';
+
+  @override
+  String get deleteNo => 'Keep my account';
+
+  @override
   String get brand => 'HerZone';
 
   @override

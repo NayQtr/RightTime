@@ -98,6 +98,36 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @openMap.
+  ///
+  /// In ar, this message translates to:
+  /// **'افتحي المكان في الخريطة'**
+  String get openMap;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب حذف الحساب'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟'**
+  String get deleteConfirm;
+
+  /// No description provided for @deleteYes.
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف حسابي'**
+  String get deleteYes;
+
+  /// No description provided for @deleteNo.
+  ///
+  /// In ar, this message translates to:
+  /// **'تراجع'**
+  String get deleteNo;
+
   /// No description provided for @brand.
   ///
   /// In ar, this message translates to:

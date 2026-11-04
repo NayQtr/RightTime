@@ -1,4 +1,9 @@
 {
+  "openMap": "افتحي المكان في الخريطة",
+  "deleteAccount": "طلب حذف الحساب",
+  "deleteConfirm": "سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟",
+  "deleteYes": "حذف حسابي",
+  "deleteNo": "تراجع",
   "@@locale": "ar",
   "brand": "HerZone",
   "staging": "نسخة تجريبية",

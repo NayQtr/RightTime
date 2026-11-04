@@ -73,4 +73,12 @@ class AuthRepository {
     }
     await _api.clearSession();
   }
+
+  /// Asks the server to delete the account (it ends every session at once; data is removed under the retention
+  /// policy). Throws [ApiError] if the request did not reach the server, so the member is never told it worked when it
+  /// did not. Then forgets the session on this device.
+  Future<void> deleteAccount() async {
+    await _api.send('DELETE', '/api/v1/users/me');
+    await _api.clearSession();
+  }
 }

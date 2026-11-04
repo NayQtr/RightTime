@@ -66,6 +66,21 @@ void main() {
     expect(signedOut, true);
   });
 
+  test('a stalled connection counts as offline after the timeout, retried once with the same Idempotency-Key (app review #8)', () async {
+    final keys = <String?>[];
+    final store = MemoryTokenStore();
+    final api = ApiClient(baseUrl: 'https://api.test', tokens: store, locale: () => 'ar', retryPause: Duration.zero, timeout: const Duration(milliseconds: 50),
+        httpClient: MockClient((r) async {
+      keys.add(r.headers['Idempotency-Key']);
+      await Future<void>.delayed(const Duration(seconds: 5));
+      return http.Response('{}', 200);
+    }));
+    await expectLater(api.send('POST', '/api/v1/x', body: {}, auth: false), throwsA(isA<ApiError>().having((e) => e.isOffline, 'offline', isTrue)));
+    expect(keys, hasLength(2));
+    expect(keys[0], isNotNull);
+    expect(keys[1], keys[0]);
+  });
+
   test('problem responses become ApiError with the server message and Retry-After', () async {
     final api = client(MockClient((r) async => http.Response(jsonEncode({'code': 'OTP_RATE_LIMITED', 'message': 'طلبتِ رموزًا كثيرة.'}), 429,
         headers: {'retry-after': '60', 'content-type': 'application/json; charset=utf-8'})), MemoryTokenStore());

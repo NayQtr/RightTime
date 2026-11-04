@@ -25,6 +25,17 @@ test("signing out ends that session's access token at once; another device's ses
   assert.equal((await call("GET", "/api/v1/users/me", { token: other })).status, 200, "the other device stays signed in");
 });
 
+test("signing out after a refresh, with the older refresh token in the body, still ends the session (app review #1)", async () => {
+  const a = await signUp(call, { name: "Rana" });
+  const r = await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: a.refresh } });
+  assert.equal(r.status, 200);
+  // the client read its refresh token before the refresh rotated it, so the body carries the old one
+  const out = await call("POST", "/api/v1/auth/logout", { token: r.body.access_token, body: { refresh_token: a.refresh } });
+  assert.equal(out.status, 204);
+  assert.equal((await call("GET", "/api/v1/users/me", { token: r.body.access_token })).status, 401, "the session of the presented access token ends");
+  assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: r.body.refresh_token } })).status, 401, "its current refresh token is dead too");
+});
+
 test("a refreshed session keeps working; reusing an old refresh token ends the whole session", async () => {
   const a = await signUp(call, { name: "Huda" });
   const r = await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: a.refresh } });

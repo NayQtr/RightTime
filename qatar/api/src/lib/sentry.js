@@ -13,6 +13,7 @@ export function scrub(text) {
     .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, "[token]")
     .replace(/\brt_[\w-]{20,}/g, "[token]")
     .replace(/\+?974[\s-]?\d{4}[\s-]?\d{4}/g, "[phone]")
+    .replace(/(^|[^\w-])[3-7]\d{3}[\s-]?\d{4}(?![\w-])/g, "$1[phone]")
     .replace(/(?<![\w-])\d{6}(?![\w-])/g, "[code]")
     .slice(0, 2000);
 }

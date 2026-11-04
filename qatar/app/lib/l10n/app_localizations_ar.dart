@@ -10,6 +10,22 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get openMap => 'افتحي المكان في الخريطة';
+
+  @override
+  String get deleteAccount => 'طلب حذف الحساب';
+
+  @override
+  String get deleteConfirm =>
+      'سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟';
+
+  @override
+  String get deleteYes => 'حذف حسابي';
+
+  @override
+  String get deleteNo => 'تراجع';
+
+  @override
   String get brand => 'HerZone';
 
   @override
