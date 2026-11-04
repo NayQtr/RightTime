@@ -42,6 +42,8 @@ MockClient api({required bool Function() online, bool revealed = true}) => MockC
           return j(details(revealed: revealed));
         case '/api/v1/questionnaires/current':
           return j({'questionnaire_version_id': 'v1', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
+        case '/api/v1/support/contact':
+          return j({'coordinator': {'tel_url': 'tel:+97460053006', 'phone_display': '6005 3006', 'whatsapp_url': 'https://wa.me/97460053006'}});
         case '/api/v1/auth/logout':
           return http.Response('', 204);
       }
@@ -82,6 +84,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('offline-copy')), findsOneWidget);
     expect(find.text('T-7K'), findsOneWidget);
+    // let the API client's one automatic retry (1.2 s) for the coordinator's number finish
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('call-coord')), findsOneWidget, reason: 'the coordinator can be called with no data');
   });
 
   testWidgets('before the reveal the venue is hidden, with the reveal time', (tester) async {
