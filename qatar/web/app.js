@@ -25,6 +25,10 @@ function clearDeviceProgress() { DEVICE_PROGRESS.forEach((k) => store.del(k)); t
 let locale = store.get("locale") || "ar";
 const state = { me: null, q: null, qAnswers: null, quiz: null, phone: null, challenge: null, timers: [] };
 const main = document.getElementById("main");
+// Widths computed at render (the quiz progress bar) are set through the CSSOM, which the CSP allows, instead of style
+// attributes, which it would block without 'unsafe-inline' (NMX-31).
+new MutationObserver(() => main.querySelectorAll("[data-w]").forEach((e) => { e.style.width = `${Number(e.dataset.w) || 0}%`; }))
+  .observe(main, { childList: true, subtree: true });
 
 // ------------------------------------------------------------------ helpers
 const T = (k, vars = {}) => String(STRINGS[locale][k] ?? STRINGS.ar[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => (vars[n] ?? `{${n}}`));
@@ -459,7 +463,7 @@ function stepOfKey(key) {
 function quizHead(back, section, progress) {
   return `<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
       <span class="section">${esc(section || "")}</span><span></span></div>
-    ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span style="width:${Math.round((progress.i / progress.n) * 100)}%"></span></div>` : ""}`;
+    ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span data-w="${Math.round((progress.i / progress.n) * 100)}"></span></div>` : ""}`;
 }
 
 async function scrQuiz(stepStr) {
@@ -792,10 +796,10 @@ async function scrSessions(preselect) {
   const all = r.data.sessions.filter((x) => x.experience === exp);
   const ok = all.filter((s) => s.language_match);
   const card = (s) => `
-    <label class="option radio" style="align-items:flex-start">
+    <label class="option radio" data-u="start">
       <input type="radio" name="s" value="${s.id}" ${s.is_full || s.my_booking_id ? "disabled" : ""}>
       <span class="tick" aria-hidden="true"></span>
-      <span class="stack" style="flex:1">
+      <span class="stack" data-u="flex1">
         <span class="row between"><strong>${esc(fmtDate(s.starts_at))}</strong>
           ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
@@ -1068,7 +1072,7 @@ async function scrHome() {
     ${sessions.length ? weekRibbon(sessions) : ""}
     ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
       : `<div class="empty">${tableSvg({ seats: 6 })}<p class="muted">${esc(T("noUpcoming"))}</p></div>`}
-    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
   $$(".week button[data-day]").forEach((b) => (b.onclick = () => {
     $$(".week button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     const card = $(`.event-card[data-day="${b.dataset.day}"]`);
@@ -1140,7 +1144,7 @@ async function scrEvents() {
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
-    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
 }
 
 // ------------------------------------------------------------------ SCR-07 event details
@@ -1200,7 +1204,7 @@ async function scrDetails(id) {
       <p class="caption">${esc(T("contactHelp"))}</p><div id="contacts-list" aria-live="polite"></div></section>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
-    <section class="stack" style="margin-block-start: var(--s-6)"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
+    <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
       ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
@@ -1226,11 +1230,11 @@ async function renderContacts(id, note = "") {
           <button class="btn btn-secondary" data-decline="${esc(m.request_id)}">${esc(T("contactDecline"))}</button></span>`
       : m.state === "sent" ? `<span class="caption">${esc(T("contactSent"))}</span>`
       : m.can_send ? `<button class="btn btn-secondary" data-seat="${esc(m.seat)}">${esc(T("contactSend"))}</button>` : "";
-    return `<li class="row between contact-row" style="padding:8px 0;gap:8px;flex-wrap:wrap"><span><strong>${name}</strong>${m.state === "incoming"
+    return `<li class="row between contact-row" data-u="wrap8"><span><strong>${name}</strong>${m.state === "incoming"
       ? `<br><span class="caption">${esc(T("contactIncoming"))}</span>` : ""}</span>${action}</li>`;
   };
   box.innerHTML = `${note ? `<div class="banner banner-success" role="status"><div>${esc(note)}</div></div>` : ""}
-    ${c.members.length ? `<ul class="list" style="gap:0">${c.members.map(row).join("")}</ul>` : ""}
+    ${c.members.length ? `<ul class="list" data-u="gap0">${c.members.map(row).join("")}</ul>` : ""}
     <p class="caption">${esc(c.open ? T("contactUntil", { date: fmtDate(c.closes_at) }) : T("contactClosed"))}</p>
     <div id="contacts-err" role="alert"></div>`;
   const act = async (btn, method, path, body, done) => {
@@ -1294,9 +1298,9 @@ async function scrChoose(id) {
     <p>${esc(T("orgBody"))}</p>
     <form id="f" class="stack">
       <fieldset><legend class="label">${esc(T("chooseNow"))}</legend><div class="options">
-        ${rb.sessions.map((s) => `<label class="option radio" style="align-items:flex-start"><input type="radio" name="c" value="rebook:${s.session_id}"><span class="tick" aria-hidden="true"></span>
+        ${rb.sessions.map((s) => `<label class="option radio" data-u="start"><input type="radio" name="c" value="rebook:${s.session_id}"><span class="tick" aria-hidden="true"></span>
           <span><strong>${esc(T("optRebook"))}: ${esc(fmtDate(s.starts_at))}</strong><br><span class="caption">${esc(s.district)} · ${esc(T("seatsLeft", { n: s.seats_left }))} · ${esc(T("optRebookHelp"))}${s.is_alternate ? ` · ${esc(T("alternateTag"))}` : ""}</span></span></label>`).join("")}
-        <label class="option radio" style="align-items:flex-start"><input type="radio" name="c" value="refund"><span class="tick" aria-hidden="true"></span>
+        <label class="option radio" data-u="start"><input type="radio" name="c" value="refund"><span class="tick" aria-hidden="true"></span>
           <span><strong>${esc(T("optRefund"))}</strong><br><span class="caption">${esc(T("optRefundHelp", { fee: rf.amount.display, days: 10 }))}</span></span></label>
       </div></fieldset>
       <p class="caption">${esc(T("defaultRefund", { deadline: fmtDate(e.resolution.choice_deadline) }))}</p>
@@ -1370,7 +1374,7 @@ async function scrReport(id) {
     <h1>${esc(T("reportTitle"))}</h1>
     <p class="muted">${esc(T("reportIntro"))}</p>
     <form id="f" class="stack" novalidate>
-      <label class="option" style="border-color:var(--c-danger)"><input type="checkbox" id="danger"><span class="tick" aria-hidden="true"></span><strong>${esc(T("dangerLabel"))}</strong></label>
+      <label class="option" data-u="bdanger"><input type="checkbox" id="danger"><span class="tick" aria-hidden="true"></span><strong>${esc(T("dangerLabel"))}</strong></label>
       <fieldset><legend class="label">${esc(T("category"))}</legend><div class="options">
         ${cats.map(([v, k]) => `<label class="option radio"><input type="radio" name="cat" value="${v}" required><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span></label>`).join("")}</div></fieldset>
       <fieldset><legend class="label">${esc(T("whenLegend"))}</legend><div class="options">
@@ -1433,7 +1437,7 @@ async function scrProfile() {
       <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
     <p class="section-label">${esc(T("secHelp"))}</p>
     <section class="stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
-    <div class="stack" style="margin-block-start: var(--s-6)">
+    <div class="stack" data-u="mt6">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
   const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };

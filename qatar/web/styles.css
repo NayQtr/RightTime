@@ -520,3 +520,12 @@ a.option { text-decoration: none; color: inherit; }
 .push-sample .app-ic { width: 44px; height: 44px; border-radius: 10px; background: var(--c-primary); color: var(--c-onPrimary); display: grid; place-items: center;
   font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
 .inter[data-screen="notify"] .next-steps { color: var(--c-text); }
+
+/* utilities that replace inline style attributes (CSP without 'unsafe-inline', NMX-31) */
+[data-u="start"] { align-items: flex-start; }
+[data-u="mt8"] { margin-block-start: var(--s-8); }
+[data-u="mt6"] { margin-block-start: var(--s-6); }
+[data-u="wrap8"] { padding: 8px 0; gap: 8px; flex-wrap: wrap; }
+[data-u="gap0"] { gap: 0; }
+[data-u="flex1"] { flex: 1; }
+[data-u="bdanger"] { border-color: var(--c-danger); }

@@ -1,4 +1,5 @@
 // Browser E2E: the real user web app and admin panel against the real API + PostgreSQL (Chromium via Playwright).
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
@@ -23,9 +24,18 @@ before(async () => {
 });
 after(async () => { await browser?.close(); await env?.stop(); });
 
+const CSP = JSON.parse(readFileSync(new URL("../../web/vercel.json", import.meta.url))).headers
+  .flatMap((h) => h.headers).find((h) => h.key === "Content-Security-Policy").value;
+
 async function newPage(viewport = { width: 360, height: 780 }) {
   const ctx = await browser.newContext({ viewport, locale: "ar-QA" });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // pages are served with the production Content-Security-Policy from vercel.json (with this server's API origin), so a
+  // blocked script or style shows up here as a console error (NMX-31)
+  await ctx.route((url) => url.origin === env.base && !url.pathname.startsWith("/api/") && /(\.html|\/)$/.test(url.pathname), async (r) => {
+    const res = await r.fetch();
+    await r.fulfill({ response: res, headers: { ...res.headers(), "content-security-policy": CSP.replace("connect-src 'self'", `connect-src 'self' ${env.base}`) } });
+  });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
