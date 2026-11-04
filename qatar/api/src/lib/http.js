@@ -26,7 +26,8 @@ export function problemBody(err, locale, requestId, domain = "docs.example") {
 export function json(status, body, headers = {}) {
   return new Response(status === 204 || status === 304 ? null : JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8", ...headers },
+    // nosniff: a browser never reads an API response as another type (ZAP 10021, NMX-31)
+    headers: { "Content-Type": "application/json; charset=utf-8", "X-Content-Type-Options": "nosniff", ...headers },
   });
 }
 

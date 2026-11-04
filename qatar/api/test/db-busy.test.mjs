@@ -14,3 +14,8 @@ test("too many connections and 'starting up' map to a retryable 503", () => {
   }
   assert.equal(mapPgError(Object.assign(new Error("x"), { code: "42601" })), null, "other errors stay 500");
 });
+
+test("API responses carry X-Content-Type-Options: nosniff (ZAP 10021)", async () => {
+  const { json } = await import("../src/lib/http.js");
+  assert.equal(json(200, {}).headers.get("x-content-type-options"), "nosniff");
+});

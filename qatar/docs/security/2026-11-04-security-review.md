@@ -15,7 +15,10 @@
 - **OWASP ZAP baseline on herzone.app:** 0 failures. One of the two medium warnings is fixed (inline styles); the other is accepted with reasons below. The rest are informational.
 - **OWASP ZAP API scan:**
   - Against staging, the scan exposed a real fault: the database ran out of connections. The fault is fixed and the scan was stopped.
-  - The full API scan now runs against a local throwaway copy only: `api/test/zap-local.run.mjs`.
+  - The full authenticated API scan then ran against a local throwaway copy: `api/test/zap-local.run.mjs`. All 48 operations from the OpenAPI description were imported and the scan sent requests with a member's token. Result: **0 failures, 112 rules passed, 3 warnings.**
+    - "X-Content-Type-Options missing": fixed. Every API response now sends `nosniff`.
+    - "Cross-domain (ACAO *)": local only. The test setup allows any origin; production allows only herzone.app (checked live).
+    - "Unexpected Content-Type" on `/`: that is the website page the local server also serves, not the API.
 - **Logs:** the staging logs were searched for personal data. Edge requests, function logs, Postgres and pgbouncer were all checked. Results:
   - 0 phone numbers
   - 0 sign-in tokens

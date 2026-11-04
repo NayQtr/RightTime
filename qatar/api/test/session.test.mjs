@@ -73,3 +73,8 @@ test("NMX-63: 30 parallel wrong OTP guesses are counted; never more than 5 are c
   const right = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r.body.challenge_id, code: r.body.dev_code } });
   assert.equal(right.status, 423, "locked: even the right code is not accepted");
 });
+
+test("every API response, success or error, has X-Content-Type-Options: nosniff", async () => {
+  assert.equal((await call("GET", "/api/v1/health")).headers.get("x-content-type-options"), "nosniff");
+  assert.equal((await call("GET", "/api/v1/users/me")).headers.get("x-content-type-options"), "nosniff");
+});

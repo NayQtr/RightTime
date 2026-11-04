@@ -158,6 +158,7 @@ export function createApp({ sql, getEnv = () => undefined }) {
       let res = route.idem ? await withIdempotency(ctx, route, run) : await run();
       const headers = new Headers(res.headers);
       headers.set("X-Request-Id", ctx.requestId);
+      headers.set("X-Content-Type-Options", "nosniff");
       for (const [k, v] of Object.entries(corsHeaders(req, cfg))) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     } catch (e) {
