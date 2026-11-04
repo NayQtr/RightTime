@@ -6,6 +6,7 @@ import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import 'sign_in_view_model.dart';
 import 'widgets.dart';
+import '../common/test_id.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -39,10 +40,10 @@ class _OtpScreenState extends State<OtpScreen> {
             Wrap(spacing: 6, children: [Text(t.otpHelp), if (c != null) Ltr(Text(c.phoneDisplay, style: const TextStyle(fontWeight: FontWeight.w600)))]),
             if (c?.devCode != null) ...[
               const SizedBox(height: HzSpace.s3),
-              Wrap(spacing: 6, children: [Text(t.devCode), Ltr(Text(c!.devCode!, key: const Key('devCode'), style: const TextStyle(fontWeight: FontWeight.w700)))]),
+              Wrap(spacing: 6, children: [Text(t.devCode), Ltr(TestId('devCode', child: Text(c!.devCode!, key: const Key('devCode'), style: const TextStyle(fontWeight: FontWeight.w700))))]),
             ],
             const SizedBox(height: HzSpace.s6),
-            Ltr(TextField(
+            Ltr(TestId('code', child: TextField(
               key: const Key('code'),
               controller: _code,
               keyboardType: TextInputType.number,
@@ -54,7 +55,7 @@ class _OtpScreenState extends State<OtpScreen> {
               onChanged: (v) {
                 if (v.length == 6 && !vm.busy) vm.verify(v);
               },
-            )),
+            ))),
             if (vm.error != null) ...[const SizedBox(height: HzSpace.s4), ErrorBanner(vm.error!)],
             const SizedBox(height: HzSpace.s6),
             FilledButton(key: const Key('verify'), onPressed: vm.busy ? null : () => vm.verify(_code.text), child: Text(t.verify)),

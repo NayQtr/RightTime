@@ -1,0 +1,12 @@
+# Account tab, then delete the account (keeps staging free of test members). Ends on the welcome screen.
+appId: app.herzone
+---
+- tapOn: "حسابي"
+- scrollUntilVisible:
+    element: "طلب حذف الحساب"
+- tapOn: "طلب حذف الحساب"
+- assertVisible: "سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟"
+- tapOn: "حذف حسابي"
+- extendedWaitUntil:
+    visible: "لديّ حساب"
+    timeout: 15000

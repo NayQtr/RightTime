@@ -7,6 +7,7 @@ import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import 'sign_in_view_model.dart';
 import 'widgets.dart';
+import '../common/test_id.dart';
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -42,7 +43,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
             const SizedBox(height: HzSpace.s2),
             Text(t.phoneHelp),
             const SizedBox(height: HzSpace.s6),
-            Ltr(TextField(
+            Ltr(TestId('phone', child: TextField(
               key: const Key('phone'),
               controller: _phone,
               keyboardType: TextInputType.phone,
@@ -55,7 +56,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
                 prefixText: '+974 ',
                 errorText: vm.phoneInvalid ? t.phoneInvalid : null,
               ),
-            )),
+            ))),
             if (vm.error != null) ...[const SizedBox(height: HzSpace.s4), ErrorBanner(vm.error!)],
             const SizedBox(height: HzSpace.s6),
             FilledButton(

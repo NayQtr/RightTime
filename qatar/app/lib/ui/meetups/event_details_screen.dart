@@ -15,6 +15,7 @@ import '../theme.dart';
 import 'contacts_section.dart';
 import 'home_tab.dart' show experienceName;
 import 'resolution_section.dart';
+import '../common/test_id.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -58,12 +59,12 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             final v = d.venue;
             return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
               if (r.offlineSavedAt != null) ...[
-                Container(
+                TestId('offline-copy', child: Container(
                   key: const Key('offline-copy'),
                   padding: const EdgeInsets.all(HzSpace.s3),
                   decoration: BoxDecoration(color: c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
                   child: Text(t.offlineCopy(fmtWhen(r.offlineSavedAt!.toIso8601String(), lang))),
-                ),
+                )),
                 const SizedBox(height: HzSpace.s4),
               ],
               Text('${experienceName(t, d.experience)} · ${fmtWhen(d.startsAt, lang)}', style: tt.headlineMedium),
@@ -83,14 +84,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               ],
               const SizedBox(height: HzSpace.s4),
               if (v == null && !d.isOver)
-                Container(
+                TestId('venue-hidden', child: Container(
                   key: const Key('venue-hidden'),
                   padding: const EdgeInsets.all(HzSpace.s3),
                   decoration: BoxDecoration(color: c.primarySubtle, borderRadius: BorderRadius.circular(HzRadius.sm)),
                   child: Text(t.venueHidden(fmtWhen(d.revealAt, lang))),
-                ),
+                )),
               if (v != null)
-                Card(
+                TestId('venue', child: Card(
                   key: const Key('venue'),
                   color: c.surface,
                   child: Padding(
@@ -104,7 +105,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       if (d.tableCode != null) ...[
                         const SizedBox(height: HzSpace.s3),
                         Text(t.tableCode),
-                        Ltr(SelectableText(d.tableCode!, key: const Key('table-code'), style: tt.displaySmall?.copyWith(color: c.primary, letterSpacing: 2))),
+                        Ltr(TestId('table-code', child: SelectableText(d.tableCode!, key: const Key('table-code'), style: tt.displaySmall?.copyWith(color: c.primary, letterSpacing: 2)))),
                         Text(t.mentionCode, style: tt.bodySmall),
                       ],
                       const SizedBox(height: HzSpace.s3),
@@ -119,7 +120,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                         ),
                     ]),
                   ),
-                ),
+                )),
               if (r.offlineSavedAt == null && d.resolution != null && d.resolution!.open && d.rebookedInto == null) ...[
                 const SizedBox(height: HzSpace.s4),
                 ResolutionSection(bookingId: bookingId, details: d, onDone: () => setState(() => _reload++)),

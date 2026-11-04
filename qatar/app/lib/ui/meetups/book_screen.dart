@@ -15,6 +15,7 @@ import '../auth/widgets.dart';
 import '../format.dart';
 import '../theme.dart';
 import 'home_tab.dart' show experienceName;
+import '../common/test_id.dart';
 
 /// Booking: hold the seat, review (fee, refund terms, and the no-refund acknowledgement close to the date), pay on the
 /// payment provider's page in the browser, then come back: the app checks the booking and shows the result.
@@ -111,7 +112,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
       children.add(FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat)));
     } else if (bk.paid) {
       children.addAll([
-        Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success)),
+        TestId('paid', child: Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success))),
         Text('${t.bookingRef} ${bk.ref}'),
         const SizedBox(height: HzSpace.s4),
         FilledButton(onPressed: () => context.go('/events'), child: Text(t.viewDetails)),
@@ -132,10 +133,10 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
           child: Text(bk.refundWindowOpen && bk.fullRefundUntil != null ? t.policyBox(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
         ),
         if (bk.ackRequired)
-          CheckboxListTile(key: const Key('ack'), contentPadding: EdgeInsets.zero, value: ack, onChanged: (v) => setState(() => ack = v!), title: Text(t.lateAck)),
+          TestId('ack', child: CheckboxListTile(key: const Key('ack'), contentPadding: EdgeInsets.zero, value: ack, onChanged: (v) => setState(() => ack = v!), title: Text(t.lateAck))),
         if (bk.paymentFailed) Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(t.payFailed, style: TextStyle(color: c.danger))),
         const SizedBox(height: HzSpace.s4),
-        if (waiting) ...[Text(t.waitingPayment, key: const Key('waiting')), const SizedBox(height: HzSpace.s3)],
+        if (waiting) ...[TestId('waiting', child: Text(t.waitingPayment, key: const Key('waiting'))), const SizedBox(height: HzSpace.s3)],
         FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: Text(t.payNow)),
         if (waiting) TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment)),
       ]);

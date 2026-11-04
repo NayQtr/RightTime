@@ -1,0 +1,26 @@
+# New member: questionnaire first, then phone and code, sign-up, the four tabs, sign out and back in, delete.
+appId: app.herzone
+name: 01_onboarding
+tags: [staging, smoke]
+---
+- runFlow: subflows/new_member.yaml
+- assertVisible: "لقاءاتي"
+- assertVisible: "الإشعارات"
+
+# Notifications are behind Face ID / fingerprint
+- tapOn: "الإشعارات"
+- assertVisible: "افتحي"
+
+# Sign out, then sign back in with the same number: no questionnaire or sign-up again
+- tapOn: "حسابي"
+- tapOn: "تسجيل الخروج"
+- tapOn: "لديّ حساب"
+- runFlow:
+    file: subflows/sign_in_code.yaml
+    env:
+      PHONE: ${output.phone}
+- extendedWaitUntil:
+    visible: "الرئيسية"
+    timeout: 15000
+
+- runFlow: subflows/delete_account.yaml

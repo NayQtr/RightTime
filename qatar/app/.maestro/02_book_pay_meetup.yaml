@@ -1,0 +1,94 @@
+# Book a session, pay on the mock payment page, open the meetup (online, then offline on Android), see the safety
+# options, cancel with the refund shown first, then delete the test account.
+# Needs at least one open staging session in Arabic with free seats.
+appId: app.herzone
+name: 02_book_pay_meetup
+tags: [staging, payments]
+---
+- runFlow: subflows/new_member.yaml
+
+# Book and pay
+- tapOn:
+    id: "session-.*"
+    index: 0
+- tapOn: "احجزي مقعدك"
+- runFlow:
+    when:
+      visible:
+        id: "ack"
+    commands:
+      - tapOn:
+          id: "ack"     # late booking: the fee is not refundable
+- tapOn: "ادفعي الآن"
+# the mock payment page opens in the browser
+- extendedWaitUntil:
+    visible: "ادفع \\(نجاح\\).*"
+    timeout: 20000
+- tapOn: "ادفع \\(نجاح\\).*"
+- launchApp            # back to the app (no clearState)
+- runFlow:
+    when:
+      visible: "تحققي من الدفع"
+    commands:
+      - tapOn: "تحققي من الدفع"
+- extendedWaitUntil:
+    visible:
+      id: "paid"
+    timeout: 20000
+
+# The meetup in "My meetups": venue (or the time it is revealed)
+- tapOn: "لقاءاتي"
+- tapOn:
+    id: "booking-.*"
+    index: 0
+- assertVisible:
+    id: "venue|venue-hidden"
+
+# Offline: the saved copy opens with a banner (Android; airplane mode cannot be scripted on iOS)
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - stopApp
+      - launchApp
+      - tapOn: "لقاءاتي"
+      - tapOn:
+          id: "booking-.*"
+          index: 0
+      - assertVisible:
+          id: "offline-copy"
+      - setAirplaneMode: disabled
+      - stopApp
+      - launchApp
+      - tapOn: "لقاءاتي"
+      - tapOn:
+          id: "booking-.*"
+          index: 0
+
+# Safety: "I'm in danger now" shows the 999 call at once. The flow never taps it.
+- scrollUntilVisible:
+    element: "إبلاغ خاص"
+- tapOn: "إبلاغ خاص"
+- tapOn:
+    id: "danger"
+- assertVisible:
+    id: "emergency"
+- assertVisible:
+    id: "call-999"
+- back
+- back
+
+# Cancel: the refund result shows before confirming
+- scrollUntilVisible:
+    element: "إلغاء الحجز"
+- tapOn: "إلغاء الحجز"
+- tapOn:
+    id: "reason-other"
+- assertVisible:
+    id: "refund-outcome"
+- tapOn: "تأكيد الإلغاء"
+- assertVisible: "تم إلغاء حجزك."
+
+- tapOn: "الرئيسية"
+- runFlow: subflows/delete_account.yaml

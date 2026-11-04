@@ -55,6 +55,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('رقم جوالك'), findsOneWidget);
     expect(Directionality.of(tester.element(find.text('رقم جوالك'))), TextDirection.rtl);
+    // the ids Maestro uses (NMX-56) are on the screen
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsIdentifier('phone'), findsOneWidget);
+    semantics.dispose();
     await tester.enterText(find.byKey(const Key('phone')), '1234');
     await tester.tap(find.byKey(const Key('send')));
     await tester.pumpAndSettle();

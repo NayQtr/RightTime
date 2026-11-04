@@ -1,0 +1,58 @@
+# A new member from the first screen to the home tab: questionnaire, phone, code, sign-up.
+# Uses a fresh random Qatar number each run, so runs never share an account.
+appId: app.herzone
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true   # iOS: also forget a previous run's sign-in (it survives uninstall)
+- evalScript: ${output.phone = '5' + Math.floor(1000000 + Math.random() * 8999999)}
+- tapOn: "ابدئي"
+
+# Questionnaire: pick the first option of each question until the "save my answers" screen.
+# Single-choice questions move on by themselves; multi-choice and scale questions need "next" ("continue" on the last).
+- repeat:
+    while:
+      notVisible: "احفظي إجاباتي"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "question"
+          timeout: 10000
+      - tapOn:
+          id: "opt-.*"
+          index: 0
+      - runFlow:
+          when:
+            visible: "^(التالي|متابعة)$"
+          commands:
+            - tapOn: "^(التالي|متابعة)$"
+- tapOn: "احفظي إجاباتي"
+
+# Phone and code (staging shows the code on screen instead of an SMS)
+- runFlow:
+    file: sign_in_code.yaml
+    env:
+      PHONE: ${output.phone}
+
+# Sign-up: name, women-only and age confirmations, the three required documents
+- tapOn:
+    id: "name"
+- inputText: "Maestro"
+- hideKeyboard
+- tapOn:
+    id: "woman"
+- tapOn:
+    id: "adult"
+- scrollUntilVisible:
+    element:
+      id: "consent-privacy_notice"
+- tapOn:
+    id: "consent-terms"
+- tapOn:
+    id: "consent-conduct"
+- tapOn:
+    id: "consent-privacy_notice"
+- tapOn: "متابعة"
+- extendedWaitUntil:
+    visible: "الرئيسية"
+    timeout: 15000

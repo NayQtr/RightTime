@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../common/loader.dart';
 import '../theme.dart';
+import '../common/test_id.dart';
 
 const _categories = ['harassment', 'threat_violence', 'photo_without_consent', 'stalking_unwanted_contact', 'fraud', 'disruptive'];
 
@@ -74,21 +75,21 @@ class _ReportFormState extends State<_ReportForm> {
         builder: (context) {
           final t = AppLocalizations.of(context);
           final c = hzColors(context);
-          return AlertDialog(
+          return TestId('emergency', child: AlertDialog(
             key: const Key('emergency'),
             title: Text(t.emTitle),
             content: Text(t.emBody),
             actions: [
-              FilledButton.icon(
+              TestId('call-999', child: FilledButton.icon(
                 key: const Key('call-999'),
                 style: FilledButton.styleFrom(backgroundColor: c.danger, foregroundColor: c.onDanger),
                 icon: const Icon(Icons.call),
                 label: Text(t.emCall),
                 onPressed: () => context.read<LinkOpener>().open(Uri.parse('tel:999')),
-              ),
+              )),
               TextButton(onPressed: () => Navigator.pop(context), child: Text(t.close)),
             ],
-          );
+          ));
         },
       );
 
@@ -114,14 +115,14 @@ class _ReportFormState extends State<_ReportForm> {
     final tt = Theme.of(context).textTheme;
     if (caseRef != null) {
       return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-        Text(t.reportSent(caseRef!), key: const Key('report-sent'), style: tt.titleLarge),
+        TestId('report-sent', child: Text(t.reportSent(caseRef!), key: const Key('report-sent'), style: tt.titleLarge)),
         const SizedBox(height: HzSpace.s6),
         FilledButton(onPressed: () => context.go('/home'), child: Text(t.backHome)),
       ]);
     }
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
       Text(t.reportIntro),
-      CheckboxListTile(
+      TestId('danger', child: CheckboxListTile(
         key: const Key('danger'),
         contentPadding: EdgeInsets.zero,
         value: danger,
@@ -130,7 +131,7 @@ class _ReportFormState extends State<_ReportForm> {
           setState(() => danger = v!);
           if (v!) _emergency();
         },
-      ),
+      )),
       const Divider(),
       Text(t.category, style: tt.titleMedium),
       RadioGroup<String>(

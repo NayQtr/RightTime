@@ -11,6 +11,7 @@ import '../auth/widgets.dart';
 import '../common/loader.dart';
 import '../theme.dart';
 import 'quiz_view_model.dart';
+import '../common/test_id.dart';
 
 /// Finishing sign-up: optional first name, women-only and age confirmation, the documents to accept. Then the answers
 /// given before sign-up are sent with the new account.
@@ -96,14 +97,14 @@ class _RegisterFormState extends State<_RegisterForm> {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-      TextField(key: const Key('name'), controller: _name, maxLength: 30, decoration: InputDecoration(labelText: t.nameLabel, helperText: t.nameHelp)),
+      TestId('name', child: TextField(key: const Key('name'), controller: _name, maxLength: 30, decoration: InputDecoration(labelText: t.nameLabel, helperText: t.nameHelp))),
       const SizedBox(height: HzSpace.s4),
       Text(t.womenOnly, style: TextStyle(color: c.primary, fontWeight: FontWeight.w600)),
-      CheckboxListTile(key: const Key('woman'), contentPadding: EdgeInsets.zero, value: woman, onChanged: (v) => setState(() => woman = v!), title: Text(t.womanLabel)),
-      CheckboxListTile(key: const Key('adult'), contentPadding: EdgeInsets.zero, value: adult, onChanged: (v) => setState(() => adult = v!), title: Text(t.ageLabel)),
+      TestId('woman', child: CheckboxListTile(key: const Key('woman'), contentPadding: EdgeInsets.zero, value: woman, onChanged: (v) => setState(() => woman = v!), title: Text(t.womanLabel))),
+      TestId('adult', child: CheckboxListTile(key: const Key('adult'), contentPadding: EdgeInsets.zero, value: adult, onChanged: (v) => setState(() => adult = v!), title: Text(t.ageLabel))),
       const Divider(),
       for (final d in widget.docs)
-        CheckboxListTile(
+        TestId('consent-${d.type}', child: CheckboxListTile(
           key: Key('consent-${d.type}'),
           contentPadding: EdgeInsets.zero,
           value: granted.contains(d.type),
@@ -113,7 +114,7 @@ class _RegisterFormState extends State<_RegisterForm> {
             alignment: AlignmentDirectional.centerStart,
             child: TextButton(key: Key('read-${d.type}'), onPressed: () => _read(d), child: Text(t.readDoc)),
           ),
-        ),
+        )),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
       FilledButton(key: const Key('register'), onPressed: ready && !busy ? _submit : null, child: Text(t.continueLabel)),

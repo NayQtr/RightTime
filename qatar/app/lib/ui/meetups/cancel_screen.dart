@@ -11,6 +11,7 @@ import '../auth/widgets.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../common/test_id.dart';
 
 /// Cancelling: the refund outcome is stated before she confirms (full refund, none after the deadline, or nothing paid).
 class CancelScreen extends StatelessWidget {
@@ -81,12 +82,12 @@ class _CancelFormState extends State<_CancelForm> {
     };
     final full = d.refundIfCancelledNow == 'full' || d.refundIfCancelledNow == null;
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-      Container(
+      TestId('refund-outcome', child: Container(
         key: const Key('refund-outcome'),
         padding: const EdgeInsets.all(HzSpace.s3),
         decoration: BoxDecoration(color: (full ? c.info : c.warning).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(outcome),
-      ),
+      )),
       const SizedBox(height: HzSpace.s4),
       Text(t.reasonLegend, style: Theme.of(context).textTheme.titleMedium),
       RadioGroup<String>(
@@ -94,7 +95,7 @@ class _CancelFormState extends State<_CancelForm> {
         onChanged: (v) => setState(() => reason = v),
         child: Column(children: [
           for (final (v, label) in [('schedule_changed', t.reasonSchedule), ('illness', t.reasonIllness), ('other', t.reasonOther)])
-            RadioListTile<String>(key: Key('reason-$v'), contentPadding: EdgeInsets.zero, value: v, title: Text(label)),
+            TestId('reason-$v', child: RadioListTile<String>(key: Key('reason-$v'), contentPadding: EdgeInsets.zero, value: v, title: Text(label))),
         ]),
       ),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],

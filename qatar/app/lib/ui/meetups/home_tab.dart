@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../common/test_id.dart';
 
 String experienceName(AppLocalizations t, String e) => e == 'coffee' ? t.coffee : t.dinner;
 
@@ -48,7 +49,7 @@ class _SessionCard extends StatelessWidget {
     final c = hzColors(context);
     final lang = context.watch<LocaleController>().code;
     final status = s.myBookingId != null ? t.alreadyBooked : s.isFull ? t.full : t.seatsLeft(s.seatsLeft);
-    return Card(
+    return TestId('session-${s.id}', child: Card(
       key: Key('session-${s.id}'),
       margin: const EdgeInsets.only(bottom: HzSpace.s3),
       color: c.surface,
@@ -71,6 +72,6 @@ class _SessionCard extends StatelessWidget {
           ]),
         ),
       ),
-    );
+    ));
   }
 }

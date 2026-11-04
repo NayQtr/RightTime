@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import 'home_tab.dart' show experienceName;
+import '../common/test_id.dart';
 
 /// My meetups: upcoming first, then past ones. Each opens its details.
 class EventsTab extends StatelessWidget {
@@ -32,14 +33,14 @@ class EventsTab extends StatelessWidget {
             const SizedBox(height: HzSpace.s4),
             if (all.isEmpty) ...[Text(t.noBookings), const SizedBox(height: HzSpace.s2), Text(t.bookOnWeb)],
             for (final b in [...upcoming, ...past])
-              ListTile(
+              TestId('booking-${b.id}', child: ListTile(
                 key: Key('booking-${b.id}'),
                 contentPadding: EdgeInsets.zero,
                 title: Text('${experienceName(t, b.experience)} · ${fmtWhen(b.startsAt, lang)}'),
                 subtitle: Text('${b.district} · ${t.bookingRef} ${b.ref}'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/booking/${b.id}'),
-              ),
+              )),
           ]);
         },
       ),

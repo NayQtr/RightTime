@@ -34,3 +34,21 @@ Security settings already in the project (MASVS, `qatar/docs/masvs-herzone.md`):
 Store builds need the Apple and Google developer accounts (NMX-45, NMX-46) and a Mac or a cloud build service for iOS (NMX-47).
 
 Sentry project `herzone-app` (crash-free sessions, NMX-62/NMX-50). A DSN is a public, write-only key, so it can live in this file.
+
+## Journey tests (Maestro, NMX-56)
+
+`.maestro/` drives the real app against **staging** (never production): the sign-in code is read from the screen and payment uses the mock page.
+
+- `01_onboarding.yaml`: questionnaire → phone and code → sign-up → tabs → locked notifications → sign out and back in → delete the account.
+- `02_book_pay_meetup.yaml`: book → pay (mock) → meetup details → offline copy (Android) → "I'm in danger now" shows the 999 call (never tapped) → cancel with the refund shown first → delete the account.
+
+Each run uses a new random Qatar number and deletes its account at the end. Flow 02 needs an open Arabic staging session with free seats.
+
+```sh
+flutter build apk --debug --dart-define=HZ_ENV=staging && adb install build/app/outputs/flutter-apk/app-debug.apk
+maestro test .maestro
+```
+
+Or on GitHub: Actions → "App journey (Maestro)" → Run workflow (Android 14 emulator; manual only).
+
+Elements the flows use carry a stable id (`TestId`, `lib/ui/common/test_id.dart`): `resource-id` on Android and `accessibilityIdentifier` on iOS, the same names as the widget keys in the Flutter tests. Buttons are found by their Arabic text.

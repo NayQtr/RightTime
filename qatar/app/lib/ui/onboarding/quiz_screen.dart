@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../theme.dart';
 import 'quiz_view_model.dart';
+import '../common/test_id.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -64,7 +65,7 @@ class _QuizScreenState extends State<QuizScreen> {
         Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
         if (q.section != null) Text(q.section!, style: tt.bodySmall),
         const SizedBox(height: HzSpace.s2),
-        Text(q.text, key: const Key('question'), style: tt.headlineMedium),
+        TestId('question', child: Text(q.text, key: const Key('question'), style: tt.headlineMedium)),
         if (q.purpose != null) ...[const SizedBox(height: HzSpace.s2), Text(q.purpose!, style: tt.bodySmall?.copyWith(color: c.textMuted))],
         if (q.multi && q.max > 1) ...[const SizedBox(height: HzSpace.s2), Text(t.chooseUpTo(q.max), style: tt.bodySmall)],
         const SizedBox(height: HzSpace.s4),
@@ -125,7 +126,7 @@ class _OptionTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         button: true,
-        child: InkWell(
+        child: TestId('opt-${o.key}', child: InkWell(
           key: Key('opt-${o.key}'),
           borderRadius: BorderRadius.circular(HzRadius.md),
           onTap: onTap,
@@ -144,7 +145,7 @@ class _OptionTile extends StatelessWidget {
                   color: selected ? c.primary : c.borderStrong),
             ]),
           ),
-        ),
+        )),
       ),
     );
   }
@@ -159,7 +160,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = hzColors(context);
-    return FilterChip(
+    return TestId('opt-${o.key}', child: FilterChip(
       key: Key('opt-${o.key}'),
       label: Text(o.emoji == null ? o.label : '${o.emoji} ${o.label}'),
       selected: selected,
@@ -169,6 +170,6 @@ class _Chip extends StatelessWidget {
       backgroundColor: c.surfaceSunken,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.primary : c.border)),
       onSelected: (_) => onTap(),
-    );
+    ));
   }
 }
