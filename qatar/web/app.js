@@ -266,7 +266,7 @@ function scrWelcome() {
   const canResume = Boolean(resume && /^#\/(quiz\/\d+|name|signin|otp)$/.test(resume) && (answered || store.get("quizName")));
   view(T("welcomeHeroPlain"), `
     <section class="hero-welcome">
-      <h1>${esc(T("welcomeHero")).replace("{em}", `<em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
+      <h1>${esc(T("welcomeHero")).replace(/^(.+?)\s*\{em\}/, (_, lead) => `<span class="lead-in">${lead}</span> <em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
       <p>${esc(T("welcomeSub"))}</p>
       <div class="welcome-table">${tableSvg({ seats: 6, filled: 4 })}</div>
       ${canResume ? `<div class="resume-card stack" id="resume-card"><p><strong>${esc(T("resumeTitle"))}</strong></p><p class="caption">${esc(T("resumeBody", { n: answered }))}</p>

@@ -1,0 +1,31 @@
+{
+  "source": "https://herzone.app",
+  "captured": "2026-11-05",
+  "viewports": ["1440x900", "390x844", "360x780"],
+  "tokens": {
+    "color": { "bg": "#FAF4EC", "surfaceSunken": "#F3EAE1", "surface": "#FFFCF9", "text": "#251615", "textMuted": "#60514F",
+      "primary": "#7E1E35", "primaryHover": "#671027", "primarySubtle": "#FBE0E2", "seat": "#DA915F", "border": "#D6CCC4" },
+    "contrast": { "textMutedOnBg": 6.89, "textMutedOnSunken": 6.34, "onPrimaryOnPrimary": 9.43 },
+    "font": { "display": "Alexandria", "text": "IBM Plex Sans Arabic" },
+    "spacing": [4, 8, 12, 16, 20, 24, 32, 40, 48],
+    "radius": { "sm": 10, "md": 16, "xl": 24, "pill": 999 },
+    "layout": { "columnMax": 560, "columnPadding": 20, "touchTarget": 48, "cardGap": 12 },
+    "motion": { "fast": 120, "base": 200, "slow": 320, "ease": "cubic-bezier(0.2,0,0,1)" }
+  },
+  "taste": [
+    { "name": "Warm paper, one accent", "decision": "beige ground and a single wine accent for the CTA, the selected state and one headline word" },
+    { "name": "The table is the picture", "decision": "an abstract table with filled and dashed seats replaces photos of members" },
+    { "name": "Restraint: one column everywhere", "decision": "a 560 px column on every screen size instead of a desktop layout" },
+    { "name": "Facts as rows, not prose", "decision": "label/value rows with icons for dates, places and refund rules" }
+  ],
+  "findings": [
+    { "id": 1, "status": "fixed", "problem": "consecutive cards and notices touched" },
+    { "id": 2, "status": "fixed", "problem": "desktop header pinned to the window edges, away from the content" },
+    { "id": 3, "status": "fixed", "problem": "Arabic headline split mid-phrase on phones" },
+    { "id": 4, "status": "fixed", "problem": "welcome hint ambiguous between the two buttons" },
+    { "id": 5, "status": "proposed", "problem": "desktop welcome is a phone layout in a wide window" },
+    { "id": 6, "status": "proposed", "problem": "review rows wrap awkwardly; hold timer floats" },
+    { "id": 7, "status": "proposed", "problem": "booking progress steps told by colour alone" },
+    { "id": 8, "status": "next", "problem": "Flutter app not audited in this pass" }
+  ]
+}

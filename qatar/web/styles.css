@@ -32,6 +32,9 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
   padding: var(--s-2) var(--s-5); min-height: 60px; background: var(--c-bg); transition: box-shadow var(--m-base) var(--m-ease);
 }
 .topbar.scrolled { box-shadow: 0 1px 0 var(--c-border); }
+/* on wide screens the logo and the language switch line up with the content column (main: 560px with 20px padding)
+   instead of sitting at the far edges of the window; on phones this is the same 20px as before */
+.topbar { padding-inline: max(var(--s-5), calc((100% - 560px) / 2 + var(--s-5))); }
 /* glass chrome (Apple materials): the top bar and the tab bar are a frosted layer that content scrolls under, with a soft
    scroll edge instead of a hairline. Opaque enough to keep text crisp; solid when the device asks for less transparency. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -69,6 +72,9 @@ main h1[tabindex="-1"]:focus, main h1[tabindex="-1"]:focus-visible { outline: no
 body:has(.tabbar:not([hidden])) main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 body:has(main .quiz-foot) main, body:has(main .sticky-bar) main { padding-bottom: calc(128px + env(safe-area-inset-bottom)); }
 .stack > * + * { margin-block-start: var(--s-4); }
+/* vertical rhythm: cards, notices and lists that follow each other on a page never touch (they read as one block) */
+main > :is(.card, .banner, .note, section, .faq, dl, .list, .facts-list, fieldset) + :is(.card, .banner, .note, section, .faq, dl, .list, .facts-list, fieldset) {
+  margin-block-start: var(--s-3); }
 .row { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; }
 .between { justify-content: space-between; }
 
@@ -366,6 +372,11 @@ a.option { text-decoration: none; color: inherit; }
 .welcome-table { width: min(240px, 66%); justify-self: center; margin-block: var(--s-4); }
 .welcome-table .table { width: 100%; height: auto; display: block; }
 .hero-welcome .stack > * + * { margin-block-start: var(--s-2); }
+/* the Arabic headline breaks after "تعرّفي على ناس.." so the phrase is never split across lines */
+:root[lang="ar"] .hero-welcome h1 .lead-in { white-space: nowrap; }
+/* the length hint belongs to "Start": keep it close to that button and clearly apart from "I have an account" */
+.hero-welcome .quiz-length { margin-block-end: 0; }
+.hero-welcome .quiz-length + .btn { margin-block-start: var(--s-5); }
 .hero-welcome .resume-card { background: var(--c-primarySubtle); border-radius: var(--r-md); padding: var(--s-4) var(--s-5); display: grid; gap: var(--s-2); }
 .hero-welcome .resume-card p { margin: 0; }
 .hero-welcome .resume-card .caption { color: var(--c-textMuted); }
@@ -376,6 +387,8 @@ a.option { text-decoration: none; color: inherit; }
 .tabbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--c-surface);
   box-shadow: 0 -1px 0 var(--c-border); padding: 6px var(--s-2) calc(6px + env(safe-area-inset-bottom)); }
 .tabbar[hidden] { display: none; }
+/* wide screens: the four tabs stay within the content column instead of spreading across the window */
+@media (min-width: 640px) { .tabbar { padding-inline: calc((100% - 560px) / 2 + var(--s-2)); } }
 .tabbar a { display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 56px; text-decoration: none; color: var(--c-textMuted);
   font-size: min(calc(var(--u) * 0.7188), 15px); font-weight: 500; border-radius: var(--r-sm); text-align: center; }
 .tabbar a .ti { width: 24px; height: 24px; }
