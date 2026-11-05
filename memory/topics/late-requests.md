@@ -37,14 +37,13 @@ Claude's open questions (waiting for the owner's answer):
      (1) one spelling of the coordinator: «المنسق» or «منسّق»; (2) a next-step line for «لم يكتمل الدفع.», the generic error
      and «تعذّر الاسترداد»; (3) venue decline: replace the browser's OK/Cancel dialog with an in-page confirmation
      (buttons named for the action); (4) screen-reader announcement text for the venue page after accept/decline/arrival.
-13e. Contact flow v2 (5 Nov, built to the owner's design: phone call -> request contact | call us now; WhatsApp chat with her details). Wording to confirm:
-     the owner's words are used for «اتصال هاتفي», «محادثة واتساب», «طلب تواصل» + hint, «اتصل بنا الان» + hint, «تأكيد هاتف التواصل», the four times and the WhatsApp
-     greeting. Claude's wording (needs the owner's): «اشرحي المشكلة أو الطلب», «إرسال الطلب», «اكتبي المشكلة أو الطلب أولاً.», «رقم الهاتف غير صحيح.»,
-     the confirmation «وصلنا طلبك. سيتصل بك المنسق.», «الوقت المناسب للاتصال», and ALL English texts (translations). WhatsApp says only her first name
-     («انا مريم #RT-ABC123»), not the full name. Member number = the booking number RT-XXXXXX (owner's decision: no membership numbers).
-     Requests reach the owner only in the admin console (menu badge, refresh every 30 s); an alert by WhatsApp/push waits for the WhatsApp link.
-     Retention: the note and any other number are encrypted and erased with the account; proposal: also delete 30 days after the request is handled (owner/lawyer to decide).
-     «اتصل بنا الان» restores phone access offline (tel: works without data).
+13e. Contact flow v2 (5 Nov, built to the owner's design). Owner's answers (5 Nov): the word «المنسق» is dropped from the confirmation, which now reads
+     «وصلنا طلبك. سيتم الاتصال بكِ من قبلنا.» / "We got your request. We will call you."; WhatsApp message = first name + booking number (confirmed);
+     requests only in the admin console (confirmed); NO deletion of handled requests: every completed booking is archived (so closed requests stay as archive;
+     account deletion by the member still erases her data, per the privacy policy). Still Claude's wording, awaiting the owner's: «اشرحي المشكلة أو الطلب»,
+     «إرسال الطلب», «اكتبي المشكلة أو الطلب أولاً.», «رقم الهاتف غير صحيح.», «الوقت المناسب للاتصال», and ALL English texts (translations).
+     Open question: «المنسق» still appears elsewhere (help line «تواصلي مع المنسق المناوب», etc.): remove there too? Not changed.
+     Alert to the owner by WhatsApp/push waits for the WhatsApp link. «اتصل بنا الان» restores phone access offline.
 13f. (5 Nov) Migration 017 (call requests, amended for v2) must be pasted in BOTH Supabase projects before the contact flow and the production release
      (file: scratchpad herzone-017.sql = db/migrations/017_call_requests.sql + a check; the earlier file sent is OUTDATED; MCP apply_migration times out).
      Then Claude verifies, re-runs the baseline checks, and releases (merge release, CI green, production build, smoke checks, Sentry).

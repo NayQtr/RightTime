@@ -559,7 +559,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get waHelloAnon => 'مرحباً ، لدي مشكلة/طلب';
 
   @override
-  String get callRequested => 'وصلنا طلبك. سيتصل بك المنسق.';
+  String get callRequested => 'وصلنا طلبك. سيتم الاتصال بكِ من قبلنا.';
 
   @override
   String get backHome => 'العودة إلى الرئيسية';

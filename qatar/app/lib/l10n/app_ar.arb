@@ -223,7 +223,7 @@
   "csPhoneBad": "رقم الهاتف غير صحيح.",
   "waHello": "مرحباً ، انا {who} ، لدي مشكلة/طلب",
   "waHelloAnon": "مرحباً ، لدي مشكلة/طلب",
-  "callRequested": "وصلنا طلبك. سيتصل بك المنسق.",
+  "callRequested": "وصلنا طلبك. سيتم الاتصال بكِ من قبلنا.",
   "backHome": "العودة إلى الرئيسية",
   "@refundFull": {
     "placeholders": {

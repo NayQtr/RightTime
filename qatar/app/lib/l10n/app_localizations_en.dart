@@ -565,8 +565,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get waHelloAnon => 'Hello, I have a problem/request';
 
   @override
-  String get callRequested =>
-      'We got your request. The coordinator will call you.';
+  String get callRequested => 'We got your request. We will call you.';
 
   @override
   String get backHome => 'Back to home';

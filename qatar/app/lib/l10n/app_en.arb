@@ -170,7 +170,7 @@
   "csPhoneBad": "That phone number isn't valid.",
   "waHello": "Hello, I'm {who}, I have a problem/request",
   "waHelloAnon": "Hello, I have a problem/request",
-  "callRequested": "We got your request. The coordinator will call you.",
+  "callRequested": "We got your request. We will call you.",
   "backHome": "Back to home",
   "@refundFull": {
     "placeholders": {

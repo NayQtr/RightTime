@@ -100,7 +100,7 @@ void main() {
     await _tap(tester, 'when-1h');
     await _tap(tester, 'cs-send');
     expect(requests.single, {'message': 'الطاولة تغيّرت', 'callback_when': '1h', 'booking_id': bookingId}, reason: 'her own number is not sent again');
-    expect(find.text('وصلنا طلبك. سيتصل بك المنسق.'), findsOneWidget);
+    expect(find.text('وصلنا طلبك. سيتم الاتصال بكِ من قبلنا.'), findsOneWidget);
     expect(links.opened, isEmpty, reason: 'nothing dials: the coordinator calls her');
     await _tap(tester, 'contact-close');
     expect(find.byKey(const Key('call-requested')), findsNothing);

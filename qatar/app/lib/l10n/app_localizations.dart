@@ -1121,7 +1121,7 @@ abstract class AppLocalizations {
   /// No description provided for @callRequested.
   ///
   /// In ar, this message translates to:
-  /// **'وصلنا طلبك. سيتصل بك المنسق.'**
+  /// **'وصلنا طلبك. سيتم الاتصال بكِ من قبلنا.'**
   String get callRequested;
 
   /// No description provided for @backHome.
