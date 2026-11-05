@@ -52,8 +52,6 @@ class _SessionCard extends StatelessWidget {
     return TestId('session-${s.id}', child: Card(
       key: Key('session-${s.id}'),
       margin: const EdgeInsets.only(bottom: HzSpace.s3),
-      color: c.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.md), side: BorderSide(color: c.border)),
       child: InkWell(
         borderRadius: BorderRadius.circular(HzRadius.md),
         onTap: s.myBookingId != null
@@ -64,7 +62,9 @@ class _SessionCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.s4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${experienceName(t, s.experience)} · ${fmtWhen(s.startsAt, lang)}', style: Theme.of(context).textTheme.titleLarge),
+            // the experience, then the date on its own line: a "·" never dangles at the end of a wrapped line
+            Text(experienceName(t, s.experience), style: Theme.of(context).textTheme.titleLarge),
+            Text(fmtWhen(s.startsAt, lang), style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: HzSpace.s1),
             Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
             const SizedBox(height: HzSpace.s2),

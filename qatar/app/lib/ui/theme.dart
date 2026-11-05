@@ -55,6 +55,8 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.border)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.focus, width: 2)),
     ),
+    // cards as on the web (.card): a sunken fill, no border and no shadow
+    cardTheme: CardThemeData(color: c.surfaceSunken, elevation: 0, surfaceTintColor: Colors.transparent, shadowColor: Colors.transparent, shape: shape),
     appBarTheme: AppBarTheme(backgroundColor: c.bg, foregroundColor: c.text, elevation: 0, scrolledUnderElevation: 0, centerTitle: false),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: c.surface,

@@ -261,6 +261,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get welcomeHero => 'تعرّفي على ناس.. تفهمك';
 
   @override
+  String get welcomeHeroEm => 'تفهمك';
+
+  @override
   String get welcomeSub =>
       'طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.';
 

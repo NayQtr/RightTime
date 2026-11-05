@@ -560,6 +560,12 @@ abstract class AppLocalizations {
   /// **'تعرّفي على ناس.. تفهمك'**
   String get welcomeHero;
 
+  /// No description provided for @welcomeHeroEm.
+  ///
+  /// In ar, this message translates to:
+  /// **'تفهمك'**
+  String get welcomeHeroEm;
+
   /// No description provided for @welcomeSub.
   ///
   /// In ar, this message translates to:

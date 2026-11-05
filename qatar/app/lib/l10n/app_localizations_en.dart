@@ -264,6 +264,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeHero => 'Meet people who get you.';
 
   @override
+  String get welcomeHeroEm => 'get you';
+
+  @override
   String get welcomeSub =>
       'A table of 4 to 6 women, in your language and within your budget, in Doha.';
 

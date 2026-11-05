@@ -76,7 +76,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 ),
                 const SizedBox(height: HzSpace.s4),
               ],
-              Text('${experienceName(t, d.experience)} · ${fmtWhen(d.startsAt, lang)}', style: tt.headlineMedium),
+              Text(experienceName(t, d.experience), style: tt.headlineMedium),
+              Text(fmtWhen(d.startsAt, lang), style: tt.titleLarge),
               const SizedBox(height: HzSpace.s1),
               Text('${t.bookingRef} ${d.ref}', style: tt.bodySmall),
               if (d.stage != null) ...[const SizedBox(height: HzSpace.s4), _Tracker(stage: d.stage!)],
@@ -102,7 +103,6 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               if (v != null)
                 TestId('venue', child: Card(
                   key: const Key('venue'),
-                  color: c.surface,
                   child: Padding(
                     padding: const EdgeInsets.all(HzSpace.s4),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -244,7 +244,8 @@ class _Tracker extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     final steps = [t.step1, t.step2, t.step3, t.step4];
-    return Row(children: [
+    // top-aligned, so the bars stay level when one label wraps onto two lines
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       for (var i = 0; i < steps.length; i++)
         Expanded(
           child: Semantics(
@@ -252,7 +253,20 @@ class _Tracker extends StatelessWidget {
             child: Column(children: [
               Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i <= stage ? c.primary : c.border),
               const SizedBox(height: HzSpace.s1),
-              Text(steps[i], textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: i == stage ? FontWeight.w700 : FontWeight.w400, color: i <= stage ? c.text : c.textMuted)),
+              // done steps carry a tick and the current one is bold in the brand colour: not told by colour alone
+              // (an icon, not a "✓" character: the app font has no tick glyph)
+              Text.rich(
+                TextSpan(children: [
+                  if (i < stage) ...[
+                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.primary)),
+                    const TextSpan(text: ' '),
+                  ],
+                  TextSpan(text: steps[i]),
+                ]),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, fontWeight: i == stage ? FontWeight.w700 : FontWeight.w400,
+                    color: i == stage ? c.primary : i < stage ? c.text : c.textMuted),
+              ),
             ]),
           ),
         ),

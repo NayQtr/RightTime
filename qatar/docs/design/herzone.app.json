@@ -26,6 +26,6 @@
     { "id": 5, "status": "fixed", "problem": "desktop welcome is a phone layout in a wide window" },
     { "id": 6, "status": "fixed", "problem": "review rows wrap awkwardly; hold timer floats" },
     { "id": 7, "status": "fixed", "problem": "booking progress steps told by colour alone" },
-    { "id": 8, "status": "next", "problem": "Flutter app not audited in this pass" }
+    { "id": 8, "status": "fixed", "problem": "Flutter app: welcome without the table drawing or accent; heavy card outline; dangling separator in date titles; steps by colour alone" }
   ]
 }
