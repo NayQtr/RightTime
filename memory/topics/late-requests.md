@@ -35,6 +35,9 @@ Claude's open questions (waiting for the owner's answer):
 13c. (done 5 Nov) Design proposals for the website and the app were approved and applied; see qatar/docs/design/herzone.app.md.
 
 Still open in the plan:
-14. Production code still on the old release (promotion needs the owner's approval).
+14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
+14a. Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
+14b. At launch: move the herzone.app domain to herzone-production (production WEB_BASE_URL already says https://herzone.app; until then links in production messages open the staging site). Owner's decision.
+14c. Production venue page needs an email provider (no on-screen code in production).
 15. Maestro full-journey run needs the branch merged (NMX-56).
 16. Blockers NMX-22/23/24/26/28; the real payment gateway must send the cardholder name.
