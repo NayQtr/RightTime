@@ -1,6 +1,7 @@
-# الطلبات المتأخرة (late requests)
+# الطلبات المتأخرة / المؤجلة (late / deferred requests)
 
-When the owner says «الطلبات المتأخرة» (or «الطلبات المتأخره»), list these items, with what is done and what is still open.
+When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
+Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
 ## The list [2026-11-05]
 
@@ -27,8 +28,10 @@ From the launch checklist (5 Nov):
 12b. Gemini spend limit: when billing is enabled, set a budget alert and a daily request quota in Google Cloud.
 12c. Real payment gateway: test cards / test mode only until launch.
 
-Offered by Claude, waiting for a yes:
-13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code).
+Claude's open questions (waiting for the owner's answer):
+13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code)? Yes/no.
+13a. Backups: Supabase Pro or a daily encrypted dump by GitHub Actions? (see 12a)
+13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
 
 Still open in the plan:
 14. Production code still on the old release (promotion needs the owner's approval).
