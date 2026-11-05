@@ -923,9 +923,25 @@ async function loadContact() {
 }
 function contactButtons(c) {
   if (!c) return "";
-  return `<div class="row contact-actions"><a class="btn btn-secondary" id="call-coord" href="${esc(c.tel_url)}">${icon("phone")}<span>${esc(T("callCoordinator"))}</span><bdi dir="ltr" class="num">${esc(c.phone_display)}</bdi></a>
-    ${c.whatsapp_url ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(c.whatsapp_url)}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}${esc(T("whatsappCoordinator"))}</a>` : ""}</div>`;
+  return `<button type="button" class="btn btn-secondary btn-block" id="contact-open" data-contact-open data-tel="${esc(c.tel_url)}" data-phone="${esc(c.phone_display)}" data-wa="${esc(c.whatsapp_url || "")}">${icon("message-circle")}<span>${esc(T("contactRequest"))}</span></button>`;
 }
+// "Request contact": the page blurs and two options stand one above the other (call, WhatsApp). A native modal <dialog>
+// gives the focus trap, Escape, and the inert page behind it; focus returns to the button when it closes.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-contact-open]");
+  if (!b) return;
+  const dlg = document.createElement("dialog");
+  dlg.className = "contact-sheet";
+  dlg.setAttribute("aria-labelledby", "cs-title");
+  dlg.innerHTML = `<h2 id="cs-title" class="sr-only">${esc(T("contactRequest"))}</h2>
+    <a class="btn btn-primary" id="call-coord" href="${esc(b.dataset.tel)}">${icon("phone")}<span>${esc(T("requestCall"))}</span><bdi dir="ltr" class="num">${esc(b.dataset.phone)}</bdi></a>
+    ${b.dataset.wa ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(b.dataset.wa)}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}<span>${esc(T("contactViaWhatsapp"))}</span></a>` : ""}
+    <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`;
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.addEventListener("click", (ev) => { if (ev.target === dlg || ev.target.closest("[data-close], a")) dlg.close(); });
+  document.body.appendChild(dlg);
+  dlg.showModal();
+});
 
 // Cancellation terms before paying (audit F1): never promise a refund deadline that has already passed.
 function policyHtml(c, fee) {

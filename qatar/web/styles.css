@@ -321,9 +321,17 @@ body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: ca
 /* app busy between screens (audit F7): the previous view is inert until the next one renders */
 main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.15s ease-in; }
 @media (prefers-reduced-motion: reduce) { main[aria-busy="true"] { transition: none; } }
-.contact-actions { display: grid; gap: var(--s-2); }
-.contact-actions .btn { width: 100%; justify-content: flex-start; flex-wrap: wrap; row-gap: 0; padding: var(--s-2) var(--s-4); font-size: calc(var(--u) * 0.9375); text-align: start; }
-.contact-actions .btn bdi { margin-inline-start: auto; color: var(--c-textMuted); font-family: var(--font-body); font-weight: 600; }
+/* "Request contact": the page behind blurs; two options stand one above the other */
+.contact-sheet { border: 0; padding: var(--s-5); background: transparent; color: var(--c-text); width: min(360px, calc(100% - 2 * var(--s-5))); overflow: visible; }
+.contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 45%, transparent); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); }
+.contact-sheet[open] { display: grid; gap: var(--s-3); animation: sheet-in 220ms var(--m-ease); }
+.contact-sheet .btn { width: 100%; flex-wrap: wrap; row-gap: 2px; padding-block: var(--s-3); }
+.contact-sheet .btn bdi { flex: 1 1 100%; text-align: center; font-family: var(--font-body); font-weight: 500; font-size: var(--t-caption-size); opacity: 0.92; }
+.contact-sheet .btn-secondary { background: var(--c-surface); }
+.contact-sheet .btn-ghost { background: var(--c-surface); color: var(--c-text); }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) { .contact-sheet[open] { animation: none; } }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 94%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 
 /* ---------- table motif */
 .table .top { fill: var(--c-surfaceSunken); stroke: var(--c-border); stroke-width: 1.5; }

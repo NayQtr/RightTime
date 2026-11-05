@@ -151,8 +151,9 @@
   "emTitle": "Call emergency services on 999 now",
   "emCall": "Call 999",
   "emBody": "Your safety comes first. Call emergency services and ask the venue staff for help. Our coordinator on duty has been alerted.",
-  "callCoordinator": "Call the coordinator",
-  "whatsappCoordinator": "WhatsApp the coordinator",
+  "contactRequest": "Request contact",
+  "requestCall": "Request Call",
+  "contactViaWhatsapp": "Contact via WhatsApp",
   "backHome": "Back to home",
   "@refundFull": {
     "placeholders": {

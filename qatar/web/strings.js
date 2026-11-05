@@ -38,7 +38,7 @@ export const STRINGS = {
     paidTitle: "تم الدفع. نجمع طاولتك الآن.", bookingRef: "رقم الحجز", goDashboard: "الذهاب إلى لوحتي",
     // SCR-06
     nextEvent: "لقاؤك القادم", 
-    bookAnother: "احجزي موعدًا آخر", otherBookings: "حجوزاتك الأخرى", viewDetails: "عرض التفاصيل", help: "تحتاجين مساعدة؟ تواصلي مع المنسق المناوب", callCoordinator: "اتصلي بالمنسق", whatsappCoordinator: "واتساب المنسق", conduct: "قواعد السلوك",
+    bookAnother: "احجزي موعدًا آخر", otherBookings: "حجوزاتك الأخرى", viewDetails: "عرض التفاصيل", help: "تحتاجين مساعدة؟ تواصلي مع المنسق المناوب", contactRequest: "طلب تواصل", requestCall: "طلب اتصال", contactViaWhatsapp: "التواصل عبر الواتساب", conduct: "قواعد السلوك",
     stPending: "بانتظار الدفع", stForming: "نجمع طاولتك الآن. نؤكد لك قبل {lock_at}.", stLocked: "طاولتك مكتملة ({n} سيدات). نكشف المكان في {reveal_at}.",
     stRevealed: "المكان: {venue} · {district}", stDayOf: "هل وصلتِ؟", stCompleted: "كيف كانت التجربة؟", stCancelled: "أُلغي الحجز",
     stOrganizer: "ألغينا هذه الطاولة. اختاري: استرداد أو موعد آخر.", chooseNow: "اختاري الآن", rateIt: "قيّمي اللقاء", directions: "الاتجاهات", imHere: "أنا هنا",
@@ -172,7 +172,7 @@ export const STRINGS = {
     slowConfirm: "This is taking longer than usual. We'll notify you when it's confirmed. You won't be charged twice.", backHome: "Back to home",
     paidTitle: "Payment confirmed. We're forming your table now.", bookingRef: "Booking ref", goDashboard: "Go to my dashboard",
     nextEvent: "Your next event", 
-    bookAnother: "Book another session", otherBookings: "Your other bookings", viewDetails: "View details", help: "Need help? Contact the coordinator on duty", callCoordinator: "Call the coordinator", whatsappCoordinator: "WhatsApp the coordinator", conduct: "Code of conduct",
+    bookAnother: "Book another session", otherBookings: "Your other bookings", viewDetails: "View details", help: "Need help? Contact the coordinator on duty", contactRequest: "Request contact", requestCall: "Request Call", contactViaWhatsapp: "Contact via WhatsApp", conduct: "Code of conduct",
     stPending: "Awaiting payment", stForming: "We're forming your table. We'll confirm by {lock_at}.", stLocked: "Your table is complete ({n} women). We'll reveal the venue at {reveal_at}.",
     stRevealed: "Venue: {venue} · {district}", stDayOf: "Have you arrived?", stCompleted: "How was it?", stCancelled: "Booking cancelled",
     stOrganizer: "We cancelled this table. Choose: refund or another session.", chooseNow: "Choose now", rateIt: "Rate the event", directions: "Directions", imHere: "I'm here",

@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_error.dart';
 import '../../core/link_opener.dart';
 import '../../data/meetups_repository.dart';
+import '../../data/models.dart' show Coordinator;
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
@@ -198,22 +201,12 @@ class _CoordinatorButtons extends StatelessWidget {
         if (c == null) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(bottom: HzSpace.s3),
-          child: Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(key: const Key('call-coord'), icon: const Icon(Icons.call), label: Text(t.callCoordinator), onPressed: () => context.read<LinkOpener>().open(Uri.parse(c.telUrl))),
-            ),
-            if (c.whatsappUrl != null) ...[
-              const SizedBox(width: HzSpace.s2),
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('wa-coord'),
-                  icon: const Icon(Icons.chat),
-                  label: Text(t.whatsappCoordinator),
-                  onPressed: () => context.read<LinkOpener>().open(Uri.parse(c.whatsappUrl!)),
-                ),
-              ),
-            ],
-          ]),
+          child: OutlinedButton.icon(
+            key: const Key('contact-coord'),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: Text(t.contactRequest),
+            onPressed: () => showContactSheet(context, c),
+          ),
         );
       },
     );
@@ -272,4 +265,78 @@ class _Tracker extends StatelessWidget {
         ),
     ]);
   }
+}
+
+/// "Request contact": the screen behind blurs and two options stand one above the other (call, WhatsApp). Tap outside, the
+/// close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
+Future<void> showContactSheet(BuildContext context, Coordinator c) {
+  final t = AppLocalizations.of(context);
+  final links = context.read<LinkOpener>();
+  final mq = MediaQuery.of(context);
+  final solid = mq.highContrast;
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: t.close,
+    barrierColor: Colors.transparent,
+    transitionDuration: mq.disableAnimations ? Duration.zero : const Duration(milliseconds: 220),
+    transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+      child: ScaleTransition(scale: Tween<double>(begin: 0.97, end: 1).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)), child: child),
+    ),
+    pageBuilder: (ctx, _, _) {
+      final hz = hzColors(ctx);
+      void go(Uri u) {
+        Navigator.of(ctx).pop();
+        links.open(u);
+      }
+
+      final scrim = ColoredBox(color: hz.bg.withValues(alpha: solid ? 0.94 : 0.45), child: const SizedBox.expand());
+      return Material(
+        type: MaterialType.transparency,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(ctx).pop(),
+          child: Stack(fit: StackFit.expand, children: [
+            solid ? scrim : BackdropFilter(filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: scrim),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: Padding(
+                  padding: const EdgeInsets.all(HzSpace.s5),
+                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    FilledButton(
+                      key: const Key('call-coord'),
+                      onPressed: () => go(Uri.parse(c.telUrl)),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.call, size: 20), const SizedBox(width: HzSpace.s2), Text(t.requestCall)]),
+                        Text(c.phoneDisplay, textDirection: TextDirection.ltr, style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: hz.onPrimary.withValues(alpha: 0.92))),
+                      ]),
+                    ),
+                    if (c.whatsappUrl != null) ...[
+                      const SizedBox(height: HzSpace.s3),
+                      OutlinedButton.icon(
+                        key: const Key('wa-coord'),
+                        style: OutlinedButton.styleFrom(backgroundColor: hz.surface),
+                        icon: const Icon(Icons.chat, size: 20),
+                        label: Text(t.contactViaWhatsapp),
+                        onPressed: () => go(Uri.parse(c.whatsappUrl!)),
+                      ),
+                    ],
+                    const SizedBox(height: HzSpace.s3),
+                    OutlinedButton(
+                      key: const Key('contact-close'),
+                      style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(t.close),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      );
+    },
+  );
 }

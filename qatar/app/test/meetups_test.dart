@@ -92,6 +92,8 @@ void main() {
     // let the API client's one automatic retry (1.2 s) for the coordinator's number finish
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('contact-coord')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('call-coord')), findsOneWidget, reason: 'the coordinator can be called with no data');
   });
 

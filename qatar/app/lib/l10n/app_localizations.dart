@@ -1004,17 +1004,23 @@ abstract class AppLocalizations {
   /// **'سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.'**
   String get emBody;
 
-  /// No description provided for @callCoordinator.
+  /// No description provided for @contactRequest.
   ///
   /// In ar, this message translates to:
-  /// **'اتصلي بالمنسق'**
-  String get callCoordinator;
+  /// **'طلب تواصل'**
+  String get contactRequest;
 
-  /// No description provided for @whatsappCoordinator.
+  /// No description provided for @requestCall.
   ///
   /// In ar, this message translates to:
-  /// **'واتساب المنسق'**
-  String get whatsappCoordinator;
+  /// **'طلب اتصال'**
+  String get requestCall;
+
+  /// No description provided for @contactViaWhatsapp.
+  ///
+  /// In ar, this message translates to:
+  /// **'التواصل عبر الواتساب'**
+  String get contactViaWhatsapp;
 
   /// No description provided for @backHome.
   ///

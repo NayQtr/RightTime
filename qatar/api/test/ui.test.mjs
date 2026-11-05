@@ -194,9 +194,20 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal((await page.locator("main h1").innerText()).trim().startsWith("الدوحة"), true);
   assert.equal(await page.locator("#tabbar a").count(), 4);
   assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/home");
+  await noHorizontalScroll(page);
+  // the coordinator: one "request contact" button; pressing it blurs the page and shows the two options one above the other
+  await page.click("#contact-open");
+  await page.waitForSelector("dialog.contact-sheet[open]");
   assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006");
   assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
-  await noHorizontalScroll(page);
+  assert.equal((await page.locator("#call-coord span").innerText()).trim(), "طلب اتصال");
+  assert.equal((await page.locator("#wa-coord span").innerText()).trim(), "التواصل عبر الواتساب");
+  const [callBox, waBox] = await Promise.all([page.locator("#call-coord").boundingBox(), page.locator("#wa-coord").boundingBox()]);
+  assert.ok(callBox.y + callBox.height <= waBox.y, "the two options stand one above the other");
+  await page.screenshot({ path: `${SHOTS}/06b-contact-sheet-ar.png` });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("dialog.contact-sheet", { state: "detached" });
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "contact-open", "focus returns to the button");
   // design audit (5 Nov): the week ribbon's days are 44 px targets and no label in the shell is under 12 px
   const small = await page.evaluate(() => ({
     days: [...document.querySelectorAll(".week button")].filter((e) => e.getBoundingClientRect().width < 43.5).length,
@@ -275,7 +286,9 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   const offlineText = await page.locator("main").innerText();
   assert.ok(offlineText.includes("نكشف اسم المكان") && offlineText.includes("أنتِ غير متصلة"), offlineText.slice(0, 300));
   assert.equal(await page.locator("a[href$='/cancel']").count(), 0, "no cancel while offline");
+  await page.click("#contact-open");
   assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "the coordinator can still be called");
+  await page.keyboard.press("Escape");
   await page.screenshot({ path: `${SHOTS}/11b-event-offline-ar.png`, fullPage: true });
   await page.unroute(/\/api\/v1\//);
   await page.goto(detailsUrl);

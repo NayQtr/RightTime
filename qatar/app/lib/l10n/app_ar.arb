@@ -204,8 +204,9 @@
   "emTitle": "اتصلي بالطوارئ 999 فورًا",
   "emCall": "اتصال 999",
   "emBody": "سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.",
-  "callCoordinator": "اتصلي بالمنسق",
-  "whatsappCoordinator": "واتساب المنسق",
+  "contactRequest": "طلب تواصل",
+  "requestCall": "طلب اتصال",
+  "contactViaWhatsapp": "التواصل عبر الواتساب",
   "backHome": "العودة إلى الرئيسية",
   "@refundFull": {
     "placeholders": {

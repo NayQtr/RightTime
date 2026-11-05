@@ -506,10 +506,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your safety comes first. Call emergency services and ask the venue staff for help. Our coordinator on duty has been alerted.';
 
   @override
-  String get callCoordinator => 'Call the coordinator';
+  String get contactRequest => 'Request contact';
 
   @override
-  String get whatsappCoordinator => 'WhatsApp the coordinator';
+  String get requestCall => 'Request Call';
+
+  @override
+  String get contactViaWhatsapp => 'Contact via WhatsApp';
 
   @override
   String get backHome => 'Back to home';

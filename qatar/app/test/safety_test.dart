@@ -98,7 +98,7 @@ void main() {
   testWidgets('cancel: the refund outcome is stated first, then the cancellation is sent with the reason', (tester) async {
     final f = Fake('forming');
     await openDetails(tester, f);
-    expect(find.byKey(const Key('call-coord')), findsOneWidget);
+    expect(find.byKey(const Key('contact-coord')), findsOneWidget);
     await tester.tap(find.byKey(const Key('cancel')));
     await tester.pumpAndSettle();
     expect(find.text('ستستردين 59 ر.ق كاملة إلى بطاقتك خلال 10 أيام عمل.'), findsOneWidget);

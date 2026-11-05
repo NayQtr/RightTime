@@ -500,10 +500,13 @@ class AppLocalizationsAr extends AppLocalizations {
       'سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.';
 
   @override
-  String get callCoordinator => 'اتصلي بالمنسق';
+  String get contactRequest => 'طلب تواصل';
 
   @override
-  String get whatsappCoordinator => 'واتساب المنسق';
+  String get requestCall => 'طلب اتصال';
+
+  @override
+  String get contactViaWhatsapp => 'التواصل عبر الواتساب';
 
   @override
   String get backHome => 'العودة إلى الرئيسية';
