@@ -11,22 +11,22 @@
 -- Re-running this file is safe.
 SET search_path = app, pg_temp;
 
-CREATE TABLE IF NOT EXISTS venue_users (
+CREATE TABLE IF NOT EXISTS app.venue_users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  venue_id      uuid NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+  venue_id      uuid NOT NULL REFERENCES app.venues(id) ON DELETE CASCADE,
   email         varchar(254) NOT NULL UNIQUE CHECK (email = lower(email) AND email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
   status        varchar(10) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  created_by    uuid REFERENCES admin_users(id),
+  created_by    uuid REFERENCES app.admin_users(id),
   last_login_at timestamptz,
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS venue_users_venue_id_fk_idx ON venue_users (venue_id);
-CREATE INDEX IF NOT EXISTS venue_users_created_by_fk_idx ON venue_users (created_by);
+CREATE INDEX IF NOT EXISTS venue_users_venue_id_fk_idx ON app.venue_users (venue_id);
+CREATE INDEX IF NOT EXISTS venue_users_created_by_fk_idx ON app.venue_users (created_by);
 
-CREATE TABLE IF NOT EXISTS venue_login_codes (
+CREATE TABLE IF NOT EXISTS app.venue_login_codes (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  venue_user_id uuid REFERENCES venue_users(id) ON DELETE CASCADE,   -- NULL: an unknown email (same answer, nothing sent)
+  venue_user_id uuid REFERENCES app.venue_users(id) ON DELETE CASCADE,   -- NULL: an unknown email (same answer, nothing sent)
   email_hash    char(64) NOT NULL,
   code_hash     varchar(64),
   expires_at    timestamptz NOT NULL,
@@ -35,58 +35,58 @@ CREATE TABLE IF NOT EXISTS venue_login_codes (
   ip_trunc      inet,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS venue_login_codes_email ON venue_login_codes (email_hash, created_at DESC);
-CREATE INDEX IF NOT EXISTS venue_login_codes_ip ON venue_login_codes (ip_trunc, created_at DESC);
-CREATE INDEX IF NOT EXISTS venue_login_codes_user_fk_idx ON venue_login_codes (venue_user_id);
+CREATE INDEX IF NOT EXISTS venue_login_codes_email ON app.venue_login_codes (email_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS venue_login_codes_ip ON app.venue_login_codes (ip_trunc, created_at DESC);
+CREATE INDEX IF NOT EXISTS venue_login_codes_user_fk_idx ON app.venue_login_codes (venue_user_id);
 
-CREATE TABLE IF NOT EXISTS venue_portal_sessions (
+CREATE TABLE IF NOT EXISTS app.venue_portal_sessions (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  venue_user_id uuid NOT NULL REFERENCES venue_users(id) ON DELETE CASCADE,
+  venue_user_id uuid NOT NULL REFERENCES app.venue_users(id) ON DELETE CASCADE,
   expires_at    timestamptz NOT NULL,
   revoked_at    timestamptz,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS venue_portal_sessions_user_fk_idx ON venue_portal_sessions (venue_user_id);
+CREATE INDEX IF NOT EXISTS venue_portal_sessions_user_fk_idx ON app.venue_portal_sessions (venue_user_id);
 
-CREATE TABLE IF NOT EXISTS session_venues (
-  session_id     uuid NOT NULL REFERENCES event_sessions(id) ON DELETE CASCADE,
-  venue_id       uuid NOT NULL REFERENCES venues(id),
+CREATE TABLE IF NOT EXISTS app.session_venues (
+  session_id     uuid NOT NULL REFERENCES app.event_sessions(id) ON DELETE CASCADE,
+  venue_id       uuid NOT NULL REFERENCES app.venues(id),
   planned_guests smallint NOT NULL CHECK (planned_guests BETWEEN 4 AND 120),
   status         varchar(10) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','declined','withdrawn')),
   notified_at    timestamptz,     -- the request went out (3 days before the session)
   reminded_at    timestamptz,     -- no answer after 2 hours: reminder
   escalated_at   timestamptz,     -- still no answer 2 hours later: coordinator alerted
   decided_at     timestamptz,
-  decided_by     uuid REFERENCES venue_users(id),
+  decided_by     uuid REFERENCES app.venue_users(id),
   decline_reason varchar(300),
-  created_by     uuid REFERENCES admin_users(id),
+  created_by     uuid REFERENCES app.admin_users(id),
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (session_id, venue_id)
 );
-CREATE INDEX IF NOT EXISTS session_venues_venue ON session_venues (venue_id, status);
-CREATE INDEX IF NOT EXISTS session_venues_decided_by_fk_idx ON session_venues (decided_by);
-CREATE INDEX IF NOT EXISTS session_venues_created_by_fk_idx ON session_venues (created_by);
+CREATE INDEX IF NOT EXISTS session_venues_venue ON app.session_venues (venue_id, status);
+CREATE INDEX IF NOT EXISTS session_venues_decided_by_fk_idx ON app.session_venues (decided_by);
+CREATE INDEX IF NOT EXISTS session_venues_created_by_fk_idx ON app.session_venues (created_by);
 
 -- Messages for venues and the coordinator. The API turns kind + the session into the text; a WhatsApp sender (later)
 -- sends 'queued' rows; until then the coordinator copies them from the admin console and marks them sent.
-CREATE TABLE IF NOT EXISTS venue_outbox (
+CREATE TABLE IF NOT EXISTS app.venue_outbox (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id  uuid NOT NULL REFERENCES event_sessions(id) ON DELETE CASCADE,
-  venue_id    uuid NOT NULL REFERENCES venues(id),
+  session_id  uuid NOT NULL REFERENCES app.event_sessions(id) ON DELETE CASCADE,
+  venue_id    uuid NOT NULL REFERENCES app.venues(id),
   kind        varchar(20) NOT NULL CHECK (kind IN ('request','reminder','coordinator_overdue','coordinator_declined')),
   status      varchar(10) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sent','cancelled')),
   sent_at     timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS venue_outbox_queued ON venue_outbox (created_at) WHERE status = 'queued';
-CREATE INDEX IF NOT EXISTS venue_outbox_session_fk_idx ON venue_outbox (session_id);
-CREATE INDEX IF NOT EXISTS venue_outbox_venue_fk_idx ON venue_outbox (venue_id);
+CREATE INDEX IF NOT EXISTS venue_outbox_queued ON app.venue_outbox (created_at) WHERE status = 'queued';
+CREATE INDEX IF NOT EXISTS venue_outbox_session_fk_idx ON app.venue_outbox (session_id);
+CREATE INDEX IF NOT EXISTS venue_outbox_venue_fk_idx ON app.venue_outbox (venue_id);
 
 -- arrivals marked by the venue (the member's own "I'm here" leaves it NULL)
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checked_in_by_venue_user uuid REFERENCES venue_users(id);
-CREATE INDEX IF NOT EXISTS bookings_checked_in_by_venue_user_fk_idx ON bookings (checked_in_by_venue_user);
+ALTER TABLE app.bookings ADD COLUMN IF NOT EXISTS checked_in_by_venue_user uuid REFERENCES app.venue_users(id);
+CREATE INDEX IF NOT EXISTS bookings_checked_in_by_venue_user_fk_idx ON app.bookings (checked_in_by_venue_user);
 
 -- same protection as every app table (002, 007): RLS with an explicit deny-all policy, no client-role privileges
 DO $$
@@ -145,7 +145,8 @@ END $$;
 
 -- Matching: a session with planned venues uses only those that confirmed, up to the tables their guest count needs
 -- (tables seat 4 to 6, so at most planned_guests / 4). A session without planned venues keeps every active venue.
-CREATE OR REPLACE FUNCTION matching_input(p_session uuid) RETURNS json LANGUAGE sql STABLE AS $$
+CREATE OR REPLACE FUNCTION app.matching_input(p_session uuid) RETURNS json LANGUAGE sql STABLE
+SET search_path = app, pg_temp AS $$
   SELECT json_build_object(
     'session_id', s.id,
     'questionnaire_version_id', (SELECT id FROM questionnaire_versions WHERE status = 'published'),
@@ -191,4 +192,4 @@ CREATE OR REPLACE FUNCTION matching_input(p_session uuid) RETURNS json LANGUAGE 
                        '[]'::json))
   FROM event_sessions s WHERE s.id = p_session;
 $$;
-ALTER FUNCTION matching_input(uuid) SET search_path = app, pg_temp;
+ALTER FUNCTION app.matching_input(uuid) SET search_path = app, pg_temp;
