@@ -715,3 +715,99 @@ test("card name: rejection cancels without a refund and suspends, as an appealab
   assert.equal((await sql`SELECT status FROM app.users WHERE id = ${M.userId}`)[0].status, "active");
   assert.equal((await sql`SELECT count(*)::int AS n FROM app.refunds WHERE booking_id = ${id}`)[0].n, 1, "upheld appeal: the fee is refunded");
 });
+
+// ===================================================================== venue portal (016)
+test("venue portal: email code sign-in, request 3 days before, reminder, coordinator alert, accept/decline, matching, names and arrivals", async () => {
+  const [A, B] = await sql`SELECT v.id, v.name FROM app.venues v JOIN app.budget_tiers bt ON bt.id = v.budget_tier_id
+                            WHERE v.is_active AND 'dinner' = ANY (v.supported_experiences) ORDER BY bt.rank, v.name LIMIT 2`;
+  assert.ok(A && B, "two active dinner venues in the seed");
+  const s = await newSession({ admin: S.ops.token, startsInDays: 6 });
+  const plan = (venue, guests) => call("POST", `/api/admin/v1/sessions/${s}/venues`, { token: S.ops.token, body: { venue_id: venue.id, planned_guests: guests } });
+  assert.equal((await plan(A, 6)).status, 200);
+  assert.equal((await plan(B, 6)).status, 200);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.session_venues WHERE session_id = ${s} AND notified_at IS NOT NULL`)[0].n, 0, "6 days ahead: not yet");
+
+  // the admins register the venues' emails; only those can sign in
+  assert.equal((await call("POST", `/api/admin/v1/venues/${A.id}/portal-users`, { token: S.ops.token, body: { email: "Host@VenueA.test" } })).status, 201);
+  assert.equal((await call("POST", `/api/admin/v1/venues/${B.id}/portal-users`, { token: S.ops.token, body: { email: "host@venueb.test" } })).status, 201);
+  assert.equal((await call("POST", `/api/admin/v1/venues/${B.id}/portal-users`, { token: S.ops.token, body: { email: "host@venuea.test" } })).status, 409, "one venue per email");
+  const unknown = await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "someone@else.test" } });
+  assert.equal(unknown.status, 202);
+  assert.equal(unknown.body.dev_code, undefined, "same answer, nothing sent, for an email that is not registered");
+  const login = async (email) => {
+    const r = await call("POST", "/api/venue/v1/auth/code:request", { body: { email } });
+    assert.equal(r.status, 202);
+    assert.equal((await call("POST", "/api/venue/v1/auth/code:verify", { body: { email, code: r.body.dev_code === "000000" ? "111111" : "000000" } })).body.code, "OTP_INVALID");
+    const v = await call("POST", "/api/venue/v1/auth/code:verify", { body: { email, code: r.body.dev_code } });
+    assert.equal(v.status, 200, JSON.stringify(v.body));
+    return v.body.access_token;
+  };
+  const vA = await login("host@venuea.test");
+  const vB = await login("HOST@venueb.test");
+  assert.equal((await call("GET", "/api/venue/v1/me", { token: vA })).body.venue.name, A.name);
+  assert.equal((await call("GET", "/api/v1/users/me", { token: vA })).status, 401, "a venue token is not a member token");
+  assert.equal((await call("GET", "/api/venue/v1/requests", { token: S.first.token })).status, 401, "a member token is not a venue token");
+  assert.deepEqual((await call("GET", "/api/venue/v1/requests", { token: vA })).body.requests, [], "nothing before 3 days");
+
+  // 3 days before: the request goes out, with the owner's wording and the link
+  await moveSession(s, "starts_at", 2 * DAY);
+  const reqs = (await call("GET", "/api/venue/v1/requests", { token: vA })).body.requests;
+  assert.equal(reqs.length, 1);
+  assert.deepEqual([reqs[0].women_expected, reqs[0].status, reqs[0].can_answer], [6, "pending", true]);
+  const outbox = async () => (await call("GET", "/api/admin/v1/venue-outbox", { token: S.ops.token })).body.messages.filter((m) => m.venue === A.name || m.venue === B.name);
+  const first = (await outbox()).find((m) => m.kind === "request" && m.venue === A.name);
+  assert.match(first.text, new RegExp(`^مرحبا مطعم ${A.name}، لديكم حجز لعدد 6 أشخاص \\(سيدات\\) عبر تطبيق HerZone، الموعد هو `));
+  assert.ok(first.text.endsWith("/venue/"), "the link to their page");
+
+  // no answer for 2 hours: reminder; 2 more hours: the coordinator is alerted
+  await sql`UPDATE app.session_venues SET notified_at = now() - interval '3 hours' WHERE session_id = ${s}`;
+  assert.ok((await outbox()).some((m) => m.kind === "reminder" && m.venue === A.name));
+  await sql`UPDATE app.session_venues SET reminded_at = now() - interval '3 hours' WHERE session_id = ${s}`;
+  const alert = (await outbox()).find((m) => m.kind === "coordinator_overdue" && m.venue === A.name);
+  assert.equal(alert.to, "coordinator");
+  assert.ok((await call("GET", "/api/admin/v1/venue-requests", { token: S.ops.token })).body.requests.find((r) => r.session_id === s && r.venue === A.name).needs_attention);
+
+  // A accepts (late, still allowed); B declines with a reason, and the coordinator is told
+  assert.equal((await call("POST", `/api/venue/v1/requests/${s}:accept`, { token: vA })).body.status, "confirmed");
+  assert.equal((await call("POST", `/api/venue/v1/requests/${s}:accept`, { token: vA })).status, 409, "answered once");
+  assert.equal((await call("POST", `/api/venue/v1/requests/${s}:decline`, { token: vB, body: { reason: "مغلق للصيانة" } })).body.status, "declined");
+  const declined = (await outbox()).find((m) => m.kind === "coordinator_declined" && m.venue === B.name);
+  assert.ok(declined.text.includes("مغلق للصيانة"));
+  assert.equal((await call("POST", `/api/admin/v1/venue-outbox/${declined.id}:sent`, { token: S.ops.token })).status, 200, "copied and sent by hand");
+
+  // matching only uses the venue that confirmed
+  const [{ input }] = await sql`SELECT app.matching_input(${s}) AS input`;
+  assert.deepEqual(input.venues.map((v) => v.venue_id), [A.id]);
+
+  // the day: tables, then first names from 3 hours before, and arrivals
+  const M = await signUp(call, { name: "Hind" });
+  const mb = await bookAndPay(M.token, s);
+  for (const i of [18, 19, 20]) await sql`SELECT sim.book_and_pay(${i}, ${s})`;
+  assert.equal((await call("POST", `/api/admin/v1/sessions/${s}/matching:publish`, { token: S.ops.token, body: { seed: 3 } })).status, 201);
+  const det = (await call("GET", `/api/admin/v1/sessions/${s}`, { token: S.ops.token })).body;
+  for (const t of det.tables) assert.equal((await call("POST", `/api/admin/v1/tables/${t.id}:lock`, { token: S.ops.token })).status, 200);
+  let mine = (await call("GET", "/api/venue/v1/requests", { token: vA })).body.requests[0];
+  assert.equal(mine.tables.length, 1);
+  assert.equal(mine.tables[0].women, 4);
+  assert.equal(mine.tables[0].guests, null, "no names until 3 hours before");
+  assert.deepEqual((await call("GET", "/api/venue/v1/requests", { token: vB })).body.requests[0].tables, [], "the venue that declined sees no tables");
+  await moveSession(s, "starts_at", 2 * 3600 * 1000);
+  mine = (await call("GET", "/api/venue/v1/requests", { token: vA })).body.requests[0];
+  const hind = mine.tables[0].guests.find((g) => g.first_name === "Hind");
+  assert.ok(hind && !hind.arrived && /^s_/.test(hind.id), "first name only, with an opaque id");
+  assert.ok(!JSON.stringify(mine).includes(M.phone) && !JSON.stringify(mine).includes(mb.booking_id), "no phone number or booking id");
+  assert.equal((await call("POST", "/api/venue/v1/guests/s_notaguest:arrived", { token: vA })).status, 404);
+  assert.equal((await call("POST", `/api/venue/v1/guests/${hind.id}:arrived`, { token: vA })).status, 200);
+  const [b] = await sql`SELECT status, checked_in_by_venue_user FROM app.bookings WHERE id = ${mb.booking_id}`;
+  assert.equal(b.status, "checked_in");
+  assert.ok(b.checked_in_by_venue_user);
+  assert.equal((await call("POST", `/api/venue/v1/guests/${hind.id}:arrived`, { token: vB })).status, 404, "another venue cannot mark her");
+
+  // sign-out ends the venue session; a disabled email cannot sign in again
+  assert.equal((await call("POST", "/api/venue/v1/auth/logout", { token: vA })).status, 204);
+  assert.equal((await call("GET", "/api/venue/v1/me", { token: vA })).status, 401);
+  const [u] = await sql`SELECT id FROM app.venue_users WHERE email = 'host@venueb.test'`;
+  assert.equal((await call("POST", `/api/admin/v1/venue-portal-users/${u.id}:disable`, { token: S.ops.token })).status, 200);
+  assert.equal((await call("GET", "/api/venue/v1/me", { token: vB })).status, 401, "disabling ends its sessions");
+  assert.equal((await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "host@venueb.test" } })).body.dev_code, undefined);
+});

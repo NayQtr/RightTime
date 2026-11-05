@@ -5,6 +5,7 @@ import { runMatching, MatchingError } from "../matching/engine.js";
 import { audit, capturedPayment, currentTable, notify } from "../services/common.js";
 import { dispatchRefund } from "../services/payments.js";
 import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
+import { isForCoordinator, venueMessage } from "../services/venue_messages.js";
 import { issueTokens } from "./user.js";
 
 const OWNER = ["owner"], OPS = ["owner", "ops"], FIN = ["owner", "finance"], TS = ["trust_safety"];
@@ -789,6 +790,127 @@ async function decideIdentityReview(ctx) {
   return json(200, { id: params.id, status: body.decision === "approve" ? "approved" : "rejected" });
 }
 
+// ------------------------------------------------------------------ venue portal (016)
+// Emails that may sign in to a venue's page; the venues planned for each session; the hosting requests and the
+// messages (WhatsApp later: until then the coordinator copies them and marks them sent).
+async function listVenueUsers(ctx) {
+  requireUuid(ctx.params.id, "venue_id");
+  const rows = await ctx.sql`SELECT id, email, status, last_login_at, created_at FROM app.venue_users WHERE venue_id = ${ctx.params.id} ORDER BY email`;
+  return json(200, { users: rows.map((r) => ({ ...r, last_login_at: qa(r.last_login_at), created_at: qa(r.created_at) })) });
+}
+
+async function addVenueUser(ctx) {
+  const { sql, params, body, admin } = ctx;
+  requireUuid(params.id, "venue_id");
+  const email = String(body.email || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) fail(422, "VALIDATION_FAILED", [{ field: "email" }]);
+  const [v] = await sql`SELECT id FROM app.venues WHERE id = ${params.id}`;
+  if (!v) fail(404, "NOT_FOUND");
+  const [u] = await sql`
+    INSERT INTO app.venue_users (venue_id, email, created_by) VALUES (${params.id}, ${email}, ${admin.id})
+    ON CONFLICT (email) DO UPDATE SET status = 'active', updated_at = now() WHERE app.venue_users.venue_id = ${params.id}
+    RETURNING id, email, status`;
+  if (!u) fail(409, "CONFLICT", [{ field: "email", code: "USED_BY_ANOTHER_VENUE" }]);
+  await audit(sql, admin.id, "venue_user_add", "venue_users", u.id, null);
+  return json(201, u);
+}
+
+async function disableVenueUser(ctx) {
+  const { sql, params, admin } = ctx;
+  requireUuid(params.id, "venue_user_id");
+  const rows = await sql`UPDATE app.venue_users SET status = 'disabled', updated_at = now() WHERE id = ${params.id} RETURNING id`;
+  if (!rows.length) fail(404, "NOT_FOUND");
+  await sql`UPDATE app.venue_portal_sessions SET revoked_at = now() WHERE venue_user_id = ${params.id} AND revoked_at IS NULL`;
+  await audit(sql, admin.id, "venue_user_disable", "venue_users", params.id, null);
+  return json(200, { id: params.id, status: "disabled" });
+}
+
+async function listSessionVenues(ctx) {
+  requireUuid(ctx.params.id, "session_id");
+  await ctx.sql`SELECT app.venue_requests_tick()`;
+  const rows = await ctx.sql`
+    SELECT sv.*, v.name FROM app.session_venues sv JOIN app.venues v ON v.id = sv.venue_id WHERE sv.session_id = ${ctx.params.id} ORDER BY v.name`;
+  return json(200, { venues: rows.map(venueRequestView) });
+}
+
+async function planSessionVenue(ctx) {
+  const { sql, params, body, admin } = ctx;
+  requireUuid(params.id, "session_id");
+  requireUuid(body.venue_id, "venue_id");
+  const guests = Number(body.planned_guests);
+  if (!Number.isInteger(guests) || guests < 4 || guests > 120) fail(422, "VALIDATION_FAILED", [{ field: "planned_guests" }]);
+  const [s] = await sql`SELECT id, starts_at, status FROM app.event_sessions WHERE id = ${params.id}`;
+  if (!s) fail(404, "SESSION_NOT_FOUND");
+  if (new Date(s.starts_at) <= new Date() || ["cancelled", "completed"].includes(s.status)) fail(409, "CONFLICT");
+  const [v] = await sql`SELECT id FROM app.venues WHERE id = ${body.venue_id} AND is_active`;
+  if (!v) fail(422, "VALIDATION_FAILED", [{ field: "venue_id", code: "NOT_ACTIVE" }]);
+  // planning again after a decline or withdrawal starts a fresh request
+  await sql`
+    INSERT INTO app.session_venues (session_id, venue_id, planned_guests, created_by) VALUES (${s.id}, ${v.id}, ${guests}, ${admin.id})
+    ON CONFLICT (session_id, venue_id) DO UPDATE SET planned_guests = EXCLUDED.planned_guests, updated_at = now(),
+      status = CASE WHEN app.session_venues.status IN ('declined','withdrawn') THEN 'pending' ELSE app.session_venues.status END,
+      notified_at = CASE WHEN app.session_venues.status IN ('declined','withdrawn') THEN NULL ELSE app.session_venues.notified_at END,
+      reminded_at = CASE WHEN app.session_venues.status IN ('declined','withdrawn') THEN NULL ELSE app.session_venues.reminded_at END,
+      escalated_at = CASE WHEN app.session_venues.status IN ('declined','withdrawn') THEN NULL ELSE app.session_venues.escalated_at END,
+      decided_at = CASE WHEN app.session_venues.status IN ('declined','withdrawn') THEN NULL ELSE app.session_venues.decided_at END`;
+  await sql`SELECT app.venue_requests_tick()`; // inside 3 days: the request goes out now
+  await audit(sql, admin.id, "session_venue_plan", "event_sessions", s.id, null);
+  return listSessionVenues(ctx);
+}
+
+async function withdrawSessionVenue(ctx) {
+  const { sql, params, admin } = ctx;
+  requireUuid(params.id, "session_id");
+  requireUuid(params.venue, "venue_id");
+  const rows = await sql`UPDATE app.session_venues SET status = 'withdrawn', updated_at = now()
+                          WHERE session_id = ${params.id} AND venue_id = ${params.venue} AND status <> 'withdrawn' RETURNING venue_id`;
+  if (!rows.length) fail(404, "NOT_FOUND");
+  await sql`UPDATE app.venue_outbox SET status = 'cancelled', updated_at = now()
+             WHERE session_id = ${params.id} AND venue_id = ${params.venue} AND status = 'queued' AND kind IN ('request','reminder')`;
+  await audit(sql, admin.id, "session_venue_withdraw", "event_sessions", params.id, null);
+  return json(200, { status: "withdrawn" });
+}
+
+const venueRequestView = (r) => ({ session_id: r.session_id, venue_id: r.venue_id, venue: r.name, planned_guests: r.planned_guests,
+  status: r.status, starts_at: qa(r.starts_at), notified_at: qa(r.notified_at), reminded_at: qa(r.reminded_at), escalated_at: qa(r.escalated_at),
+  decided_at: qa(r.decided_at), decline_reason: r.decline_reason,
+  needs_attention: r.status === "declined" || (r.status === "pending" && Boolean(r.escalated_at)) });
+
+// The coordinator's view: upcoming requests, those needing attention (declined, or no answer after the reminder) first.
+async function listVenueRequests(ctx) {
+  await ctx.sql`SELECT app.venue_requests_tick()`;
+  const rows = await ctx.sql`
+    SELECT sv.*, v.name, s.starts_at FROM app.session_venues sv JOIN app.venues v ON v.id = sv.venue_id JOIN app.event_sessions s ON s.id = sv.session_id
+     WHERE s.starts_at > now() - interval '6 hours' AND sv.status <> 'withdrawn'
+     ORDER BY (sv.status = 'declined' OR (sv.status = 'pending' AND sv.escalated_at IS NOT NULL)) DESC, s.starts_at, v.name LIMIT 200`;
+  return json(200, { requests: rows.map(venueRequestView) });
+}
+
+async function listVenueOutbox(ctx) {
+  const { sql, cfg, url } = ctx;
+  await sql`SELECT app.venue_requests_tick()`;
+  const status = ["queued", "sent", "cancelled"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "queued";
+  const rows = await sql`
+    SELECT o.id, o.kind, o.status, o.created_at, o.sent_at, o.session_id, v.name AS venue, s.starts_at, sv.planned_guests, sv.decline_reason,
+           (SELECT array_agg(c.name || ' ' || c.role) FROM app.venue_contacts c WHERE c.venue_id = v.id AND c.is_day_of_contact) AS contacts
+      FROM app.venue_outbox o JOIN app.venues v ON v.id = o.venue_id JOIN app.event_sessions s ON s.id = o.session_id
+      LEFT JOIN app.session_venues sv ON sv.session_id = o.session_id AND sv.venue_id = o.venue_id
+     WHERE o.status = ${status} ORDER BY o.created_at LIMIT 200`;
+  const link = `${cfg.webBaseUrl}/venue/`;
+  return json(200, { messages: rows.map((r) => ({ id: r.id, kind: r.kind, to: isForCoordinator(r.kind) ? "coordinator" : "venue", venue: r.venue,
+    status: r.status, created_at: qa(r.created_at), sent_at: qa(r.sent_at), starts_at: qa(r.starts_at),
+    text: venueMessage(r.kind, { venue: r.venue, startsAt: r.starts_at, women: r.planned_guests, link, reason: r.decline_reason }) })) });
+}
+
+async function markVenueMessageSent(ctx) {
+  const { sql, params, admin } = ctx;
+  requireUuid(params.id, "message_id");
+  const rows = await sql`UPDATE app.venue_outbox SET status = 'sent', sent_at = now(), updated_at = now() WHERE id = ${params.id} AND status = 'queued' RETURNING id`;
+  if (!rows.length) fail(409, "CONFLICT");
+  await audit(sql, admin.id, "venue_message_sent_manually", "venue_outbox", params.id, null);
+  return json(200, { id: params.id, status: "sent" });
+}
+
 // ------------------------------------------------------------------ approvals (maker-checker)
 const APPROVER_ROLES = { table_cancel_quorum: ["owner"], booking_move: ["owner"], session_open_sale: ["owner"],
   refund_goodwill: ["owner", "finance"], case_ban: ["owner", "trust_safety"] };
@@ -946,6 +1068,15 @@ export const adminRoutes = [
   { method: "POST", path: `${A}/cases/{id}/actions`, auth: "admin", roles: TS, handler: caseAction },
   { method: "POST", path: `${A}/cases/{id}/appeal-decision`, auth: "admin", roles: [...TS, "owner"], handler: appealDecision },
   { method: "GET", path: `${A}/identity-reviews`, auth: "admin", roles: [...TS, "owner"], handler: listIdentityReviews },
+  { method: "GET", path: `${A}/venues/{id}/portal-users`, auth: "admin", roles: OPS, handler: listVenueUsers },
+  { method: "POST", path: `${A}/venues/{id}/portal-users`, auth: "admin", roles: OPS, handler: addVenueUser },
+  { method: "POST", path: `${A}/venue-portal-users/{id}:disable`, auth: "admin", roles: OPS, handler: disableVenueUser },
+  { method: "GET", path: `${A}/sessions/{id}/venues`, auth: "admin", roles: OPS, handler: listSessionVenues },
+  { method: "POST", path: `${A}/sessions/{id}/venues`, auth: "admin", roles: OPS, handler: planSessionVenue },
+  { method: "DELETE", path: `${A}/sessions/{id}/venues/{venue}`, auth: "admin", roles: OPS, handler: withdrawSessionVenue },
+  { method: "GET", path: `${A}/venue-requests`, auth: "admin", roles: OPS, handler: listVenueRequests },
+  { method: "GET", path: `${A}/venue-outbox`, auth: "admin", roles: OPS, handler: listVenueOutbox },
+  { method: "POST", path: `${A}/venue-outbox/{id}:sent`, auth: "admin", roles: OPS, handler: markVenueMessageSent },
   { method: "POST", path: `${A}/identity-reviews/{id}:decide`, auth: "admin", roles: [...TS, "owner"], handler: decideIdentityReview },
   { method: "GET", path: `${A}/approvals`, auth: "admin", roles: ANY, handler: listApprovals },
   { method: "POST", path: `${A}/approvals/{id}:approve`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, true) },

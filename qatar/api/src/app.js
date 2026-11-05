@@ -11,6 +11,7 @@ import { userRoutes } from "./routes/user.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { adminRoutes } from "./routes/admin.js";
 import { pushRoutes } from "./routes/push.js";
+import { venueRoutes } from "./routes/venue.js";
 
 // Endpoints a suspended / banned user may still call (v0.3 §3.1 ACCOUNT_SUSPENDED applies to the rest)
 const SUSPENDED_ALLOWED = new Set(["GET /api/v1/users/me", "POST /api/v1/auth/logout", "GET /api/v1/notifications",
@@ -31,7 +32,7 @@ function compile(routes) {
 }
 
 export function createApp({ sql, getEnv = () => undefined }) {
-  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes]);
+  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes, ...venueRoutes]);
   const app = { sql, getEnv, handle: null, psp: null };
 
   async function context(req) {
@@ -72,6 +73,17 @@ export function createApp({ sql, getEnv = () => undefined }) {
     if (route.auth === "none") return;
     const claims = token ? jwtVerify(ctx.keys.jwt.publicKey, token) : null;
     ctx.claims = claims;
+    // Venue portal (016): its own token type, accepted only on venue routes, and only while its portal session lives.
+    if (route.auth === "venue" || (claims && claims.typ === "venue")) {
+      if (route.auth !== "venue" || !claims || claims.typ !== "venue" || !claims.sid) fail(401, "UNAUTHENTICATED");
+      const [vu] = await sql`SELECT u.id, u.venue_id, u.email, v.name AS venue_name FROM app.venue_portal_sessions ps
+                               JOIN app.venue_users u ON u.id = ps.venue_user_id JOIN app.venues v ON v.id = u.venue_id
+                              WHERE ps.id = ${claims.sid} AND u.id = ${claims.sub} AND ps.revoked_at IS NULL AND ps.expires_at > now()
+                                AND u.status = 'active'`;
+      if (!vu) fail(401, "UNAUTHENTICATED");
+      ctx.venueUser = vu;
+      return;
+    }
     // A session ends at once (NMX-17): sign-out, refresh-token reuse and account deletion revoke the session's refresh
     // tokens, and its access tokens are refused from then on. Tokens issued before sessions were tracked carry no sid
     // and expire on their own within the access TTL.

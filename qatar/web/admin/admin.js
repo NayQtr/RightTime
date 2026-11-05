@@ -47,6 +47,7 @@ const NAV = [
   ["#/sessions", "Sessions & Matching", ["owner", "ops", "analyst", "finance"]],
   ["#/live", "Tonight", ["owner", "ops"]],
   ["#/venues", "Venues", ["owner", "ops"]],
+  ["#/venue-requests", "Venue requests", ["owner", "ops"]],
   ["#/refunds", "Refunds & Payments", ["owner", "finance"]],
   ["#/cases", "Trust & Safety", ["trust_safety"]],
   ["#/identity", "Identity checks", ["owner", "trust_safety"]],
@@ -165,6 +166,7 @@ async function scrSession(id) {
       ${ops ? `<div class="row">${t.status === "forming" ? `<button class="btn btn-primary" data-lock="${t.id}">Lock</button><button class="btn btn-danger" data-cq="${t.id}">Cancel (quorum)</button>` : ""}
         <button class="btn btn-ghost" data-vc="${t.id}">Venue confirmed (T-3h)</button></div>` : ""}</section>`).join("") || "<p class='muted'>No tables yet — run matching.</p>"}</div>
     ${d.unassigned.length ? `<section class="card"><h2>${d.tables.length ? "Paid but not seated (leftovers)" : "Paid, waiting for matching"}</h2><p>${d.unassigned.map((u) => `<span class="num">${esc(u.ref)}</span> ${esc(u.display_name || "")}`).join(" · ")}</p></section>` : ""}
+    ${ops ? `<h2>Venues for this session</h2><section class="card stack" id="sv"><p class="caption">Loading…</p></section>` : ""}
     <h2>Matching runs</h2><table><thead><tr><th>When</th><th>Mode</th><th>Rule</th><th>Seed</th><th>Summary</th></tr></thead><tbody>
     ${d.runs.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.mode)}</td><td>${esc(x.rule_version)}</td><td class="num">${esc(x.seed)}</td><td><code>${esc(JSON.stringify(x.result_summary))}</code></td></tr>`).join("")}</tbody></table>`);
   const body = () => { const fd = Object.fromEntries(new FormData($("#mf"))); return { rule_version: fd.rule_version, seed: Number(fd.seed), packing_mode: fd.packing_mode, ...(fd.max_tables !== "" ? { max_tables: Number(fd.max_tables) } : {}) }; };
@@ -204,6 +206,7 @@ async function scrSession(id) {
     const res = await api("POST", `${A}/bookings/${sel.dataset.move}:move`, { to_table_id: sel.value, reason });
     flash(msg(res, "Member moved; MOVED_TABLE sent")); if (res.ok) setTimeout(() => scrSession(id), 900);
   }));
+  if (ops) await sessionVenues(id);
   const rev = $("#rev"); if (rev) rev.onclick = () => act(`${A}/sessions/${id}:reveal`, "Venue revealed to locked tables");
   const cmp = $("#cmp"); if (cmp) cmp.onclick = () => act(`${A}/sessions/${id}:complete`, "Session completed (no-shows marked)");
 }
@@ -224,6 +227,70 @@ async function scrLive() {
   timers.push(setInterval(draw, 30000));
 }
 
+// ------------------------------------------------------------------ venue portal (016): hosting requests per session
+const SV_BADGE = { pending: "warning", confirmed: "success", declined: "danger", withdrawn: "muted" };
+const svState = (x) => `<span class="badge badge-${SV_BADGE[x.status] || "muted"}">${esc(x.status)}</span>${x.needs_attention ? ` <span class="badge badge-danger">needs attention</span>` : ""}`;
+const svSent = (x) => (x.notified_at ? `${dt(x.notified_at)}${x.reminded_at ? ` · reminder ${dt(x.reminded_at)}` : ""}${x.escalated_at ? ` · coordinator alerted ${dt(x.escalated_at)}` : ""}` : "Goes out 3 days before");
+
+async function sessionVenues(id) {
+  const box = $("#sv");
+  if (!box) return;
+  const [r, vs] = await Promise.all([api("GET", `${A}/sessions/${id}/venues`), api("GET", `${A}/venues`)]);
+  if (!r.ok) { box.innerHTML = msg(r); return; }
+  const rows = r.data.venues || [];
+  const active = ((vs.data && vs.data.venues) || []).filter((v) => v.is_active);
+  box.innerHTML = `<p class="caption">The venue is asked 3 days before the meetup, on its own page (email + code). No answer in 2 hours: a reminder; still none 2 hours later: you are alerted.
+    Once a venue is planned, matching uses only the venues that accepted. If one declines, plan another contracted venue.</p>
+    <table><thead><tr><th>Venue</th><th>Women expected</th><th>Status</th><th>Request</th><th>Answer</th><th></th></tr></thead><tbody>
+    ${rows.map((x) => `<tr class="${x.needs_attention ? "row-red" : ""}"><td>${esc(x.venue)}</td><td>${x.planned_guests}</td><td>${svState(x)}</td><td>${svSent(x)}</td>
+      <td>${x.decided_at ? dt(x.decided_at) : "—"}${x.decline_reason ? ` · ${esc(x.decline_reason)}` : ""}</td>
+      <td>${x.status === "withdrawn" ? "" : `<button class="btn btn-ghost" data-svw="${x.venue_id}">Withdraw</button>`}</td></tr>`).join("") || `<tr><td colspan="6" class="caption">No venue planned: matching uses every active venue, as before.</td></tr>`}
+    </tbody></table>
+    <form id="svf" class="grid-form"><label>Venue<select class="input" name="venue_id" required>${active.map((v) => `<option value="${v.id}">${esc(v.name)} · ${esc(v.district_en)}</option>`).join("")}</select></label>
+      <label>Women expected<input class="input" name="planned_guests" type="number" min="4" max="120" value="6" required></label>
+      <button class="btn btn-primary" type="submit">Plan this venue</button></form>`;
+  $("#svf").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData($("#svf")));
+    const res = await api("POST", `${A}/sessions/${id}/venues`, { venue_id: fd.venue_id, planned_guests: Number(fd.planned_guests) });
+    flash(msg(res, "Venue planned")); if (res.ok) await sessionVenues(id);
+  };
+  $$("[data-svw]", box).forEach((b) => (b.onclick = async () => {
+    if (!confirm("Withdraw this venue from the session? Its request is cancelled.")) return;
+    const res = await api("DELETE", `${A}/sessions/${id}/venues/${b.dataset.svw}`);
+    flash(msg(res, "Venue withdrawn")); if (res.ok) await sessionVenues(id);
+  }));
+}
+
+async function scrVenueRequests() {
+  const [r, o] = await Promise.all([api("GET", `${A}/venue-requests`), api("GET", `${A}/venue-outbox`)]);
+  const reqs = (r.data && r.data.requests) || [];
+  const out = (o.data && o.data.messages) || [];
+  view("Venue requests", `<h1>Venue requests</h1><div id="flash"></div>
+    <h2>Messages to send (${out.length})</h2>
+    <p class="caption">WhatsApp is not connected yet: copy each message, send it yourself, then mark it sent. Venue messages go to its day-of contact; "coordinator" ones are alerts for you.</p>
+    ${o.ok ? "" : msg(o)}
+    <div class="stack">${out.map((m) => `<section class="card stack" id="msg-${esc(m.id)}"><div class="row between"><strong>${esc(m.venue)} · ${dt(m.starts_at)}</strong>
+      <span class="badge badge-${m.to === "coordinator" ? "danger" : "info"}">${m.to === "coordinator" ? "coordinator" : esc(m.kind)}</span></div>
+      <p dir="rtl" lang="ar">${esc(m.text)}</p>
+      <div class="row"><button class="btn btn-secondary" data-copy="${esc(m.id)}">Copy</button><button class="btn btn-primary" data-sent="${esc(m.id)}">Mark sent</button></div></section>`).join("") || `<p class="caption">Nothing to send.</p>`}</div>
+    <h2>Requests</h2>${r.ok ? "" : msg(r)}
+    <table><thead><tr><th>Meetup</th><th>Venue</th><th>Women expected</th><th>Status</th><th>Request</th><th>Answer</th><th></th></tr></thead><tbody>
+    ${reqs.map((x) => `<tr class="${x.needs_attention ? "row-red" : ""}"><td>${dt(x.starts_at)}</td><td>${esc(x.venue)}</td><td>${x.planned_guests}</td><td>${svState(x)}</td><td>${svSent(x)}</td>
+      <td>${x.decided_at ? dt(x.decided_at) : "—"}${x.decline_reason ? ` · ${esc(x.decline_reason)}` : ""}</td><td><a href="#/sessions/${esc(x.session_id)}">Session</a></td></tr>`).join("") || `<tr><td colspan="7" class="caption">No requests. Plan venues from a session's page.</td></tr>`}
+    </tbody></table>`);
+  const texts = Object.fromEntries(out.map((m) => [m.id, m.text]));
+  $$("[data-copy]").forEach((b) => (b.onclick = async () => {
+    try { await navigator.clipboard.writeText(texts[b.dataset.copy]); b.textContent = "Copied"; }
+    catch { flash(msg({ ok: false, data: { code: "COPY_FAILED", message: "Select the text and copy it by hand." } })); }
+  }));
+  $$("[data-sent]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    const res = await api("POST", `${A}/venue-outbox/${b.dataset.sent}:sent`);
+    flash(msg(res, "Marked sent")); if (res.ok) setTimeout(scrVenueRequests, 600);
+  }));
+}
+
 // ------------------------------------------------------------------ venues
 async function scrVenues() {
   const r = await api("GET", `${A}/venues`);
@@ -232,8 +299,29 @@ async function scrVenues() {
     ${(r.data.venues || []).map((v) => `<tr><td>${esc(v.name)}</td><td>${esc(v.district_en)}</td><td>${esc(v.venue_type)}</td><td>${v.total_bookable_tables} × ${v.seats_per_table_max}</td>
       <td>${v.tier_rank}</td><td>${v.noise_level}</td><td>${v.separate_bills_confirmed ? "✓" : "✗"}</td><td>${esc(v.contract_status)}</td>
       <td><button class="link-btn" data-toggle="${v.id}" data-active="${v.is_active}">${v.is_active ? "Pause" : "Activate"}</button></td><td>${v.avg_venue_rating ?? "—"}</td>
-      <td>${v.day_of_contacts}</td><td><button class="link-btn" data-contacts="${v.id}">Contacts</button></td></tr>`).join("")}</tbody></table>
+      <td>${v.day_of_contacts}</td><td><button class="link-btn" data-contacts="${v.id}">Contacts</button>
+        <button class="link-btn" data-portal="${v.id}" data-name="${esc(v.name)}">Portal emails</button></td></tr>`).join("")}</tbody></table>
     <div id="contacts"></div>`);
+  const portal = async (vid, name) => {
+    const u = await api("GET", `${A}/venues/${vid}/portal-users`);
+    $("#contacts").innerHTML = `<section class="card stack"><h2>Venue page sign-in · ${esc(name)}</h2>
+      <p class="caption">The venue signs in at <code>${esc(location.origin)}/venue</code> with one of these emails (from the partnership agreement) and a 6-digit code.
+      Until an email provider is connected, the code is shown on screen (staging only).</p>${u.ok ? "" : msg(u)}
+      <ul class="plain">${((u.data && u.data.users) || []).map((x) => `<li><span class="num">${esc(x.email)}</span> · ${esc(x.status)} · last sign-in ${dt(x.last_login_at)}
+        ${x.status === "active" ? ` <button class="link-btn" data-pud="${esc(x.id)}">Disable</button>` : ""}</li>`).join("") || "<li>None yet</li>"}</ul>
+      <form id="puf" class="grid-form"><label>Email<input class="input" name="email" type="email" required autocomplete="off"></label><button class="btn btn-primary">Add email</button></form></section>`;
+    $("#puf").onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await api("POST", `${A}/venues/${vid}/portal-users`, { email: new FormData($("#puf")).get("email") });
+      flash(msg(res, "Email added")); if (res.ok) await portal(vid, name);
+    };
+    $$("[data-pud]").forEach((b) => (b.onclick = async () => {
+      if (!confirm("Disable this email? Its open sign-ins end now.")) return;
+      const res = await api("POST", `${A}/venue-portal-users/${b.dataset.pud}:disable`);
+      flash(msg(res, "Disabled")); if (res.ok) await portal(vid, name);
+    }));
+  };
+  $$("[data-portal]").forEach((b) => (b.onclick = () => portal(b.dataset.portal, b.dataset.name)));
   $$("[data-toggle]").forEach((b) => (b.onclick = async () => { const res = await api("PATCH", `${A}/venues/${b.dataset.toggle}`, { is_active: b.dataset.active !== "true" }); flash(msg(res, "Updated")); if (res.ok) setTimeout(scrVenues, 700); }));
   $$("[data-contacts]").forEach((b) => (b.onclick = async () => {
     const vid = b.dataset.contacts;
@@ -430,6 +518,7 @@ const ROUTES = [
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
+  [/^#\/venue-requests$/, scrVenueRequests, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

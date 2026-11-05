@@ -13,6 +13,10 @@
     {
       "source": "/delete-account",
       "destination": "/delete-account.html"
+    },
+    {
+      "source": "/venue",
+      "destination": "/venue/index.html"
     }
   ],
   "headers": [

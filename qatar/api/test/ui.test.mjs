@@ -654,3 +654,53 @@ test("public account deletion page (Google Play): both languages, served under t
   assert.deepEqual(errors, []);
   await page.context().close();
 });
+
+test("venue page (016): email, code, the hosting request, accept; Arabic, real CSP, phone width", async () => {
+  const call = client(env.base);
+  const ops = await adminLogin(call, env.sql, "ops.oncall@example.test");
+  const owner = await adminLogin(call, env.sql, "owner@example.test");
+  const s = await call("POST", "/api/admin/v1/sessions", { token: ops.token, body: { experience: "dinner", conversation_language: "ar",
+    starts_at: new Date(Date.now() + 2 * 86400000).toISOString(), duration_minutes: 120, max_seats: 18, district_hint_ar: "لوسيل", district_hint_en: "Lusail" } });
+  await call("POST", `/api/admin/v1/sessions/${s.body.id}:open-sale`, { token: owner.token });
+  const [v] = await env.sql`SELECT id, name FROM app.venues WHERE is_active AND 'dinner' = ANY (supported_experiences) ORDER BY name LIMIT 1`;
+  assert.equal((await call("POST", `/api/admin/v1/venues/${v.id}/portal-users`, { token: ops.token, body: { email: "ui@venue.test" } })).status, 201);
+  assert.equal((await call("POST", `/api/admin/v1/sessions/${s.body.id}/venues`, { token: ops.token, body: { venue_id: v.id, planned_guests: 6 } })).status, 200);
+
+  const { page, errors } = await newPage();
+  await page.goto(`${env.base}/venue/index.html`);
+  await page.fill("#email", "ui@venue.test");
+  await page.click("#go");
+  const code = (await page.locator("#dev").textContent()).trim();
+  await page.fill("#code", code);
+  await page.click("#go");
+  await page.waitForSelector(`#req-${s.body.id}`);
+  assert.equal(await page.locator("#vp-venue").textContent(), v.name);
+  const card = await page.locator(`#req-${s.body.id}`).textContent();
+  assert.ok(card.includes("حجز لعدد 6 أشخاص (سيدات)"), card);
+  await noHorizontalScroll(page);
+  await page.click(`[data-accept="${s.body.id}"]`);
+  await page.waitForSelector(`#req-${s.body.id} .badge-success`);
+  const [sv] = await env.sql`SELECT status FROM app.session_venues WHERE session_id = ${s.body.id}`;
+  assert.equal(sv.status, "confirmed");
+  await page.click("#vp-lang");
+  await page.waitForFunction(() => document.querySelector("h1")?.textContent.includes("Hosting requests") && document.documentElement.dir === "ltr");
+  assert.deepEqual(errors, []);
+  await page.context().close();
+
+  // the admin side: the queued WhatsApp text, the request, the session's planned venue, the portal email
+  const ad = await newPage({ width: 1280, height: 900 });
+  await ad.page.addInitScript(([t, a]) => { sessionStorage.setItem("qa_token", JSON.stringify(t)); sessionStorage.setItem("qa_admin", JSON.stringify(a)); }, [ops.token, ops.admin]);
+  await ad.page.goto(`${env.base}/admin/#/venue-requests`);
+  await ad.page.waitForSelector("h1:text('Venue requests')");
+  const reqRow = ad.page.locator("tr", { hasText: v.name }).filter({ has: ad.page.locator(".badge-success") });
+  assert.equal(await reqRow.count(), 1, "the accepted request is listed as confirmed");
+  await ad.page.goto(`${env.base}/admin/#/sessions/${s.body.id}`);
+  await ad.page.waitForSelector("#sv table");
+  assert.ok((await ad.page.locator("#sv").textContent()).includes("confirmed"));
+  await ad.page.goto(`${env.base}/admin/#/venues`);
+  await ad.page.click(`[data-portal="${v.id}"]`);
+  await ad.page.waitForSelector("#puf");
+  assert.ok((await ad.page.locator("#contacts").textContent()).includes("ui@venue.test"));
+  assert.deepEqual(ad.errors, []);
+  await ad.page.context().close();
+});
