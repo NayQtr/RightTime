@@ -44,3 +44,4 @@ Each check says how to run it and what passes. Checks are passive: no active sca
 | Date | Result | Fixes |
 |---|---|---|
 | 2026-11-05 | Secrets: clean (frontend, 109 commits, live sites). Checklist: 10 pass, AI spend partial (no billing yet), backups missing (Free plan). | Playwright 1.55.0 → 1.55.1 (GHSA-7mvr-c777-76hp); rollback plan written. |
+| 2026-11-05 (before production release of ee90b62) | Secrets: clean (frontend, full history, no sensitive files). npm audit 0, app OSV 0 of 92. Production DB: 50 tables, all with RLS, none readable by anon/authenticated; OTP dev mode and mock payments off. CI green. | None needed. Note: production WEB_BASE_URL is https://herzone.app, which still serves staging. |
