@@ -35,7 +35,8 @@ excluded: their washed-out look is timing, not design.
    welcome, quiz results and "your table".
 3. **Restraint: one column everywhere.** Trigger: most members book from a phone. Decision: a 560 px column on
    every screen size, rejecting a desktop layout. Reason: one layout to build, test and translate (RTL and LTR).
-   Cost: on a 1440 px screen the page is 39% of the width and the header sat at the window edges (fixed, see below).
+   Cost: on a 1440 px screen the page is 39% of the width. Exception since 5 Nov: the welcome screen uses two
+   columns from 1024 px, and the header follows the content column (see below).
 4. **Facts as rows, not prose.** Trigger: dates, places and refund rules decide whether she pays. Decision:
    label/value rows (`dl.facts`, `.facts-list`) with icons and muted labels. Reason: scannable before payment.
 
@@ -47,9 +48,9 @@ excluded: their washed-out look is timing, not design.
 | 2 | Desktop: logo pinned 24 px from the right window edge and "English" from the left, about 450 px away from the 560 px content. | **Fixed:** top bar aligned to the content column; tab bar kept within the column from 640 px. |
 | 3 | Phone headline broke as «تعرّفي على / ناس.. تفهمك», splitting the phrase. | **Fixed:** «تعرّفي على ناس..» never wraps (Arabic only); now «تعرّفي على ناس.. / تفهمك». |
 | 4 | Welcome: the hint «أسئلة قصيرة…» sat 8 px under «ابدئي» and close to «لديّ حساب», so it was unclear which button it described. | **Fixed:** 20 px before «لديّ حساب»; the hint stays with «ابدئي». |
-| 5 | Desktop welcome uses a phone layout centred in a wide window (large empty sides). | Proposed: two columns from 1024 px (headline, text and buttons on one side; the table drawing on the other). |
-| 6 | Review: two-column rows wrap awkwardly («رسم التنظيم (يُدفع الآن)» / «الطعام والمشروبات (تُدفع للمكان): ضمن ميزانيتك متوسط»), and the 10-minute hold timer floats between the agreement box and the pay button. | Proposed: stack label over value under 400 px; show the timer as a small pill inside the pay area. |
-| 7 | Booking details: the 5-step progress labels are small and grey; the current step is told by colour alone. | Proposed: current step bold with a dot, upcoming steps muted, done steps with a tick. |
+| 5 | Desktop welcome uses a phone layout centred in a wide window (large empty sides). | **Fixed:** two columns from 1024 px (headline, text and buttons on one side; the table drawing on the other, vertically centred). |
+| 6 | Review: two-column rows wrap awkwardly («رسم التنظيم (يُدفع الآن)» / «الطعام والمشروبات (تُدفع للمكان): ضمن ميزانيتك متوسط»), and the 10-minute hold timer floats between the agreement box and the pay button. | **Fixed:** label above value under 400 px; the timer is a pill just above the pay button; 12 px between the warning and the agreement box. |
+| 7 | Booking details: the 5-step progress labels are small and grey; the current step is told by colour alone. | **Fixed:** done steps carry a ✓ (current stays bold), step labels 13 px instead of 12 px. Also: «إلغاء الحجز» now stands 24 px apart from the help buttons. |
 | 8 | The Flutter app was not part of this pass (web only). | Next: same audit on the app's store screenshots. |
 
 Checks after the fixes: 14 browser tests pass (they also check one h1 per screen and no horizontal scroll at 360 px,

@@ -23,9 +23,9 @@
     { "id": 2, "status": "fixed", "problem": "desktop header pinned to the window edges, away from the content" },
     { "id": 3, "status": "fixed", "problem": "Arabic headline split mid-phrase on phones" },
     { "id": 4, "status": "fixed", "problem": "welcome hint ambiguous between the two buttons" },
-    { "id": 5, "status": "proposed", "problem": "desktop welcome is a phone layout in a wide window" },
-    { "id": 6, "status": "proposed", "problem": "review rows wrap awkwardly; hold timer floats" },
-    { "id": 7, "status": "proposed", "problem": "booking progress steps told by colour alone" },
+    { "id": 5, "status": "fixed", "problem": "desktop welcome is a phone layout in a wide window" },
+    { "id": 6, "status": "fixed", "problem": "review rows wrap awkwardly; hold timer floats" },
+    { "id": 7, "status": "fixed", "problem": "booking progress steps told by colour alone" },
     { "id": 8, "status": "next", "problem": "Flutter app not audited in this pass" }
   ]
 }
