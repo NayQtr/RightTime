@@ -1,7 +1,7 @@
 // UI strings (ar default, en). Arabic copy follows Qatar_Phase2_Completion_v0.3 §1 where the spec gives exact wording.
 export const STRINGS = {
   ar: {
-    brand: "HerZone", staging: "نسخة تجريبية", skip: "تخطّي إلى المحتوى", langToggle: "English", back: "رجوع", next: "التالي", continue: "متابعة",
+    brand: "HerZone", staging: "نسخة تجريبية", skip: "تخطّي إلى المحتوى", langToggle: "English", themeToDark: "الوضع الداكن", themeToLight: "الوضع العادي", back: "رجوع", next: "التالي", continue: "متابعة",
     loading: "جارٍ التحميل…", retry: "حاولي مرة أخرى", close: "إغلاق", signOut: "تسجيل الخروج",
     
     
@@ -141,7 +141,7 @@ export const STRINGS = {
     savedTrips: "لقاءاتكِ المحفوظة على هذا الجهاز", offlineCopy: "أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ({at}). الحجز والإلغاء يعودان عند الاتصال.",
   },
   en: {
-    brand: "HerZone", staging: "Staging", skip: "Skip to content", langToggle: "العربية", back: "Back", next: "Next", continue: "Continue",
+    brand: "HerZone", staging: "Staging", skip: "Skip to content", langToggle: "العربية", themeToDark: "Dark mode", themeToLight: "Light mode", back: "Back", next: "Next", continue: "Continue",
     loading: "Loading…", retry: "Try again", close: "Close", signOut: "Sign out",
     
     

@@ -124,6 +124,22 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await oneH1(page);
   await noHorizontalScroll(page);
   await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
+  // light or dark by choice: one tap switches, the choice survives a reload, the next tap switches back
+  const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--c-bg").trim());
+  assert.equal(await bg(), "#EFDFCD", "light by default");
+  assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع الداكن");
+  await page.click("#theme");
+  assert.equal(await page.getAttribute("html", "data-theme"), "dark");
+  assert.equal(await bg(), "#65444E");
+  assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع العادي");
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "theme", "focus stays on the switch");
+  await page.reload();
+  await page.waitForSelector(".hero-welcome h1");
+  assert.equal(await bg(), "#65444E", "the choice is remembered");
+  assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), "#65444E", "browser bar follows");
+  await page.click("#theme");
+  assert.equal(await bg(), "#EFDFCD");
+  assert.equal(await page.getAttribute("html", "data-theme"), "light");
   await page.click("#start");
   await page.waitForSelector(".hero-welcome", { state: "detached" }); // the quiz has replaced the welcome screen
   const seen = await walkQuiz(page);

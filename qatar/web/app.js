@@ -180,12 +180,27 @@ async function api(method, path, body, opts = {}) {
 // ------------------------------------------------------------------ shell
 function renderTopbar() {
   const signedIn = !!store.get("tokens");
+  const dark = isDark();
   document.getElementById("topbar").innerHTML = `
     <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}">${brandMark()}<span>${esc(T("brand"))}</span></a>
     ${CFG.staging ? `<span class="env-badge">${esc(T("staging"))}</span>` : ""}
     <span class="spacer"></span>
+    <button class="icon-btn" id="theme" type="button" aria-label="${esc(T(dark ? "themeToLight" : "themeToDark"))}" title="${esc(T(dark ? "themeToLight" : "themeToDark"))}">${icon(dark ? "sun" : "moon")}</button>
     <button class="btn btn-ghost" id="lang" lang="${locale === "ar" ? "en" : "ar"}">${esc(T("langToggle"))}</button>`;
   document.getElementById("lang").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
+  document.getElementById("theme").onclick = () => setTheme(dark ? "light" : "dark");
+}
+
+// Light or dark: follows the device until she picks one; the choice is remembered on this device (q_theme, applied early by theme-init.js).
+function isDark() {
+  return (document.documentElement.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+}
+function setTheme(t) {
+  store.set("theme", t);
+  document.documentElement.setAttribute("data-theme", t);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#65444E" : "#EFDFCD"); });
+  renderTopbar();
+  document.getElementById("theme").focus();
 }
 
 function setLocale(l) {

@@ -57,9 +57,12 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
   .topbar.scrolled { box-shadow: 0 1px 0 var(--c-borderStrong); }
   .tabbar { box-shadow: 0 -1px 0 var(--c-borderStrong); }
 }
+/* a chosen theme also drives the browser's own controls (scrollbars, date pickers) */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 .brand { display: inline-flex; align-items: center; gap: var(--s-2); text-decoration: none; color: var(--c-text);
   font-family: var(--font-display); font-weight: 700; font-size: min(calc(var(--u) * 1.1250), 22px); letter-spacing: 0; min-height: 44px; }
-.brand .mark { width: 48px; height: 48px; }
+.brand .mark { width: 48px; height: 48px; flex: none; }
 .mark .ring { fill: none; stroke: var(--c-primary); stroke-width: 2; }
 .mark circle:not(.ring) { fill: var(--c-primary); }
 .brand-mark { display: none; }
