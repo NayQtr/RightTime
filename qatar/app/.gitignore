@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# golden-test diff images written by flutter test when a screenshot differs
+test/failures/
