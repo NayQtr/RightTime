@@ -626,11 +626,9 @@ async function finishQuiz() {
 }
 
 // ------------------------------------------------------------------ phone notifications (Web Push, migration 013)
-const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-const isStandalone = () => (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-// ok | ios_install (iPhone: works only from the home-screen app) | denied | unsupported
+// ok | denied | unsupported (an iPhone Safari tab counts as unsupported: no home-screen steps, owner's decision 5 Nov)
 function pushSupport() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return isIOS() && !isStandalone() ? "ios_install" : "unsupported";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "unsupported";
   return Notification.permission === "denied" ? "denied" : "ok";
 }
 async function devicePushSub() {
@@ -678,7 +676,6 @@ async function scrNotify(next) {
     <span><strong>HerZone</strong><br><span>${esc(T("pushSample"))}</span></span></div>
     <p class="caption">${esc(T("pushSampleNote"))}</p>`;
   const body = on ? `<div class="banner banner-success"><div>${esc(T("pushOn"))}</div></div>`
-    : support === "ios_install" ? `<h2>${esc(T("pushIosTitle"))}</h2><ol class="next-steps">${["pushIos1", "pushIos2", "pushIos3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ol>`
     : support === "denied" ? `<div class="banner banner-info"><div>${esc(T("pushDenied"))}</div></div>`
     : support === "unsupported" ? `<div class="banner banner-info"><div>${esc(T("pushUnsupported"))}</div></div>` : "";
   view(T("pushTitle"), `<div class="quiz-head"><span></span><span></span><button type="button" class="link-btn" id="skip-push">${esc(T(next === "profile" ? "back" : "skipQ"))}</button></div>

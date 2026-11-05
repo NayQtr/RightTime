@@ -438,7 +438,7 @@ test("subscription plans (display-only): QAR plan cards, 1-month nudge, promo co
   assert.deepEqual(errors, []);
 });
 
-test("phone notifications: an iPhone in a Safari tab is told to add HerZone to the Home Screen; Profile opens the screen", async () => {
+test("phone notifications: an iPhone in a Safari tab gets the short 'not supported' note (no home-screen steps); Profile opens the screen", async () => {
   const call = client(env.base);
   const u = await signUp(call, { name: "Dana" });
   const { page, errors } = await newPage();
@@ -453,7 +453,8 @@ test("phone notifications: an iPhone in a Safari tab is told to add HerZone to t
   await page.click("a[href='#/notify?next=profile']");
   await page.waitForSelector("[data-screen=notify]");
   const t = await page.locator("main").innerText();
-  assert.ok(t.includes("أضيفي HerZone إلى الشاشة الرئيسية") && t.includes("إضافة إلى الشاشة الرئيسية"), t.slice(0, 300));
+  assert.ok(!t.includes("الشاشة الرئيسية"), "no Home Screen steps (owner's decision, 5 Nov)");
+  assert.ok(t.includes("هذا المتصفح لا يدعم إشعارات الجوال"), t.slice(0, 300));
   assert.equal(await page.locator("#push-go").count(), 0, "no enable button where the browser cannot do it");
   await page.screenshot({ path: `${SHOTS}/13b-notify-iphone-ar.png` });
   await page.click("#skip-push");
