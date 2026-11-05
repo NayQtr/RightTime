@@ -1,0 +1,29 @@
+# الطلبات المتأخرة (late requests)
+
+When the owner says «الطلبات المتأخرة» (or «الطلبات المتأخره»), list these items, with what is done and what is still open.
+
+## The list [2026-11-05]
+
+Waiting on the owner (actions):
+1. Paste `qatar/db/migrations/016_venue_portal.sql` (venue portal) into BOTH Supabase projects: qatar-mvp (fvodcnqmxskgzziwuwmz) and HerZone-production (pwxxulqgdydrkowmtkia). Then Claude verifies both and promotes herzone.app.
+2. Delete the OLD Gemini API key (it still answers).
+3. Restrict the new Gemini key to "Generative Language API" only (Google Cloud Console → Credentials). No website/IP restriction (Supabase has no fixed IP).
+4. Rotate keys regularly (Gemini, Supabase token), e.g. every 3 months.
+5. Enable Gemini billing before the app is published (owner's decision of 5 Nov: "التحويل المفوتر لاحقا قبل نشر التطبيق").
+6. Confirm the admin enrolment for herzone.app/admin was done (token given on 5 Nov, 24 h expiry).
+7. The owner's real email for the production admin account (NMX-20).
+
+Waiting on the owner (decisions, explained on 4 Nov):
+8. Don't pin the server certificate now.
+9. Should the biometric lock also protect the meetup details?
+10. Block screenshots or not (recommendation: don't block).
+11. A phone number with a fixed code for the Apple reviewer.
+12. An admin tool to delete the account of a member who lost her number (after launch, two-person approval).
+
+Offered by Claude, waiting for a yes:
+13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code).
+
+Still open in the plan:
+14. Production code still on the old release (promotion needs the owner's approval).
+15. Maestro full-journey run needs the branch merged (NMX-56).
+16. Blockers NMX-22/23/24/26/28; the real payment gateway must send the cardholder name.
