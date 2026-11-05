@@ -10,13 +10,13 @@ excluded: their washed-out look is timing, not design.
 
 | Token | Value | Use |
 |---|---|---|
-| Background | `#FAF4EC` | page |
-| Surface sunken | `#F3EAE1` | cards, notices |
-| Surface | `#FFFCF9` | inputs, tab bar |
-| Text / muted | `#251615` / `#60514F` | body / secondary (muted text: 6.9:1 on the page, 6.3:1 in cards; button text on primary 9.4:1, all above WCAG AA) |
-| Primary (CTA) | `#7E1E35`, hover `#671027`, subtle `#FBE0E2` | buttons, selected states, headline accent |
-| Seat | `#DA915F` | the table illustration |
-| Border | `#D6CCC4` | dividers, outline buttons |
+| Background | `#EFDFCD` (dark mode `#65444E`) | page |
+| Surface sunken | `#E6D3BF` | cards, notices |
+| Surface | `#F8F0E6` | inputs, tab bar |
+| Text / muted | `#2A1A20` / `#5A444C` | body / secondary (muted text: 6.9:1 on the page, 6.3:1 in cards; button text on primary 9.4:1, all above WCAG AA) |
+| Primary (CTA) | `#65444E`, hover `#4E323B`, subtle `#E2CBC3` | buttons, selected states, headline accent |
+| Seat | `#D98E5F` | the table illustration |
+| Border | `#D3BEA9` | dividers, outline buttons |
 | Type | Alexandria (display), IBM Plex Sans Arabic (text) | headings balanced (`text-wrap: balance`) |
 | Spacing | 4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48 | gutter 16–20 px; touch target 48 px |
 | Radius | 10 / 16 / 24 / pill | cards 16, buttons 16, chips pill |

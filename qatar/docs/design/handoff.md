@@ -20,17 +20,17 @@ Why-decisions are in `herzone.app.md` (design map and taste principles).
 ### Colour (light / dark)
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--c-bg` | `#FAF4EC` | `#140C0B` | page |
-| `--c-surface` | `#FFFCF9` | `#3A2E2C` | inputs, tab bar |
-| `--c-surfaceSunken` | `#F3EAE1` | `#2D2221` | cards, notices |
-| `--c-text` / `--c-textMuted` | `#251615` / `#60514F` | `#F0EAE3` / `#B5ACA5` | text |
-| `--c-textDisabled` | `#8F837F` | `#8E837E` | disabled controls only |
-| `--c-primary` (= `--c-cta`) | `#7E1E35` | `#E88794` | buttons, selection, one headline word |
-| `--c-primarySubtle` | `#FBE0E2` | `#3E1E22` | selected row, hold pill |
-| `--c-onPrimary` | `#FDF9F4` | `#150D0C` | text on primary |
-| `--c-border` / `--c-borderStrong` | `#D6CCC4` / `#857772` | `#73625F` / `#95867F` | dividers / field outlines |
-| `--c-success` `--c-warning` `--c-danger` `--c-info` | `#196632` `#8A5600` `#AF2B25` `#345A73` | `#76C788` `#EBB25F` `#F47C6E` `#88B8DA` | status |
-| `--c-seat` | `#DA915F` | `#EBA66D` | the table drawing only |
+| `--c-bg` | `#EFDFCD` (soft butter, «زبدة ناعمة») | `#65444E` (velvet wine, «نبيذي مخملي») | page |
+| `--c-surface` | `#F8F0E6` | `#6E4C57` | inputs, tab bar |
+| `--c-surfaceSunken` | `#E6D3BF` | `#583B44` | cards, notices |
+| `--c-text` / `--c-textMuted` | `#2A1A20` / `#5A444C` | `#FBF4EA` / `#EFDFCD` | text |
+| `--c-textDisabled` | `#8C7A74` | `#C0A8AF` | disabled controls only |
+| `--c-primary` (= `--c-cta`) | `#65444E` | `#EFDFCD` | buttons, selection, one headline word |
+| `--c-primarySubtle` | `#E2CBC3` | `#4B3039` | selected row, hold pill |
+| `--c-onPrimary` | `#FBF5EC` | `#3A222A` | text on primary |
+| `--c-border` / `--c-borderStrong` | `#D3BEA9` / `#85676E` | `#8A6B76` / `#C4A9B1` | dividers / field outlines |
+| `--c-success` `--c-warning` `--c-danger` `--c-info` | `#1F6B3A` `#8A5600` `#A8302A` `#35607A` | `#A9E3B8` `#F5CD84` `#FFC4BA` `#B3D6EE` | status |
+| `--c-seat` | `#D98E5F` | `#E9A178` | the table drawing only |
 
 Contrast (measured): muted text 6.9:1 on the page and 6.3:1 on cards; text on primary 9.4:1. Disabled text is exempt.
 Never use a colour as the only signal (a done step has a tick, an unread item a "new" tag).
