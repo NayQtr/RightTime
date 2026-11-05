@@ -102,8 +102,15 @@ export function totpAt(secretB32, timeMs, step = 30) {
 }
 
 export function totpVerify(secretB32, code, timeMs = Date.now()) {
-  if (!/^[0-9]{6}$/.test(String(code))) return false;
-  return [-1, 0, 1].some((w) => safeEqual(totpAt(secretB32, timeMs + w * 30000), code));
+  return totpStep(secretB32, code, timeMs) !== null;
+}
+
+// The 30-second step the code belongs to (one step either side of now), or null. Callers store the last accepted step
+// so a code is never accepted twice (NMX-63).
+export function totpStep(secretB32, code, timeMs = Date.now()) {
+  if (!/^[0-9]{6}$/.test(String(code))) return null;
+  for (const w of [-1, 0, 1]) if (safeEqual(totpAt(secretB32, timeMs + w * 30000), code)) return Math.floor(timeMs / 30000) + w;
+  return null;
 }
 
 export const newTotpSecret = () => base32Encode(randomBytes(20));

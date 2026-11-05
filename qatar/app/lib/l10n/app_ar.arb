@@ -1,0 +1,318 @@
+{
+  "idCheckPending": "نراجع بيانات الدفع لحجزك. سنكشف لكِ المكان ورمز الطاولة بعد المراجعة.",
+  "cIdentity": "اسم بطاقة الدفع لا يطابق اسم الحساب",
+  "casesTitle": "قرارات تخصّك",
+  "noCases": "لا توجد قرارات تخصّك.",
+  "appealUntil": "يمكنكِ الاعتراض حتى {date}",
+  "appeal": "اعتراض",
+  "appealSent": "استلمنا اعتراضكِ. سيراجعه شخص لم يتخذ القرار الأصلي.",
+  "@appealUntil": {"placeholders": {"date": {"type": "String"}}},
+  "docsTitle": "الشروط والخصوصية",
+  "docTerms": "الشروط",
+  "docConduct": "قواعد السلوك",
+  "docPrivacy": "إشعار الخصوصية",
+  "updateTitle": "حدّثي HerZone",
+  "updateBody": "يتوفر إصدار أحدث من HerZone. حدّثي التطبيق للمتابعة.",
+  "updateButton": "تحديث التطبيق",
+  "openMap": "افتحي المكان في الخريطة",
+  "deleteAccount": "طلب حذف الحساب",
+  "deleteConfirm": "سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟",
+  "deleteYes": "حذف حسابي",
+  "deleteNo": "تراجع",
+  "@@locale": "ar",
+  "brand": "HerZone",
+  "staging": "نسخة تجريبية",
+  "back": "رجوع",
+  "retry": "حاولي مرة أخرى",
+  "signOut": "تسجيل الخروج",
+  "phoneTitle": "رقم جوالك",
+  "phoneHelp": "نرسل لكِ رمزًا من 6 أرقام. نقبل أرقام قطر فقط حاليًا.",
+  "phoneLabel": "رقم الجوال",
+  "phoneInvalid": "أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.",
+  "sendCode": "أرسلي الرمز",
+  "otpTitle": "أدخلي الرمز",
+  "otpHelp": "أرسلنا رمزًا إلى",
+  "otpLabel": "رمز التحقق",
+  "verify": "تحقّقي",
+  "resend": "إعادة الإرسال",
+  "resendIn": "إعادة الإرسال بعد {s} ث",
+  "@resendIn": {
+    "placeholders": {
+      "s": {
+        "type": "int"
+      }
+    }
+  },
+  "devCode": "بيئة تجريبية: الرمز هو",
+  "tabHome": "الرئيسية",
+  "tabEvents": "لقاءاتي",
+  "tabInbox": "الإشعارات",
+  "tabProfile": "حسابي",
+  "errGeneric": "حدث خطأ. حاولي مرة أخرى.",
+  "offline": "لا يوجد اتصال بالإنترنت.",
+  "comingSoon": "هذه الشاشة قيد البناء في التطبيق. كل شيء متاح الآن على herzone.app.",
+  "language": "English",
+  "dinner": "عشاء",
+  "coffee": "قهوة",
+  "seatsLeft": "{n} مقاعد متبقية",
+  "full": "ممتلئ",
+  "alreadyBooked": "محجوز",
+  "langAr": "طاولة بالعربية",
+  "langEn": "طاولة بالإنجليزية",
+  "noSessions": "لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.",
+  "cityFull": "الدوحة، قطر",
+  "dateTime": "الموعد",
+  "district": "المنطقة",
+  "tableLanguage": "لغة الطاولة",
+  "bookingRef": "رقم الحجز",
+  "viewDetails": "عرض التفاصيل",
+  "detailsTitle": "تفاصيل اللقاء",
+  "yourTable": "طاولتك",
+  "confirmedCount": "{n} سيدات مؤكدات",
+  "arrival": "تعليمات الوصول",
+  "tableCode": "رمز طاولتك",
+  "mentionCode": "اذكري \"HerZone\" ورمز الطاولة لموظف الاستقبال.",
+  "venueHidden": "نكشف اسم المكان وعنوانه بعد تأكيد الطاولة، في {revealAt}.",
+  "foodBandLabel": "ميزانية الطعام",
+  "noNotifications": "لا إشعارات بعد.",
+  "inboxEmptyBody": "ستجدين هنا تحديثات لقاءاتك.",
+  "noBookings": "لم تحجزي أي لقاء بعد.",
+  "bookOnWeb": "الحجز والدفع متاحان الآن على herzone.app، ويصلان إلى التطبيق قريبًا.",
+  "offlineCopy": "أنتِ غير متصلة. هذه آخر نسخة محفوظة على جهازكِ ({at}).",
+  "step1": "تم الدفع",
+  "step2": "تكوين الطاولة",
+  "step3": "تأكيد الطاولة",
+  "step4": "كشف المكان",
+  "tablemates": "زميلات الطاولة",
+  "@seatsLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@confirmedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@venueHidden": {
+    "placeholders": {
+      "revealAt": {
+        "type": "String"
+      }
+    }
+  },
+  "@offlineCopy": {
+    "placeholders": {
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "welcomeHero": "تعرّفي على ناس.. تفهمك",
+  "welcomeHeroEm": "تفهمك",
+  "welcomeSub": "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.",
+  "getStarted": "ابدئي",
+  "quizLength": "أسئلة قصيرة تأخذ دقائق قليلة.",
+  "haveAccount": "لديّ حساب",
+  "deviceNote": "نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.",
+  "qOf": "{i} من {n}",
+  "chooseUpTo": "اختاري حتى {n}",
+  "next": "التالي",
+  "skipQ": "تخطَّي",
+  "continueLabel": "متابعة",
+  "quizDoneTitle": "شكرًا لكِ",
+  "quizDoneBody": "خطوة أخيرة: رقم جوالك لنحفظ إجاباتك في حسابك.",
+  "saveAnswers": "احفظي إجاباتي",
+  "regTitle": "قبل أن نبدأ",
+  "nameLabel": "اسمك الأول كما في بطاقة الدفع",
+  "nameHelp": "يظهر لزميلات الطاولة يوم اللقاء. ونطابقه مع الاسم على بطاقة الدفع لحماية اللقاءات.",
+  "womenOnly": "HerZone للنساء فقط.",
+  "womanLabel": "أؤكد أنني امرأة",
+  "ageLabel": "أؤكد أن عمري 18 عامًا أو أكثر",
+  "termsLabel": "أوافق على الشروط",
+  "conductLabel": "أوافق على قواعد السلوك",
+  "privacyLabel": "قرأت إشعار الخصوصية",
+  "marketingLabel": "أرغب في رسائل تسويقية (اختياري)",
+  "readDoc": "اقرئي",
+  "required": "مطلوب",
+  "close": "إغلاق",
+  "@qOf": {
+    "placeholders": {
+      "i": {
+        "type": "int"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@chooseUpTo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "myAnswers": "إجاباتي",
+  "cancelBooking": "إلغاء الحجز",
+  "confirmCancel": "تأكيد الإلغاء",
+  "cancelled": "تم إلغاء حجزك.",
+  "refundFull": "ستستردين {fee} كاملة إلى بطاقتك خلال {days} أيام عمل.",
+  "refundNone": "انتهت مهلة الاسترداد ({deadline}). لن يُرد رسم التنظيم.",
+  "refundNoPayment": "لم يتم الدفع بعد، فلا يوجد مبلغ للاسترداد.",
+  "reasonLegend": "السبب (اختياري)",
+  "reasonSchedule": "تغيّر موعدي",
+  "reasonIllness": "مرض",
+  "reasonOther": "سبب آخر",
+  "contactLegend": "التواصل بعد اللقاء",
+  "contactHelp": "أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.",
+  "contactSend": "طلب تواصل",
+  "contactSent": "أُرسل الطلب",
+  "contactIncoming": "ترغب بالتواصل معكِ",
+  "contactAccept": "قبول",
+  "contactDecline": "اعتذار",
+  "contactWhatsapp": "واتساب",
+  "contactUntil": "متاح حتى {date}",
+  "contactClosed": "انتهت مدة طلبات التواصل لهذا اللقاء.",
+  "contactDeclined": "تم. لن نخبرها باعتذاركِ.",
+  "contactAccepted": "تم. يظهر لكما الآن زر واتساب.",
+  "unnamed": "ضيفة",
+  "privateReport": "إبلاغ خاص",
+  "reportIntro": "بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.",
+  "category": "نوع المشكلة",
+  "cHarassment": "تحرش أو إزعاج",
+  "cThreat": "تهديد أو عنف",
+  "cPhoto": "تصوير دون إذن",
+  "cStalking": "ملاحقة أو تواصل غير مرغوب",
+  "cFraud": "احتيال",
+  "cDisruptive": "سلوك مزعج أو غير محترم",
+  "whenLegend": "متى حدث ذلك؟",
+  "during": "أثناء اللقاء",
+  "afterEv": "بعد اللقاء",
+  "whoLegend": "من الشخص؟ (اختياري)",
+  "notSure": "لا أعرف / لا أريد التحديد",
+  "describe": "ماذا حدث؟ (اختياري)",
+  "dangerLabel": "أنا في خطر الآن",
+  "submitReport": "إرسال البلاغ",
+  "reportSent": "وصلنا بلاغك ({caseRef}). لن نكشف هويتك للشخص المُبلَّغ عنه.",
+  "emTitle": "اتصلي بالطوارئ 999 فورًا",
+  "emCall": "اتصال 999",
+  "emBody": "سلامتكِ أولًا. اتصلي بالطوارئ، واطلبي مساعدة موظفي المكان. أبلغنا منسّقنا المناوب.",
+  "callCoordinator": "اتصلي بالمنسق",
+  "whatsappCoordinator": "واتساب المنسق",
+  "backHome": "العودة إلى الرئيسية",
+  "@refundFull": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@refundNone": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@contactUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@reportSent": {
+    "placeholders": {
+      "caseRef": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxLocked": "إشعاراتك محمية. افتحيها بالبصمة أو بوجهك أو برمز جوالك.",
+  "unlock": "افتحي",
+  "unlockReason": "لعرض إشعاراتك في HerZone",
+  "bookSeat": "احجزي مقعدك",
+  "reviewTitle": "راجعي حجزك",
+  "payNow": "ادفعي الآن",
+  "lateAck": "أفهم وأوافق على أن رسم التنظيم لا يُسترد إذا ألغيت هذا الحجز.",
+  "policyBox": "يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
+  "lateWarning": "موعد هذا اللقاء قريب: إذا ألغيتِ بعد الدفع فلن يُسترد رسم التنظيم.",
+  "serviceFee": "رسم التنظيم",
+  "holdUntil": "مقعدك محجوز لكِ حتى {time}.",
+  "waitingPayment": "أكملي الدفع في الصفحة التي فُتحت، ثم عودي إلى هنا.",
+  "checkPayment": "تحققي من الدفع",
+  "paidTitle": "تم الدفع. نجمع طاولتك الآن.",
+  "payFailed": "لم يكتمل الدفع. يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.",
+  "holdExpired": "انتهت مدة حجز المقعد. اختاري الموعد مرة أخرى.",
+  "foodNote": "طعامكِ وشرابكِ تدفعينه للمكان مباشرة.",
+  "@policyBox": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@holdUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "imHere": "أنا هنا",
+  "checkedIn": "تم تسجيل وصولك",
+  "rateIt": "قيّمي اللقاء",
+  "fbThanks": "شكرًا! وصلنا تقييمك.",
+  "fbTitle": "كيف كانت التجربة؟",
+  "overall": "التقييم العام",
+  "comfort": "هل شعرتِ بالراحة في الحوار؟",
+  "venueRating": "تقييم المكان (اختياري)",
+  "commentLabel": "تعليق خاص (اختياري)",
+  "send": "إرسال",
+  "wouldBookAgain": "سأحجز مرة أخرى",
+  "commentHelp": "لن يراه أحد من الطاولة",
+  "alternateTag": "من بدائلك",
+  "chooseNow": "اختاري الآن",
+  "confirmChoice": "تأكيد اختياري",
+  "defaultRefund": "إن لم تختاري قبل {deadline} سنرد المبلغ كاملًا تلقائيًا.",
+  "optRebook": "موعد آخر",
+  "optRebookHelp": "ننقل رسمك كما هو.",
+  "optRefund": "استرداد كامل",
+  "optRefundHelp": "{fee} إلى وسيلة الدفع الأصلية خلال {days} أيام عمل.",
+  "orgBody": "لم يكتمل الحد الأدنى (4 سيدات) لهذا الموعد، لذلك ألغينا الطاولة. لا تتحملين أي رسوم.",
+  "orgTitle": "نعتذر، لم تكتمل طاولتك",
+  "stOrganizer": "ألغينا هذه الطاولة. اختاري: استرداد أو موعد آخر.",
+  "rebookedInto": "نقلناك إلى الحجز {ref}.",
+  "@defaultRefund": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@optRefundHelp": {
+    "placeholders": {
+      "fee": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@rebookedInto": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  }
+}

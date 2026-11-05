@@ -3,7 +3,7 @@
   "info": {
     "title": "HerZone member API",
     "version": "1.0.0",
-    "description": "Small-table dinners for women in Qatar. Errors use one problem envelope (code + localised message). Times are ISO-8601 in Asia/Qatar (+03:00); money is in dirhams (minor units) with a display string. Every POST that changes data needs an Idempotency-Key; a retry with the same key replays the first answer. Access tokens last 15 minutes and stop working at once when their session ends; refresh tokens rotate on every use."
+    "description": "Small-table dinners for women in Qatar. Errors use one problem envelope (code + localised message). Times are ISO-8601 in Asia/Qatar (+03:00); money is in dirhams (minor units) with a display string. Every POST that changes data needs an Idempotency-Key; a retry with the same key replays the first answer. Access tokens last 15 minutes and stop working at once when their session ends; refresh tokens rotate on every use. The mobile app sends `X-HerZone-App: <version> <ios|android>` on every call; below the server's minimum version (MIN_APP_VERSION) any call returns 426 APP_UPDATE_REQUIRED, with min_version and store_url in details, and the app shows only an update screen."
   },
   "servers": [
     {
@@ -631,6 +631,55 @@
         "operationId": "deleteUsersMe"
       }
     },
+    "/api/v1/users/me/export": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-registration-required": false,
+        "summary": "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings, reports I made. Other members' data is never included",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "exported_at",
+                    "account",
+                    "consents",
+                    "questionnaire",
+                    "bookings",
+                    "payments",
+                    "refunds",
+                    "ratings",
+                    "reports_made"
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "attachment; filename=\"herzone-my-data-2026-11-04.json\""
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          }
+        },
+        "operationId": "getUsersMeExport"
+      }
+    },
     "/api/v1/users/me/registration": {
       "post": {
         "tags": [
@@ -656,16 +705,10 @@
                 "type": "object",
                 "properties": {
                   "display_name": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 30,
-                        "description": "Letters, spaces and hyphens"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30,
+                    "description": "First name, as on her payment card (required; compared with the name on the card). Letters, spaces and hyphens"
                   },
                   "locale": {
                     "type": "string",
@@ -688,6 +731,7 @@
                   }
                 },
                 "required": [
+                  "display_name",
                   "locale",
                   "age_eligibility_confirmed",
                   "woman_confirmed",
@@ -2534,6 +2578,10 @@
                           "decision": {
                             "type": "string"
                           },
+                          "decision_label": {
+                            "type": "string",
+                            "description": "The decision in the request's language"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -2551,6 +2599,7 @@
                           "event_date",
                           "category",
                           "decision",
+                          "decision_label",
                           "status",
                           "appeal_until",
                           "can_appeal"
@@ -4049,6 +4098,13 @@
               "reveal_at",
               "check_in_opens_at"
             ]
+          },
+          "identity_check": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ],
+            "description": "Present while the name on her payment card is reviewed: venue, table code and tablemates stay hidden until it is approved"
           },
           "table": {
             "anyOf": [

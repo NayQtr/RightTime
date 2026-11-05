@@ -1,4 +1,5 @@
 // Browser E2E: the real user web app and admin panel against the real API + PostgreSQL (Chromium via Playwright).
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
@@ -23,9 +24,18 @@ before(async () => {
 });
 after(async () => { await browser?.close(); await env?.stop(); });
 
+const CSP = JSON.parse(readFileSync(new URL("../../web/vercel.json", import.meta.url))).headers
+  .flatMap((h) => h.headers).find((h) => h.key === "Content-Security-Policy").value;
+
 async function newPage(viewport = { width: 360, height: 780 }) {
   const ctx = await browser.newContext({ viewport, locale: "ar-QA" });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  // pages are served with the production Content-Security-Policy from vercel.json (with this server's API origin), so a
+  // blocked script or style shows up here as a console error (NMX-31)
+  await ctx.route((url) => url.origin === env.base && !url.pathname.startsWith("/api/") && /(\.html|\/)$/.test(url.pathname), async (r) => {
+    const res = await r.fetch();
+    await r.fulfill({ response: res, headers: { ...res.headers(), "content-security-policy": CSP.replace("connect-src 'self'", `connect-src 'self' ${env.base}`) } });
+  });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -115,6 +125,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await noHorizontalScroll(page);
   await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
   await page.click("#start");
+  await page.waitForSelector(".hero-welcome", { state: "detached" }); // the quiz has replaced the welcome screen
   const seen = await walkQuiz(page);
   assert.deepEqual(seen.inters, ["doha", "community", "how", "energy", "science", "vibe", "curating", "ready", "safety", "data"]);
   assert.ok(seen.dataText.includes("لنتحدث عن بياناتك") && seen.dataText.includes("لا يرين رقمكِ ولا إجاباتكِ"), "data screen before sign-up");
@@ -214,11 +225,38 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/events");
   await oneH1(page);
   await page.screenshot({ path: `${SHOTS}/10-events-ar.png`, fullPage: true });
+  // NMX-18: unread count on the Notifications tab until the inbox is opened; the logo is 48px
+  assert.equal(Math.round((await page.locator(".brand .mark").boundingBox()).width), 48);
+  const [{ n: notes }] = await env.sql`SELECT count(*)::int AS n FROM app.notifications_outbox o JOIN app.users u ON u.id = o.user_id WHERE u.display_name = 'مريم'`;
+  if (notes > 0) {
+    await page.waitForSelector("#inbox-badge:not([hidden])");
+    assert.equal(await page.locator("#inbox-badge").innerText(), notes > 9 ? "9+" : String(notes));
+    await page.screenshot({ path: `${SHOTS}/10b-inbox-badge-ar.png` });
+    await page.click("#tabbar a[href='#/inbox']");
+    await page.waitForSelector(".list .is-new");
+    await page.goto(env.base + "/#/events");
+    await page.waitForSelector(".hero");
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator("#inbox-badge").isHidden(), true, "badge cleared after the inbox was opened");
+  }
   await page.click(".hero a.btn-primary");
   await page.waitForSelector(".det-head h1");
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");
   assert.equal(await page.locator("#tabbar").isHidden(), true, "no tab bar on detail screens");
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });
+  // NMX-16: with no connection the details open from the copy saved on this device, read-only
+  const detailsUrl = page.url();
+  await page.route(/\/api\/v1\//, (r) => r.abort());
+  await page.goto(detailsUrl.replace("/#", "/?offline=1#"));
+  await page.waitForSelector("#offline-copy");
+  const offlineText = await page.locator("main").innerText();
+  assert.ok(offlineText.includes("نكشف اسم المكان") && offlineText.includes("أنتِ غير متصلة"), offlineText.slice(0, 300));
+  assert.equal(await page.locator("a[href$='/cancel']").count(), 0, "no cancel while offline");
+  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "the coordinator can still be called");
+  await page.screenshot({ path: `${SHOTS}/11b-event-offline-ar.png`, fullPage: true });
+  await page.unroute(/\/api\/v1\//);
+  await page.goto(detailsUrl);
+  await page.waitForSelector("a[href$='/cancel']");
   await page.click("a[href$='/cancel']");
   await page.waitForSelector("text=تأكيد الإلغاء");
   await page.screenshot({ path: `${SHOTS}/12-cancel-ar.png`, fullPage: true });
@@ -514,6 +552,7 @@ test("admin: TOTP enrolment, sign-in, sessions cockpit dry-run, T&S reason promp
   const ts = "enr_ui_ts_" + crypto.randomUUID();
   await env.sql`UPDATE app.admin_users SET enroll_token_hash = ${sha256hex(ts)}, enroll_expires_at = now() + interval '1 hour' WHERE email = 'ts.primary@example.test'`;
   await page.click("#logout");
+  await page.waitForSelector("#code"); // sign-out ends the session on the server first (NMX-63), then shows sign-in
   await page.goto(env.base + "/admin/#/enroll");
   await page.fill("#em", "ts.primary@example.test"); await page.fill("#tok", ts); await page.click("button[type=submit]");
   const s2 = (await page.locator("code.num").innerText()).trim();
@@ -589,10 +628,79 @@ test("sessions (NMX-17): no network keeps the member signed in; signing out ends
   await page.unroute(/token:refresh/);
   await page.goto(env.base + "/?online=1#/profile"); // a fresh page load, as when she opens the app again
   await page.waitForSelector("#out");
+  // a copy of her data downloads as a JSON file (NMX-38)
+  const [download] = await Promise.all([page.waitForEvent("download"), page.click("#mydata")]);
+  assert.match(download.suggestedFilename(), /^herzone-my-data-\d{4}-\d{2}-\d{2}\.json$/);
+  const file = JSON.parse(readFileSync(await download.path(), "utf8"));
+  assert.equal(file.account.phone_e164, u.phone);
+  assert.equal(file.account.display_name, "Lulwa");
   const refresh = await page.evaluate(() => JSON.parse(localStorage.getItem("q_tokens")).refresh_token);
   await page.click("#out");
   await page.waitForFunction(() => location.hash === "#/welcome");
   assert.equal(await page.evaluate(() => localStorage.getItem("q_tokens")), null);
   assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: refresh }, idem: false })).status, 401, "the server ended the session");
   assert.deepEqual(errors.filter((e) => !/token:refresh/.test(e)), []);
+});
+
+test("public account deletion page (Google Play): both languages, served under the real CSP, phone width", async () => {
+  const { page, errors } = await newPage();
+  await page.goto(`${env.base}/delete-account.html`);
+  await oneH1(page);
+  assert.equal(await page.locator("main h1").textContent(), "حذف حسابكِ في HerZone");
+  assert.equal(await page.locator("section[lang=en] h2").first().textContent(), "Delete your HerZone account");
+  assert.ok((await page.locator("main").textContent()).includes("14"), "states the 14-day period");
+  assert.equal(await page.locator('a[href="tel:+97460053006"]').count(), 2);
+  await noHorizontalScroll(page);
+  assert.deepEqual(errors, []);
+  await page.context().close();
+});
+
+test("venue page (016): email, code, the hosting request, accept; Arabic, real CSP, phone width", async () => {
+  const call = client(env.base);
+  const ops = await adminLogin(call, env.sql, "ops.oncall@example.test");
+  const owner = await adminLogin(call, env.sql, "owner@example.test");
+  const s = await call("POST", "/api/admin/v1/sessions", { token: ops.token, body: { experience: "dinner", conversation_language: "ar",
+    starts_at: new Date(Date.now() + 2 * 86400000).toISOString(), duration_minutes: 120, max_seats: 18, district_hint_ar: "لوسيل", district_hint_en: "Lusail" } });
+  await call("POST", `/api/admin/v1/sessions/${s.body.id}:open-sale`, { token: owner.token });
+  const [v] = await env.sql`SELECT id, name FROM app.venues WHERE is_active AND 'dinner' = ANY (supported_experiences) ORDER BY name LIMIT 1`;
+  assert.equal((await call("POST", `/api/admin/v1/venues/${v.id}/portal-users`, { token: ops.token, body: { email: "ui@venue.test" } })).status, 201);
+  assert.equal((await call("POST", `/api/admin/v1/sessions/${s.body.id}/venues`, { token: ops.token, body: { venue_id: v.id, planned_guests: 6 } })).status, 200);
+
+  const { page, errors } = await newPage();
+  await page.goto(`${env.base}/venue/index.html`);
+  await page.fill("#email", "ui@venue.test");
+  await page.click("#go");
+  const code = (await page.locator("#dev").textContent()).trim();
+  await page.fill("#code", code);
+  await page.click("#go");
+  await page.waitForSelector(`#req-${s.body.id}`);
+  assert.equal(await page.locator("#vp-venue").textContent(), v.name);
+  const card = await page.locator(`#req-${s.body.id}`).textContent();
+  assert.ok(card.includes("حجز لعدد 6 أشخاص (سيدات)"), card);
+  await noHorizontalScroll(page);
+  await page.click(`[data-accept="${s.body.id}"]`);
+  await page.waitForSelector(`#req-${s.body.id} .badge-success`);
+  const [sv] = await env.sql`SELECT status FROM app.session_venues WHERE session_id = ${s.body.id}`;
+  assert.equal(sv.status, "confirmed");
+  await page.click("#vp-lang");
+  await page.waitForFunction(() => document.querySelector("h1")?.textContent.includes("Hosting requests") && document.documentElement.dir === "ltr");
+  assert.deepEqual(errors, []);
+  await page.context().close();
+
+  // the admin side: the queued WhatsApp text, the request, the session's planned venue, the portal email
+  const ad = await newPage({ width: 1280, height: 900 });
+  await ad.page.addInitScript(([t, a]) => { sessionStorage.setItem("qa_token", JSON.stringify(t)); sessionStorage.setItem("qa_admin", JSON.stringify(a)); }, [ops.token, ops.admin]);
+  await ad.page.goto(`${env.base}/admin/#/venue-requests`);
+  await ad.page.waitForSelector("h1:text('Venue requests')");
+  const reqRow = ad.page.locator("tr", { hasText: v.name }).filter({ has: ad.page.locator(".badge-success") });
+  assert.equal(await reqRow.count(), 1, "the accepted request is listed as confirmed");
+  await ad.page.goto(`${env.base}/admin/#/sessions/${s.body.id}`);
+  await ad.page.waitForSelector("#sv table");
+  assert.ok((await ad.page.locator("#sv").textContent()).includes("confirmed"));
+  await ad.page.goto(`${env.base}/admin/#/venues`);
+  await ad.page.click(`[data-portal="${v.id}"]`);
+  await ad.page.waitForSelector("#puf");
+  assert.ok((await ad.page.locator("#contacts").textContent()).includes("ui@venue.test"));
+  assert.deepEqual(ad.errors, []);
+  await ad.page.context().close();
 });

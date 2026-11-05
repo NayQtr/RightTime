@@ -34,3 +34,8 @@ test("spacing, radii and text sizes match", () => {
     assert.ok(line && line.includes(`fontSize: ${num(v.$value.fontSize)}`) && line.includes(`height: ${num(v.$value.lineHeight)}`), `type.${lang}.${role}`);
   }
 });
+
+test("the Flutter app uses exactly the generated tokens file", () => {
+  const app = readFileSync(new URL("../../app/lib/design/herzone_tokens.dart", import.meta.url), "utf8");
+  assert.equal(app, dart, "run python3 qatar/design/build_tokens_dart.py");
+});

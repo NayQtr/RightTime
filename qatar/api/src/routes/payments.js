@@ -3,6 +3,11 @@ import { randomToken } from "../lib/crypto.js";
 import { fail, json, money } from "../lib/http.js";
 import { applyPspEvent, dispatchRefund } from "../services/payments.js";
 import { verifyWebhook } from "../services/psp.js";
+import { runAiOpinions } from "../services/identity.js";
+
+// The webhook log keeps the event for audit, but never the name on the card (that is stored encrypted, on the payment).
+const withoutCardName = (event) => (event && event.data && event.data.cardholder_name
+  ? { ...event, data: { ...event.data, cardholder_name: "[stored encrypted]" } } : event);
 
 async function webhook(ctx) {
   const { sql, keys, params, rawBody, req } = ctx;
@@ -18,13 +23,14 @@ async function webhook(ctx) {
   }
   const inserted = await sql`
     INSERT INTO app.payment_webhook_events (psp, psp_event_id, event_type, signature_valid, payload)
-    VALUES ('test_psp', ${event.id}, ${event.type}, true, ${sql.json(event)})
+    VALUES ('test_psp', ${event.id}, ${event.type}, true, ${sql.json(withoutCardName(event))})
     ON CONFLICT (psp, psp_event_id) DO NOTHING RETURNING id`;
   if (!inserted.length) return json(200, { received: true, duplicate: true });
   let refunds = [];
   try {
-    refunds = await applyPspEvent(sql, event);
+    refunds = await applyPspEvent(sql, event, { keys, cfg: ctx.cfg });
     await sql`UPDATE app.payment_webhook_events SET processed_at = now() WHERE id = ${inserted[0].id}`;
+    await runAiOpinions(sql, ctx, { limit: 3 }); // after commit; never fails the webhook
   } catch (e) {
     await sql`UPDATE app.payment_webhook_events SET processing_error = ${String(e.message).slice(0, 500)} WHERE id = ${inserted[0].id}`;
     return json(200, { received: true, processed: false });
@@ -55,7 +61,8 @@ async function mockComplete(ctx) {
   const outcome = ctx.body.outcome;
   if (!["success", "declined", "3ds_failed", "insufficient_funds", "cancel"].includes(outcome)) fail(422, "VALIDATION_FAILED", [{ field: "outcome" }]);
   if (p.status !== "created" && p.status !== "failed") fail(409, "PAYMENT_NOT_PENDING");
-  if (outcome !== "cancel") await ctx.psp.completePayment(p, outcome);
+  const cardholderName = typeof ctx.body.cardholder_name === "string" ? ctx.body.cardholder_name.slice(0, 100) : undefined;
+  if (outcome !== "cancel") await ctx.psp.completePayment(p, outcome, { cardholder_name: cardholderName });
   return json(200, { outcome, return_url: out.return_url });
 }
 

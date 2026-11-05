@@ -103,17 +103,15 @@ async function otpRequest(ctx) {
   }
   const [{ n_phone }] = await sql`SELECT count(*)::int AS n_phone FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} AND created_at > now() - interval '1 hour'`;
   if (n_phone >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  if (ctx.ipTrunc) {
-    const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipTrunc}::inet AND created_at > now() - interval '1 hour'`;
-    if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  }
+  const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipBucket}::inet AND created_at > now() - interval '1 hour'`;
+  if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
   if (!cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
   const id = randomUUID();
   const code = randomDigits(6);
   await sql`
     INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc)
     VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
-            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipTrunc}::inet)`;
+            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet)`;
   return json(202, { challenge_id: id, expires_in: cfg.otpTtl, resend_after: cfg.otpResendAfter, code_length: 6,
     ...(cfg.otpDevMode ? { dev_code: code } : {}) });
 }
@@ -125,10 +123,12 @@ async function otpVerify(ctx) {
   const [ch] = await sql`SELECT * FROM app.otp_challenges WHERE id = ${body.challenge_id}`;
   if (!ch) fail(404, "CHALLENGE_NOT_FOUND");
   if (ch.consumed_at || new Date(ch.expires_at) < new Date()) fail(410, "OTP_EXPIRED");
-  if (ch.attempts >= cfg.otpMaxAttempts) fail(423, "OTP_LOCKED", null, { retry_after: cfg.otpResendAfter });
+  // NMX-63: take an attempt atomically before comparing, so parallel guesses (even across function copies) can never
+  // exceed the attempt limit
+  const [slot] = await sql`UPDATE app.otp_challenges SET attempts = attempts + 1 WHERE id = ${ch.id} AND attempts < ${cfg.otpMaxAttempts} RETURNING attempts`;
+  if (!slot) fail(423, "OTP_LOCKED", null, { retry_after: cfg.otpResendAfter });
   if (!safeEqual(hmacB64(keys.phonePepper, `${ch.id}:${body.code}`), ch.code_hash.trim())) {
-    const [u] = await sql`UPDATE app.otp_challenges SET attempts = attempts + 1 WHERE id = ${ch.id} RETURNING attempts`;
-    fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: Math.max(0, cfg.otpMaxAttempts - u.attempts) }]);
+    fail(400, "OTP_INVALID", [{ field: "code", attempts_remaining: Math.max(0, cfg.otpMaxAttempts - slot.attempts) }]);
   }
   const consumed = await sql`UPDATE app.otp_challenges SET consumed_at = now() WHERE id = ${ch.id} AND consumed_at IS NULL RETURNING id`;
   if (!consumed.length) fail(410, "OTP_EXPIRED");
@@ -141,7 +141,18 @@ async function otpVerify(ctx) {
       ON CONFLICT (phone_lookup_hash) DO UPDATE SET last_login_at = now() RETURNING *`;
     isNew = true;
   }
+  // Signing in during the 14 days after a deletion request cancels it (privacy notice: "you can change your mind").
+  if (user.status === "deletion_requested") {
+    [user] = await sql`UPDATE app.users SET status = 'active' WHERE id = ${user.id} AND status = 'deletion_requested' RETURNING *`;
+  }
   await sql`UPDATE app.users SET last_login_at = now() WHERE id = ${user.id}`;
+  // A sign-in while another session of this account is still active: tell her (NMX-38). The lock screen shows only the
+  // generic line (NMX-21); the text is in her inbox.
+  if (!isNew) {
+    const [other] = await sql`SELECT 1 FROM app.refresh_tokens WHERE subject_type = 'user' AND subject_id = ${user.id}
+                                AND revoked_at IS NULL AND expires_at > now() LIMIT 1`;
+    if (other) await notify(sql, user.id, "NEW_SIGN_IN", { date: new Date().toISOString() });
+  }
   const tokens = await issueTokens(ctx, "user", user.id);
   return json(200, { ...tokens, user: { id: user.id, is_new: isNew, registration_status: registrationStatus(user), locale: user.locale, status: user.status } });
 }
@@ -156,9 +167,15 @@ async function refreshTokens(ctx, subjectType) {
     fail(401, "UNAUTHENTICATED");
   }
   if (new Date(rt.expires_at) < new Date()) fail(401, "UNAUTHENTICATED");
+  // NMX-63: claim the token atomically before issuing new ones. Two requests with the same token at the same moment:
+  // only one claims it; the other is treated as reuse and ends the whole session (it used to split it into two).
+  const [claimed] = await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE id = ${rt.id} AND revoked_at IS NULL RETURNING id`;
+  if (!claimed) {
+    await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${rt.family_id} AND revoked_at IS NULL`;
+    fail(401, "UNAUTHENTICATED");
+  }
   const tokens = await issueTokens(ctx, subjectType, rt.subject_id, rt.family_id);
-  await sql`UPDATE app.refresh_tokens SET revoked_at = now(),
-              replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
+  await sql`UPDATE app.refresh_tokens SET replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
              WHERE id = ${rt.id}`;
   return json(200, tokens);
 }
@@ -166,7 +183,12 @@ export { refreshTokens };
 
 async function logout(ctx) {
   const token = String(ctx.body.refresh_token || "");
-  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE token_hash = ${sha256hex(token)} AND subject_id = ${ctx.user.id} AND revoked_at IS NULL`;
+  // Also end the session the access token belongs to (its sid): a client may send a refresh token that a refresh
+  // rotated a moment ago, and signing out must still end the session it is in.
+  const sid = ctx.claims?.sid ?? null;
+  await ctx.sql`UPDATE app.refresh_tokens SET revoked_at = now()
+                 WHERE subject_id = ${ctx.user.id} AND revoked_at IS NULL
+                   AND (token_hash = ${sha256hex(token)} OR (${sid}::uuid IS NOT NULL AND family_id = ${sid}::uuid))`;
   return json(204, null);
 }
 
@@ -188,8 +210,10 @@ async function register(ctx) {
   const { sql, body, user } = ctx;
   if (user.registration_completed_at) fail(409, "ALREADY_REGISTERED");
   const details = [];
-  if (body.display_name !== undefined && body.display_name !== null &&
-      !/^[\p{L} \-]{1,30}$/u.test(String(body.display_name))) details.push({ field: "display_name", code: "INVALID" });
+  // the first name is required (4 Nov): it is compared with the name on the payment card (identity check, 015)
+  const displayName = typeof body.display_name === "string" ? body.display_name.trim() : "";
+  if (!displayName) details.push({ field: "display_name", code: "REQUIRED" });
+  else if (!/^[\p{L} \-]{1,30}$/u.test(displayName)) details.push({ field: "display_name", code: "INVALID" });
   if (!["ar", "en"].includes(body.locale)) details.push({ field: "locale", code: "REQUIRED" });
   if (details.length) fail(422, "VALIDATION_FAILED", details);
   if (body.age_eligibility_confirmed !== true) fail(422, "AGE_NOT_ELIGIBLE", [{ field: "age_eligibility_confirmed", code: "REQUIRED" }]);
@@ -204,7 +228,7 @@ async function register(ctx) {
       await tx`INSERT INTO app.user_consents (user_id, consent_type, document_version, granted, source, ip_trunc)
                VALUES (${user.id}, ${c.type}, ${c.document_version}, ${c.granted}, 'app_web', ${ctx.ipTrunc}::inet)`;
     }
-    return tx`UPDATE app.users SET display_name = ${body.display_name || null}, locale = ${body.locale},
+    return tx`UPDATE app.users SET display_name = ${displayName}, locale = ${body.locale},
                      age_eligibility_confirmed_at = now(), woman_confirmed_at = now(), registration_completed_at = now()
                WHERE id = ${user.id} RETURNING *`;
   });
@@ -251,6 +275,64 @@ async function outdatedConsents(sql, user, current = null) {
 }
 
 const me = async (ctx) => json(200, { user: { ...userView(ctx.user), outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
+
+// A copy of the member's own data (right of access, PDPPL; NMX-38): one JSON file with her account, consents, latest
+// answers, bookings, payments, refunds, ratings and the reports she made. Other members' data is never included (no
+// names, no reported person). Never cached.
+async function exportMe(ctx) {
+  const { sql, user, keys, locale } = ctx;
+  const L = (row, f) => (locale === "en" ? row[`${f}_en`] : row[`${f}_ar`]);
+  const [u] = await sql`SELECT * FROM app.users WHERE id = ${user.id}`;
+  const consents = await sql`SELECT consent_type, document_version, granted, recorded_at, source FROM app.user_consents
+                              WHERE user_id = ${user.id} ORDER BY recorded_at`;
+  const [resp] = await sql`SELECT id, submitted_at FROM app.questionnaire_responses WHERE user_id = ${user.id} AND status = 'submitted'
+                            ORDER BY submitted_at DESC LIMIT 1`;
+  const answers = resp ? await sql`
+    SELECT q.key, q.text_ar, q.text_en, o.label_ar, o.label_en FROM app.answers a
+      JOIN app.questions q ON q.id = a.question_id JOIN app.question_options o ON o.id = a.option_id
+     WHERE a.response_id = ${resp.id} ORDER BY q.sort_order, o.sort_order` : [];
+  const byQuestion = [];
+  for (const r of answers) {
+    const last = byQuestion[byQuestion.length - 1];
+    if (last && last.key === r.key) last.answers.push(L(r, "label"));
+    else byQuestion.push({ key: r.key, question: L(r, "text"), answers: [L(r, "label")] });
+  }
+  const bookings = await sql`
+    SELECT b.id, b.booking_ref, b.status, b.price_minor, b.created_at, b.cancelled_at, s.experience, s.starts_at
+      FROM app.bookings b JOIN app.event_sessions s ON s.id = b.session_id WHERE b.user_id = ${user.id} ORDER BY s.starts_at`;
+  const refOf = Object.fromEntries(bookings.map((b) => [b.id, b.booking_ref]));
+  const payments = await sql`SELECT booking_id, amount_minor, status, method_brand, card_last4, succeeded_at, created_at
+                               FROM app.payments WHERE user_id = ${user.id} ORDER BY created_at`;
+  const refunds = await sql`SELECT r.booking_id, r.amount_minor, r.reason, r.status, r.completed_at, r.created_at
+                              FROM app.refunds r JOIN app.payments p ON p.id = r.payment_id WHERE p.user_id = ${user.id} ORDER BY r.created_at`;
+  const feedback = await sql`SELECT booking_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private, submitted_at
+                               FROM app.event_feedback WHERE user_id = ${user.id} ORDER BY submitted_at`;
+  const reports = await sql`SELECT case_ref, booking_id, category, timing, immediate_danger, description_enc, status, created_at
+                              FROM app.safety_reports WHERE reporter_user_id = ${user.id} ORDER BY created_at`;
+  const body = {
+    exported_at: qa(new Date()),
+    account: {
+      phone_e164: u.phone_e164_enc?.length ? decrypt(keys.dataKey, u.phone_e164_enc) : null,
+      display_name: u.display_name, locale: u.locale, status: u.status, created_at: qa(u.created_at),
+      registration_completed_at: qa(u.registration_completed_at), woman_confirmed_at: qa(u.woman_confirmed_at),
+      age_eligibility_confirmed_at: qa(u.age_eligibility_confirmed_at), last_login_at: qa(u.last_login_at),
+    },
+    consents: consents.map((c) => ({ type: c.consent_type, document_version: c.document_version, granted: c.granted, recorded_at: qa(c.recorded_at), source: c.source })),
+    questionnaire: resp ? { submitted_at: qa(resp.submitted_at), answers: byQuestion } : null,
+    bookings: bookings.map((b) => ({ booking_ref: b.booking_ref, experience: b.experience, starts_at: qa(b.starts_at), status: b.status,
+      fee: money(b.price_minor, locale), booked_at: qa(b.created_at), cancelled_at: qa(b.cancelled_at) })),
+    payments: payments.map((p) => ({ booking_ref: refOf[p.booking_id] ?? null, amount: money(p.amount_minor, locale), status: p.status,
+      card: p.method_brand ? `${p.method_brand} ${p.card_last4 ?? ""}`.trim() : null, paid_at: qa(p.succeeded_at), created_at: qa(p.created_at) })),
+    refunds: refunds.map((r) => ({ booking_ref: refOf[r.booking_id] ?? null, amount: money(r.amount_minor, locale), reason: r.reason, status: r.status,
+      completed_at: qa(r.completed_at), created_at: qa(r.created_at) })),
+    ratings: feedback.map((f) => ({ booking_ref: refOf[f.booking_id] ?? null, overall: f.overall_rating, comfort: f.comfort_rating, venue: f.venue_rating,
+      would_book_again: f.would_book_again, private_comment: f.comment_private, submitted_at: qa(f.submitted_at) })),
+    reports_made: reports.map((r) => ({ case_ref: r.case_ref, booking_ref: refOf[r.booking_id] ?? null, category: r.category, timing: r.timing,
+      immediate_danger: r.immediate_danger, description: r.description_enc ? decrypt(keys.dataKey, r.description_enc) : null, status: r.status, created_at: qa(r.created_at) })),
+  };
+  const day = qa(new Date()).slice(0, 10);
+  return json(200, body, { "Cache-Control": "no-store", "Content-Disposition": `attachment; filename="herzone-my-data-${day}.json"` });
+}
 
 // Accepting an updated document after registration, and the women-only confirmation of accounts registered before it
 // was asked at sign-up. Required consents are withdrawn by deleting the account, not here.
@@ -629,18 +711,25 @@ async function eventDetails(ctx) {
     payment: p ? { amount: money(p.amount_minor, locale), status: p.status } : null,
     actions: [],
   };
+  // NMX-63: a member whose account is not active (e.g. interim suspension after a danger report) sees no venue, table
+  // code or tablemates' names while her case is reviewed, even for bookings made before
+  // Identity review (015): while the name on her card is being checked, the same things stay hidden.
+  const [review] = cfg.cardNameCheck ? await sql`SELECT status FROM app.identity_reviews WHERE booking_id = ${b.id}` : [];
+  const underReview = Boolean(review && review.status === "pending");
+  if (underReview) out.identity_check = "pending";
+  const restricted = ctx.user.status !== "active" || underReview;
   if (["locked", "revealed", "day_of", "completed"].includes(phase)) {
     out.table = { confirmed_count: t.confirmed_count, capacity: t.capacity };
-    if (phase !== "locked") {
+    if (phase !== "locked" && !restricted) {
       out.table.code = t.table_code;
       out.table.shared_themes = (t.match_themes || []).map((th) => (locale === "en" ? th.en : th.ar));
     }
-    if (["day_of", "completed"].includes(phase)) {
+    if (["day_of", "completed"].includes(phase) && !restricted) {
       const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
       out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null }));
     }
   }
-  if (["revealed", "day_of", "completed"].includes(phase) && v) {
+  if (["revealed", "day_of", "completed"].includes(phase) && v && !restricted) {
     out.venue = { name: v.name, address: v.address_line, district: locale === "en" ? v.district_en : v.district_ar,
       location: { lat: Number(v.lat), lng: Number(v.lng) }, map_url: `https://maps.google.com/?q=${Number(v.lat)},${Number(v.lng)}`,
       arrival_instructions: (locale === "en" ? v.arrival_instructions_en : v.arrival_instructions_ar).replace("{code}", t.table_code),
@@ -661,7 +750,7 @@ async function eventDetails(ctx) {
     const st = await resolutionState(sql, b.id);
     out.refund = st.refund ? { status: st.refund.status, amount: money(st.refund.amount_minor, locale) } : { status: "none" };
     if (st.child) out.rebooked_into = { booking_id: st.child.id, ref: st.child.booking_ref, status: st.child.status };
-    if (b.status === "cancelled_by_organizer" && !st.child && !st.refund) {
+    if (b.status === "cancelled_by_organizer" && b.cancel_reason_code !== "identity_rejected" && !st.child && !st.refund) {
       out.resolution = await resolutionOptions(sql, b, locale, cfg);
       if (out.resolution.open) out.actions.push({ type: "resolution", method: "POST", href: `/api/v1/bookings/${b.id}/resolution` });
     }
@@ -710,7 +799,7 @@ async function cancelBooking(ctx) {
 async function chooseResolution(ctx) {
   const { sql, body, locale, cfg, user } = ctx;
   const b = await ownedBooking(sql, ctx, ctx.params.id);
-  if (b.status !== "cancelled_by_organizer") fail(409, "RESOLUTION_NOT_AVAILABLE");
+  if (b.status !== "cancelled_by_organizer" || b.cancel_reason_code === "identity_rejected") fail(409, "RESOLUTION_NOT_AVAILABLE");
   const st = await resolutionState(sql, b.id);
   if (st.child || st.refund) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "already_resolved" }]);
   if (new Date() > new Date(new Date(b.cancelled_at).getTime() + cfg.rebookChoiceHours * 3600 * 1000)) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "deadline_passed" }]);
@@ -721,6 +810,12 @@ async function chooseResolution(ctx) {
   }
   if (body.choice === "refund") {
     const out = await sql.begin(async (tx) => {
+      // NMX-63: lock the booking as rebook_booking does, then re-check, so a rebook and a refund sent at the same time
+      // cannot both succeed (one free meetup plus a full refund)
+      await tx`SELECT id FROM app.bookings WHERE id = ${b.id} FOR UPDATE`;
+      const [done] = await tx`SELECT 1 FROM app.bookings WHERE rebooked_from_booking_id = ${b.id}
+                              UNION ALL SELECT 1 FROM app.refunds WHERE booking_id = ${b.id} AND status <> 'failed' LIMIT 1`;
+      if (done) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "already_resolved" }]);
       const p = await capturedPayment(tx, b.id);
       if (!p) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "no_payment" }]);
       const [r] = await tx`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
@@ -921,7 +1016,7 @@ async function myCases(ctx) {
       FROM app.safety_reports r LEFT JOIN app.bookings b ON b.id = r.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
      WHERE r.reported_user_id = ${ctx.user.id}`;
   return json(200, { cases: rows.filter((r) => r.decision).map((r) => ({
-    case_ref: r.case_ref, event_date: qa(r.starts_at), category: r.category, decision: r.decision, status: r.status,
+    case_ref: r.case_ref, event_date: qa(r.starts_at), category: r.category, decision: r.decision, decision_label: decisionLabel(r.decision, ctx.locale), status: r.status,
     appeal_until: qa(new Date(new Date(r.decided_at).getTime() + 14 * 86400000)),
     can_appeal: r.status === "actioned" && r.decision !== "no_action" && Date.now() < new Date(r.decided_at).getTime() + 14 * 86400000,
   })) });
@@ -974,9 +1069,10 @@ async function checkPromoCode(ctx) {
   const { sql, user } = ctx;
   const code = String((ctx.body || {}).code || "").trim().toUpperCase();
   if (!code || code.length > 24) fail(422, "VALIDATION_FAILED", [{ field: "code", code: "FORMAT" }]);
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
-  if (n >= PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
+  // NMX-63: record the check first, then count (including this one), so parallel requests cannot all pass the limit
   await sql`INSERT INTO app.promo_code_checks (user_id) VALUES (${user.id})`;
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
+  if (n > PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
   const [p] = await sql`SELECT percent_off FROM app.promo_codes
                          WHERE code = ${code} AND is_active AND (expires_at IS NULL OR expires_at > now())
                            AND (max_uses IS NULL OR uses < max_uses)`;
@@ -994,6 +1090,7 @@ export const userRoutes = [
   { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
+  { method: "GET", path: "/api/v1/users/me/export", auth: "user_any", handler: exportMe },
   { method: "POST", path: "/api/v1/users/me/consents", auth: "user", idem: true, handler: updateConsents },
   { method: "DELETE", path: "/api/v1/users/me", auth: "user_any", handler: deleteMe },
   { method: "GET", path: "/api/v1/questionnaires/preview", auth: "none", handler: questionnairePreview },

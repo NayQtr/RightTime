@@ -25,6 +25,17 @@ test("signing out ends that session's access token at once; another device's ses
   assert.equal((await call("GET", "/api/v1/users/me", { token: other })).status, 200, "the other device stays signed in");
 });
 
+test("signing out after a refresh, with the older refresh token in the body, still ends the session (app review #1)", async () => {
+  const a = await signUp(call, { name: "Rana" });
+  const r = await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: a.refresh } });
+  assert.equal(r.status, 200);
+  // the client read its refresh token before the refresh rotated it, so the body carries the old one
+  const out = await call("POST", "/api/v1/auth/logout", { token: r.body.access_token, body: { refresh_token: a.refresh } });
+  assert.equal(out.status, 204);
+  assert.equal((await call("GET", "/api/v1/users/me", { token: r.body.access_token })).status, 401, "the session of the presented access token ends");
+  assert.equal((await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: r.body.refresh_token } })).status, 401, "its current refresh token is dead too");
+});
+
 test("a refreshed session keeps working; reusing an old refresh token ends the whole session", async () => {
   const a = await signUp(call, { name: "Huda" });
   const r = await call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: a.refresh } });
@@ -48,4 +59,54 @@ test("an admin access token stops working when its session is revoked", async ()
   assert.equal((await call("GET", "/api/admin/v1/me", { token })).status, 200);
   await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE subject_type = 'admin' AND revoked_at IS NULL`;
   assert.equal((await call("GET", "/api/admin/v1/me", { token })).status, 401);
+});
+
+test("NMX-63: the same refresh token sent twice at once never leaves two working sessions", async () => {
+  for (let round = 0; round < 5; round++) {
+    const u = await signUp(call, { name: "Dana" });
+    const send = () => call("POST", "/api/v1/auth/token:refresh", { body: { refresh_token: u.refresh }, idem: false });
+    const [a, b] = await Promise.all([send(), send()]);
+    const ok = [a, b].filter((r) => r.status === 200);
+    assert.ok(ok.length <= 1, `round ${round}: both refreshes succeeded`);
+    // whatever happened, at most one live refresh token remains in that session
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.refresh_tokens WHERE subject_id = ${u.userId} AND revoked_at IS NULL`;
+    assert.ok(n <= 1, `round ${round}: ${n} live refresh tokens`);
+  }
+});
+
+test("NMX-63: 30 parallel wrong OTP guesses are counted; never more than 5 are checked", async () => {
+  const r = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455577001", locale: "ar" } });
+  const wrong = String((Number(r.body.dev_code) + 1) % 1000000).padStart(6, "0");
+  const rs = await Promise.all(Array.from({ length: 30 }, () => call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r.body.challenge_id, code: wrong } })));
+  assert.equal(rs.filter((x) => x.status === 400).length, 5, rs.map((x) => x.status).join(","));
+  const [ch] = await sql`SELECT attempts FROM app.otp_challenges WHERE id = ${r.body.challenge_id}`;
+  assert.equal(ch.attempts, 5);
+  const right = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r.body.challenge_id, code: r.body.dev_code } });
+  assert.equal(right.status, 423, "locked: even the right code is not accepted");
+});
+
+test("every API response, success or error, has X-Content-Type-Options: nosniff", async () => {
+  assert.equal((await call("GET", "/api/v1/health")).headers.get("x-content-type-options"), "nosniff");
+  assert.equal((await call("GET", "/api/v1/users/me")).headers.get("x-content-type-options"), "nosniff");
+});
+
+test("NMX-38: a sign-in while another session is active tells the member, in her inbox; the first sign-in does not", async () => {
+  const a = await signUp(call, { name: "Hind" });
+  const inbox = async (token) => (await call("GET", "/api/v1/notifications", { token })).body.notifications.filter((n) => n.template_key === "NEW_SIGN_IN");
+  assert.equal((await inbox(a.token)).length, 0, "signing up is not an alert");
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '1 hour'`;
+  const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: a.phone, locale: "ar" } });
+  const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });
+  assert.equal(r2.status, 200);
+  const alerts = await inbox(a.token);
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0].text, /جهاز آخر/);
+
+  // after signing out everywhere, the next sign-in is not "another device"
+  await call("POST", "/api/v1/auth/logout", { token: a.token, body: { refresh_token: a.refresh } });
+  await call("POST", "/api/v1/auth/logout", { token: r2.body.access_token, body: { refresh_token: r2.body.refresh_token } });
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '1 hour'`;
+  const r3 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: a.phone, locale: "ar" } });
+  const r4 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r3.body.challenge_id, code: r3.body.dev_code } });
+  assert.equal((await inbox(r4.body.access_token)).length, 1, "no new alert");
 });

@@ -64,3 +64,9 @@ test("promo check: at most 10 checks per member per hour, so codes cannot be gue
   assert.equal(r.status, 429);
   assert.equal(r.body.code, "RATE_LIMITED");
 });
+
+test("NMX-63: 40 parallel promo checks still pass at most 10 per hour", async () => {
+  const u = await signUp(call, { name: "Rana" });
+  const rs = await Promise.all(Array.from({ length: 40 }, (_, i) => call("POST", "/api/v1/promo-codes:check", { token: u.token, body: { code: `PAR${i}X` } })));
+  assert.ok(rs.filter((r) => r.status === 200).length <= 10, `${rs.filter((r) => r.status === 200).length} passed`);
+});

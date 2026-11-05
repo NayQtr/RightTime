@@ -25,7 +25,8 @@ export function startServer({ databaseUrl = process.env.DATABASE_URL, port = Num
         const body = chunks.length ? Buffer.concat(chunks) : undefined;
         const headers = new Headers();
         for (const [k, v] of Object.entries(req.headers)) if (v !== undefined) headers.set(k, Array.isArray(v) ? v.join(", ") : v);
-        if (!headers.has("x-forwarded-for")) headers.set("x-forwarded-for", req.socket.remoteAddress?.replace("::ffff:", "") || "127.0.0.1");
+        // local runner stands in for the gateway: it sets x-real-ip from the socket unless a test sets it (tests act as the proxy)
+        if (!headers.has("x-real-ip")) headers.set("x-real-ip", req.socket.remoteAddress?.replace("::ffff:", "") || "127.0.0.1");
         const r = await app.handle(new Request(url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body }));
         res.writeHead(r.status, Object.fromEntries(r.headers));
         res.end(Buffer.from(await r.arrayBuffer()));

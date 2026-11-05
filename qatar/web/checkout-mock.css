@@ -1,0 +1,3 @@
+/* test checkout page (staging only) */
+main { padding-top: var(--s-8); }
+.psp { border: 2px dashed var(--c-warning); }

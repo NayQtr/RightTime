@@ -8,6 +8,8 @@
   <title>HerZone</title>
   <link rel="preload" href="/fonts/alexandria-arabic-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- the API is the first thing the app calls: open that connection early (ops/write-config.mjs sets the host per environment) -->
+  <link rel="preconnect" href="https://fvodcnqmxskgzziwuwmz.supabase.co" crossorigin>
   <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.webmanifest">

@@ -11,11 +11,12 @@ import { userRoutes } from "./routes/user.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { adminRoutes } from "./routes/admin.js";
 import { pushRoutes } from "./routes/push.js";
+import { venueRoutes } from "./routes/venue.js";
 
 // Endpoints a suspended / banned user may still call (v0.3 §3.1 ACCOUNT_SUSPENDED applies to the rest)
 const SUSPENDED_ALLOWED = new Set(["GET /api/v1/users/me", "POST /api/v1/auth/logout", "GET /api/v1/notifications",
   "GET /api/v1/cases/mine", "POST /api/v1/cases/{ref}/appeal", "GET /api/v1/bookings", "GET /api/v1/bookings/{id}",
-  "GET /api/v1/bookings/{id}/event-details"]);
+  "GET /api/v1/bookings/{id}/event-details", "GET /api/v1/users/me/export"]);
 
 function compile(routes) {
   return routes.map((r) => {
@@ -31,7 +32,7 @@ function compile(routes) {
 }
 
 export function createApp({ sql, getEnv = () => undefined }) {
-  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes]);
+  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes, ...venueRoutes]);
   const app = { sql, getEnv, handle: null, psp: null };
 
   async function context(req) {
@@ -41,8 +42,13 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const fwd = req.headers.get("x-forwarded-for") || "";
     const locale = (req.headers.get("accept-language") || "ar").toLowerCase().startsWith("en") ? "en" : "ar";
     const psp = testPsp({ keys, cfg, deliver: (raw, headers) => deliverWebhook(raw, headers) });
-    return { req, url, keys, cfg, sql, getEnv, locale, psp, ip: fwd.split(",")[0].trim() || null,
-      ipTrunc: ipTrunc(fwd.split(",")[0].trim()), requestId: "req_" + randomToken(9) };
+    // Client IP (NMX-63): the address Cloudflare or the gateway saw (cf-connecting-ip / x-real-ip, which a client cannot
+    // set), and only without them the first X-Forwarded-For entry. Rate limits use ipBucket: an address that cannot be
+    // read shares one bucket ("0.0.0.0") instead of skipping the per-IP limit.
+    const rawIp = (req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || fwd.split(",")[0] || "").trim();
+    const trunc = ipTrunc(rawIp);
+    return { req, url, keys, cfg, sql, getEnv, locale, psp, ip: rawIp || null,
+      ipTrunc: trunc, ipBucket: trunc || "0.0.0.0", requestId: "req_" + randomToken(9) };
   }
 
   // In-process delivery used by the mock PSP: goes through the full webhook route (signature, dedupe, processing).
@@ -66,6 +72,18 @@ export function createApp({ sql, getEnv = () => undefined }) {
     const token = h.startsWith("Bearer ") ? h.slice(7) : null;
     if (route.auth === "none") return;
     const claims = token ? jwtVerify(ctx.keys.jwt.publicKey, token) : null;
+    ctx.claims = claims;
+    // Venue portal (016): its own token type, accepted only on venue routes, and only while its portal session lives.
+    if (route.auth === "venue" || (claims && claims.typ === "venue")) {
+      if (route.auth !== "venue" || !claims || claims.typ !== "venue" || !claims.sid) fail(401, "UNAUTHENTICATED");
+      const [vu] = await sql`SELECT u.id, u.venue_id, u.email, v.name AS venue_name FROM app.venue_portal_sessions ps
+                               JOIN app.venue_users u ON u.id = ps.venue_user_id JOIN app.venues v ON v.id = u.venue_id
+                              WHERE ps.id = ${claims.sid} AND u.id = ${claims.sub} AND ps.revoked_at IS NULL AND ps.expires_at > now()
+                                AND u.status = 'active'`;
+      if (!vu) fail(401, "UNAUTHENTICATED");
+      ctx.venueUser = vu;
+      return;
+    }
     // A session ends at once (NMX-17): sign-out, refresh-token reuse and account deletion revoke the session's refresh
     // tokens, and its access tokens are refused from then on. Tokens issued before sessions were tracked carry no sid
     // and expire on their own within the access TTL.
@@ -147,11 +165,21 @@ export function createApp({ sql, getEnv = () => undefined }) {
         try { ctx.body = JSON.parse(ctx.rawBody); } catch { fail(400, "MALFORMED_REQUEST"); }
         if (ctx.body === null || typeof ctx.body !== "object" || Array.isArray(ctx.body)) fail(400, "MALFORMED_REQUEST");
       }
+      // Forced update (NMX-61): the mobile app sends "X-HerZone-App: <version> <platform>". Below MIN_APP_VERSION (for
+      // example after a security fix) every call is refused with 426, and the app shows only "Update". The website
+      // sends no such header and is never affected.
+      const appVersion = req.headers.get("x-herzone-app");
+      if (appVersion && cfg.minAppVersion && versionBelow(appVersion, cfg.minAppVersion)) {
+        const ios = /\bios\b/i.test(appVersion);
+        const store = ios ? cfg.appStoreUrl : cfg.playStoreUrl;
+        fail(426, "APP_UPDATE_REQUIRED", [{ field: "app_version", code: "BELOW_MINIMUM", min_version: cfg.minAppVersion, ...(store ? { store_url: store } : {}) }]);
+      }
       await authenticate(ctx, route);
       const run = () => route.handler(ctx);
       let res = route.idem ? await withIdempotency(ctx, route, run) : await run();
       const headers = new Headers(res.headers);
       headers.set("X-Request-Id", ctx.requestId);
+      headers.set("X-Content-Type-Options", "nosniff");
       for (const [k, v] of Object.entries(corsHeaders(req, cfg))) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     } catch (e) {
@@ -172,3 +200,15 @@ export function createApp({ sql, getEnv = () => undefined }) {
   };
   return app;
 }
+
+// "1.4.2+17 android" below "1.5.0"? Compares major.minor.patch; the build number is ignored. A version that cannot be
+// read counts as below, so a broken client is asked to update rather than let through.
+export function versionBelow(header, min) {
+  const parse = (v) => { const m = /^\s*(\d+)\.(\d+)\.(\d+)/.exec(String(v)); return m ? m.slice(1, 4).map(Number) : null; };
+  const a = parse(header), b = parse(min);
+  if (!b) return false;
+  if (!a) return true;
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] < b[i];
+  return false;
+}
+

@@ -1,7 +1,41 @@
-// HerZone service worker: shows phone notifications sent by the API (Web Push) and opens the right screen on tap.
-// It deliberately has no fetch handler and caches nothing, so the site always loads fresh from the network.
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+// HerZone service worker: shows phone notifications sent by the API (Web Push), opens the right screen on tap, and keeps
+// the app's own files on the device so a member can open her booking details without a connection (NMX-16).
+// Network first: online, every file comes fresh from the server (the copy on the device is only refreshed); the device
+// copy is used only when the network fails. API calls (another origin) and the admin console are never touched.
+const SHELL = "hz-shell-v1";
+const CORE = ["/", "/app.js", "/strings.js", "/quiz-flow.js", "/icons.js", "/plans.js", "/motif.js", "/config.js", "/monitor.js",
+  "/styles.css", "/tokens.css", "/fonts/fonts.css", "/favicon.svg", "/manifest.webmanifest",
+  "/fonts/alexandria-arabic-800-normal.woff2", "/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2"];
+
+self.addEventListener("install", (e) => {
+  // best effort: a file that fails to download must not stop notifications from working
+  e.waitUntil(caches.open(SHELL).then((c) => Promise.all(CORE.map((u) => c.add(u).catch(() => null)))).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => e.waitUntil((async () => {
+  for (const k of await caches.keys()) if (k.startsWith("hz-shell-") && k !== SHELL) await caches.delete(k);
+  await self.clients.claim();
+})()));
+
+self.addEventListener("fetch", (e) => {
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/admin")) return;
+  e.respondWith((async () => {
+    try {
+      const res = await fetch(req);
+      if (res.ok && res.type === "basic") {
+        const copy = res.clone();
+        e.waitUntil(caches.open(SHELL).then((c) => c.put(req.mode === "navigate" ? "/" : req, copy)).catch(() => null));
+      }
+      return res;
+    } catch (err) {
+      const hit = req.mode === "navigate" ? await caches.match("/") : await caches.match(req, { ignoreSearch: true });
+      if (hit) return hit;
+      throw err;
+    }
+  })());
+});
 
 self.addEventListener("push", (e) => {
   let d = {};

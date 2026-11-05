@@ -1,0 +1,11 @@
+# Maestro flows for the HerZone app (NMX-56). Run against STAGING only: they read the sign-in code from the screen
+# (shown on staging only) and pay on the mock payment page. Never point them at production.
+#   maestro test .maestro            # all flows, in this order
+flows:
+  - 01_onboarding.yaml
+  - 02_book_pay_meetup.yaml
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01_onboarding
+    - 02_book_pay_meetup

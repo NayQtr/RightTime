@@ -12,6 +12,7 @@ test("API: scrub removes phone numbers, tokens and 6-digit codes, keeps ordinary
   const s = scrub("user +974 5550 1234 code 482913 jwt eyJhbGc.eyJzdWIi.c2ln refresh rt_abcdefghijklmnopqrstuvwxyz booking 12");
   assert.equal(s, "user [phone] code [code] jwt [token] refresh [token] booking 12");
   assert.equal(scrub("id 3fa85f64-5717-4562-b3fc-2c963f66afa6"), "id 3fa85f64-5717-4562-b3fc-2c963f66afa6", "UUID digits are not codes");
+  assert.equal(scrub("local 5550 1234 or 55501234"), "local [phone] or [phone]", "local 8-digit numbers too (app review #9)");
 });
 
 test("API: envelope has header, item and event with frames oldest-first and ids removed from the route", () => {
@@ -62,6 +63,32 @@ test("web: off without a DSN; with it, reports carry the route without ids, scru
   assert.equal(ev.transaction, "/#/booking/{id}");
   assert.equal(ev.exception.values[0].value, "failed for 0555 code [code]");
   assert.equal(ev.platform, "javascript");
+  assert.equal(on.m.scrub("typed 6601 2345"), "typed [phone]", "local 8-digit numbers too (app review #9)");
   for (let i = 0; i < 20; i += 1) on.m.report(new Error("again"));
   assert.equal(on.sent.length, 10, "at most 10 reports per page load");
+});
+
+test("web: with a release, each page load is one session: started ok, ended exited on close or crashed on an uncaught error", () => {
+  const noRelease = loadWebMonitor({ sentryDsn: DSN });
+  assert.equal(noRelease.m.session(), null, "no session without a release");
+  const parse = (call) => call.init.body.trim().split("\n").map((l) => JSON.parse(l));
+  const a = loadWebMonitor({ sentryDsn: DSN, release: "herzone-web@abc1234", sentryEnvironment: "production" });
+  const [h, item, s0] = parse(a.sent[0]);
+  assert.equal(item.type, "session");
+  assert.equal(h.dsn, DSN);
+  assert.deepEqual([s0.init, s0.status, s0.errors, s0.attrs.release, s0.attrs.environment], [true, "ok", 0, "herzone-web@abc1234", "production"]);
+  assert.ok(!("did" in s0) && !("ip_address" in s0.attrs), "no user or device id, no IP");
+  a.m.report(new Error("api 503")); // handled: counted, no extra session request
+  assert.equal(a.sent.length, 2);
+  a.listeners.pagehide();
+  const s1 = parse(a.sent[2])[2];
+  assert.deepEqual([s1.init, s1.status, s1.errors, s1.sid], [false, "exited", 1, s0.sid]);
+  a.listeners.pagehide();
+  assert.equal(a.sent.length, 3, "a finished session is not sent again");
+  const b = loadWebMonitor({ sentryDsn: DSN, release: "herzone-web@abc1234" });
+  b.listeners.error({ error: new TypeError("x is undefined") });
+  const ev = parse(b.sent.find((c) => c.init.body.includes('"type":"event"')))[2];
+  assert.equal(ev.release, "herzone-web@abc1234");
+  const crashed = b.sent.map(parse).filter((p) => p[1].type === "session").pop()[2];
+  assert.deepEqual([crashed.status, crashed.errors], ["crashed", 1]);
 });

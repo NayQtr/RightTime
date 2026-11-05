@@ -9,31 +9,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="/styles.css">
-  <style>
-    main { max-width: 1280px; }
-    #nav { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; padding: var(--s-2) var(--s-4); border-block-end: 1px solid var(--c-border); background: var(--c-surface); position: sticky; top: 0; z-index: 10; }
-    #nav ul { list-style: none; display: flex; gap: var(--s-1); flex-wrap: wrap; margin: 0; padding: 0; }
-    #nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--s-3); border-radius: var(--r-md); text-decoration: none; color: var(--c-text); }
-    #nav a[aria-current="page"] { background: var(--c-primarySubtle); color: var(--c-primary); font-weight: 600; }
-    #nav .spacer { flex: 1; }
-    table { width: 100%; border-collapse: collapse; background: var(--c-surface); font-size: var(--t-caption-size); }
-    th, td { text-align: start; padding: var(--s-2); border-block-end: 1px solid var(--c-border); vertical-align: top; }
-    th { color: var(--c-textMuted); font-weight: 600; }
-    .table-wrap { overflow-x: auto; }
-    .grid3 { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-block: var(--s-4); }
-    .grid-form { display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end; margin-block-start: var(--s-3); }
-    .grid-form label { display: grid; gap: var(--s-1); font-size: var(--t-caption-size); color: var(--c-textMuted); }
-    .grid-form .wide { grid-column: 1 / -1; }
-    .input.inline { min-height: 32px; width: auto; padding: 2px var(--s-2); font-size: var(--t-caption-size); }
-    .narrow { max-width: 420px; }
-    .plain { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-1); }
-    .row-red td { background: color-mix(in srgb, var(--c-danger) 10%, transparent); }
-    .row-amber td { background: color-mix(in srgb, var(--c-warning) 10%, transparent); }
-    blockquote { margin: 0; padding: var(--s-3); border-inline-start: 4px solid var(--c-primary); background: var(--c-surfaceSunken); }
-    dialog { border: 1px solid var(--c-border); border-radius: var(--r-lg); background: var(--c-surface); color: var(--c-text); max-width: 420px; }
-    dialog::backdrop { background: rgb(0 0 0 / 40%); }
-    code { font-size: 12px; word-break: break-all; }
-  </style>
+  <link rel="stylesheet" href="/admin/admin.css">
   <script src="/config.js"></script>
   <script type="module" src="/admin/admin.js"></script>
 </head>

@@ -25,6 +25,10 @@ function clearDeviceProgress() { DEVICE_PROGRESS.forEach((k) => store.del(k)); t
 let locale = store.get("locale") || "ar";
 const state = { me: null, q: null, qAnswers: null, quiz: null, phone: null, challenge: null, timers: [] };
 const main = document.getElementById("main");
+// Widths computed at render (the quiz progress bar) are set through the CSSOM, which the CSP allows, instead of style
+// attributes, which it would block without 'unsafe-inline' (NMX-31).
+new MutationObserver(() => main.querySelectorAll("[data-w]").forEach((e) => { e.style.width = `${Number(e.dataset.w) || 0}%`; }))
+  .observe(main, { childList: true, subtree: true });
 
 // ------------------------------------------------------------------ helpers
 const T = (k, vars = {}) => String(STRINGS[locale][k] ?? STRINGS.ar[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => (vars[n] ?? `{${n}}`));
@@ -33,8 +37,9 @@ const num = (s) => `<bdi class="num">${esc(s)}</bdi>`;
 // a numeric range such as "18–24" is reordered to "24–18" inside Arabic text; keep it left to right
 const optLabel = (s) => (/^\d+\s*[–-]\s*\d+$/.test(s) ? `<bdi dir="ltr">${esc(s)}</bdi>` : esc(s));
 const intlLocale = () => (locale === "ar" ? "ar-QA-u-nu-latn" : "en-GB");
+// The time and its "م" / "PM" never split across lines (no-break space), as in the app.
 const fmtDate = (iso, opts = { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) =>
-  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)) : "";
+  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)).replace(/(\d)[ \u202F](م|ص|AM|PM)/g, "$1\u00A0$2") : "";
 const fmtTime = (iso) => fmtDate(iso, { weekday: "short", hour: "numeric", minute: "2-digit" });
 const $ = (sel, root = main) => root.querySelector(sel);
 const $$ = (sel, root = main) => [...root.querySelectorAll(sel)];
@@ -93,7 +98,23 @@ let accessToken = null;
 let refreshing = null;
 const session = {
   save(t) { accessToken = t.access_token; store.set("tokens", { refresh_token: t.refresh_token }); },
-  clear() { accessToken = null; store.del("tokens"); },
+  clear() { accessToken = null; store.del("tokens"); store.del("trips"); store.del("inboxSeen"); },
+};
+// Upcoming bookings kept on this device so the venue, arrival notes and table code open without a connection (NMX-16).
+// Only the member's own event details, only until the meetup is over; removed on sign-out.
+const trips = {
+  all() {
+    const t = store.get("trips") || {};
+    const live = Object.entries(t).filter(([, v]) => v && v.data && new Date(v.data.session.starts_at).getTime() > Date.now() - 6 * 3600000);
+    return Object.fromEntries(live);
+  },
+  save(id, data) {
+    const t = this.all();
+    if (["cancelled", "completed"].includes(data.reveal.phase)) delete t[id]; else t[id] = { saved_at: new Date().toISOString(), data };
+    const keep = Object.entries(t).sort((a, b) => new Date(a[1].data.session.starts_at) - new Date(b[1].data.session.starts_at)).slice(0, 5);
+    store.set("trips", Object.fromEntries(keep));
+  },
+  get(id) { return this.all()[id] || null; },
 };
 function refreshAccess() {
   if (refreshing) return refreshing;
@@ -213,12 +234,16 @@ function resumeStepFor(q) {
 }
 
 // gate: signed in -> registered -> questionnaire submitted
-async function guard({ needQuestionnaire = true } = {}) {
+async function guard({ needQuestionnaire = true, offlineOk = false } = {}) {
   if (!store.get("tokens")) { go("#/welcome"); return false; }
   const me = await loadMe();
   // no connection: say so and offer a retry, never send a signed-in member to the welcome screen (which would bounce back)
   if (!me && state.meOffline) {
-    main.innerHTML = `<div class="stack">${errorBanner({ message: T("offline") })}<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button></div>`;
+    if (offlineOk) return "offline";
+    const saved = Object.entries(trips.all());
+    main.innerHTML = `<div class="stack">${errorBanner({ message: T("offline") })}<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button>
+      ${saved.length ? `<h2>${esc(T("savedTrips"))}</h2><ul class="list">${saved.map(([id, v]) => `<li><a class="card card-link" href="#/booking/${esc(id)}">
+        ${esc(T(v.data.session.experience))} · ${esc(fmtDate(v.data.session.starts_at, { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</a></li>`).join("")}</ul>` : ""}</div>`;
     $("#retry-me").onclick = () => route();
     return false;
   }
@@ -241,7 +266,7 @@ function scrWelcome() {
   const canResume = Boolean(resume && /^#\/(quiz\/\d+|name|signin|otp)$/.test(resume) && (answered || store.get("quizName")));
   view(T("welcomeHeroPlain"), `
     <section class="hero-welcome">
-      <h1>${esc(T("welcomeHero")).replace("{em}", `<em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
+      <h1>${esc(T("welcomeHero")).replace(/^(.+?)\s*\{em\}/, (_, lead) => `<span class="lead-in">${lead}</span> <em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
       <p>${esc(T("welcomeSub"))}</p>
       <div class="welcome-table">${tableSvg({ seats: 6, filled: 4 })}</div>
       ${canResume ? `<div class="resume-card stack" id="resume-card"><p><strong>${esc(T("resumeTitle"))}</strong></p><p class="caption">${esc(T("resumeBody", { n: answered }))}</p>
@@ -348,7 +373,7 @@ async function scrRegister() {
     <h1>${esc(T("regTitle"))}</h1>
     <form id="f" class="stack" novalidate>
       ${quizName ? "" : `<div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
-        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh"><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
+        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh" required><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
       <fieldset class="card">
         <p class="caption">${esc(T("womenOnly"))}</p>
         <label class="check"><input type="checkbox" id="woman" required><span>${esc(T("womanLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
@@ -361,8 +386,10 @@ async function scrRegister() {
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     const checked = new Set($$("input[name=c]:checked").map((i) => i.value));
+    const name = quizName || ($("#name") ? $("#name").value.trim() : "");
+    if (!name) { $("#err").innerHTML = `<div class="banner banner-danger" role="alert"><div>${esc(T("nameRequired"))}</div></div>`; $("#name").focus(); return; }
     const body = {
-      display_name: quizName || ($("#name") ? $("#name").value.trim() : "") || null, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
+      display_name: name, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
         .map((t) => ({ type: t, document_version: L[t].document_version, granted: checked.has(t) })),
     };
@@ -439,7 +466,7 @@ function stepOfKey(key) {
 function quizHead(back, section, progress) {
   return `<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
       <span class="section">${esc(section || "")}</span><span></span></div>
-    ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span style="width:${Math.round((progress.i / progress.n) * 100)}%"></span></div>` : ""}`;
+    ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span data-w="${Math.round((progress.i / progress.n) * 100)}"></span></div>` : ""}`;
 }
 
 async function scrQuiz(stepStr) {
@@ -772,10 +799,10 @@ async function scrSessions(preselect) {
   const all = r.data.sessions.filter((x) => x.experience === exp);
   const ok = all.filter((s) => s.language_match);
   const card = (s) => `
-    <label class="option radio" style="align-items:flex-start">
+    <label class="option radio" data-u="start">
       <input type="radio" name="s" value="${s.id}" ${s.is_full || s.my_booking_id ? "disabled" : ""}>
       <span class="tick" aria-hidden="true"></span>
-      <span class="stack" style="flex:1">
+      <span class="stack" data-u="flex1">
         <span class="row between"><strong>${esc(fmtDate(s.starts_at))}</strong>
           ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
@@ -892,7 +919,9 @@ async function scrReview(id) {
 async function loadContact() {
   if (state.contact !== undefined) return state.contact;
   const r = await api("GET", "/api/v1/support/contact", undefined, { noAuth: true });
-  state.contact = r.ok ? r.data.coordinator : null;
+  // the coordinator's number is public; keep the last one so "call" still works with no data connection
+  if (r.ok) store.set("contact", r.data.coordinator);
+  state.contact = r.ok ? r.data.coordinator : r.data && r.data.code === "OFFLINE" ? store.get("contact") : null;
   return state.contact;
 }
 function contactButtons(c) {
@@ -1046,7 +1075,7 @@ async function scrHome() {
     ${sessions.length ? weekRibbon(sessions) : ""}
     ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
       : `<div class="empty">${tableSvg({ seats: 6 })}<p class="muted">${esc(T("noUpcoming"))}</p></div>`}
-    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
   $$(".week button[data-day]").forEach((b) => (b.onclick = () => {
     $$(".week button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     const card = $(`.event-card[data-day="${b.dataset.day}"]`);
@@ -1118,16 +1147,25 @@ async function scrEvents() {
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
-    <section class="stack" style="margin-block-start: var(--s-8)"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
 }
 
 // ------------------------------------------------------------------ SCR-07 event details
 async function scrDetails(id) {
-  if (!(await guard({ needQuestionnaire: false }))) return;
+  const g = await guard({ needQuestionnaire: false, offlineOk: true });
+  if (!g) return;
   loadingView();
-  const [r, contact] = await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadContact()]);
-  if (!r.ok) { view(T("detailsTitle"), `<h1>${esc(T("detailsTitle"))}</h1>${errorBanner(r.data)}`); return; }
-  const e = r.data, ph = e.reveal.phase, act = (t) => e.actions.find((a) => a.type === t);
+  const [r, contact] = g === "offline" ? [{ ok: false, data: { code: "OFFLINE" } }, store.get("contact")] : await Promise.all([api("GET", `/api/v1/bookings/${id}/event-details`), loadContact()]);
+  // no connection: show the copy saved on this device, read-only (no check-in, cancel or contacts until back online)
+  const saved = !r.ok && r.data && r.data.code === "OFFLINE" ? trips.get(id) : null;
+  if (!r.ok && !saved) {
+    view(T("detailsTitle"), `<h1>${esc(T("detailsTitle"))}</h1>${errorBanner(r.data)}${r.data && r.data.code === "OFFLINE" ? `<button class="btn btn-secondary" id="retry-me">${esc(T("retry"))}</button>` : ""}`);
+    if ($("#retry-me")) $("#retry-me").onclick = () => route();
+    return;
+  }
+  if (r.ok) trips.save(id, r.data);
+  const e = saved ? { ...saved.data, actions: [] } : r.data, ph = e.reveal.phase, act = (t) => e.actions.find((a) => a.type === t);
+  const offlineNote = saved ? `<div class="banner banner-warning" id="offline-copy"><span class="icon">${icon("info")}</span><div>${esc(T("offlineCopy", { at: fmtDate(saved.saved_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) }))}</div></div>` : "";
   if (ph === "pending_payment") { go(`#/booking/${id}/review`); return; }
   if (e.resolution) { go(`#/booking/${id}/choose`); return; }
   const acc = e.session.accessibility ? Object.entries(e.session.accessibility).filter(([, v]) => v).map(([k]) => k).join(" · ") : "";
@@ -1136,7 +1174,9 @@ async function scrDetails(id) {
   const stage = { forming: 1, locked: 2, revealed: 3, day_of: 3, completed: 4 }[ph];
   const track = stage === undefined ? "" : `<ol class="track" aria-label="${esc(T("essentials"))}">${["step1", "step2", "step3", "step4"].map((k, j) =>
     `<li class="${j < stage ? "done" : j === stage ? "current" : ""}" ${j === stage ? 'aria-current="step"' : ""}>${esc(T(k))}</li>`).join("")}</ol>`;
-  view(T("detailsTitle"), `
+  // identity check (015): the venue and table code wait for the review of the name on her card
+  const idNote = e.identity_check === "pending" ? `<div class="banner banner-info" id="id-check" role="status"><span class="icon">${icon("info")}</span><div>${esc(T("idCheckPending"))}</div></div>` : "";
+  view(T("detailsTitle"), `${offlineNote}${idNote}
     <header class="det-head">${statusBadge(e.booking)}
       <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
       <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
@@ -1169,8 +1209,8 @@ async function scrDetails(id) {
       <p class="caption">${esc(T("contactHelp"))}</p><div id="contacts-list" aria-live="polite"></div></section>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
-    <section class="stack" style="margin-block-start: var(--s-6)"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
-      ${act("report") || ["revealed", "locked", "forming"].includes(ph) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
+    <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
+      ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
@@ -1195,11 +1235,11 @@ async function renderContacts(id, note = "") {
           <button class="btn btn-secondary" data-decline="${esc(m.request_id)}">${esc(T("contactDecline"))}</button></span>`
       : m.state === "sent" ? `<span class="caption">${esc(T("contactSent"))}</span>`
       : m.can_send ? `<button class="btn btn-secondary" data-seat="${esc(m.seat)}">${esc(T("contactSend"))}</button>` : "";
-    return `<li class="row between contact-row" style="padding:8px 0;gap:8px;flex-wrap:wrap"><span><strong>${name}</strong>${m.state === "incoming"
+    return `<li class="row between contact-row" data-u="wrap8"><span><strong>${name}</strong>${m.state === "incoming"
       ? `<br><span class="caption">${esc(T("contactIncoming"))}</span>` : ""}</span>${action}</li>`;
   };
   box.innerHTML = `${note ? `<div class="banner banner-success" role="status"><div>${esc(note)}</div></div>` : ""}
-    ${c.members.length ? `<ul class="list" style="gap:0">${c.members.map(row).join("")}</ul>` : ""}
+    ${c.members.length ? `<ul class="list" data-u="gap0">${c.members.map(row).join("")}</ul>` : ""}
     <p class="caption">${esc(c.open ? T("contactUntil", { date: fmtDate(c.closes_at) }) : T("contactClosed"))}</p>
     <div id="contacts-err" role="alert"></div>`;
   const act = async (btn, method, path, body, done) => {
@@ -1263,9 +1303,9 @@ async function scrChoose(id) {
     <p>${esc(T("orgBody"))}</p>
     <form id="f" class="stack">
       <fieldset><legend class="label">${esc(T("chooseNow"))}</legend><div class="options">
-        ${rb.sessions.map((s) => `<label class="option radio" style="align-items:flex-start"><input type="radio" name="c" value="rebook:${s.session_id}"><span class="tick" aria-hidden="true"></span>
+        ${rb.sessions.map((s) => `<label class="option radio" data-u="start"><input type="radio" name="c" value="rebook:${s.session_id}"><span class="tick" aria-hidden="true"></span>
           <span><strong>${esc(T("optRebook"))}: ${esc(fmtDate(s.starts_at))}</strong><br><span class="caption">${esc(s.district)} · ${esc(T("seatsLeft", { n: s.seats_left }))} · ${esc(T("optRebookHelp"))}${s.is_alternate ? ` · ${esc(T("alternateTag"))}` : ""}</span></span></label>`).join("")}
-        <label class="option radio" style="align-items:flex-start"><input type="radio" name="c" value="refund"><span class="tick" aria-hidden="true"></span>
+        <label class="option radio" data-u="start"><input type="radio" name="c" value="refund"><span class="tick" aria-hidden="true"></span>
           <span><strong>${esc(T("optRefund"))}</strong><br><span class="caption">${esc(T("optRefundHelp", { fee: rf.amount.display, days: 10 }))}</span></span></label>
       </div></fieldset>
       <p class="caption">${esc(T("defaultRefund", { deadline: fmtDate(e.resolution.choice_deadline) }))}</p>
@@ -1334,12 +1374,12 @@ async function scrReport(id) {
   const r = await api("GET", `/api/v1/bookings/${id}/event-details`);
   const members = r.ok && r.data.table && r.data.table.members ? r.data.table.members : [];
   const ph = r.ok ? r.data.reveal.phase : "completed";
-  const cats = [["harassment", "cHarassment"], ["threat_violence", "cThreat"], ["photo_without_consent", "cPhoto"], ["stalking_unwanted_contact", "cStalking"], ["fraud", "cFraud"], ["disruptive", "cDisruptive"]];
+  const cats = Object.entries(REPORT_CATS);
   view(T("reportTitle"), `
     <h1>${esc(T("reportTitle"))}</h1>
     <p class="muted">${esc(T("reportIntro"))}</p>
     <form id="f" class="stack" novalidate>
-      <label class="option" style="border-color:var(--c-danger)"><input type="checkbox" id="danger"><span class="tick" aria-hidden="true"></span><strong>${esc(T("dangerLabel"))}</strong></label>
+      <label class="option" data-u="bdanger"><input type="checkbox" id="danger"><span class="tick" aria-hidden="true"></span><strong>${esc(T("dangerLabel"))}</strong></label>
       <fieldset><legend class="label">${esc(T("category"))}</legend><div class="options">
         ${cats.map(([v, k]) => `<label class="option radio"><input type="radio" name="cat" value="${v}" required><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span></label>`).join("")}</div></fieldset>
       <fieldset><legend class="label">${esc(T("whenLegend"))}</legend><div class="options">
@@ -1372,8 +1412,11 @@ async function scrInbox() {
   loadingView();
   const r = await api("GET", "/api/v1/notifications");
   const list = r.ok ? r.data.notifications : [];
+  const seen = store.get("inboxSeen");
+  const isNew = (n) => !seen || new Date(n.created_at) > new Date(seen);
+  if (r.ok) { if (list.length) store.set("inboxSeen", list[0].created_at); inboxFetch = null; showInboxBadge(0); }
   view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
-    <li class="card"><p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
+    <li class="card${isNew(n) ? " is-new" : ""}">${isNew(n) ? `<span class="badge badge-info new-tag">${esc(T("newTag"))}</span>` : ""}<p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
     ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
 }
 
@@ -1393,20 +1436,34 @@ async function scrProfile() {
       <li><a class="chev" href="#/plans"><span>${esc(T("plansTitle"))}</span></a></li>
       <li><a class="chev" href="#/notify?next=profile"><span>${esc(T("pushSettings"))}</span></a></li>
       <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
-      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li></ul>
+      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li>
+      <li><button class="chev" id="mydata"><span>${esc(T("myData"))}</span></button></li></ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
     <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
       <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
     <p class="section-label">${esc(T("secHelp"))}</p>
     <section class="stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
-    <div class="stack" style="margin-block-start: var(--s-6)">
+    <div class="stack" data-u="mt6">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
   const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
+  // a copy of her data (right of access, NMX-38): saved as a JSON file on the device, nothing kept in the page
+  $("#mydata").onclick = async () => {
+    const r = await api("GET", "/api/v1/users/me/export");
+    if (!r.ok) return toast((r.data && r.data.message) || T("errGeneric"));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(T("myDataDone"));
+  };
   $("#out").onclick = async () => { const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
 }
+
+// report categories and their labels (report form and "Decisions about you")
+const REPORT_CATS = { harassment: "cHarassment", threat_violence: "cThreat", photo_without_consent: "cPhoto", stalking_unwanted_contact: "cStalking", fraud: "cFraud", disruptive: "cDisruptive" };
 
 async function scrCases() {
   if (!(await guard({ needQuestionnaire: false }))) return;
@@ -1414,8 +1471,8 @@ async function scrCases() {
   const r = await api("GET", "/api/v1/cases/mine");
   const cases = r.ok ? r.data.cases : [];
   view(T("casesTitle"), `<h1>${esc(T("casesTitle"))}</h1>${cases.length ? `<ul class="list">${cases.map((c) => `
-    <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision)}</span></div>
-    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(c.category)}</p>
+    <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision_label || c.decision)}</span></div>
+    <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(c.category === "identity_mismatch" ? "cIdentity" : REPORT_CATS[c.category] || "cDisruptive"))}</p>
     ${c.can_appeal ? `<p class="caption">${esc(T("appealUntil", { date: fmtDate(c.appeal_until) }))}</p><button class="btn btn-secondary" data-ref="${esc(c.case_ref)}">${esc(T("appeal"))}</button>` : ""}</li>`).join("")}</ul>`
     : `<p class="muted">—</p>`}<div id="msg" role="status"></div>`);
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {
@@ -1433,7 +1490,32 @@ function renderTabbar(hash) {
   nav.hidden = !(active && store.get("tokens"));
   if (nav.hidden) { nav.innerHTML = ""; return; }
   nav.setAttribute("aria-label", T("tabsLabel"));
-  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${h === "#/inbox"
+    ? `<span class="ti-wrap">${icon(ic, "ti")}<span class="tab-badge" id="inbox-badge" hidden></span></span>` : icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  if (hash !== "#/inbox") refreshInboxBadge();
+}
+
+// Unread count on the Notifications tab (NMX-18): notifications newer than the last time the inbox was opened on this
+// device. Also shown on the home-screen app icon where the phone supports it (Badging API).
+let inboxFetch = null;
+async function refreshInboxBadge() {
+  if (!inboxFetch || Date.now() - inboxFetch.at > 60000) inboxFetch = { at: Date.now(), p: api("GET", "/api/v1/notifications") };
+  const r = await inboxFetch.p;
+  if (!r.ok) return;
+  showInboxBadge(unreadOf(r.data.notifications));
+}
+function unreadOf(list) {
+  const seen = store.get("inboxSeen");
+  return list.filter((n) => !seen || new Date(n.created_at) > new Date(seen)).length;
+}
+function showInboxBadge(n) {
+  const b = document.getElementById("inbox-badge");
+  if (b) {
+    b.hidden = n === 0;
+    b.textContent = n > 9 ? "9+" : String(n);
+    b.closest("a").setAttribute("aria-label", n ? `${T("tabInbox")}، ${T("unreadCount", { n })}` : T("tabInbox"));
+  }
+  try { if (navigator.setAppBadge) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => null); } catch { /* unsupported */ }
 }
 
 const ROUTES = [
@@ -1476,3 +1558,5 @@ document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
 document.querySelector(".skip").textContent = T("skip");
 renderTopbar();
 route();
+// offline copy of the app's own files (sw.js, NMX-16); registering asks nothing of the member
+if ("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null));

@@ -62,6 +62,7 @@ export const ERRORS = {
   ENROLLMENT_INVALID: ["رمز التسجيل غير صالح أو منتهي.", "The enrolment token is invalid or expired."],
   LOGIN_FAILED: ["البريد أو الرمز غير صحيح.", "Email or code is incorrect."],
   ADMIN_LOGIN_LOCKED: ["محاولات دخول كثيرة. انتظر قليلًا ثم حاول مجددًا.", "Too many sign-in attempts. Please wait and try again."],
+  APP_UPDATE_REQUIRED: ["يتوفر إصدار أحدث من HerZone. حدّثي التطبيق للمتابعة.", "A newer version of HerZone is available. Please update the app to continue."],
   LATE_ACK_REQUIRED: ["أكّدي أنكِ تفهمين أن رسم التنظيم لهذا الموعد لا يُسترد عند الإلغاء.", "Please confirm you understand the organising fee for this session isn't refunded if you cancel."],
 };
 
@@ -72,6 +73,7 @@ export function errorMessage(code, locale) {
 
 // v0.3 §4.3 + v0.4 additions. Placeholders {name} are filled from the notification payload.
 export const TEMPLATES = {
+  NEW_SIGN_IN: ["تم تسجيل الدخول إلى حسابكِ من جهاز آخر في {date}. إن لم تكوني أنتِ، اتصلي بمنسق HerZone فورًا.", "Your account was signed in on another device on {date}. If this wasn't you, call the HerZone coordinator right away."],
   TABLE_LOCKED: ["طاولتك مؤكدة! سنكشف المكان في {reveal_at}.", "Your table is confirmed! We'll reveal the venue at {reveal_at}."],
   VENUE_REVEALED: ["المكان: {venue} في {district}. رمز طاولتك {code}.", "Venue: {venue}, {district}. Your table code is {code}."],
   QUORUM_FAIL_CHOICE: ["نعتذر، لم يكتمل الحد الأدنى لطاولتك يوم {date}. اختاري موعدًا آخر أو استردادًا كاملًا قبل {deadline}.", "Sorry, your table on {date} didn't reach the minimum. Choose another date or a full refund before {deadline}."],
@@ -80,6 +82,7 @@ export const TEMPLATES = {
   REFUND_DONE: ["تم رد {amount} إلى وسيلة دفعك. قد يستغرق ظهوره {days} أيام عمل.", "{amount} has been refunded to your payment method. It may take {days} business days to appear."],
   REPORT_RECEIVED: ["وصلنا بلاغك ({case}). لن نكشف هويتك للشخص المُبلَّغ عنه.", "We received your report ({case}). We won't reveal your identity to the person reported."],
   REPORT_OUTCOME: ["راجعنا بلاغك واتخذنا الإجراء المناسب وفق قواعد السلوك.", "We reviewed your report and took appropriate action under our conduct rules."],
+  IDENTITY_DECISION: ["لم نتمكن من التأكد أن الحجز {ref} لصاحبة الحساب: الاسم على بطاقة الدفع لا يطابق اسمكِ. ألغينا الحجز دون استرداد رسم التنظيم، وأوقفنا الحساب. يمكنكِ الاعتراض مرة واحدة قبل {appeal_until} من «قرارات تخصّك».", "We could not confirm that booking {ref} belongs to the account holder: the name on the payment card does not match your name. We cancelled the booking without refunding the organising fee and suspended the account. You may appeal once before {appeal_until} under \"Decisions about you\"."],
   CONDUCT_DECISION: ["وصلنا بلاغ بشأن سلوكك في لقاء {date} (الفئة: {category}). بعد المراجعة قررنا: {decision}. يمكنك الاعتراض مرة واحدة قبل {appeal_until}.", "We received a report about your conduct at the event on {date} (category: {category}). After review, our decision is: {decision}. You may appeal once before {appeal_until}."],
   APPEAL_DECISION: ["راجع اعتراضَك شخصٌ لم يتخذ القرار الأصلي. القرار النهائي: {decision}.", "Your appeal was reviewed by someone who did not make the original decision. Final decision: {decision}."],
   PAYMENT_CONFIRMED: ["تم الدفع. نجمع طاولتك الآن. رقم الحجز {ref}.", "Payment confirmed. We're forming your table now. Booking ref {ref}."],

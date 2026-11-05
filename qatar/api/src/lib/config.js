@@ -27,6 +27,15 @@ export async function loadConfig(sql, getEnv) {
     coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
     sentryDsn: get("SENTRY_DSN", "").trim(),
     sentryEnvironment: get("SENTRY_ENVIRONMENT", "staging"),
+    // Forced update (NMX-61): mobile apps older than this are told to update. Empty = no minimum.
+    minAppVersion: get("MIN_APP_VERSION", "").trim(),
+    // Card name vs registered name (015). Off until migration 015 has run, which sets it to true.
+    cardNameCheck: get("CARD_NAME_CHECK", "false") === "true",
+    // Gemini second opinion on a mismatch (lib/ai.js); the key itself is read from GEMINI_API_KEY, never kept here.
+    geminiModel: get("GEMINI_MODEL", "gemini-flash-lite-latest"),
+    geminiBaseUrl: get("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").replace(/\/$/, ""),
+    appStoreUrl: get("APP_STORE_URL", "").trim(),
+    playStoreUrl: get("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=app.herzone").trim(),
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
   };
   loadedAt = Date.now();

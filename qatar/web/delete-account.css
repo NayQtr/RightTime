@@ -1,0 +1,6 @@
+/* public "delete your account" page (Google Play account deletion URL) */
+.page-doc { max-width: 40rem; margin-inline: auto; padding: var(--s-8) var(--s-4) var(--s-12); }
+.page-doc ol, .page-doc ul { padding-inline-start: var(--s-6); }
+.page-doc li + li { margin-block-start: var(--s-2); }
+.page-doc hr { border: 0; border-top: 1px solid var(--c-border, currentColor); opacity: .4; margin-block: var(--s-8); }
+.page-doc a[href^="tel:"] { white-space: nowrap; }

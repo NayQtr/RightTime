@@ -1,0 +1,16 @@
+# Phone screen to signed in. Needs PHONE (8 digits, starting 3 to 7). Staging only: the code is read from the screen.
+appId: app.herzone
+---
+- tapOn:
+    id: "phone"
+- inputText: ${PHONE}
+- tapOn: "أرسلي الرمز"
+- extendedWaitUntil:
+    visible:
+      id: "devCode"
+    timeout: 15000
+- copyTextFrom:
+    id: "devCode"
+- tapOn:
+    id: "code"
+- inputText: ${maestro.copiedText}   # six digits verify on their own
