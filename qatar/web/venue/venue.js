@@ -107,7 +107,7 @@ function renderCode(email, devCode) {
     document.getElementById("go").disabled = false;
     if (!r.ok) { document.getElementById("err").textContent = errorText(r); return; }
     store.set("vp_token", r.data.access_token);
-    renderRequests();
+    renderRequests({ force: true });
   };
 }
 
@@ -121,7 +121,7 @@ function requestCard(q) {
         ${g.arrived ? `<span class="vp-ok">✓ ${esc(T("arrived"))}</span>` : `<button class="btn btn-secondary" data-arrive="${esc(g.id)}">${esc(T("markArrived"))}</button>`}</li>`).join("")}</ul>`
         : `<p class="caption">${esc(T("namesFrom", when(q.names_from, { weekday: "long", hour: "numeric", minute: "2-digit" })))}</p>`}
     </div>`).join("") + `<p class="caption">${esc(T("mentionCode"))}</p>` : `<p class="caption">${esc(T("noTables"))}</p>`;
-  return `<article class="vp-card stack" id="req-${esc(q.session_id)}">
+  return `<article class="vp-card stack" id="req-${esc(q.session_id)}" tabindex="-1">
     <div class="vp-row"><h2>${esc(fullDate(q.starts_at))}</h2><span class="badge ${STATUS_BADGE[q.status] || "badge-muted"}">${esc(T(q.status))}</span></div>
     <p>${esc(T("expected", q.women_expected))}</p>
     ${q.can_answer ? `<div class="vp-row"><button class="btn btn-primary" data-accept="${esc(q.session_id)}">${esc(T("accept"))}</button>
@@ -131,10 +131,16 @@ function requestCard(q) {
 }
 
 let timer = null;
-async function renderRequests() {
+let lastJson = "";
+// force: draw even if nothing changed (after a tap, a language switch or sign-in); focus: id of the element to put the
+// keyboard focus on afterwards. The timed refresh draws only when the list changed, so it never resets where the keyboard is.
+async function renderRequests({ force = false, focus = null } = {}) {
   clearTimeout(timer);
   const r = await call("GET", "/api/venue/v1/requests");
   if (!r.ok) { if (r.status !== 401) main.innerHTML = `<p class="vp-error" role="alert">${esc(T("error"))}</p>`; return; }
+  const json = JSON.stringify(r.data);
+  if (!force && json === lastJson) { timer = setTimeout(renderRequests, 60000); return; }
+  lastJson = json;
   document.getElementById("vp-venue").textContent = r.data.venue.name;
   document.getElementById("vp-out").hidden = false;
   main.innerHTML = `<h1>${esc(T("requests"))}</h1>
@@ -142,24 +148,26 @@ async function renderRequests() {
   main.querySelectorAll("[data-accept]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     await call("POST", `/api/venue/v1/requests/${b.dataset.accept}:accept`);
-    renderRequests();
+    renderRequests({ force: true, focus: `req-${b.dataset.accept}` });
   }));
   main.querySelectorAll("[data-decline]").forEach((b) => (b.onclick = async () => {
     if (!confirm(T("declineSure"))) return;
     const reason = prompt(T("declineReason")) || "";
     b.disabled = true;
     await call("POST", `/api/venue/v1/requests/${b.dataset.decline}:decline`, { reason });
-    renderRequests();
+    renderRequests({ force: true, focus: `req-${b.dataset.decline}` });
   }));
   main.querySelectorAll("[data-arrive]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
+    const card = b.closest("article") && b.closest("article").id;
     await call("POST", `/api/venue/v1/guests/${encodeURIComponent(b.dataset.arrive)}:arrived`);
-    renderRequests();
+    renderRequests({ force: true, focus: card });
   }));
+  if (focus) { const el = document.getElementById(focus) || main.querySelector("h1"); if (el) { if (!el.hasAttribute("tabindex")) el.tabIndex = -1; el.focus({ preventScroll: true }); } }
   timer = setTimeout(renderRequests, 60000); // new requests and arrivals without reloading
 }
 
-function route() { if (store.get("vp_token")) renderRequests(); else renderEmail(); }
+function route() { if (store.get("vp_token")) renderRequests({ force: true }); else renderEmail(); }
 
 document.getElementById("vp-lang").onclick = () => setLang(lang === "ar" ? "en" : "ar");
 document.getElementById("vp-out").onclick = async () => {

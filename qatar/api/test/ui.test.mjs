@@ -197,6 +197,11 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006");
   assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
   await noHorizontalScroll(page);
+  // design audit (5 Nov): the week ribbon's days are 44 px targets and no label in the shell is under 12 px
+  const small = await page.evaluate(() => ({
+    days: [...document.querySelectorAll(".week button")].filter((e) => e.getBoundingClientRect().width < 43.5).length,
+    tabs: [...document.querySelectorAll(".tabbar a, .week button")].filter((e) => parseFloat(getComputedStyle(e).fontSize) < 12).length }));
+  assert.deepEqual(small, { days: 0, tabs: 0 }, "day targets >= 44 px wide, tab and day labels >= 12 px");
   await page.screenshot({ path: `${SHOTS}/06-home-ar.png`, fullPage: true });
   await page.locator(".event-card").first().click();
   // session picker opens with the tapped session selected
@@ -681,6 +686,9 @@ test("venue page (016): email, code, the hosting request, accept; Arabic, real C
   await noHorizontalScroll(page);
   await page.click(`[data-accept="${s.body.id}"]`);
   await page.waitForSelector(`#req-${s.body.id} .badge-success`);
+  // design audit (5 Nov): after a tap the keyboard focus is on the (redrawn) card, and the whole page is not a live region
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), `req-${s.body.id}`);
+  assert.equal(await page.getAttribute("main", "aria-live"), null);
   const [sv] = await env.sql`SELECT status FROM app.session_venues WHERE session_id = ${s.body.id}`;
   assert.equal(sv.status, "confirmed");
   await page.click("#vp-lang");
