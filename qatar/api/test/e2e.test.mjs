@@ -811,3 +811,54 @@ test("venue portal: email code sign-in, request 3 days before, reminder, coordin
   assert.equal((await call("GET", "/api/venue/v1/me", { token: vB })).status, 401, "disabling ends its sessions");
   assert.equal((await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "host@venueb.test" } })).body.dev_code, undefined);
 });
+
+// ===================================================================== call requests (017)
+test("call requests: she asks to be called; one open request each, 3 a day; the admins see her number (audited) and mark her called", async () => {
+  const s = await newSession({ admin: S.ops.token, startsInDays: 7 });
+  const M = await signUp(call, { name: "Huda" });
+  const bookingId = await bookPayWithCard(M.token, s, "HUDA A");
+  const ask = (body = {}) => call("POST", "/api/v1/support/call-requests", { token: M.token, body });
+
+  assert.equal((await call("POST", "/api/v1/support/call-requests", { body: {} })).status, 401, "sign-in needed");
+  assert.equal((await ask({ booking_id: crypto.randomUUID() })).status, 404, "not her booking");
+  const first = await ask({ booking_id: bookingId });
+  assert.equal(first.status, 201);
+  assert.equal(first.body.already_requested, false);
+  assert.equal(first.body.status, "requested");
+  const again = await ask();
+  assert.equal(again.status, 200, "asking again returns the open request");
+  assert.equal(again.body.id, first.body.id);
+  assert.equal(again.body.already_requested, true);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${M.userId}`)[0].n, 1, "one row");
+
+  // the admin console: owner and ops see the first name and the number; the others cannot
+  assert.equal((await call("GET", "/api/admin/v1/call-requests", { token: S.ts.token })).status, 403, "trust and safety does not take calls");
+  const count = await call("GET", "/api/admin/v1/call-requests?count=1", { token: S.ops.token });
+  assert.ok(count.body.open_count >= 1 && !("requests" in count.body), "the badge count carries no numbers");
+  const before = (await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_request_phones'`)[0].n;
+  const list = await call("GET", "/api/admin/v1/call-requests", { token: S.ops.token });
+  const mine = list.body.requests.find((x) => x.id === first.body.id);
+  assert.equal(mine.name, "Huda");
+  assert.equal(mine.phone, M.phone, "the number she signed in with");
+  assert.ok(mine.booking_ref, "the meetup she was looking at");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_request_phones'`)[0].n, before + 1, "reading numbers is audited");
+
+  // marking: only called or closed, once
+  const handle = (id, status) => call("POST", `/api/admin/v1/call-requests/${id}:handle`, { token: S.ops.token, body: { status } });
+  assert.equal((await handle(first.body.id, "done")).status, 422);
+  assert.equal((await handle(first.body.id, "called")).status, 200);
+  assert.equal((await handle(first.body.id, "called")).status, 409, "already handled");
+  const done = await call("GET", "/api/admin/v1/call-requests?status=called", { token: S.owner.token });
+  assert.ok(done.body.requests.some((x) => x.id === first.body.id && x.handled_by), "listed as called, with who handled it");
+
+  // after a call she can ask again: 3 requests in 24 hours, the fourth waits
+  const second = await ask();
+  assert.equal(second.status, 201);
+  await handle(second.body.id, "closed");
+  const third = await ask();
+  assert.equal(third.status, 201);
+  await handle(third.body.id, "closed");
+  const fourth = await ask();
+  assert.equal(fourth.status, 429);
+  assert.equal(fourth.body.code, "RATE_LIMITED");
+});

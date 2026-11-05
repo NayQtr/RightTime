@@ -89,6 +89,10 @@ class MeetupsRepository {
 
   Future<void> appeal(String caseRef) => _api.send('POST', '/api/v1/cases/${Uri.encodeComponent(caseRef)}/appeal', body: {});
 
+  /// "Request Call": the coordinator calls her back (her number is not shown to her). One open request per member; asking
+  /// again returns it. 429 after 3 in a day.
+  Future<void> requestCall({String? bookingId}) => _api.send('POST', '/api/v1/support/call-requests', body: {'booking_id': ?bookingId});
+
   Future<Coordinator?> coordinator() async {
     Map<String, dynamic>? c;
     try {

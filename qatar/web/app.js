@@ -921,11 +921,12 @@ async function loadContact() {
   state.contact = r.ok ? r.data.coordinator : r.data && r.data.code === "OFFLINE" ? store.get("contact") : null;
   return state.contact;
 }
-function contactButtons(c) {
+function contactButtons(c, bookingId = "") {
   if (!c) return "";
-  return `<button type="button" class="btn btn-secondary btn-block" id="contact-open" data-contact-open data-tel="${esc(c.tel_url)}" data-phone="${esc(c.phone_display)}" data-wa="${esc(c.whatsapp_url || "")}">${icon("message-circle")}<span>${esc(T("contactRequest"))}</span></button>`;
+  return `<button type="button" class="btn btn-secondary btn-block" id="contact-open" data-contact-open data-booking="${esc(bookingId)}" data-wa="${esc(c.whatsapp_url || "")}">${icon("message-circle")}<span>${esc(T("contactRequest"))}</span></button>`;
 }
-// "Request contact": the page blurs and two options stand one above the other (call, WhatsApp). A native modal <dialog>
+// "Request contact": the page blurs and two options stand one above the other. "Request Call" sends the request to the admin
+// console (the owner calls her; her number is not shown to her); WhatsApp opens the coordinator's chat. A native modal <dialog>
 // gives the focus trap, Escape, and the inert page behind it; focus returns to the button when it closes.
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-contact-open]");
@@ -934,11 +935,26 @@ document.addEventListener("click", (e) => {
   dlg.className = "contact-sheet";
   dlg.setAttribute("aria-labelledby", "cs-title");
   dlg.innerHTML = `<h2 id="cs-title" class="sr-only">${esc(T("contactRequest"))}</h2>
-    <a class="btn btn-primary" id="call-coord" href="${esc(b.dataset.tel)}">${icon("phone")}<span>${esc(T("requestCall"))}</span><bdi dir="ltr" class="num">${esc(b.dataset.phone)}</bdi></a>
+    <button type="button" class="btn btn-primary" id="call-coord" data-request-call>${icon("phone")}<span>${esc(T("requestCall"))}</span></button>
+    <div data-call-msg></div>
     ${b.dataset.wa ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(b.dataset.wa)}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}<span>${esc(T("contactViaWhatsapp"))}</span></a>` : ""}
     <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`;
   dlg.addEventListener("close", () => dlg.remove());
-  dlg.addEventListener("click", (ev) => { if (ev.target === dlg || ev.target.closest("[data-close], a")) dlg.close(); });
+  dlg.addEventListener("click", async (ev) => {
+    if (ev.target === dlg || ev.target.closest("[data-close], a")) { dlg.close(); return; }
+    const ask = ev.target.closest("[data-request-call]");
+    if (!ask || ask.disabled) return;
+    ask.disabled = true;
+    const msg = dlg.querySelector("[data-call-msg]");
+    msg.innerHTML = "";
+    const r = await api("POST", "/api/v1/support/call-requests", b.dataset.booking ? { booking_id: b.dataset.booking } : {});
+    if (r.ok) {
+      dlg.innerHTML = `<h2 id="cs-title" class="sr-only">${esc(T("contactRequest"))}</h2>
+        <div class="banner banner-success" role="status"><div>${esc(T("callRequested"))}</div></div>
+        <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`;
+      dlg.querySelector("[data-close]").focus();
+    } else { ask.disabled = false; msg.innerHTML = errorBanner(r.data); }
+  });
   document.body.appendChild(dlg);
   dlg.showModal();
 });
@@ -1222,7 +1238,7 @@ async function scrDetails(id) {
       <p class="caption">${esc(T("contactHelp"))}</p><div id="contacts-list" aria-live="polite"></div></section>` : ""}
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
-    <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact)}
+    <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact, id)}
       ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })

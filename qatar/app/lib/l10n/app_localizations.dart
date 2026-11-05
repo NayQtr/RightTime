@@ -1016,6 +1016,12 @@ abstract class AppLocalizations {
   /// **'طلب اتصال'**
   String get requestCall;
 
+  /// No description provided for @callRequested.
+  ///
+  /// In ar, this message translates to:
+  /// **'وصلنا طلبك. سيتصل بك المنسق.'**
+  String get callRequested;
+
   /// No description provided for @contactViaWhatsapp.
   ///
   /// In ar, this message translates to:

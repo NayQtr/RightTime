@@ -911,6 +911,38 @@ async function markVenueMessageSent(ctx) {
   return json(200, { id: params.id, status: "sent" });
 }
 
+// ------------------------------------------------------------------ call requests (017)
+// Members who pressed "Request Call". The owner / ops see the first name and the number, and call her. Reading the numbers is
+// recorded in the audit log. ?count=1 returns only how many are open (the menu badge): no numbers, nothing recorded.
+async function listCallRequests(ctx) {
+  const { sql, keys, admin, url } = ctx;
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`;
+  if (url.searchParams.get("count")) return json(200, { open_count: n });
+  const status = ["requested", "called", "closed"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "requested";
+  const rows = await sql`
+    SELECT cr.id, cr.status, cr.created_at, cr.handled_at, u.display_name, u.phone_e164_enc, b.booking_ref, s.starts_at, a.name AS handled_by_name
+      FROM app.call_requests cr JOIN app.users u ON u.id = cr.user_id
+      LEFT JOIN app.bookings b ON b.id = cr.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
+      LEFT JOIN app.admin_users a ON a.id = cr.handled_by
+     WHERE cr.status = ${status} ORDER BY cr.created_at ${status === "requested" ? sql`ASC` : sql`DESC`} LIMIT 100`;
+  if (rows.length) await audit(sql, admin.id, "read_call_request_phones", "call_requests", null, `${status}_${rows.length}`, ctx.ipTrunc);
+  return json(200, { open_count: n, requests: rows.map((r) => ({ id: r.id, status: r.status, name: r.display_name,
+    phone: r.phone_e164_enc ? decrypt(keys.dataKey, r.phone_e164_enc) : null, booking_ref: r.booking_ref, starts_at: qa(r.starts_at),
+    created_at: qa(r.created_at), handled_at: qa(r.handled_at), handled_by: r.handled_by_name })) });
+}
+
+// She was called (or the request needs no call any more): out of the open list.
+async function handleCallRequest(ctx) {
+  const { sql, params, body, admin } = ctx;
+  requireUuid(params.id, "call_request_id");
+  if (!["called", "closed"].includes(body.status)) fail(422, "VALIDATION_FAILED", [{ field: "status" }]);
+  const rows = await sql`UPDATE app.call_requests SET status = ${body.status}, handled_by = ${admin.id}, handled_at = now()
+                          WHERE id = ${params.id} AND status = 'requested' RETURNING id`;
+  if (!rows.length) fail(409, "CONFLICT");
+  await audit(sql, admin.id, `call_request_${body.status}`, "call_requests", params.id, null, ctx.ipTrunc);
+  return json(200, { id: params.id, status: body.status });
+}
+
 // ------------------------------------------------------------------ approvals (maker-checker)
 const APPROVER_ROLES = { table_cancel_quorum: ["owner"], booking_move: ["owner"], session_open_sale: ["owner"],
   refund_goodwill: ["owner", "finance"], case_ban: ["owner", "trust_safety"] };
@@ -1074,6 +1106,8 @@ export const adminRoutes = [
   { method: "GET", path: `${A}/sessions/{id}/venues`, auth: "admin", roles: OPS, handler: listSessionVenues },
   { method: "POST", path: `${A}/sessions/{id}/venues`, auth: "admin", roles: OPS, handler: planSessionVenue },
   { method: "DELETE", path: `${A}/sessions/{id}/venues/{venue}`, auth: "admin", roles: OPS, handler: withdrawSessionVenue },
+  { method: "GET", path: `${A}/call-requests`, auth: "admin", roles: OPS, handler: listCallRequests },
+  { method: "POST", path: `${A}/call-requests/{id}:handle`, auth: "admin", roles: OPS, handler: handleCallRequest },
   { method: "GET", path: `${A}/venue-requests`, auth: "admin", roles: OPS, handler: listVenueRequests },
   { method: "GET", path: `${A}/venue-outbox`, auth: "admin", roles: OPS, handler: listVenueOutbox },
   { method: "POST", path: `${A}/venue-outbox/{id}:sent`, auth: "admin", roles: OPS, handler: markVenueMessageSent },

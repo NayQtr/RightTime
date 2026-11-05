@@ -48,6 +48,7 @@ const NAV = [
   ["#/live", "Tonight", ["owner", "ops"]],
   ["#/venues", "Venues", ["owner", "ops"]],
   ["#/venue-requests", "Venue requests", ["owner", "ops"]],
+  ["#/call-requests", "Call requests", ["owner", "ops"]],
   ["#/refunds", "Refunds & Payments", ["owner", "finance"]],
   ["#/cases", "Trust & Safety", ["trust_safety"]],
   ["#/identity", "Identity checks", ["owner", "trust_safety"]],
@@ -63,6 +64,7 @@ function renderNav() {
     <ul>${NAV.filter(([, , roles]) => roles.includes(a.role)).map(([h, l]) => `<li><a href="${h}" ${location.hash.startsWith(h) ? 'aria-current="page"' : ""}>${esc(l)}</a></li>`).join("")}</ul>
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
+  if (a && ["owner", "ops"].includes(a.role)) callBadge();
   const lo = document.getElementById("logout");
   // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
   if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
@@ -512,13 +514,57 @@ async function scrPromoCodes() {
   }));
 }
 
+// ------------------------------------------------------------------ call requests (017)
+// Members who pressed "Request Call". Open count on the menu (a count only: no numbers are read, nothing is audited).
+async function callBadge() {
+  const r = await api("GET", `${A}/call-requests?count=1`);
+  const link = nav.querySelector('a[href="#/call-requests"]');
+  if (link && r.ok && r.data.open_count) link.insertAdjacentHTML("beforeend", ` <span class="badge badge-danger"><span class="sr-only">waiting: </span>${r.data.open_count}</span>`);
+  return r.ok ? r.data.open_count : null;
+}
+let crStatus = "requested";
+async function scrCallRequests() {
+  const r = await api("GET", `${A}/call-requests?status=${crStatus}`);
+  const rows = (r.data && r.data.requests) || [];
+  view("Call requests", `<h1>Call requests</h1><div id="flash"></div>
+    <p class="caption">Members who pressed "Request Call" (her number is never shown to her). Call her on the number below, then mark it.
+    Reading the numbers is recorded in the audit log.</p>
+    <div class="row">${[["requested", "Open"], ["called", "Called"], ["closed", "Closed"]].map(([k, l]) =>
+      `<button class="btn ${crStatus === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${crStatus === k}">${l}</button>`).join("")}</div>
+    ${r.ok ? "" : msg(r)}
+    <table><thead><tr><th>Requested</th><th>Name</th><th>Phone</th><th>Meetup</th><th>Handled</th><th></th></tr></thead><tbody>
+    ${rows.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.name || "—")}</td>
+      <td>${x.phone ? `<a href="tel:${esc(x.phone)}" dir="ltr" class="num">${esc(x.phone)}</a>` : "—"}</td>
+      <td>${x.booking_ref ? `${esc(x.booking_ref)} · ${dt(x.starts_at)}` : "—"}</td>
+      <td>${x.handled_at ? `${esc(x.handled_by || "")} · ${dt(x.handled_at)}` : ""}</td>
+      <td class="row">${x.status === "requested" ? `<button class="btn btn-primary" data-called="${esc(x.id)}">Called</button><button class="btn btn-secondary" data-closed="${esc(x.id)}">Close</button>` : ""}</td></tr>`).join("")
+      || `<tr><td colspan="6">Nothing here.</td></tr>`}</tbody></table>`);
+  $$("[data-filter]").forEach((b) => (b.onclick = () => { crStatus = b.dataset.filter; scrCallRequests(); }));
+  const mark = async (id, status) => {
+    const res = await api("POST", `${A}/call-requests/${id}:handle`, { status });
+    flash(msg(res, status === "called" ? "Marked as called" : "Closed"));
+    if (res.ok) setTimeout(scrCallRequests, 600);
+  };
+  $$("[data-called]").forEach((b) => (b.onclick = () => { b.disabled = true; mark(b.dataset.called, "called"); }));
+  $$("[data-closed]").forEach((b) => (b.onclick = () => { b.disabled = true; mark(b.dataset.closed, "closed"); }));
+  // a new request shows up without reloading: every 30 s the open count is compared (a count, so nothing is audited)
+  if (crStatus === "requested" && r.ok) {
+    const shown = r.data.open_count;
+    timers.push(setInterval(async () => {
+      if (location.hash !== "#/call-requests" || crStatus !== "requested") return;
+      const now = await api("GET", `${A}/call-requests?count=1`);
+      if (now.ok && now.data.open_count !== shown) scrCallRequests();
+    }, 30000));
+  }
+}
+
 // ------------------------------------------------------------------ router
 const ROUTES = [
   [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
-  [/^#\/venue-requests$/, scrVenueRequests, true],
+  [/^#\/venue-requests$/, scrVenueRequests, true], [/^#\/call-requests$/, scrCallRequests, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

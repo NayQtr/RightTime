@@ -162,7 +162,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               ],
               if (d.phase == 'completed' && r.offlineSavedAt == null) ...[const SizedBox(height: HzSpace.s4), ContactsSection(bookingId: bookingId)],
               const SizedBox(height: HzSpace.s6),
-              const _CoordinatorButtons(),
+              _CoordinatorButtons(bookingId: widget.bookingId),
               if (r.offlineSavedAt == null && ['forming', 'locked', 'revealed', 'day_of', 'completed'].contains(d.phase))
                 OutlinedButton.icon(
                   key: const Key('report'),
@@ -189,7 +189,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
 /// Call or WhatsApp the coordinator on duty. Kept on the device, so calling works with no data connection.
 class _CoordinatorButtons extends StatelessWidget {
-  const _CoordinatorButtons();
+  const _CoordinatorButtons({required this.bookingId});
+
+  final String bookingId;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +207,7 @@ class _CoordinatorButtons extends StatelessWidget {
             key: const Key('contact-coord'),
             icon: const Icon(Icons.chat_bubble_outline),
             label: Text(t.contactRequest),
-            onPressed: () => showContactSheet(context, c),
+            onPressed: () => showContactSheet(context, c, bookingId: bookingId),
           ),
         );
       },
@@ -267,11 +269,13 @@ class _Tracker extends StatelessWidget {
   }
 }
 
-/// "Request contact": the screen behind blurs and two options stand one above the other (call, WhatsApp). Tap outside, the
-/// close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
-Future<void> showContactSheet(BuildContext context, Coordinator c) {
+/// "Request contact": the screen behind blurs and two options stand one above the other. "Request Call" sends the request to
+/// the admin console (the coordinator calls her; her number is not shown to her); WhatsApp opens the coordinator's chat. Tap
+/// outside, the close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
+Future<void> showContactSheet(BuildContext context, Coordinator c, {String? bookingId}) {
   final t = AppLocalizations.of(context);
   final links = context.read<LinkOpener>();
+  final repo = context.read<MeetupsRepository>();
   final mq = MediaQuery.of(context);
   final solid = mq.highContrast;
   return showGeneralDialog<void>(
@@ -286,11 +290,6 @@ Future<void> showContactSheet(BuildContext context, Coordinator c) {
     ),
     pageBuilder: (ctx, _, _) {
       final hz = hzColors(ctx);
-      void go(Uri u) {
-        Navigator.of(ctx).pop();
-        links.open(u);
-      }
-
       final scrim = ColoredBox(color: hz.bg.withValues(alpha: solid ? 0.94 : 0.45), child: const SizedBox.expand());
       return Material(
         type: MaterialType.transparency,
@@ -304,33 +303,7 @@ Future<void> showContactSheet(BuildContext context, Coordinator c) {
                 constraints: const BoxConstraints(maxWidth: 360),
                 child: Padding(
                   padding: const EdgeInsets.all(HzSpace.s5),
-                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    FilledButton(
-                      key: const Key('call-coord'),
-                      onPressed: () => go(Uri.parse(c.telUrl)),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.call, size: 20), const SizedBox(width: HzSpace.s2), Text(t.requestCall)]),
-                        Text(c.phoneDisplay, textDirection: TextDirection.ltr, style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: hz.onPrimary.withValues(alpha: 0.92))),
-                      ]),
-                    ),
-                    if (c.whatsappUrl != null) ...[
-                      const SizedBox(height: HzSpace.s3),
-                      OutlinedButton.icon(
-                        key: const Key('wa-coord'),
-                        style: OutlinedButton.styleFrom(backgroundColor: hz.surface),
-                        icon: const Icon(Icons.chat, size: 20),
-                        label: Text(t.contactViaWhatsapp),
-                        onPressed: () => go(Uri.parse(c.whatsappUrl!)),
-                      ),
-                    ],
-                    const SizedBox(height: HzSpace.s3),
-                    OutlinedButton(
-                      key: const Key('contact-close'),
-                      style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: Text(t.close),
-                    ),
-                  ]),
+                  child: _ContactSheetBody(coordinator: c, bookingId: bookingId, repo: repo, links: links),
                 ),
               ),
             ),
@@ -339,4 +312,92 @@ Future<void> showContactSheet(BuildContext context, Coordinator c) {
       );
     },
   );
+}
+
+class _ContactSheetBody extends StatefulWidget {
+  const _ContactSheetBody({required this.coordinator, required this.bookingId, required this.repo, required this.links});
+
+  final Coordinator coordinator;
+  final String? bookingId;
+  final MeetupsRepository repo;
+  final LinkOpener links;
+
+  @override
+  State<_ContactSheetBody> createState() => _ContactSheetBodyState();
+}
+
+class _ContactSheetBodyState extends State<_ContactSheetBody> {
+  bool _sending = false;
+  bool _sent = false;
+  ApiError? _error;
+
+  Future<void> _ask() async {
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      await widget.repo.requestCall(bookingId: widget.bookingId);
+      if (mounted) setState(() => _sent = true);
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _error = e);
+    } catch (_) {
+      if (mounted) setState(() => _error = const ApiError(status: 0, code: 'UNKNOWN', message: ''));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final hz = hzColors(context);
+    final close = OutlinedButton(
+      key: const Key('contact-close'),
+      style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none),
+      onPressed: () => Navigator.of(context).pop(),
+      child: Text(t.close),
+    );
+    if (_sent) {
+      return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          padding: const EdgeInsets.all(HzSpace.s4),
+          decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
+          child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
+        ),
+        const SizedBox(height: HzSpace.s3),
+        close,
+      ]);
+    }
+    final wa = widget.coordinator.whatsappUrl;
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      FilledButton(
+        key: const Key('call-coord'),
+        onPressed: _sending ? null : _ask,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _sending
+              ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: hz.onPrimary))
+              : const Icon(Icons.call, size: 20),
+          const SizedBox(width: HzSpace.s2),
+          Text(t.requestCall),
+        ]),
+      ),
+      if (_error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(_error!)],
+      if (wa != null) ...[
+        const SizedBox(height: HzSpace.s3),
+        OutlinedButton.icon(
+          key: const Key('wa-coord'),
+          style: OutlinedButton.styleFrom(backgroundColor: hz.surface),
+          icon: const Icon(Icons.chat, size: 20),
+          label: Text(t.contactViaWhatsapp),
+          onPressed: () {
+            Navigator.of(context).pop();
+            widget.links.open(Uri.parse(wa));
+          },
+        ),
+      ],
+      const SizedBox(height: HzSpace.s3),
+      close,
+    ]);
+  }
 }

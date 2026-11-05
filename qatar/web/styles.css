@@ -326,8 +326,9 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 45%, transparent); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); }
 .contact-sheet[open] { display: grid; gap: var(--s-3); animation: sheet-in 220ms var(--m-ease); }
 .contact-sheet .btn { width: 100%; flex-wrap: wrap; row-gap: 2px; padding-block: var(--s-3); }
-.contact-sheet .btn bdi { flex: 1 1 100%; text-align: center; font-family: var(--font-body); font-weight: 500; font-size: var(--t-caption-size); opacity: 0.92; }
 .contact-sheet .btn-secondary { background: var(--c-surface); }
+.contact-sheet .banner { background: var(--c-surface); }
+.contact-sheet [data-call-msg]:empty { display: none; }
 .contact-sheet .btn-ghost { background: var(--c-surface); color: var(--c-text); }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
 @media (prefers-reduced-motion: reduce) { .contact-sheet[open] { animation: none; } }

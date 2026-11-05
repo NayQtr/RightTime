@@ -506,6 +506,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get requestCall => 'طلب اتصال';
 
   @override
+  String get callRequested => 'وصلنا طلبك. سيتصل بك المنسق.';
+
+  @override
   String get contactViaWhatsapp => 'التواصل عبر الواتساب';
 
   @override

@@ -512,6 +512,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get requestCall => 'Request Call';
 
   @override
+  String get callRequested =>
+      'We got your request. The coordinator will call you.';
+
+  @override
   String get contactViaWhatsapp => 'Contact via WhatsApp';
 
   @override

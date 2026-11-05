@@ -37,6 +37,10 @@ Claude's open questions (waiting for the owner's answer):
      (1) one spelling of the coordinator: «المنسق» or «منسّق»; (2) a next-step line for «لم يكتمل الدفع.», the generic error
      and «تعذّر الاسترداد»; (3) venue decline: replace the browser's OK/Cancel dialog with an in-page confirmation
      (buttons named for the action); (4) screen-reader announcement text for the venue page after accept/decline/arrival.
+13e. "Request Call" (5 Nov): wording to confirm. The confirmation «وصلنا طلبك. سيتصل بك المنسق.» / "We got your request. The coordinator will call you." and
+     the English «Request contact», «Contact via WhatsApp» are Claude's wording. Also: requests only appear in the admin console (menu badge, refresh every
+     30 s); an alert to the owner by WhatsApp/push waits for the WhatsApp link. Offline she can no longer reach the coordinator by phone from the app (the
+     number is hidden by design): the 999 screen and the private report remain.
 
 Still open in the plan:
 14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.

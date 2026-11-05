@@ -153,6 +153,7 @@
   "emBody": "Your safety comes first. Call emergency services and ask the venue staff for help. Our coordinator on duty has been alerted.",
   "contactRequest": "Request contact",
   "requestCall": "Request Call",
+  "callRequested": "We got your request. The coordinator will call you.",
   "contactViaWhatsapp": "Contact via WhatsApp",
   "backHome": "Back to home",
   "@refundFull": {

@@ -198,13 +198,21 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   // the coordinator: one "request contact" button; pressing it blurs the page and shows the two options one above the other
   await page.click("#contact-open");
   await page.waitForSelector("dialog.contact-sheet[open]");
-  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006");
+  assert.equal(await page.getAttribute("#call-coord", "href"), null, "no phone link");
   assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
   assert.equal((await page.locator("#call-coord span").innerText()).trim(), "طلب اتصال");
+  assert.equal(await page.locator("#call-coord").evaluate((e) => e.tagName), "BUTTON", "a request, not a phone link");
+  assert.ok(!/974|6005/.test(await page.locator("dialog.contact-sheet").innerText()), "her screen never shows the coordinator's number");
   assert.equal((await page.locator("#wa-coord span").innerText()).trim(), "التواصل عبر الواتساب");
   const [callBox, waBox] = await Promise.all([page.locator("#call-coord").boundingBox(), page.locator("#wa-coord").boundingBox()]);
   assert.ok(callBox.y + callBox.height <= waBox.y, "the two options stand one above the other");
   await page.screenshot({ path: `${SHOTS}/06b-contact-sheet-ar.png` });
+  // "Request Call": the request goes to the admins and she is told; asking again does not make a second one
+  await page.click("#call-coord");
+  await page.waitForSelector("dialog.contact-sheet .banner-success");
+  assert.ok((await page.locator("dialog.contact-sheet").innerText()).includes("وصلنا طلبك"));
+  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`)[0].n, 1);
+  await page.screenshot({ path: `${SHOTS}/06c-call-requested-ar.png` });
   await page.keyboard.press("Escape");
   await page.waitForSelector("dialog.contact-sheet", { state: "detached" });
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "contact-open", "focus returns to the button");
@@ -287,7 +295,10 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok(offlineText.includes("نكشف اسم المكان") && offlineText.includes("أنتِ غير متصلة"), offlineText.slice(0, 300));
   assert.equal(await page.locator("a[href$='/cancel']").count(), 0, "no cancel while offline");
   await page.click("#contact-open");
-  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "the coordinator can still be called");
+  assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006", "WhatsApp is still offered from the saved copy");
+  await page.click("#call-coord");
+  await page.waitForSelector("dialog.contact-sheet .banner-danger"); // no connection: the request cannot be sent, and she is told
+  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`)[0].n, 1, "nothing new was recorded");
   await page.keyboard.press("Escape");
   await page.screenshot({ path: `${SHOTS}/11b-event-offline-ar.png`, fullPage: true });
   await page.unroute(/\/api\/v1\//);
@@ -741,6 +752,27 @@ test("venue page (016): email, code, the hosting request, accept; Arabic, real C
   await ad.page.click(`[data-portal="${v.id}"]`);
   await ad.page.waitForSelector("#puf");
   assert.ok((await ad.page.locator("#contacts").textContent()).includes("ui@venue.test"));
+  assert.deepEqual(ad.errors, []);
+  await ad.page.context().close();
+});
+
+test("admin console: a member's call request shows with her number; Called takes it off the open list", async () => {
+  const call = client(env.base);
+  const ops = await adminLogin(call, env.sql, "ops.oncall@example.test");
+  const M = await signUp(call, { name: "Mona" });
+  assert.equal((await call("POST", "/api/v1/support/call-requests", { token: M.token, body: {} })).status, 201);
+  const ad = await newPage({ width: 1280, height: 900 });
+  await ad.page.addInitScript(([t, a]) => { sessionStorage.setItem("qa_token", JSON.stringify(t)); sessionStorage.setItem("qa_admin", JSON.stringify(a)); }, [ops.token, ops.admin]);
+  await ad.page.goto(`${env.base}/admin/#/call-requests`);
+  await ad.page.waitForSelector("h1:text('Call requests')");
+  const row = ad.page.locator("tr", { hasText: "Mona" });
+  assert.equal(await row.count(), 1);
+  assert.equal(await row.locator("a[href^='tel:']").getAttribute("href"), `tel:${M.phone}`, "the number to call");
+  assert.ok(/Call requests\s*waiting:\s*\d+/.test(await ad.page.locator("nav").innerText()), "the menu shows how many are open");
+  await ad.page.screenshot({ path: `${SHOTS}/23-admin-call-requests.png`, fullPage: true });
+  await row.locator("[data-called]").click();
+  await ad.page.waitForSelector("tr:has-text('Mona')", { state: "detached" });
+  assert.equal((await env.sql`SELECT status FROM app.call_requests WHERE user_id = ${M.userId}`)[0].status, "called");
   assert.deepEqual(ad.errors, []);
   await ad.page.context().close();
 });

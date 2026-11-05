@@ -1061,6 +1061,29 @@ function supportContact(ctx) {
     whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null } }, { "Cache-Control": "public, max-age=300" });
 }
 
+// "Request Call" (owner's design, 5 Nov): she asks to be called; her number is never shown to her and the request goes to the
+// admin console (owner and ops), who call her. One open request per member (asking again returns it), 3 a day.
+async function requestCall(ctx) {
+  const { sql, user, body } = ctx;
+  let bookingId = null;
+  if (body && body.booking_id != null) {
+    requireUuid(body.booking_id, "booking_id");
+    const [b] = await sql`SELECT id FROM app.bookings WHERE id = ${body.booking_id} AND user_id = ${user.id}`;
+    if (!b) fail(404, "NOT_FOUND");
+    bookingId = b.id;
+  }
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${user.id} AND created_at > now() - interval '24 hours'`;
+  const [open] = await sql`SELECT id, created_at FROM app.call_requests WHERE user_id = ${user.id} AND status = 'requested'`;
+  if (open) return json(200, { id: open.id, status: "requested", created_at: qa(open.created_at), already_requested: true });
+  if (n >= 3) fail(429, "RATE_LIMITED", null, { retry_after: 3600 });
+  // the unique index on open requests settles a double tap: the loser gets the winner's request
+  const [made] = await sql`INSERT INTO app.call_requests (user_id, booking_id) VALUES (${user.id}, ${bookingId})
+                           ON CONFLICT (user_id) WHERE status = 'requested' DO NOTHING RETURNING id, created_at`;
+  if (made) return json(201, { id: made.id, status: "requested", created_at: qa(made.created_at), already_requested: false });
+  const [again] = await sql`SELECT id, created_at FROM app.call_requests WHERE user_id = ${user.id} AND status = 'requested'`;
+  return json(200, { id: again.id, status: "requested", created_at: qa(again.created_at), already_requested: true });
+}
+
 // Promo code check (migration 012). Subscriptions are display-only, so this only tells the member whether a code is
 // valid and its percentage; nothing is redeemed. Every check is counted, at most 10 per member per hour, so codes
 // cannot be guessed; an unknown, expired, used-up or deactivated code all answer the same way.
@@ -1088,6 +1111,7 @@ export const userRoutes = [
   { method: "GET", path: "/api/v1/health", auth: "none", handler: health },
   { method: "POST", path: "/api/v1/promo-codes:check", auth: "user", handler: checkPromoCode },
   { method: "GET", path: "/api/v1/support/contact", auth: "none", handler: supportContact },
+  { method: "POST", path: "/api/v1/support/call-requests", auth: "user", idem: true, handler: requestCall },
   { method: "POST", path: "/api/v1/users/me/registration", auth: "user_any", idem: true, handler: register },
   { method: "GET", path: "/api/v1/users/me", auth: "user_any", handler: me },
   { method: "GET", path: "/api/v1/users/me/export", auth: "user_any", handler: exportMe },
