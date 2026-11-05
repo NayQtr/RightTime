@@ -17,18 +17,20 @@ class Challenge {
 }
 
 class Me {
-  const Me({required this.id, required this.displayName, required this.registrationStatus, required this.status});
+  const Me({required this.id, required this.displayName, required this.registrationStatus, required this.status, this.phoneE164});
 
   final String id;
   final String? displayName;
   final String registrationStatus;
   final String status;
+  final String? phoneE164;
 
   factory Me.fromJson(Map<String, dynamic> j) => Me(
         id: j['id'] as String,
         displayName: j['display_name'] as String?,
         registrationStatus: (j['registration_status'] as String?) ?? 'incomplete',
         status: (j['status'] as String?) ?? 'active',
+        phoneE164: j['phone_e164'] as String?,
       );
 }
 

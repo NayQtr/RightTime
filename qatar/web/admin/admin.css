@@ -22,3 +22,5 @@ blockquote { margin: 0; padding: var(--s-3); border-inline-start: 4px solid var(
 dialog { border: 1px solid var(--c-border); border-radius: var(--r-lg); background: var(--c-surface); color: var(--c-text); max-width: 420px; }
 dialog::backdrop { background: rgb(0 0 0 / 40%); }
 code { font-size: 12px; word-break: break-all; }
+/* call requests: the note keeps its line breaks and does not stretch the table */
+.cr-note { white-space: pre-wrap; max-width: 30rem; overflow-wrap: anywhere; }

@@ -813,35 +813,64 @@ test("venue portal: email code sign-in, request 3 days before, reminder, coordin
 });
 
 // ===================================================================== call requests (017)
-test("call requests: she asks to be called; one open request each, 3 a day; the admins see her number (audited) and mark her called", async () => {
+test("contact requests: note, number and time; one open request each (sending again updates it); admins see them (audited); account deletion erases them", async () => {
   const s = await newSession({ admin: S.ops.token, startsInDays: 7 });
   const M = await signUp(call, { name: "Huda" });
   const bookingId = await bookPayWithCard(M.token, s, "HUDA A");
-  const ask = (body = {}) => call("POST", "/api/v1/support/call-requests", { token: M.token, body });
+  const ask = (extra = {}, token = M.token) => call("POST", "/api/v1/support/call-requests",
+    { token, body: { message: "The table was moved and nobody told me", callback_when: "10min", ...extra } });
 
-  assert.equal((await call("POST", "/api/v1/support/call-requests", { body: {} })).status, 401, "sign-in needed");
+  assert.equal((await call("POST", "/api/v1/support/call-requests", { body: { message: "x", callback_when: "now" } })).status, 401, "sign-in needed");
+  // what she sends is checked
+  for (const bad of [{ message: "" }, { message: "  " }, { message: "x".repeat(501) }, { callback_when: "next week" }, { callback_when: undefined }, { contact_phone: "12" }, { contact_phone: "abc" }]) {
+    const r = await ask(bad);
+    assert.equal(r.status, 422, JSON.stringify(bad).slice(0, 60));
+  }
   assert.equal((await ask({ booking_id: crypto.randomUUID() })).status, 404, "not her booking");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${M.userId}`)[0].n, 0, "nothing stored by the rejected ones");
+
+  // her own number comes back from /users/me, to confirm it as the contact number
+  assert.equal((await call("GET", "/api/v1/users/me", { token: M.token })).body.user.phone_e164, M.phone);
+
   const first = await ask({ booking_id: bookingId });
   assert.equal(first.status, 201);
   assert.equal(first.body.already_requested, false);
-  assert.equal(first.body.status, "requested");
-  const again = await ask();
-  assert.equal(again.status, 200, "asking again returns the open request");
+  const raw = (await sql`SELECT message_enc, contact_phone_enc FROM app.call_requests WHERE id = ${first.body.id}`)[0];
+  assert.ok(raw.message_enc && !raw.message_enc.toString("utf8").includes("table was moved"), "the note is stored encrypted");
+  assert.equal(raw.contact_phone_enc, null, "no other number given: the one she signed up with");
+
+  // sending again while it is open updates it: her latest words, number and time
+  const again = await ask({ message: "Please call about the venue", callback_when: "1h", contact_phone: "55512345" });
+  assert.equal(again.status, 200);
   assert.equal(again.body.id, first.body.id);
   assert.equal(again.body.already_requested, true);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${M.userId}`)[0].n, 1, "one row");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${M.userId}`)[0].n, 1, "still one row");
 
-  // the admin console: owner and ops see the first name and the number; the others cannot
+  // the admin console: owner and ops see the first name, the note, both numbers and when; the others cannot
   assert.equal((await call("GET", "/api/admin/v1/call-requests", { token: S.ts.token })).status, 403, "trust and safety does not take calls");
   const count = await call("GET", "/api/admin/v1/call-requests?count=1", { token: S.ops.token });
   assert.ok(count.body.open_count >= 1 && !("requests" in count.body), "the badge count carries no numbers");
-  const before = (await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_request_phones'`)[0].n;
+  const before = (await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_requests'`)[0].n;
   const list = await call("GET", "/api/admin/v1/call-requests", { token: S.ops.token });
   const mine = list.body.requests.find((x) => x.id === first.body.id);
   assert.equal(mine.name, "Huda");
-  assert.equal(mine.phone, M.phone, "the number she signed in with");
-  assert.ok(mine.booking_ref, "the meetup she was looking at");
-  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_request_phones'`)[0].n, before + 1, "reading numbers is audited");
+  assert.equal(mine.message, "Please call about the venue", "her latest words");
+  assert.equal(mine.phone, M.phone, "the number she signed up with");
+  assert.equal(mine.contact_phone, "+97455512345", "the number she asked to be called on (8 digits become +974)");
+  assert.equal(mine.callback_when, "1h");
+  assert.equal(new Date(mine.due_at) - new Date(mine.sent_at), 3600 * 1000, "due an hour after she sent it");
+  assert.equal(mine.submissions, 2);
+  assert.ok(mine.booking_ref, "the meetup");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'read_call_requests'`)[0].n, before + 1, "reading them is audited");
+
+  // her export includes what she sent
+  const exp = await call("GET", "/api/v1/users/me/export", { token: M.token });
+  assert.equal(exp.body.contact_requests.length, 1);
+  assert.equal(exp.body.contact_requests[0].message, "Please call about the venue");
+
+  // at most 10 sends on one open request
+  for (let n = 3; n <= 10; n++) assert.equal((await ask({ message: `again ${n}` })).status, 200);
+  assert.equal((await ask({ message: "one too many" })).status, 429);
 
   // marking: only called or closed, once
   const handle = (id, status) => call("POST", `/api/admin/v1/call-requests/${id}:handle`, { token: S.ops.token, body: { status } });
@@ -851,14 +880,20 @@ test("call requests: she asks to be called; one open request each, 3 a day; the 
   const done = await call("GET", "/api/admin/v1/call-requests?status=called", { token: S.owner.token });
   assert.ok(done.body.requests.some((x) => x.id === first.body.id && x.handled_by), "listed as called, with who handled it");
 
-  // after a call she can ask again: 3 requests in 24 hours, the fourth waits
-  const second = await ask();
+  // after a call she can ask again: 3 new requests in 24 hours, the fourth waits
+  const second = await ask({ callback_when: "now" });
   assert.equal(second.status, 201);
   await handle(second.body.id, "closed");
-  const third = await ask();
+  const third = await ask({ callback_when: "tomorrow" });
   assert.equal(third.status, 201);
   await handle(third.body.id, "closed");
   const fourth = await ask();
   assert.equal(fourth.status, 429);
   assert.equal(fourth.body.code, "RATE_LIMITED");
+
+  // deleting her account erases her notes and numbers (the account row stays, emptied)
+  await call("DELETE", "/api/v1/users/me", { token: M.token });
+  await sql`UPDATE app.users SET deletion_requested_at = now() - interval '15 days' WHERE id = ${M.userId}`;
+  assert.equal((await sql`SELECT app.finalize_account_deletions() AS n`)[0].n >= 1, true);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${M.userId}`)[0].n, 0, "her requests are gone");
 });

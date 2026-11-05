@@ -274,7 +274,11 @@ async function outdatedConsents(sql, user, current = null) {
   });
 }
 
-const me = async (ctx) => json(200, { user: { ...userView(ctx.user), outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
+const me = async (ctx) => {
+  const [p] = await ctx.sql`SELECT phone_e164_enc FROM app.users WHERE id = ${ctx.user.id}`;
+  const phone = p && p.phone_e164_enc && p.phone_e164_enc.length ? decrypt(ctx.keys.dataKey, p.phone_e164_enc) : null;
+  return json(200, { user: { ...userView(ctx.user), phone_e164: phone, outdated_consents: await outdatedConsents(ctx.sql, ctx.user) } });
+};
 
 // A copy of the member's own data (right of access, PDPPL; NMX-38): one JSON file with her account, consents, latest
 // answers, bookings, payments, refunds, ratings and the reports she made. Other members' data is never included (no
@@ -309,6 +313,8 @@ async function exportMe(ctx) {
                                FROM app.event_feedback WHERE user_id = ${user.id} ORDER BY submitted_at`;
   const reports = await sql`SELECT case_ref, booking_id, category, timing, immediate_danger, description_enc, status, created_at
                               FROM app.safety_reports WHERE reporter_user_id = ${user.id} ORDER BY created_at`;
+  const asks = await sql`SELECT callback_when, status, message_enc, contact_phone_enc, created_at, handled_at
+                           FROM app.call_requests WHERE user_id = ${user.id} ORDER BY created_at`;
   const body = {
     exported_at: qa(new Date()),
     account: {
@@ -329,6 +335,9 @@ async function exportMe(ctx) {
       would_book_again: f.would_book_again, private_comment: f.comment_private, submitted_at: qa(f.submitted_at) })),
     reports_made: reports.map((r) => ({ case_ref: r.case_ref, booking_ref: refOf[r.booking_id] ?? null, category: r.category, timing: r.timing,
       immediate_danger: r.immediate_danger, description: r.description_enc ? decrypt(keys.dataKey, r.description_enc) : null, status: r.status, created_at: qa(r.created_at) })),
+    contact_requests: asks.map((r) => ({ requested_at: qa(r.created_at), callback_when: r.callback_when, status: r.status,
+      message: r.message_enc ? decrypt(keys.dataKey, r.message_enc) : null, contact_phone: r.contact_phone_enc ? decrypt(keys.dataKey, r.contact_phone_enc) : null,
+      handled_at: qa(r.handled_at) })),
   };
   const day = qa(new Date()).slice(0, 10);
   return json(200, body, { "Cache-Control": "no-store", "Content-Disposition": `attachment; filename="herzone-my-data-${day}.json"` });
@@ -1061,27 +1070,54 @@ function supportContact(ctx) {
     whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null } }, { "Cache-Control": "public, max-age=300" });
 }
 
-// "Request Call" (owner's design, 5 Nov): she asks to be called; her number is never shown to her and the request goes to the
-// admin console (owner and ops), who call her. One open request per member (asking again returns it), 3 a day.
+// "Request contact" (owner's design, 5 Nov): she writes what the problem or request is, confirms the number to call and when
+// (now, in 10 minutes, in an hour, tomorrow). The request goes to the admin console (owner and ops), who call her. One open
+// request per member: sending again updates it (up to 10 times); 3 new requests a day. The note and a different number are
+// stored encrypted; account deletion erases them.
+const CALLBACK_WHEN = ["now", "10min", "1h", "tomorrow"];
+function normalizePhone(v) {
+  const d = String(v).replace(/[\s\-().]/g, "").replace(/^00/, "+");
+  if (/^[3-7][0-9]{7}$/.test(d)) return `+974${d}`;
+  return /^\+[1-9][0-9]{6,14}$/.test(d) ? d : null;
+}
 async function requestCall(ctx) {
-  const { sql, user, body } = ctx;
-  let bookingId = null;
-  if (body && body.booking_id != null) {
-    requireUuid(body.booking_id, "booking_id");
-    const [b] = await sql`SELECT id FROM app.bookings WHERE id = ${body.booking_id} AND user_id = ${user.id}`;
-    if (!b) fail(404, "NOT_FOUND");
-    bookingId = b.id;
+  const { sql, user, body, keys } = ctx;
+  const b = body || {};
+  const message = String(b.message ?? "").trim();
+  const details = [];
+  if (!message) details.push({ field: "message", code: "REQUIRED" });
+  else if (message.length > 500) details.push({ field: "message", code: "TOO_LONG" });
+  if (!CALLBACK_WHEN.includes(b.callback_when)) details.push({ field: "callback_when", code: "INVALID" });
+  let phone = null;
+  if (b.contact_phone != null && String(b.contact_phone).trim() !== "") {
+    phone = normalizePhone(b.contact_phone);
+    if (!phone) details.push({ field: "contact_phone", code: "INVALID" });
   }
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${user.id} AND created_at > now() - interval '24 hours'`;
-  const [open] = await sql`SELECT id, created_at FROM app.call_requests WHERE user_id = ${user.id} AND status = 'requested'`;
-  if (open) return json(200, { id: open.id, status: "requested", created_at: qa(open.created_at), already_requested: true });
-  if (n >= 3) fail(429, "RATE_LIMITED", null, { retry_after: 3600 });
-  // the unique index on open requests settles a double tap: the loser gets the winner's request
-  const [made] = await sql`INSERT INTO app.call_requests (user_id, booking_id) VALUES (${user.id}, ${bookingId})
-                           ON CONFLICT (user_id) WHERE status = 'requested' DO NOTHING RETURNING id, created_at`;
-  if (made) return json(201, { id: made.id, status: "requested", created_at: qa(made.created_at), already_requested: false });
-  const [again] = await sql`SELECT id, created_at FROM app.call_requests WHERE user_id = ${user.id} AND status = 'requested'`;
-  return json(200, { id: again.id, status: "requested", created_at: qa(again.created_at), already_requested: true });
+  if (details.length) fail(422, "VALIDATION_FAILED", details);
+  let bookingId = null;
+  if (b.booking_id != null) {
+    requireUuid(b.booking_id, "booking_id");
+    const [bk] = await sql`SELECT id FROM app.bookings WHERE id = ${b.booking_id} AND user_id = ${user.id}`;
+    if (!bk) fail(404, "NOT_FOUND");
+    bookingId = bk.id;
+  }
+  const [open] = await sql`SELECT id FROM app.call_requests WHERE user_id = ${user.id} AND status = 'requested'`;
+  if (!open) {
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE user_id = ${user.id} AND created_at > now() - interval '24 hours'`;
+    if (n >= 3) fail(429, "RATE_LIMITED", null, { retry_after: 3600 });
+  }
+  // one statement settles a double tap and a second send: the open request is created, or updated with her latest words
+  const [r] = await sql`
+    INSERT INTO app.call_requests (user_id, booking_id, message_enc, contact_phone_enc, callback_when)
+    VALUES (${user.id}, ${bookingId}, ${encrypt(keys.dataKey, message)}, ${phone ? encrypt(keys.dataKey, phone) : null}, ${b.callback_when})
+    ON CONFLICT (user_id) WHERE status = 'requested' DO UPDATE
+       SET message_enc = EXCLUDED.message_enc, contact_phone_enc = EXCLUDED.contact_phone_enc, callback_when = EXCLUDED.callback_when,
+           booking_id = COALESCE(EXCLUDED.booking_id, app.call_requests.booking_id),
+           submissions = app.call_requests.submissions + 1, updated_at = now()
+       WHERE app.call_requests.submissions < 10
+    RETURNING id, created_at, (xmax = 0) AS inserted`;
+  if (!r) fail(429, "RATE_LIMITED", null, { retry_after: 3600 });
+  return json(r.inserted ? 201 : 200, { id: r.id, status: "requested", created_at: qa(r.created_at), already_requested: !r.inserted });
 }
 
 // Promo code check (migration 012). Subscriptions are display-only, so this only tells the member whether a code is

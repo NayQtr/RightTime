@@ -437,27 +437,50 @@
             "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
-        "summary": "Request Call: the coordinator calls her back. Her number is not shown to her; one open request per member, 3 a day",
+        "summary": "Request contact: the coordinator calls her back, with her note and the time she chose. One open request per member (sending again updates it), 3 new ones a day",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "What the problem or request is"
+                  },
+                  "callback_when": {
+                    "type": "string",
+                    "enum": [
+                      "now",
+                      "10min",
+                      "1h",
+                      "tomorrow"
+                    ],
+                    "description": "When she wants the call"
+                  },
+                  "contact_phone": {
+                    "type": "string",
+                    "description": "Only when the number to call is not the one she signed up with: 8 Qatar digits or international"
+                  },
                   "booking_id": {
                     "type": "string",
                     "format": "uuid"
                   }
                 },
-                "required": []
+                "required": [
+                  "message",
+                  "callback_when"
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "She already has an open request: returned as it is",
+            "description": "She already had an open request: it now carries her latest words",
             "content": {
               "application/json": {
                 "schema": {
@@ -3414,6 +3437,17 @@
           },
           "woman_confirmed": {
             "type": "boolean"
+          },
+          "phone_e164": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Only on GET /users/me: her own number, to confirm it as the contact number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

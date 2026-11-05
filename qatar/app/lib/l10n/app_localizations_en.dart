@@ -509,14 +509,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactRequest => 'Request contact';
 
   @override
-  String get requestCall => 'Request Call';
+  String get csPhone => 'Phone call';
+
+  @override
+  String get csChat => 'WhatsApp chat';
+
+  @override
+  String get csRequest => 'Request contact';
+
+  @override
+  String get csRequestSub => 'A short note on the problem or request first';
+
+  @override
+  String get csCallNow => 'Call us now';
+
+  @override
+  String get csCallNowSub => 'You\'ll call us by phone right away';
+
+  @override
+  String get csMessageLabel => 'Describe the problem or request';
+
+  @override
+  String get csPhoneLabel => 'Confirm your contact number';
+
+  @override
+  String get csWhenLabel => 'Best time to call';
+
+  @override
+  String get csWhenNow => 'Now';
+
+  @override
+  String get csWhen10 => 'In 10 minutes';
+
+  @override
+  String get csWhen60 => 'In an hour';
+
+  @override
+  String get csWhenTomorrow => 'Tomorrow';
+
+  @override
+  String get csSend => 'Send request';
+
+  @override
+  String get csMessageNeeded => 'Please write the problem or request.';
+
+  @override
+  String get csPhoneBad => 'That phone number isn\'t valid.';
+
+  @override
+  String waHello(Object who) {
+    return 'Hello, I\'m $who, I have a problem/request';
+  }
+
+  @override
+  String get waHelloAnon => 'Hello, I have a problem/request';
 
   @override
   String get callRequested =>
       'We got your request. The coordinator will call you.';
-
-  @override
-  String get contactViaWhatsapp => 'Contact via WhatsApp';
 
   @override
   String get backHome => 'Back to home';

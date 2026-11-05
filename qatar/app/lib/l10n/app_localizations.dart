@@ -1010,23 +1010,119 @@ abstract class AppLocalizations {
   /// **'طلب تواصل'**
   String get contactRequest;
 
-  /// No description provided for @requestCall.
+  /// No description provided for @csPhone.
   ///
   /// In ar, this message translates to:
-  /// **'طلب اتصال'**
-  String get requestCall;
+  /// **'اتصال هاتفي'**
+  String get csPhone;
+
+  /// No description provided for @csChat.
+  ///
+  /// In ar, this message translates to:
+  /// **'محادثة واتساب'**
+  String get csChat;
+
+  /// No description provided for @csRequest.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب تواصل'**
+  String get csRequest;
+
+  /// No description provided for @csRequestSub.
+  ///
+  /// In ar, this message translates to:
+  /// **'شرح بسيط للمشكلة/الطلب قبل التواصل'**
+  String get csRequestSub;
+
+  /// No description provided for @csCallNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتصل بنا الان'**
+  String get csCallNow;
+
+  /// No description provided for @csCallNowSub.
+  ///
+  /// In ar, this message translates to:
+  /// **'سوف تتصل بنا هاتفيا فوراً'**
+  String get csCallNowSub;
+
+  /// No description provided for @csMessageLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اشرحي المشكلة أو الطلب'**
+  String get csMessageLabel;
+
+  /// No description provided for @csPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد هاتف التواصل'**
+  String get csPhoneLabel;
+
+  /// No description provided for @csWhenLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الوقت المناسب للاتصال'**
+  String get csWhenLabel;
+
+  /// No description provided for @csWhenNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الان'**
+  String get csWhenNow;
+
+  /// No description provided for @csWhen10.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعد 10 دقايق'**
+  String get csWhen10;
+
+  /// No description provided for @csWhen60.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعد ساعة'**
+  String get csWhen60;
+
+  /// No description provided for @csWhenTomorrow.
+  ///
+  /// In ar, this message translates to:
+  /// **'غدا'**
+  String get csWhenTomorrow;
+
+  /// No description provided for @csSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال الطلب'**
+  String get csSend;
+
+  /// No description provided for @csMessageNeeded.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتبي المشكلة أو الطلب أولاً.'**
+  String get csMessageNeeded;
+
+  /// No description provided for @csPhoneBad.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الهاتف غير صحيح.'**
+  String get csPhoneBad;
+
+  /// No description provided for @waHello.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرحباً ، انا {who} ، لدي مشكلة/طلب'**
+  String waHello(Object who);
+
+  /// No description provided for @waHelloAnon.
+  ///
+  /// In ar, this message translates to:
+  /// **'مرحباً ، لدي مشكلة/طلب'**
+  String get waHelloAnon;
 
   /// No description provided for @callRequested.
   ///
   /// In ar, this message translates to:
   /// **'وصلنا طلبك. سيتصل بك المنسق.'**
   String get callRequested;
-
-  /// No description provided for @contactViaWhatsapp.
-  ///
-  /// In ar, this message translates to:
-  /// **'التواصل عبر الواتساب'**
-  String get contactViaWhatsapp;
 
   /// No description provided for @backHome.
   ///

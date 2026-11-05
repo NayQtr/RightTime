@@ -195,24 +195,44 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.locator("#tabbar a").count(), 4);
   assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/home");
   await noHorizontalScroll(page);
-  // the coordinator: one "request contact" button; pressing it blurs the page and shows the two options one above the other
+  // the coordinator: one "request contact" button; pressing it blurs the page (owner's design, 5 Nov)
   await page.click("#contact-open");
   await page.waitForSelector("dialog.contact-sheet[open]");
-  assert.equal(await page.getAttribute("#call-coord", "href"), null, "no phone link");
-  assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006");
-  assert.equal((await page.locator("#call-coord span").innerText()).trim(), "طلب اتصال");
-  assert.equal(await page.locator("#call-coord").evaluate((e) => e.tagName), "BUTTON", "a request, not a phone link");
-  assert.ok(!/974|6005/.test(await page.locator("dialog.contact-sheet").innerText()), "her screen never shows the coordinator's number");
-  assert.equal((await page.locator("#wa-coord span").innerText()).trim(), "التواصل عبر الواتساب");
-  const [callBox, waBox] = await Promise.all([page.locator("#call-coord").boundingBox(), page.locator("#wa-coord").boundingBox()]);
-  assert.ok(callBox.y + callBox.height <= waBox.y, "the two options stand one above the other");
+  // level 1: phone call, and a WhatsApp chat, one above the other
+  assert.equal((await page.locator("dialog.contact-sheet [data-go=phone] span").innerText()).trim(), "اتصال هاتفي");
+  assert.equal((await page.locator("#wa-coord span").innerText()).trim(), "محادثة واتساب");
+  const [phoneBox, waBox] = await Promise.all([page.locator("[data-go=phone]").boundingBox(), page.locator("#wa-coord").boundingBox()]);
+  assert.ok(phoneBox.y + phoneBox.height <= waBox.y, "the two options stand one above the other");
+  // the WhatsApp chat opens with her name (no booking yet: no number)
+  const waHref = await page.getAttribute("#wa-coord", "href");
+  assert.ok(waHref.startsWith("https://wa.me/97460053006?text="));
+  assert.equal(decodeURIComponent(waHref.split("?text=")[1]), "مرحباً ، انا مريم ، لدي مشكلة/طلب");
   await page.screenshot({ path: `${SHOTS}/06b-contact-sheet-ar.png` });
-  // "Request Call": the request goes to the admins and she is told; asking again does not make a second one
-  await page.click("#call-coord");
+  // level 2: the phone call offers a request, and "call us now" (dials the coordinator at once)
+  await page.click("[data-go=phone]");
+  const lvl2 = await page.locator("dialog.contact-sheet").innerText();
+  assert.ok(lvl2.includes("طلب تواصل") && lvl2.includes("شرح بسيط للمشكلة/الطلب قبل التواصل"), lvl2);
+  assert.ok(lvl2.includes("اتصل بنا الان") && lvl2.includes("سوف تتصل بنا هاتفيا فوراً"), lvl2);
+  assert.equal(await page.locator("dialog.contact-sheet [data-go=phone]").count(), 0, "the first two options are gone");
+  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "dials the coordinator");
+  await page.screenshot({ path: `${SHOTS}/06c-contact-phone-ar.png` });
+  // level 3: the request: a note, the number to confirm, and when
+  await page.click("[data-go=form]");
+  assert.equal(await page.inputValue("#cs-phone"), "+97455512345", "her number, to confirm");
+  assert.deepEqual(await page.locator("dialog.contact-sheet .cs-when .chip span").allInnerTexts(), ["الان", "بعد 10 دقايق", "بعد ساعة", "غدا"]);
+  await page.click("dialog.contact-sheet button[type=submit]");
+  await page.waitForSelector("dialog.contact-sheet .banner-danger"); // no note yet
+  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests`)[0].n, 0, "nothing is sent without a note");
+  await page.fill("#cs-msg", "الطاولة تغيّرت ولم يخبرني أحد");
+  await page.click("dialog.contact-sheet .chip:has-text('بعد ساعة')");
+  await page.screenshot({ path: `${SHOTS}/06d-contact-form-ar.png` });
+  await page.click("dialog.contact-sheet button[type=submit]");
   await page.waitForSelector("dialog.contact-sheet .banner-success");
   assert.ok((await page.locator("dialog.contact-sheet").innerText()).includes("وصلنا طلبك"));
-  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`)[0].n, 1);
-  await page.screenshot({ path: `${SHOTS}/06c-call-requested-ar.png` });
+  const sent = (await env.sql`SELECT callback_when, contact_phone_enc, message_enc FROM app.call_requests`)[0];
+  assert.equal(sent.callback_when, "1h");
+  assert.equal(sent.contact_phone_enc, null, "she confirmed her own number: nothing extra is stored");
+  assert.ok(sent.message_enc, "the note is stored (encrypted)");
   await page.keyboard.press("Escape");
   await page.waitForSelector("dialog.contact-sheet", { state: "detached" });
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "contact-open", "focus returns to the button");
@@ -286,6 +306,10 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok((await page.locator("main").innerText()).includes("نكشف اسم المكان"), "venue hidden while forming");
   assert.equal(await page.locator("#tabbar").isHidden(), true, "no tab bar on detail screens");
   await page.screenshot({ path: `${SHOTS}/11-event-forming-ar.png`, fullPage: true });
+  await page.click("#contact-open");
+  await page.waitForFunction(() => decodeURIComponent(document.querySelector("#wa-coord").href).includes("#RT-"));
+  assert.match(decodeURIComponent((await page.getAttribute("#wa-coord", "href")).split("?text=")[1]), /^مرحباً ، انا مريم #RT-[A-Z0-9]+ ، لدي مشكلة\/طلب$/, "her name and her booking's number");
+  await page.keyboard.press("Escape");
   // NMX-16: with no connection the details open from the copy saved on this device, read-only
   const detailsUrl = page.url();
   await page.route(/\/api\/v1\//, (r) => r.abort());
@@ -295,10 +319,14 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok(offlineText.includes("نكشف اسم المكان") && offlineText.includes("أنتِ غير متصلة"), offlineText.slice(0, 300));
   assert.equal(await page.locator("a[href$='/cancel']").count(), 0, "no cancel while offline");
   await page.click("#contact-open");
-  assert.equal(await page.getAttribute("#wa-coord", "href"), "https://wa.me/97460053006", "WhatsApp is still offered from the saved copy");
-  await page.click("#call-coord");
-  await page.waitForSelector("dialog.contact-sheet .banner-danger"); // no connection: the request cannot be sent, and she is told
-  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`)[0].n, 1, "nothing new was recorded");
+  assert.ok((await page.getAttribute("#wa-coord", "href")).startsWith("https://wa.me/97460053006"), "WhatsApp is still offered from the saved copy");
+  await page.click("[data-go=phone]");
+  assert.equal(await page.getAttribute("#call-coord", "href"), "tel:+97460053006", "she can still call the coordinator with no data");
+  await page.click("[data-go=form]");
+  await page.fill("#cs-msg", "no connection");
+  await page.click("dialog.contact-sheet button[type=submit]");
+  await page.waitForSelector("dialog.contact-sheet .banner-danger"); // the request cannot be sent, and she is told
+  assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.call_requests`)[0].n, 1, "nothing new was recorded");
   await page.keyboard.press("Escape");
   await page.screenshot({ path: `${SHOTS}/11b-event-offline-ar.png`, fullPage: true });
   await page.unroute(/\/api\/v1\//);
@@ -756,18 +784,22 @@ test("venue page (016): email, code, the hosting request, accept; Arabic, real C
   await ad.page.context().close();
 });
 
-test("admin console: a member's call request shows with her number; Called takes it off the open list", async () => {
+test("admin console: a member's contact request shows with her note, number and time; Called takes it off the open list", async () => {
   const call = client(env.base);
   const ops = await adminLogin(call, env.sql, "ops.oncall@example.test");
   const M = await signUp(call, { name: "Mona" });
-  assert.equal((await call("POST", "/api/v1/support/call-requests", { token: M.token, body: {} })).status, 201);
+  assert.equal((await call("POST", "/api/v1/support/call-requests", { token: M.token,
+    body: { message: "The venue changed and I have a question", callback_when: "10min", contact_phone: "55500011" } })).status, 201);
   const ad = await newPage({ width: 1280, height: 900 });
   await ad.page.addInitScript(([t, a]) => { sessionStorage.setItem("qa_token", JSON.stringify(t)); sessionStorage.setItem("qa_admin", JSON.stringify(a)); }, [ops.token, ops.admin]);
   await ad.page.goto(`${env.base}/admin/#/call-requests`);
   await ad.page.waitForSelector("h1:text('Call requests')");
   const row = ad.page.locator("tr", { hasText: "Mona" });
   assert.equal(await row.count(), 1);
-  assert.equal(await row.locator("a[href^='tel:']").getAttribute("href"), `tel:${M.phone}`, "the number to call");
+  assert.equal(await row.locator("a[href^='tel:']").getAttribute("href"), "tel:+97455500011", "the number she asked to be called on");
+  const rowText = await row.innerText();
+  assert.ok(rowText.includes("The venue changed and I have a question") && rowText.includes("In 10 minutes"), rowText);
+  assert.ok(rowText.includes(M.phone), "and the number she signed up with");
   assert.ok(/Call requests\s*waiting:\s*\d+/.test(await ad.page.locator("nav").innerText()), "the menu shows how many are open");
   await ad.page.screenshot({ path: `${SHOTS}/23-admin-call-requests.png`, fullPage: true });
   await row.locator("[data-called]").click();

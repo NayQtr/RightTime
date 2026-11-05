@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_error.dart';
 import '../../core/link_opener.dart';
+import '../../data/auth_repository.dart' show Me;
 import '../../data/meetups_repository.dart';
-import '../../data/models.dart' show Coordinator;
+import '../../data/models.dart' show BookingSummary, Coordinator;
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
+import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../common/loader.dart';
@@ -269,13 +271,17 @@ class _Tracker extends StatelessWidget {
   }
 }
 
-/// "Request contact": the screen behind blurs and two options stand one above the other. "Request Call" sends the request to
-/// the admin console (the coordinator calls her; her number is not shown to her); WhatsApp opens the coordinator's chat. Tap
-/// outside, the close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
+/// "Request contact" (owner's design, 5 Nov): the screen behind blurs and a sheet offers
+///   level 1  Phone call | WhatsApp chat
+///   level 2  (Phone call) Request contact: a note, the number, when | Call us now: dials the coordinator at once
+///   level 3  the request form; then a confirmation.
+/// WhatsApp opens the coordinator's chat with a first message carrying her name and her next booking's number (no membership
+/// number exists). Tap outside, the close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
 Future<void> showContactSheet(BuildContext context, Coordinator c, {String? bookingId}) {
   final t = AppLocalizations.of(context);
   final links = context.read<LinkOpener>();
   final repo = context.read<MeetupsRepository>();
+  final me = context.read<Session>().me;
   final mq = MediaQuery.of(context);
   final solid = mq.highContrast;
   return showGeneralDialog<void>(
@@ -298,12 +304,17 @@ Future<void> showContactSheet(BuildContext context, Coordinator c, {String? book
           onTap: () => Navigator.of(ctx).pop(),
           child: Stack(fit: StackFit.expand, children: [
             solid ? scrim : BackdropFilter(filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: scrim),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 360),
-                child: Padding(
-                  padding: const EdgeInsets.all(HzSpace.s5),
-                  child: _ContactSheetBody(coordinator: c, bookingId: bookingId, repo: repo, links: links),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: Padding(
+                      padding: const EdgeInsets.all(HzSpace.s5),
+                      child: _ContactSheetBody(coordinator: c, bookingId: bookingId, repo: repo, links: links, me: me),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -314,33 +325,84 @@ Future<void> showContactSheet(BuildContext context, Coordinator c, {String? book
   );
 }
 
+enum _Level { top, phone, form, sent }
+
 class _ContactSheetBody extends StatefulWidget {
-  const _ContactSheetBody({required this.coordinator, required this.bookingId, required this.repo, required this.links});
+  const _ContactSheetBody({required this.coordinator, required this.bookingId, required this.repo, required this.links, required this.me});
 
   final Coordinator coordinator;
   final String? bookingId;
   final MeetupsRepository repo;
   final LinkOpener links;
+  final Me? me;
 
   @override
   State<_ContactSheetBody> createState() => _ContactSheetBodyState();
 }
 
 class _ContactSheetBodyState extends State<_ContactSheetBody> {
+  static const _whens = ['now', '10min', '1h', 'tomorrow'];
+  _Level _level = _Level.top;
+  BookingSummary? _booking; // her next booking: the one on this screen, or the soonest active one
+  late final TextEditingController _message = TextEditingController();
+  late final TextEditingController _phone = TextEditingController(text: widget.me?.phoneE164 ?? '');
+  String _when = 'now';
   bool _sending = false;
-  bool _sent = false;
-  ApiError? _error;
+  String? _problem; // a message of ours (missing note, bad number)
+  ApiError? _error; // or the server's
 
-  Future<void> _ask() async {
+  @override
+  void initState() {
+    super.initState();
+    widget.repo.bookings().then((list) {
+      final mine = list.where((b) => b.id == widget.bookingId).toList();
+      final soonest = (list.where((b) => b.isActive).toList()..sort((a, b) => a.startsAt.compareTo(b.startsAt)));
+      if (mounted) setState(() => _booking = mine.isNotEmpty ? mine.first : (soonest.isEmpty ? null : soonest.first));
+    }).catchError((Object _) {}); // no connection: the message simply carries no booking number
+  }
+
+  @override
+  void dispose() {
+    _message.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  void _go(_Level l) => setState(() {
+        _level = l;
+        _problem = null;
+        _error = null;
+      });
+
+  void _open(Uri u) {
+    Navigator.of(context).pop();
+    widget.links.open(u);
+  }
+
+  void _whatsapp(AppLocalizations t) {
+    final who = [widget.me?.displayName, _booking == null ? null : '#${_booking!.ref}'].whereType<String>().where((x) => x.isNotEmpty).join(' ');
+    final text = who.isEmpty ? t.waHelloAnon : t.waHello(who);
+    _open(Uri.parse('${widget.coordinator.whatsappUrl}?text=${Uri.encodeComponent(text)}'));
+  }
+
+  Future<void> _send(AppLocalizations t) async {
+    final msg = _message.text.trim();
+    final phone = _phone.text.trim();
+    if (msg.isEmpty) return setState(() => _problem = t.csMessageNeeded);
+    if (phone.isEmpty) return setState(() => _problem = t.csPhoneBad);
     setState(() {
       _sending = true;
+      _problem = null;
       _error = null;
     });
     try {
-      await widget.repo.requestCall(bookingId: widget.bookingId);
-      if (mounted) setState(() => _sent = true);
+      // the number goes with the request only when it is not the one she signed up with
+      final other = phone.replaceAll(RegExp(r'[\s-]'), '') != (widget.me?.phoneE164 ?? '');
+      await widget.repo.requestCall(message: msg, when: _when, contactPhone: other ? phone : null, bookingId: widget.bookingId ?? _booking?.id);
+      if (mounted) _go(_Level.sent);
     } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e);
+      final badPhone = e.status == 422 && e.details.any((d) => d['field'] == 'contact_phone');
+      if (mounted) setState(() => badPhone ? _problem = t.csPhoneBad : _error = e);
     } catch (_) {
       if (mounted) setState(() => _error = const ApiError(status: 0, code: 'UNKNOWN', message: ''));
     } finally {
@@ -348,56 +410,90 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
     }
   }
 
+  Widget _option({Key? key, required String label, String? sub, IconData? icon, required VoidCallback onTap, bool primary = false}) {
+    final hz = hzColors(context);
+    final child = Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: HzSpace.s2)],
+        Flexible(child: Text(label, textAlign: TextAlign.center)),
+      ]),
+      if (sub != null) Text(sub, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: primary ? hz.onPrimary.withValues(alpha: 0.92) : null)),
+    ]);
+    return primary
+        ? FilledButton(key: key, onPressed: onTap, child: child)
+        : OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface), onPressed: onTap, child: child);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final hz = hzColors(context);
-    final close = OutlinedButton(
-      key: const Key('contact-close'),
-      style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none),
-      onPressed: () => Navigator.of(context).pop(),
-      child: Text(t.close),
-    );
-    if (_sent) {
-      return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.all(HzSpace.s4),
-          decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
-          child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
-        ),
-        const SizedBox(height: HzSpace.s3),
-        close,
-      ]);
-    }
+    const gap = SizedBox(height: HzSpace.s3);
+    Widget ghost(Key key, String label, VoidCallback onTap) =>
+        OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none), onPressed: onTap, child: Text(label));
     final wa = widget.coordinator.whatsappUrl;
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      FilledButton(
-        key: const Key('call-coord'),
-        onPressed: _sending ? null : _ask,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          _sending
-              ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: hz.onPrimary))
-              : const Icon(Icons.call, size: 20),
-          const SizedBox(width: HzSpace.s2),
-          Text(t.requestCall),
-        ]),
-      ),
-      if (_error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(_error!)],
-      if (wa != null) ...[
-        const SizedBox(height: HzSpace.s3),
-        OutlinedButton.icon(
-          key: const Key('wa-coord'),
-          style: OutlinedButton.styleFrom(backgroundColor: hz.surface),
-          icon: const Icon(Icons.chat, size: 20),
-          label: Text(t.contactViaWhatsapp),
-          onPressed: () {
-            Navigator.of(context).pop();
-            widget.links.open(Uri.parse(wa));
-          },
-        ),
-      ],
-      const SizedBox(height: HzSpace.s3),
-      close,
-    ]);
+    final List<Widget> children;
+    switch (_level) {
+      case _Level.top:
+        children = [
+          _option(key: const Key('go-phone'), label: t.csPhone, icon: Icons.call, primary: true, onTap: () => _go(_Level.phone)),
+          if (wa != null) ...[gap, _option(key: const Key('wa-coord'), label: t.csChat, icon: Icons.chat, onTap: () => _whatsapp(t))],
+          gap,
+          ghost(const Key('contact-close'), t.close, () => Navigator.of(context).pop()),
+        ];
+      case _Level.phone:
+        children = [
+          _option(key: const Key('go-form'), label: t.csRequest, sub: t.csRequestSub, primary: true, onTap: () => _go(_Level.form)),
+          gap,
+          _option(key: const Key('call-coord'), label: t.csCallNow, sub: t.csCallNowSub, onTap: () => _open(Uri.parse(widget.coordinator.telUrl))),
+          gap,
+          ghost(const Key('contact-back'), t.back, () => _go(_Level.top)),
+        ];
+      case _Level.form:
+        children = [
+          Container(
+            padding: const EdgeInsets.all(HzSpace.s4),
+            decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.xl)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(t.csMessageLabel, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: HzSpace.s1),
+              TextField(key: const Key('cs-msg'), controller: _message, maxLength: 500, maxLines: 4, onChanged: (_) => setState(() => _problem = null)),
+              const SizedBox(height: HzSpace.s2),
+              Text(t.csPhoneLabel, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: HzSpace.s1),
+              TextField(key: const Key('cs-phone'), controller: _phone, keyboardType: TextInputType.phone, textDirection: TextDirection.ltr, onChanged: (_) => setState(() => _problem = null)),
+              const SizedBox(height: HzSpace.s3),
+              Text(t.csWhenLabel, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: HzSpace.s1),
+              Wrap(spacing: HzSpace.s2, runSpacing: HzSpace.s2, children: [
+                for (final (i, w) in _whens.indexed)
+                  ChoiceChip(
+                    key: Key('when-$w'),
+                    label: Text([t.csWhenNow, t.csWhen10, t.csWhen60, t.csWhenTomorrow][i]),
+                    selected: _when == w,
+                    onSelected: (_) => setState(() => _when = w),
+                  ),
+              ]),
+              if (_problem != null) ...[gap, Text(_problem!, key: const Key('cs-problem'), style: TextStyle(color: hz.danger, fontWeight: FontWeight.w600))],
+              if (_error != null) ...[gap, ErrorBanner(_error!)],
+              gap,
+              FilledButton(key: const Key('cs-send'), onPressed: _sending ? null : () => _send(t), child: Text(t.csSend)),
+              const SizedBox(height: HzSpace.s1),
+              TextButton(key: const Key('contact-back'), onPressed: () => _go(_Level.phone), child: Text(t.back)),
+            ]),
+          ),
+        ];
+      case _Level.sent:
+        children = [
+          Container(
+            padding: const EdgeInsets.all(HzSpace.s4),
+            decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
+            child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
+          ),
+          gap,
+          ghost(const Key('contact-close'), t.close, () => Navigator.of(context).pop()),
+        ];
+    }
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
   }
 }

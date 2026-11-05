@@ -923,40 +923,96 @@ async function loadContact() {
 }
 function contactButtons(c, bookingId = "") {
   if (!c) return "";
-  return `<button type="button" class="btn btn-secondary btn-block" id="contact-open" data-contact-open data-booking="${esc(bookingId)}" data-wa="${esc(c.whatsapp_url || "")}">${icon("message-circle")}<span>${esc(T("contactRequest"))}</span></button>`;
+  return `<button type="button" class="btn btn-secondary btn-block" id="contact-open" data-contact-open data-booking="${esc(bookingId)}" data-tel="${esc(c.tel_url)}" data-wa="${esc(c.whatsapp_url || "")}">${icon("message-circle")}<span>${esc(T("contactRequest"))}</span></button>`;
 }
-// "Request contact": the page blurs and two options stand one above the other. "Request Call" sends the request to the admin
-// console (the owner calls her; her number is not shown to her); WhatsApp opens the coordinator's chat. A native modal <dialog>
-// gives the focus trap, Escape, and the inert page behind it; focus returns to the button when it closes.
+// "Request contact" (owner's design, 5 Nov): the page blurs and a sheet offers
+//   level 1  Phone call | WhatsApp chat
+//   level 2  (Phone call) Request contact: a note, the number, when | Call us now: dials the coordinator at once
+//   level 3  the request form; then a confirmation.
+// WhatsApp opens the coordinator's chat with a first message carrying her name and her next booking's number (no membership
+// number exists). A native modal <dialog> gives the focus trap, Escape and the inert page behind it; focus returns to the button.
+const WHEN_CHOICES = [["now", "csWhenNow"], ["10min", "csWhen10"], ["1h", "csWhen60"], ["tomorrow", "csWhenTomorrow"]];
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-contact-open]");
   if (!b) return;
+  const { tel, wa, booking: bookingId } = b.dataset;
+  const me = state.me || {};
+  let bk = null; // her next booking: the one on this screen, or the soonest active one
+  const who = () => [me.display_name, bk ? `#${bk.ref}` : ""].filter(Boolean).join(" ");
+  const waLink = () => `${wa}?text=${encodeURIComponent(who() ? T("waHello", { who: who() }) : T("waHelloAnon"))}`;
   const dlg = document.createElement("dialog");
   dlg.className = "contact-sheet";
   dlg.setAttribute("aria-labelledby", "cs-title");
-  dlg.innerHTML = `<h2 id="cs-title" class="sr-only">${esc(T("contactRequest"))}</h2>
-    <button type="button" class="btn btn-primary" id="call-coord" data-request-call>${icon("phone")}<span>${esc(T("requestCall"))}</span></button>
-    <div data-call-msg></div>
-    ${b.dataset.wa ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(b.dataset.wa)}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}<span>${esc(T("contactViaWhatsapp"))}</span></a>` : ""}
-    <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`;
+  const title = (k) => `<h2 id="cs-title" class="sr-only">${esc(T(k))}</h2>`;
+  const levels = {
+    top: () => `${title("contactRequest")}
+      <button type="button" class="btn btn-primary" data-go="phone">${icon("phone")}<span>${esc(T("csPhone"))}</span></button>
+      ${wa ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(waLink())}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}<span>${esc(T("csChat"))}</span></a>` : ""}
+      <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`,
+    phone: () => `${title("csPhone")}
+      <button type="button" class="btn btn-primary cs-opt" data-go="form"><span>${esc(T("csRequest"))}</span><small>${esc(T("csRequestSub"))}</small></button>
+      <a class="btn btn-secondary cs-opt" id="call-coord" href="${esc(tel)}"><span>${esc(T("csCallNow"))}</span><small>${esc(T("csCallNowSub"))}</small></a>
+      <button type="button" class="btn btn-ghost" data-go="top">${esc(T("back"))}</button>`,
+    form: () => `${title("csRequest")}
+      <form class="cs-form" novalidate>
+        <label class="label" for="cs-msg">${esc(T("csMessageLabel"))}</label>
+        <textarea id="cs-msg" class="input" rows="4" maxlength="500" required></textarea>
+        <label class="label" for="cs-phone">${esc(T("csPhoneLabel"))}</label>
+        <input id="cs-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" value="${esc(me.phone_e164 || "")}" required>
+        <fieldset class="cs-when"><legend class="label">${esc(T("csWhenLabel"))}</legend>
+          ${WHEN_CHOICES.map(([v, k], n) => `<label class="chip"><input type="radio" name="cs-when" value="${v}"${n === 0 ? " checked" : ""}><span>${esc(T(k))}</span></label>`).join("")}
+        </fieldset>
+        <div id="cs-err" data-call-msg></div>
+        <button type="submit" class="btn btn-primary">${esc(T("csSend"))}</button>
+        <button type="button" class="btn btn-ghost" data-go="phone">${esc(T("back"))}</button>
+      </form>`,
+    sent: () => `${title("csRequest")}
+      <div class="banner banner-success" role="status"><div>${esc(T("callRequested"))}</div></div>
+      <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`,
+  };
+  const show = (level) => {
+    dlg.innerHTML = levels[level]();
+    const first = dlg.querySelector("textarea, button, a");
+    if (first) first.focus();
+  };
   dlg.addEventListener("close", () => dlg.remove());
-  dlg.addEventListener("click", async (ev) => {
-    if (ev.target === dlg || ev.target.closest("[data-close], a")) { dlg.close(); return; }
-    const ask = ev.target.closest("[data-request-call]");
-    if (!ask || ask.disabled) return;
-    ask.disabled = true;
-    const msg = dlg.querySelector("[data-call-msg]");
-    msg.innerHTML = "";
-    const r = await api("POST", "/api/v1/support/call-requests", b.dataset.booking ? { booking_id: b.dataset.booking } : {});
-    if (r.ok) {
-      dlg.innerHTML = `<h2 id="cs-title" class="sr-only">${esc(T("contactRequest"))}</h2>
-        <div class="banner banner-success" role="status"><div>${esc(T("callRequested"))}</div></div>
-        <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`;
-      dlg.querySelector("[data-close]").focus();
-    } else { ask.disabled = false; msg.innerHTML = errorBanner(r.data); }
+  dlg.addEventListener("click", (ev) => {
+    if (ev.target === dlg) { dlg.close(); return; }
+    const go = ev.target.closest("[data-go]");
+    if (go) { show(go.dataset.go); return; }
+    if (ev.target.closest("[data-close], a")) dlg.close(); // WhatsApp and "Call us now" open, and the sheet closes
   });
+  dlg.addEventListener("input", () => { const m = dlg.querySelector("#cs-err"); if (m) m.innerHTML = ""; }); // typing clears the message
+  dlg.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = dlg.querySelector("#cs-msg").value.trim();
+    const phone = dlg.querySelector("#cs-phone").value.trim();
+    const err = dlg.querySelector("#cs-err");
+    if (!msg) { err.innerHTML = errorBanner({ message: T("csMessageNeeded") }); dlg.querySelector("#cs-msg").focus(); return; }
+    if (!phone) { err.innerHTML = errorBanner({ message: T("csPhoneBad") }); dlg.querySelector("#cs-phone").focus(); return; }
+    const body = { message: msg, callback_when: dlg.querySelector("input[name=cs-when]:checked").value };
+    if (phone.replace(/[\s-]/g, "") !== (me.phone_e164 || "")) body.contact_phone = phone; // only when it is not the number she signed up with
+    const bid = bookingId || (bk && bk.id);
+    if (bid) body.booking_id = bid;
+    const send = dlg.querySelector("button[type=submit]");
+    send.disabled = true;
+    err.innerHTML = "";
+    const r = await api("POST", "/api/v1/support/call-requests", body);
+    if (r.ok) { show("sent"); return; }
+    send.disabled = false;
+    const bad = r.status === 422 && (r.data.details || []).some((d) => d.field === "contact_phone");
+    err.innerHTML = errorBanner(bad ? { message: T("csPhoneBad") } : r.data);
+  });
+  show("top");
   document.body.appendChild(dlg);
   dlg.showModal();
+  // her next booking, for the WhatsApp message and the request; the link is updated when it arrives
+  api("GET", "/api/v1/bookings").then((r) => {
+    const list = (r.ok && r.data.bookings) || [];
+    bk = list.find((x) => x.id === bookingId) || list.filter((x) => ACTIVE.includes(x.status)).sort((p, q) => String(p.starts_at).localeCompare(String(q.starts_at)))[0] || null;
+    const a = dlg.querySelector("#wa-coord");
+    if (a) a.href = waLink();
+  });
 });
 
 // Cancellation terms before paying (audit F1): never promise a refund deadline that has already passed.

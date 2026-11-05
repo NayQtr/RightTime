@@ -14,7 +14,7 @@ import 'package:http/testing.dart';
 import 'meetups_test.dart' show api, bookingId, tallScreen;
 import 'sign_in_flow_test.dart' show config, j;
 
-/// The tests' signed-in member API, with the call-request endpoint recorded (and optionally failing).
+/// The tests' signed-in member API, with the contact-request endpoint recorded (and optionally failing).
 MockClient _api(List<Map<String, dynamic>> requests, {bool fail = false}) {
   final inner = api(online: () => true);
   return MockClient((r) async {
@@ -30,75 +30,104 @@ MockClient _api(List<Map<String, dynamic>> requests, {bool fail = false}) {
   });
 }
 
-Future<void> _openDetails(WidgetTester tester, RecordingLinkOpener links, MockClient client) async {
+Future<void> _openSheet(WidgetTester tester, RecordingLinkOpener links, MockClient client) async {
   tallScreen(tester);
   await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), linkOpener: links, httpClientFactory: () => client));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('session-s1'))); // the booked session opens its details
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('contact-coord')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tap(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('request contact: one button; the screen blurs and call and WhatsApp stand one above the other', (tester) async {
+  testWidgets('level 1: the screen blurs; phone call and WhatsApp chat stand one above the other', (tester) async {
     final links = RecordingLinkOpener();
-    await _openDetails(tester, links, _api([]));
-    expect(find.text('طلب تواصل'), findsOneWidget);
-    expect(find.byKey(const Key('call-coord')), findsNothing, reason: 'one button until she asks');
-
-    await tester.tap(find.byKey(const Key('contact-coord')));
-    await tester.pumpAndSettle();
+    await _openSheet(tester, links, _api([]));
     expect(find.byType(BackdropFilter), findsOneWidget, reason: 'the screen behind blurs');
-    expect(find.text('طلب اتصال'), findsOneWidget);
-    expect(find.text('التواصل عبر الواتساب'), findsOneWidget);
+    expect(find.text('اتصال هاتفي'), findsOneWidget);
+    expect(find.text('محادثة واتساب'), findsOneWidget);
     expect(find.textContaining('6005'), findsNothing, reason: "her screen never shows the coordinator's number");
-    final call = tester.getRect(find.byKey(const Key('call-coord')));
-    final wa = tester.getRect(find.byKey(const Key('wa-coord')));
-    expect(call.bottom, lessThanOrEqualTo(wa.top), reason: 'one above the other');
-
-    // closing without choosing leaves nothing opened
-    await tester.tap(find.byKey(const Key('contact-close')));
-    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byKey(const Key('go-phone'))).bottom, lessThanOrEqualTo(tester.getRect(find.byKey(const Key('wa-coord'))).top));
+    await _tap(tester, 'contact-close');
     expect(find.byKey(const Key('wa-coord')), findsNothing);
     expect(links.opened, isEmpty);
   });
 
-  testWidgets('"Request Call" sends the request with her meetup, tells her, and opens no phone', (tester) async {
+  testWidgets('WhatsApp opens the chat with her name and booking number', (tester) async {
+    final links = RecordingLinkOpener();
+    await _openSheet(tester, links, _api([]));
+    await _tap(tester, 'wa-coord');
+    final u = links.opened.single;
+    expect('${u.scheme}://${u.host}${u.path}', 'https://wa.me/97460053006');
+    expect(u.queryParameters['text'], 'مرحباً ، انا مريم #RT-ABC123 ، لدي مشكلة/طلب');
+    expect(find.byKey(const Key('wa-coord')), findsNothing, reason: 'the sheet closes');
+  });
+
+  testWidgets('level 2: request contact (with its hint) and call us now; call us now dials the coordinator', (tester) async {
+    final links = RecordingLinkOpener();
+    await _openSheet(tester, links, _api([]));
+    await _tap(tester, 'go-phone');
+    expect(find.byKey(const Key('go-phone')), findsNothing, reason: 'the first two options are gone');
+    expect(find.byKey(const Key('go-form')), findsOneWidget);
+    expect(find.text('شرح بسيط للمشكلة/الطلب قبل التواصل'), findsOneWidget);
+    expect(find.text('اتصل بنا الان'), findsOneWidget);
+    expect(find.text('سوف تتصل بنا هاتفيا فوراً'), findsOneWidget);
+    await _tap(tester, 'call-coord');
+    expect(links.opened.single.toString(), 'tel:+97460053006');
+  });
+
+  testWidgets('level 3: a note, her number to confirm and a time; the request is sent with her meetup', (tester) async {
     final links = RecordingLinkOpener();
     final requests = <Map<String, dynamic>>[];
-    await _openDetails(tester, links, _api(requests));
-    await tester.tap(find.byKey(const Key('contact-coord')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('call-coord')));
-    await tester.pumpAndSettle();
-    expect(requests.single, {'booking_id': bookingId}, reason: 'the request names the meetup she was looking at');
-    expect(find.byKey(const Key('call-requested')), findsOneWidget);
+    await _openSheet(tester, links, _api(requests));
+    await _tap(tester, 'go-phone');
+    await _tap(tester, 'go-form');
+    expect(tester.widget<TextField>(find.byKey(const Key('cs-phone'))).controller!.text, '+97455512345', reason: 'her number, to confirm');
+    for (final t in ['الان', 'بعد 10 دقايق', 'بعد ساعة', 'غدا']) {
+      expect(find.text(t), findsOneWidget);
+    }
+    // no note: nothing is sent
+    await _tap(tester, 'cs-send');
+    expect(find.text('اكتبي المشكلة أو الطلب أولاً.'), findsOneWidget);
+    expect(requests, isEmpty);
+    await tester.enterText(find.byKey(const Key('cs-msg')), 'الطاولة تغيّرت');
+    await _tap(tester, 'when-1h');
+    await _tap(tester, 'cs-send');
+    expect(requests.single, {'message': 'الطاولة تغيّرت', 'callback_when': '1h', 'booking_id': bookingId}, reason: 'her own number is not sent again');
     expect(find.text('وصلنا طلبك. سيتصل بك المنسق.'), findsOneWidget);
     expect(links.opened, isEmpty, reason: 'nothing dials: the coordinator calls her');
-    await tester.tap(find.byKey(const Key('contact-close')));
-    await tester.pumpAndSettle();
+    await _tap(tester, 'contact-close');
     expect(find.byKey(const Key('call-requested')), findsNothing);
   });
 
-  testWidgets('WhatsApp opens the coordinator chat and closes the sheet', (tester) async {
-    final links = RecordingLinkOpener();
-    await _openDetails(tester, links, _api([]));
-    await tester.tap(find.byKey(const Key('contact-coord')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('wa-coord')));
-    await tester.pumpAndSettle();
-    expect(links.opened.single.toString(), 'https://wa.me/97460053006');
-    expect(find.byKey(const Key('wa-coord')), findsNothing);
+  testWidgets('a different contact number is sent with the request', (tester) async {
+    final requests = <Map<String, dynamic>>[];
+    await _openSheet(tester, RecordingLinkOpener(), _api(requests));
+    await _tap(tester, 'go-phone');
+    await _tap(tester, 'go-form');
+    await tester.enterText(find.byKey(const Key('cs-msg')), 'سؤال');
+    await tester.enterText(find.byKey(const Key('cs-phone')), '55500011');
+    await _tap(tester, 'cs-send');
+    expect(requests.single['contact_phone'], '55500011');
+    expect(requests.single['callback_when'], 'now');
   });
 
   testWidgets('if the request fails she is told and can try again', (tester) async {
     final requests = <Map<String, dynamic>>[];
-    await _openDetails(tester, RecordingLinkOpener(), _api(requests, fail: true));
-    await tester.tap(find.byKey(const Key('contact-coord')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('call-coord')));
+    await _openSheet(tester, RecordingLinkOpener(), _api(requests, fail: true));
+    await _tap(tester, 'go-phone');
+    await _tap(tester, 'go-form');
+    await tester.enterText(find.byKey(const Key('cs-msg')), 'سؤال');
+    await tester.tap(find.byKey(const Key('cs-send')));
     await tester.pumpAndSettle(const Duration(seconds: 3)); // the API client's one automatic retry
     expect(find.byType(ErrorBanner), findsOneWidget);
     expect(find.byKey(const Key('call-requested')), findsNothing);
-    expect(tester.widget<FilledButton>(find.byKey(const Key('call-coord'))).onPressed, isNotNull, reason: 'the button is usable again');
+    expect(tester.widget<FilledButton>(find.byKey(const Key('cs-send'))).onPressed, isNotNull, reason: 'the button is usable again');
   });
 }

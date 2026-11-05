@@ -919,16 +919,22 @@ async function listCallRequests(ctx) {
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`;
   if (url.searchParams.get("count")) return json(200, { open_count: n });
   const status = ["requested", "called", "closed"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "requested";
+  // when she wants the call: now, in 10 minutes, in an hour (counted from when she last sent it), or tomorrow (no hour)
   const rows = await sql`
-    SELECT cr.id, cr.status, cr.created_at, cr.handled_at, u.display_name, u.phone_e164_enc, b.booking_ref, s.starts_at, a.name AS handled_by_name
-      FROM app.call_requests cr JOIN app.users u ON u.id = cr.user_id
-      LEFT JOIN app.bookings b ON b.id = cr.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
-      LEFT JOIN app.admin_users a ON a.id = cr.handled_by
-     WHERE cr.status = ${status} ORDER BY cr.created_at ${status === "requested" ? sql`ASC` : sql`DESC`} LIMIT 100`;
-  if (rows.length) await audit(sql, admin.id, "read_call_request_phones", "call_requests", null, `${status}_${rows.length}`, ctx.ipTrunc);
+    SELECT x.*, CASE x.callback_when WHEN 'now' THEN x.sent_at WHEN '10min' THEN x.sent_at + interval '10 minutes'
+                                     WHEN '1h' THEN x.sent_at + interval '1 hour' END AS due_at FROM (
+      SELECT cr.id, cr.status, cr.callback_when, cr.created_at, cr.handled_at, COALESCE(cr.updated_at, cr.created_at) AS sent_at, cr.submissions,
+             cr.message_enc, cr.contact_phone_enc, u.display_name, u.phone_e164_enc, b.booking_ref, s.starts_at, a.name AS handled_by_name
+        FROM app.call_requests cr JOIN app.users u ON u.id = cr.user_id
+        LEFT JOIN app.bookings b ON b.id = cr.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
+        LEFT JOIN app.admin_users a ON a.id = cr.handled_by WHERE cr.status = ${status}) x
+     ORDER BY ${status === "requested" ? sql`(x.callback_when = 'tomorrow'), due_at ASC NULLS LAST, x.created_at` : sql`x.handled_at DESC NULLS LAST`} LIMIT 100`;
+  if (rows.length) await audit(sql, admin.id, "read_call_requests", "call_requests", null, `${status}_${rows.length}`, ctx.ipTrunc);
+  const dec = (v) => (v && v.length ? decrypt(keys.dataKey, v) : null);
   return json(200, { open_count: n, requests: rows.map((r) => ({ id: r.id, status: r.status, name: r.display_name,
-    phone: r.phone_e164_enc ? decrypt(keys.dataKey, r.phone_e164_enc) : null, booking_ref: r.booking_ref, starts_at: qa(r.starts_at),
-    created_at: qa(r.created_at), handled_at: qa(r.handled_at), handled_by: r.handled_by_name })) });
+    phone: dec(r.phone_e164_enc), contact_phone: dec(r.contact_phone_enc), message: dec(r.message_enc),
+    callback_when: r.callback_when, due_at: qa(r.due_at), sent_at: qa(r.sent_at), submissions: r.submissions,
+    booking_ref: r.booking_ref, starts_at: qa(r.starts_at), created_at: qa(r.created_at), handled_at: qa(r.handled_at), handled_by: r.handled_by_name })) });
 }
 
 // She was called (or the request needs no call any more): out of the open list.

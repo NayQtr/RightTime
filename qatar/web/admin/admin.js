@@ -522,23 +522,27 @@ async function callBadge() {
   if (link && r.ok && r.data.open_count) link.insertAdjacentHTML("beforeend", ` <span class="badge badge-danger"><span class="sr-only">waiting: </span>${r.data.open_count}</span>`);
   return r.ok ? r.data.open_count : null;
 }
+const CR_WHEN = { now: "Now", "10min": "In 10 minutes", "1h": "In an hour", tomorrow: "Tomorrow" };
 let crStatus = "requested";
 async function scrCallRequests() {
   const r = await api("GET", `${A}/call-requests?status=${crStatus}`);
   const rows = (r.data && r.data.requests) || [];
   view("Call requests", `<h1>Call requests</h1><div id="flash"></div>
-    <p class="caption">Members who pressed "Request Call" (her number is never shown to her). Call her on the number below, then mark it.
-    Reading the numbers is recorded in the audit log.</p>
+    <p class="caption">Members who asked to be called: what the problem or request is, the number to call and when. Call her, then mark it.
+    Reading the notes and numbers is recorded in the audit log. Rows shaded amber are due now.</p>
     <div class="row">${[["requested", "Open"], ["called", "Called"], ["closed", "Closed"]].map(([k, l]) =>
       `<button class="btn ${crStatus === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${crStatus === k}">${l}</button>`).join("")}</div>
     ${r.ok ? "" : msg(r)}
-    <table><thead><tr><th>Requested</th><th>Name</th><th>Phone</th><th>Meetup</th><th>Handled</th><th></th></tr></thead><tbody>
-    ${rows.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.name || "—")}</td>
-      <td>${x.phone ? `<a href="tel:${esc(x.phone)}" dir="ltr" class="num">${esc(x.phone)}</a>` : "—"}</td>
+    <table><thead><tr><th>When to call</th><th>Name</th><th>Call on</th><th>Note</th><th>Meetup</th><th>Handled</th><th></th></tr></thead><tbody>
+    ${rows.map((x) => { const to = x.contact_phone || x.phone; const due = x.due_at && x.status === "requested" && new Date(x.due_at) <= new Date();
+      return `<tr class="${due ? "row-amber" : ""}"><td><strong>${esc(CR_WHEN[x.callback_when] || x.callback_when)}</strong>${x.due_at ? `<br><span class="caption">${dt(x.due_at)}</span>` : ""}<br><span class="caption">sent ${dt(x.sent_at)}${x.submissions > 1 ? ` · edited ${x.submissions - 1}×` : ""}</span></td>
+      <td>${esc(x.name || "—")}</td>
+      <td>${to ? `<a href="tel:${esc(to)}" dir="ltr" class="num">${esc(to)}</a>` : "—"}${x.contact_phone && x.phone ? `<br><span class="caption">signed up with <bdi dir="ltr" class="num">${esc(x.phone)}</bdi></span>` : ""}</td>
+      <td class="cr-note" dir="auto">${esc(x.message || "—")}</td>
       <td>${x.booking_ref ? `${esc(x.booking_ref)} · ${dt(x.starts_at)}` : "—"}</td>
       <td>${x.handled_at ? `${esc(x.handled_by || "")} · ${dt(x.handled_at)}` : ""}</td>
-      <td class="row">${x.status === "requested" ? `<button class="btn btn-primary" data-called="${esc(x.id)}">Called</button><button class="btn btn-secondary" data-closed="${esc(x.id)}">Close</button>` : ""}</td></tr>`).join("")
-      || `<tr><td colspan="6">Nothing here.</td></tr>`}</tbody></table>`);
+      <td class="row">${x.status === "requested" ? `<button class="btn btn-primary" data-called="${esc(x.id)}">Called</button><button class="btn btn-secondary" data-closed="${esc(x.id)}">Close</button>` : ""}</td></tr>`; }).join("")
+      || `<tr><td colspan="7">Nothing here.</td></tr>`}</tbody></table>`);
   $$("[data-filter]").forEach((b) => (b.onclick = () => { crStatus = b.dataset.filter; scrCallRequests(); }));
   const mark = async (id, status) => {
     const res = await api("POST", `${A}/call-requests/${id}:handle`, { status });

@@ -32,7 +32,7 @@ MockClient api({required bool Function() online, bool revealed = true, bool idPe
         case '/api/v1/auth/token:refresh':
           return j({'access_token': 'at_1', 'refresh_token': 'rt_2'});
         case '/api/v1/users/me':
-          return j({'user': {'id': 'u1', 'display_name': 'مريم', 'status': 'active', 'registration_status': 'complete'}});
+          return j({'user': {'id': 'u1', 'display_name': 'مريم', 'status': 'active', 'registration_status': 'complete', 'phone_e164': '+97455512345'}});
         case '/api/v1/sessions':
           return j({'sessions': [
             {'id': 's1', 'experience': 'dinner', 'conversation_language': 'ar', 'language_match': true, 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'لوسيل', 'seats_left': 4, 'is_full': false, 'my_booking_id': bookingId},
@@ -93,6 +93,11 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('contact-coord')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3)); // the booking lookup's one automatic retry, offline
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('wa-coord')), findsOneWidget, reason: 'WhatsApp is still offered from the saved copy');
+    await tester.tap(find.byKey(const Key('go-phone')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('call-coord')), findsOneWidget, reason: 'the coordinator can be called with no data');
   });

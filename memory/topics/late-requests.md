@@ -37,13 +37,17 @@ Claude's open questions (waiting for the owner's answer):
      (1) one spelling of the coordinator: «المنسق» or «منسّق»; (2) a next-step line for «لم يكتمل الدفع.», the generic error
      and «تعذّر الاسترداد»; (3) venue decline: replace the browser's OK/Cancel dialog with an in-page confirmation
      (buttons named for the action); (4) screen-reader announcement text for the venue page after accept/decline/arrival.
-13e. "Request Call" (5 Nov): wording to confirm. The confirmation «وصلنا طلبك. سيتصل بك المنسق.» / "We got your request. The coordinator will call you." and
-     the English «Request contact», «Contact via WhatsApp» are Claude's wording. Also: requests only appear in the admin console (menu badge, refresh every
-     30 s); an alert to the owner by WhatsApp/push waits for the WhatsApp link. Offline she can no longer reach the coordinator by phone from the app (the
-     number is hidden by design): the 999 screen and the private report remain.
-13f. (5 Nov) Migration 017 (call requests) must be pasted in BOTH Supabase projects before the call-request feature and the production release
-     (file: scratchpad herzone-017.sql = db/migrations/017_call_requests.sql + a check; MCP apply_migration times out). Then Claude verifies, runs the
-     release (merge release, CI green, production build, smoke checks, Sentry).
+13e. Contact flow v2 (5 Nov, built to the owner's design: phone call -> request contact | call us now; WhatsApp chat with her details). Wording to confirm:
+     the owner's words are used for «اتصال هاتفي», «محادثة واتساب», «طلب تواصل» + hint, «اتصل بنا الان» + hint, «تأكيد هاتف التواصل», the four times and the WhatsApp
+     greeting. Claude's wording (needs the owner's): «اشرحي المشكلة أو الطلب», «إرسال الطلب», «اكتبي المشكلة أو الطلب أولاً.», «رقم الهاتف غير صحيح.»,
+     the confirmation «وصلنا طلبك. سيتصل بك المنسق.», «الوقت المناسب للاتصال», and ALL English texts (translations). WhatsApp says only her first name
+     («انا مريم #RT-ABC123»), not the full name. Member number = the booking number RT-XXXXXX (owner's decision: no membership numbers).
+     Requests reach the owner only in the admin console (menu badge, refresh every 30 s); an alert by WhatsApp/push waits for the WhatsApp link.
+     Retention: the note and any other number are encrypted and erased with the account; proposal: also delete 30 days after the request is handled (owner/lawyer to decide).
+     «اتصل بنا الان» restores phone access offline (tel: works without data).
+13f. (5 Nov) Migration 017 (call requests, amended for v2) must be pasted in BOTH Supabase projects before the contact flow and the production release
+     (file: scratchpad herzone-017.sql = db/migrations/017_call_requests.sql + a check; the earlier file sent is OUTDATED; MCP apply_migration times out).
+     Then Claude verifies, re-runs the baseline checks, and releases (merge release, CI green, production build, smoke checks, Sentry).
 
 Still open in the plan:
 14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.

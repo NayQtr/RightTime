@@ -503,13 +503,63 @@ class AppLocalizationsAr extends AppLocalizations {
   String get contactRequest => 'طلب تواصل';
 
   @override
-  String get requestCall => 'طلب اتصال';
+  String get csPhone => 'اتصال هاتفي';
+
+  @override
+  String get csChat => 'محادثة واتساب';
+
+  @override
+  String get csRequest => 'طلب تواصل';
+
+  @override
+  String get csRequestSub => 'شرح بسيط للمشكلة/الطلب قبل التواصل';
+
+  @override
+  String get csCallNow => 'اتصل بنا الان';
+
+  @override
+  String get csCallNowSub => 'سوف تتصل بنا هاتفيا فوراً';
+
+  @override
+  String get csMessageLabel => 'اشرحي المشكلة أو الطلب';
+
+  @override
+  String get csPhoneLabel => 'تأكيد هاتف التواصل';
+
+  @override
+  String get csWhenLabel => 'الوقت المناسب للاتصال';
+
+  @override
+  String get csWhenNow => 'الان';
+
+  @override
+  String get csWhen10 => 'بعد 10 دقايق';
+
+  @override
+  String get csWhen60 => 'بعد ساعة';
+
+  @override
+  String get csWhenTomorrow => 'غدا';
+
+  @override
+  String get csSend => 'إرسال الطلب';
+
+  @override
+  String get csMessageNeeded => 'اكتبي المشكلة أو الطلب أولاً.';
+
+  @override
+  String get csPhoneBad => 'رقم الهاتف غير صحيح.';
+
+  @override
+  String waHello(Object who) {
+    return 'مرحباً ، انا $who ، لدي مشكلة/طلب';
+  }
+
+  @override
+  String get waHelloAnon => 'مرحباً ، لدي مشكلة/طلب';
 
   @override
   String get callRequested => 'وصلنا طلبك. سيتصل بك المنسق.';
-
-  @override
-  String get contactViaWhatsapp => 'التواصل عبر الواتساب';
 
   @override
   String get backHome => 'العودة إلى الرئيسية';
