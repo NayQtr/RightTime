@@ -41,6 +41,9 @@ Claude's open questions (waiting for the owner's answer):
      the English «Request contact», «Contact via WhatsApp» are Claude's wording. Also: requests only appear in the admin console (menu badge, refresh every
      30 s); an alert to the owner by WhatsApp/push waits for the WhatsApp link. Offline she can no longer reach the coordinator by phone from the app (the
      number is hidden by design): the 999 screen and the private report remain.
+13f. (5 Nov) Migration 017 (call requests) must be pasted in BOTH Supabase projects before the call-request feature and the production release
+     (file: scratchpad herzone-017.sql = db/migrations/017_call_requests.sql + a check; MCP apply_migration times out). Then Claude verifies, runs the
+     release (merge release, CI green, production build, smoke checks, Sentry).
 
 Still open in the plan:
 14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
