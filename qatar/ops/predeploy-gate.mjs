@@ -61,6 +61,23 @@ step("tests without database", () => {
   console.log(`[gate]      ${pass} tests passed`);
 });
 
+// The web folder is shipped to every browser: no server secret may appear in it. Key formats only, so the scan
+// does not depend on any particular value.
+const SECRET_FORMS = [/sk_live_[0-9A-Za-z]{10,}/, /sk_test_[0-9A-Za-z]{10,}/, /AIza[0-9A-Za-z_-]{35}/, /sbp_[0-9a-f]{20,}/,
+  /sb_secret_[0-9A-Za-z_-]{10,}/, /ghp_[0-9A-Za-z]{30,}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /SERVER_KEYS_KEK\s*[=:]/];
+function webFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return webFiles(p);
+    return /\.(js|mjs|html|css|json|txt|map)$/.test(e.name) ? [p] : [];
+  });
+}
+step("no server secret in the shipped web files", () => {
+  const hits = webFiles(path.join(ROOT, "web")).filter((f) => { const src = readFileSync(f, "utf8"); return SECRET_FORMS.some((re) => re.test(src)); });
+  if (hits.length) { console.error(hits.map((f) => `[gate]      secret-like text in ${path.relative(ROOT, f)}`).join("\n")); throw new Error("secret-like text in web files"); }
+  console.log(`[gate]      ${webFiles(path.join(ROOT, "web")).length} web files scanned`);
+});
+
 step("runtime libraries have no high or critical advisories", () => {
   run("npm", ["audit", "--omit=dev", "--audit-level=high"], { cwd: API });
 });
