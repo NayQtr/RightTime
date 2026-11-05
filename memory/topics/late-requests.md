@@ -20,6 +20,13 @@ Waiting on the owner (decisions, explained on 4 Nov):
 11. A phone number with a fixed code for the Apple reviewer.
 12. An admin tool to delete the account of a member who lost her number (after launch, two-person approval).
 
+From the launch checklist (5 Nov):
+12a. Backups: Supabase is on the Free plan (no automatic backups). Choose: Pro plan (automatic daily backups) or a daily
+     encrypted dump by GitHub Actions (the repo is public, so the dump must be encrypted; the database connection
+     string goes in as a GitHub secret by the owner, never through Claude). Then test one restore on staging.
+12b. Gemini spend limit: when billing is enabled, set a budget alert and a daily request quota in Google Cloud.
+12c. Real payment gateway: test cards / test mode only until launch.
+
 Offered by Claude, waiting for a yes:
 13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code).
 
