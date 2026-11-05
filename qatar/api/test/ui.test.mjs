@@ -229,6 +229,24 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.ok((await page.locator(".hero").innerText()).includes("نجمع طاولتك الآن"));
   assert.equal(await page.getAttribute("#tabbar a[aria-current=page]", "href"), "#/events");
   await oneH1(page);
+  // the filled "next meetup" card: every text on it is readable (>= 4.5:1), whatever the theme
+  const lows = await page.evaluate(() => {
+    const cv = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const rgba = (c) => { cv.clearRect(0, 0, 1, 1); cv.fillStyle = "#000"; cv.fillStyle = c; cv.fillRect(0, 0, 1, 1); const d = cv.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const card = document.querySelector(".card.hero"); if (!card) return ["no hero card"];
+    const bg = rgba(getComputedStyle(card).backgroundColor).slice(0, 3); const out = [];
+    card.querySelectorAll("h2, strong, .caption, p, .badge, .stepper li, .btn").forEach((el) => {
+      const cs = getComputedStyle(el); let f = rgba(cs.color); const under = el.matches(".badge, .btn") ? rgba(cs.backgroundColor) : [...bg, 1];
+      const base = el.matches(".badge") ? [0, 1, 2].map((i) => under[i] * under[3] + bg[i] * (1 - under[3])) : under.slice(0, 3);
+      const fg = [0, 1, 2].map((i) => f[i] * f[3] + base[i] * (1 - f[3]));
+      const r = (Math.max(lum(fg), lum(base)) + 0.05) / (Math.min(lum(fg), lum(base)) + 0.05);
+      if (r < 4.5) out.push(`${el.className || el.tagName} ${r.toFixed(2)}`);
+    });
+    return out;
+  });
+  assert.deepEqual(lows, [], "text on the filled next-meetup card is readable");
   await page.screenshot({ path: `${SHOTS}/10-events-ar.png`, fullPage: true });
   // NMX-18: unread count on the Notifications tab until the inbox is opened; the logo is 48px
   assert.equal(Math.round((await page.locator(".brand .mark").boundingBox()).width), 48);

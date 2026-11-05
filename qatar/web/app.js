@@ -88,7 +88,7 @@ function errorBanner(err) {
   return `<div class="banner banner-danger" role="alert"><span class="icon">${icon("triangle-alert")}</span><div>${esc(msg)}</div></div>`;
 }
 
-function loadingView() { main.innerHTML = `<div class="center" aria-busy="true"><div class="spinner" role="img" aria-label="${esc(T("loading"))}"></div></div>`; }
+function loadingView() { main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
 
 // ------------------------------------------------------------------ session (NMX-17, MASVS-STORAGE/AUTH)
 // The access token lives in memory only; storage keeps just the refresh token, which the server rotates on every use and
