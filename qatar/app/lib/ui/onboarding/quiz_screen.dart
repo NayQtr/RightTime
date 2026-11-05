@@ -9,6 +9,7 @@ import '../auth/widgets.dart';
 import '../theme.dart';
 import 'quiz_view_model.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -103,7 +104,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   ],
                   Expanded(
                     flex: 2,
-                    child: FilledButton(key: const Key('next'), onPressed: vm.canNext && !vm.busy ? vm.next : null, child: Text(vm.step + 1 == vm.total ? t.continueLabel : t.next)),
+                    child: FilledButton(key: const Key('next'), onPressed: vm.canNext && !vm.busy ? vm.next : null, child: BusyLabel(busy: vm.busy, child: Text(vm.step + 1 == vm.total ? t.continueLabel : t.next))),
                   ),
                 ]),
               ),
@@ -168,7 +169,7 @@ class _Chip extends StatelessWidget {
       selectedColor: c.primary,
       labelStyle: TextStyle(color: selected ? c.onPrimary : c.text),
       backgroundColor: c.surfaceSunken,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.primary : c.border)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.primary : c.borderStrong)),
       onSelected: (_) => onTap(),
     ));
   }

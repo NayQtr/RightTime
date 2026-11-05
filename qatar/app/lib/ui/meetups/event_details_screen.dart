@@ -21,6 +21,7 @@ import 'contacts_section.dart';
 import 'home_tab.dart' show experienceName;
 import 'resolution_section.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -174,9 +175,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 ),
               if (d.action('cancel') && r.offlineSavedAt == null) ...[
                 const SizedBox(height: HzSpace.s3),
-                TextButton(
+                OutlinedButton(
                   key: const Key('cancel'),
-                  style: TextButton.styleFrom(foregroundColor: c.danger),
+                  style: OutlinedButton.styleFrom(foregroundColor: c.danger, side: BorderSide(color: c.danger), minimumSize: const Size.fromHeight(52)),
                   onPressed: () => context.push('/booking/$bookingId/cancel'),
                   child: Text(t.cancelBooking),
                 ),
@@ -430,7 +431,7 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
     final hz = hzColors(context);
     const gap = SizedBox(height: HzSpace.s3);
     Widget ghost(Key key, String label, VoidCallback onTap) =>
-        OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface, side: BorderSide.none), onPressed: onTap, child: Text(label));
+        TextButton(key: key, style: TextButton.styleFrom(foregroundColor: hz.primary, minimumSize: const Size.fromHeight(48)), onPressed: onTap, child: Text(label));
     final wa = widget.coordinator.whatsappUrl;
     final List<Widget> children;
     switch (_level) {
@@ -471,13 +472,18 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
                     key: Key('when-$w'),
                     label: Text([t.csWhenNow, t.csWhen10, t.csWhen60, t.csWhenTomorrow][i]),
                     selected: _when == w,
+                    showCheckmark: false,
+                    selectedColor: hz.primary,
+                    backgroundColor: hz.surfaceSunken,
+                    labelStyle: TextStyle(color: _when == w ? hz.onPrimary : hz.text),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: _when == w ? hz.primary : hz.borderStrong)),
                     onSelected: (_) => setState(() => _when = w),
                   ),
               ]),
               if (_problem != null) ...[gap, Text(_problem!, key: const Key('cs-problem'), style: TextStyle(color: hz.danger, fontWeight: FontWeight.w600))],
               if (_error != null) ...[gap, ErrorBanner(_error!)],
               gap,
-              FilledButton(key: const Key('cs-send'), onPressed: _sending ? null : () => _send(t), child: Text(t.csSend)),
+              FilledButton(key: const Key('cs-send'), onPressed: _sending ? null : () => _send(t), child: BusyLabel(busy: _sending, child: Text(t.csSend))),
               const SizedBox(height: HzSpace.s1),
               TextButton(key: const Key('contact-back'), onPressed: () => _go(_Level.phone), child: Text(t.back)),
             ]),

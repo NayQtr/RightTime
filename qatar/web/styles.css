@@ -129,10 +129,10 @@ p { margin: 0 0 var(--s-3); text-wrap: pretty; }
   transition: background-color var(--m-fast) var(--m-ease), transform var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
 }
 .btn:active { transform: scale(0.98); }
-.btn-primary, :root[dir="rtl"] .btn-primary { background: var(--c-primary); color: var(--c-onPrimary); }
+.btn-primary { background: var(--c-primary); color: var(--c-onPrimary); }
 .btn-primary:hover { background: var(--c-primaryHover); }
-.btn-secondary { background: transparent; color: var(--c-text); box-shadow: inset 0 0 0 1.5px var(--c-border); }
-.btn-secondary:hover { box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); }
+.btn-secondary { background: transparent; color: var(--c-text); box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); }
+.btn-secondary:hover { background: color-mix(in oklch, var(--c-surfaceSunken) 75%, var(--c-border)); }
 /* dark mode: a transparent secondary button disappears into the near-black page, so it gets a raised fill */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-secondary { background: var(--c-surfaceSunken); } }
 :root[data-theme="dark"] .btn-secondary { background: var(--c-surfaceSunken); }
@@ -141,6 +141,13 @@ p { margin: 0 0 var(--s-3); text-wrap: pretty; }
 .btn-danger-solid { background: var(--c-danger); color: var(--c-onDanger); }
 .btn-block { width: 100%; }
 .btn[disabled], .btn[aria-disabled="true"] { background: var(--c-surfaceSunken); color: var(--c-textDisabled); box-shadow: none; cursor: not-allowed; transform: none; }
+/* busy: the label stays for the width, a spinner shows, and a primary button keeps its wine fill while the request runs */
+.btn[aria-busy="true"] { position: relative; color: transparent; cursor: progress; }
+.btn[aria-busy="true"]::after { content: ""; position: absolute; inset-block-start: 50%; inset-inline-start: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2.5px solid var(--c-onPrimary); border-block-start-color: transparent; animation: spin 0.9s linear infinite; }
+.btn-secondary[aria-busy="true"]::after, .btn-ghost[aria-busy="true"]::after { border-color: var(--c-primary); border-block-start-color: transparent; }
+.btn-danger[aria-busy="true"]::after { border-color: var(--c-danger); border-block-start-color: transparent; }
+.btn.btn-primary[disabled][aria-busy="true"] { background: var(--c-primary); }
+@media (prefers-reduced-motion: reduce) { .btn[aria-busy="true"]::after { animation-duration: 2.4s; } }
 .btn .spinner { width: 18px; height: 18px; }
 .btn .i { width: 18px; height: 18px; }
 .link-btn { background: none; border: 0; color: var(--c-primary); font: inherit; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: var(--s-2) 0; min-height: 44px; }
@@ -322,7 +329,7 @@ body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: ca
 main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.15s ease-in; }
 @media (prefers-reduced-motion: reduce) { main[aria-busy="true"] { transition: none; } }
 /* "Request contact": the page behind blurs; two options stand one above the other */
-.contact-sheet { border: 0; padding: var(--s-5); background: transparent; color: var(--c-text); width: min(360px, calc(100% - 2 * var(--s-5))); overflow: visible; }
+.contact-sheet { border: 0; padding: var(--s-5); background: transparent; color: var(--c-text); overflow: visible; }
 .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 45%, transparent); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); }
 .contact-sheet[open] { display: grid; gap: var(--s-3); animation: sheet-in 220ms var(--m-ease); }
 .contact-sheet .btn { width: 100%; flex-wrap: wrap; row-gap: 2px; padding-block: var(--s-3); }
@@ -337,7 +344,7 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .contact-sheet .btn-secondary { background: var(--c-surface); }
 .contact-sheet .banner { background: var(--c-surface); }
 .contact-sheet [data-call-msg]:empty { display: none; }
-.contact-sheet .btn-ghost { background: var(--c-surface); color: var(--c-text); }
+.contact-sheet .btn-ghost { background: transparent; color: var(--c-primary); }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
 @media (prefers-reduced-motion: reduce) { .contact-sheet[open] { animation: none; } }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 94%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
@@ -440,7 +447,7 @@ a.option { text-decoration: none; color: inherit; }
 /* wide screens: the four tabs stay within the content column instead of spreading across the window */
 @media (min-width: 640px) { .tabbar { padding-inline: calc((100% - var(--col)) / 2 + var(--s-2)); } }
 .tabbar a { display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 56px; text-decoration: none; color: var(--c-textMuted);
-  font-size: min(calc(var(--u) * 0.75), 15px); font-weight: 500; border-radius: var(--r-sm); text-align: center; }
+  font-size: 12px; font-weight: 500; border-radius: var(--r-sm); text-align: center; }
 .tabbar a .ti { width: 24px; height: 24px; }
 .tabbar .ti-wrap { position: relative; display: inline-grid; }
 .tab-badge { position: absolute; inset-block-start: -6px; inset-inline-end: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--r-pill);

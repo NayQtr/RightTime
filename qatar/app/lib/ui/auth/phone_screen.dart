@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import 'sign_in_view_model.dart';
 import 'widgets.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -62,7 +63,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
             FilledButton(
               key: const Key('send'),
               onPressed: vm.busy ? null : () => _submit(vm),
-              child: Text(t.sendCode),
+              child: BusyLabel(busy: vm.busy, child: Text(t.sendCode)),
             ),
           ],
         ),

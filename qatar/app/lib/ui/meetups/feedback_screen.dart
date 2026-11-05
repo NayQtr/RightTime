@@ -8,6 +8,7 @@ import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../theme.dart';
+import '../common/busy_label.dart';
 
 /// Private feedback after the meetup: two required ratings, the rest optional. No one at the table sees it.
 class FeedbackScreen extends StatefulWidget {
@@ -84,7 +85,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 TextField(key: const Key('comment'), controller: _comment, maxLength: 500, maxLines: 3, decoration: InputDecoration(labelText: t.commentLabel, helperText: t.commentHelp)),
                 if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
                 const SizedBox(height: HzSpace.s4),
-                FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: Text(t.send)),
+                FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: BusyLabel(busy: busy, child: Text(t.send))),
               ]),
       ),
     );

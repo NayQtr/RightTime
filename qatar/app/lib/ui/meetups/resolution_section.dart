@@ -9,6 +9,7 @@ import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../format.dart';
+import '../common/busy_label.dart';
 
 /// The organiser cancelled (the table did not fill): another session with the same fee, or a full refund. With no
 /// choice before the deadline, the refund happens automatically.
@@ -84,7 +85,7 @@ class _ResolutionSectionState extends State<ResolutionSection> {
           Text(t.defaultRefund(fmtWhen(r.deadline, lang)), style: tt.bodySmall),
           if (error != null) ...[const SizedBox(height: HzSpace.s2), ErrorBanner(error!)],
           const SizedBox(height: HzSpace.s3),
-          FilledButton(key: const Key('confirm-choice'), onPressed: choice == null || busy ? null : _confirm, child: Text(t.confirmChoice)),
+          FilledButton(key: const Key('confirm-choice'), onPressed: choice == null || busy ? null : _confirm, child: BusyLabel(busy: busy, child: Text(t.confirmChoice))),
         ]),
       ),
     );

@@ -12,6 +12,7 @@ import '../common/loader.dart';
 import '../theme.dart';
 import 'quiz_view_model.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 /// Finishing sign-up: optional first name, women-only and age confirmation, the documents to accept. Then the answers
 /// given before sign-up are sent with the new account.
@@ -117,7 +118,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         )),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
-      FilledButton(key: const Key('register'), onPressed: ready && !busy ? _submit : null, child: Text(t.continueLabel)),
+      FilledButton(key: const Key('register'), onPressed: ready && !busy ? _submit : null, child: BusyLabel(busy: busy, child: Text(t.continueLabel))),
     ]);
   }
 }

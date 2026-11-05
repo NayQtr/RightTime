@@ -41,11 +41,13 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
         shape: shape,
         backgroundColor: c.primary,
         foregroundColor: c.onPrimary,
-        textStyle: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        disabledBackgroundColor: c.surfaceSunken,
+        disabledForegroundColor: c.textDisabled,
+        textStyle: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: shape, foregroundColor: c.text, side: BorderSide(color: c.border)),
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: shape, foregroundColor: c.text, disabledForegroundColor: c.textDisabled, side: BorderSide(color: c.borderStrong)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

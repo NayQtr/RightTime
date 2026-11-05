@@ -12,6 +12,7 @@ import '../auth/widgets.dart';
 import '../common/loader.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 const _categories = ['harassment', 'threat_violence', 'photo_without_consent', 'stalking_unwanted_contact', 'fraud', 'disruptive'];
 
@@ -167,7 +168,7 @@ class _ReportFormState extends State<_ReportForm> {
       TextField(key: const Key('desc'), controller: _desc, maxLines: 4, maxLength: 2000, decoration: InputDecoration(labelText: t.describe)),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
-      FilledButton(key: const Key('send-report'), onPressed: category == null || busy ? null : _submit, child: Text(t.submitReport)),
+      FilledButton(key: const Key('send-report'), onPressed: category == null || busy ? null : _submit, child: BusyLabel(busy: busy, child: Text(t.submitReport))),
     ]);
   }
 }

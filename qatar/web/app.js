@@ -88,6 +88,8 @@ function errorBanner(err) {
   return `<div class="banner banner-danger" role="alert"><span class="icon">${icon("triangle-alert")}</span><div>${esc(msg)}</div></div>`;
 }
 
+// A request in flight: the button keeps its width and shows a spinner (styles.css .btn[aria-busy]); re-enabling clears both.
+function setBusy(el, on) { el.disabled = on; if (on) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy"); }
 function loadingView() { main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
 
 // ------------------------------------------------------------------ session (NMX-17, MASVS-STORAGE/AUTH)
@@ -302,9 +304,9 @@ function scrPhone() {
     e.preventDefault();
     const digits = $("#phone").value.replace(/\D/g, "");
     const btn = $("#send");
-    btn.disabled = true;
+    setBusy(btn, true);
     const r = await api("POST", "/api/v1/auth/otp:request", { phone_e164: "+974" + digits, locale, purpose: "login" }, { noAuth: true });
-    btn.disabled = false;
+    setBusy(btn, false);
     if (!r.ok) { $("#phone").setAttribute("aria-invalid", "true"); $("#perr").textContent = r.data.message || T("errGeneric"); return; }
     state.phone = "+974" + digits;
     state.challenge = r.data;
@@ -339,9 +341,9 @@ function scrOtp() {
   rs.onclick = () => go("#/signin");
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
-    $("#ver").disabled = true;
+    setBusy($("#ver"), true);
     const r = await api("POST", "/api/v1/auth/otp:verify", { challenge_id: ch.challenge_id, code: $("#code").value.trim(), locale, device: { platform: "web" } }, { noAuth: true });
-    $("#ver").disabled = false;
+    setBusy($("#ver"), false);
     if (!r.ok) {
       const d = r.data.details && r.data.details[0];
       $("#code").setAttribute("aria-invalid", "true");
@@ -393,9 +395,9 @@ async function scrRegister() {
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
         .map((t) => ({ type: t, document_version: L[t].document_version, granted: checked.has(t) })),
     };
-    $("#go").disabled = true;
+    setBusy($("#go"), true);
     const r = await api("POST", "/api/v1/users/me/registration", body);
-    $("#go").disabled = false;
+    setBusy($("#go"), false);
     if (!r.ok) { $("#err").innerHTML = errorBanner(r.data); return; }
     state.me = r.data.user;
     store.del("quizName");
@@ -687,11 +689,11 @@ async function scrNotify(next) {
   if ($("#push-next")) $("#push-next").onclick = done;
   if ($("#push-off")) $("#push-off").onclick = async () => { await disablePush(); toast(T("pushOffDone")); scrNotify(next); };
   if ($("#push-go")) $("#push-go").onclick = async () => {
-    $("#push-go").disabled = true;
+    setBusy($("#push-go"), true);
     let r;
     try { r = await enablePush(); } catch { r = "error"; }
     if (r === "granted") { toast(T("pushOnDone")); done(); return; }
-    $("#push-go").disabled = false;
+    setBusy($("#push-go"), false);
     $("#push-msg").innerHTML = `<div class="banner banner-info"><div>${esc(T(r === "denied" ? "pushDenied" : r === "default" ? "pushLater" : "errGeneric"))}</div></div>`;
   };
 }
@@ -773,9 +775,9 @@ async function scrPlans() {
   $("#promo-go").onclick = async () => {
     const code = $("#promo").value.trim();
     if (!code) return;
-    $("#promo-go").disabled = true;
+    setBusy($("#promo-go"), true);
     const r = await api("POST", "/api/v1/promo-codes:check", { code });
-    $("#promo-go").disabled = false;
+    setBusy($("#promo-go"), false);
     if (!r.ok) { $("#promo-msg").innerHTML = errorBanner(r.data); return; }
     pct = r.data.valid ? r.data.percent_off : 0;
     $("#promo-msg").innerHTML = r.data.valid ? `<div class="banner banner-success"><div>${esc(T("promoOk", { n: pct }))}</div></div>`
@@ -827,7 +829,7 @@ async function scrSessions(preselect) {
   }));
   const radios = $$("input[name=s]");
   radios.forEach((x) => (x.onchange = () => {
-    $("#go").disabled = false;
+    setBusy($("#go"), false);
     const others = ok.filter((s) => s.id !== x.value && !s.my_booking_id);
     $("#alts").hidden = !others.length;
     $("#altlist").innerHTML = others.slice(0, 6).map((s) => `<label class="option"><input type="checkbox" name="alt" value="${s.id}"><span class="tick" aria-hidden="true"></span><span>${esc(fmtDate(s.starts_at))} · ${esc(s.district)}</span></label>`).join("");
@@ -841,9 +843,9 @@ async function scrSessions(preselect) {
   $("#go").onclick = async () => {
     const chosen = radios.find((x) => x.checked);
     if (!chosen) return;
-    $("#go").disabled = true;
+    setBusy($("#go"), true);
     const r2 = await api("POST", "/api/v1/bookings", { session_id: chosen.value, alternate_session_ids: $$("input[name=alt]:checked").map((a) => a.value) });
-    $("#go").disabled = false;
+    setBusy($("#go"), false);
     if (!r2.ok) {
       $("#err").innerHTML = errorBanner(r2.data) + (r2.data.waitlist_href ? `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>` : "");
       const wl = $("#wl");
@@ -897,11 +899,11 @@ async function scrReview(id) {
     if (needAck) $("#ack").onchange = () => { $("#pay").disabled = !$("#ack").checked; };
     $("#pay").onclick = async () => {
       if (needAck && !$("#ack").checked) return;
-      $("#pay").disabled = true;
+      setBusy($("#pay"), true);
       let url = b.checkout_url;
       if (!url) {
         const c = await api("POST", `/api/v1/bookings/${id}/checkout`, needAck ? { acknowledge_late_no_refund: true } : undefined);
-        if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#pay").disabled = false; return; }
+        if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#pay"), false); return; }
         url = c.data.checkout_url;
       }
       clearTimers();   // the hold clock must not tick into the replaced view while the browser navigates
@@ -995,11 +997,11 @@ document.addEventListener("click", (e) => {
     const bid = bookingId || (bk && bk.id);
     if (bid) body.booking_id = bid;
     const send = dlg.querySelector("button[type=submit]");
-    send.disabled = true;
+    setBusy(send, true);
     err.innerHTML = "";
     const r = await api("POST", "/api/v1/support/call-requests", body);
     if (r.ok) { show("sent"); return; }
-    send.disabled = false;
+    setBusy(send, false);
     const bad = r.status === 422 && (r.data.details || []).some((d) => d.field === "contact_phone");
     err.innerHTML = errorBanner(bad ? { message: T("csPhoneBad") } : r.data);
   });
@@ -1168,9 +1170,9 @@ async function scrHome() {
   }));
   if (askWoman) {
     $("#woman-ok").onclick = async () => {
-      $("#woman-ok").disabled = true;
+      setBusy($("#woman-ok"), true);
       const r = await api("POST", "/api/v1/users/me/consents", { consents: [], woman_confirmed: true });
-      if (!r.ok) { $("#woman-ok").disabled = false; $("#woman-err").innerHTML = errorBanner(r.data); return; }
+      if (!r.ok) { setBusy($("#woman-ok"), false); $("#woman-err").innerHTML = errorBanner(r.data); return; }
       await loadMe(true);
       toast(T("womanConfirmed"));
       scrHome();
@@ -1178,9 +1180,9 @@ async function scrHome() {
   }
   if (docs.length) {
     $("#pv-ok").onclick = async () => {
-      $("#pv-ok").disabled = true;
+      setBusy($("#pv-ok"), true);
       const r = await api("POST", "/api/v1/users/me/consents", { consents: docs.map((d) => ({ type: d.type, document_version: d.document_version, granted: true })) });
-      if (!r.ok) { $("#pv-ok").disabled = false; $("#pv-err").innerHTML = errorBanner(r.data); return; }
+      if (!r.ok) { setBusy($("#pv-ok"), false); $("#pv-err").innerHTML = errorBanner(r.data); return; }
       await loadMe(true);
       toast(T("privacyAccepted"));
       scrHome();
@@ -1300,7 +1302,7 @@ async function scrDetails(id) {
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
   const ci = $("#ci");
-  if (ci) ci.onclick = async () => { ci.disabled = true; const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); ci.disabled = false; } };
+  if (ci) ci.onclick = async () => { setBusy(ci, true); const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); setBusy(ci, false); } };
   if (ph === "completed") renderContacts(id);
 }
 
@@ -1328,9 +1330,9 @@ async function renderContacts(id, note = "") {
     <p class="caption">${esc(c.open ? T("contactUntil", { date: fmtDate(c.closes_at) }) : T("contactClosed"))}</p>
     <div id="contacts-err" role="alert"></div>`;
   const act = async (btn, method, path, body, done) => {
-    btn.disabled = true;
+    setBusy(btn, true);
     const x = await api(method, path, body);
-    if (!x.ok) { btn.disabled = false; $("#contacts-err").innerHTML = errorBanner(x.data); return; }
+    if (!x.ok) { setBusy(btn, false); $("#contacts-err").innerHTML = errorBanner(x.data); return; }
     renderContacts(id, done(x.data));
   };
   $$("#contacts-list [data-seat]").forEach((b) => (b.onclick = () => act(b, "POST", "/api/v1/contact-requests", { booking_id: id, seat: b.dataset.seat },
@@ -1363,10 +1365,10 @@ async function scrCancel(id) {
     </form>`);
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
-    $("#go").disabled = true;
+    setBusy($("#go"), true);
     const sel = $$("input[name=r]:checked")[0];
     const c = await api("POST", `/api/v1/bookings/${id}/cancel`, sel ? { reason_code: sel.value } : {});
-    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#go").disabled = false; return; }
+    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#go"), false); return; }
     const rf = c.data.refund;
     view(T("cancelled"), `<div class="center"><h1>${esc(T("cancelled"))}</h1>
       ${rf.eligible ? `<section class="card"><div class="kv"><span>${esc(rf.amount.display)}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[rf.status]))}</strong></div></section>` : ""}
@@ -1401,10 +1403,10 @@ async function scrChoose(id) {
     ev.preventDefault();
     const sel = $$("input[name=c]:checked")[0];
     if (!sel) return;
-    $("#go").disabled = true;
+    setBusy($("#go"), true);
     const body = sel.value === "refund" ? { choice: "refund" } : { choice: "rebook", session_id: sel.value.split(":")[1] };
     const c = await api("POST", `/api/v1/bookings/${id}/resolution`, body);
-    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#go").disabled = false; return; }
+    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#go"), false); return; }
     if (c.data.booking) go(`#/booking/${c.data.booking.id}`); else go(`#/booking/${id}`);
   };
 }
@@ -1481,11 +1483,11 @@ async function scrReport(id) {
     ev.preventDefault();
     const cat = $$("input[name=cat]:checked")[0];
     if (!cat) { $("#err").innerHTML = errorBanner({ message: T("category") }); return; }
-    $("#go").disabled = true;
+    setBusy($("#go"), true);
     const who = $("#who");
     const c = await api("POST", "/api/v1/reports", { booking_id: id, category: cat.value, timing: $$("input[name=when]:checked")[0].value,
       immediate_danger: $("#danger").checked, reported_seat: who && who.value ? who.value : undefined, description: $("#d").value.trim() || undefined });
-    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); $("#go").disabled = false; return; }
+    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#go"), false); return; }
     const done = () => view(T("reportTitle"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("reportSent", { case: c.data.case_ref }))}</h1><a class="btn btn-primary" href="#/home">${esc(T("backHome"))}</a></div>`);
     if (c.data.emergency && c.data.emergency.show) { done(); emergencyScreen(); } else done();
   };

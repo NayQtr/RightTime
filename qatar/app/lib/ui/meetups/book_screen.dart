@@ -16,6 +16,7 @@ import '../format.dart';
 import '../theme.dart';
 import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 
 /// Booking: hold the seat, review (fee, refund terms, and the no-refund acknowledgement close to the date), pay on the
 /// payment provider's page in the browser, then come back: the app checks the booking and shows the result.
@@ -137,7 +138,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         if (bk.paymentFailed) Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(t.payFailed, style: TextStyle(color: c.danger))),
         const SizedBox(height: HzSpace.s4),
         if (waiting) ...[TestId('waiting', child: Text(t.waitingPayment, key: const Key('waiting'))), const SizedBox(height: HzSpace.s3)],
-        FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: Text(t.payNow)),
+        FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: BusyLabel(busy: busy, child: Text(t.payNow))),
         if (waiting) TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment)),
       ]);
     }
