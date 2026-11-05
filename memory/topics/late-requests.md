@@ -6,7 +6,7 @@ Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 ## The list [2026-11-05]
 
 Waiting on the owner (actions):
-1. Paste `qatar/db/migrations/016_venue_portal.sql` (venue portal) into BOTH Supabase projects: qatar-mvp (fvodcnqmxskgzziwuwmz) and HerZone-production (pwxxulqgdydrkowmtkia). Then Claude verifies both and promotes herzone.app.
+1. (done 5 Nov) Migration 016 applied in both Supabase projects (verified: 5 tables with RLS, cron, matching); herzone.app promoted to 10ffd65 with the venue page and the design changes.
 2. Delete the OLD Gemini API key (it still answers).
 3. Restrict the new Gemini key to "Generative Language API" only (Google Cloud Console → Credentials). No website/IP restriction (Supabase has no fixed IP).
 4. Rotate keys regularly (Gemini, Supabase token), e.g. every 3 months.
