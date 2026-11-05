@@ -33,6 +33,10 @@ Claude's open questions (waiting for the owner's answer):
 13a. Backups: Supabase Pro or a daily encrypted dump by GitHub Actions? (see 12a)
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
 13c. (done 5 Nov) Design proposals for the website and the app were approved and applied; see qatar/docs/design/herzone.app.md.
+13d. Copy proposals from the design pass of 5 Nov (qatar/docs/design/handoff.md section 8), each needs the owner's wording:
+     (1) one spelling of the coordinator: «المنسق» or «منسّق»; (2) a next-step line for «لم يكتمل الدفع.», the generic error
+     and «تعذّر الاسترداد»; (3) venue decline: replace the browser's OK/Cancel dialog with an in-page confirmation
+     (buttons named for the action); (4) screen-reader announcement text for the venue page after accept/decline/arrival.
 
 Still open in the plan:
 14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
