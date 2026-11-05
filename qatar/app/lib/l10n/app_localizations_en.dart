@@ -86,6 +86,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Try again';
 
   @override
+  String get nextEvent => 'Your next event';
+
+  @override
+  String get loading => 'Loading…';
+
+  @override
   String get signOut => 'Sign out';
 
   @override

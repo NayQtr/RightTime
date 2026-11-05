@@ -13,3 +13,7 @@ String _glueTime(String s) => s.replaceAllMapped(RegExp(r'(\d)[ \u202F](م|ص|AM
 String fmtWhen(String iso, String locale) => _glueTime(latinDigits(DateFormat('EEEE d MMMM · h:mm a', locale).format(qatarTime(iso))));
 
 String fmtTime(String iso, String locale) => _glueTime(latinDigits(DateFormat('h:mm a', locale).format(qatarTime(iso))));
+
+/// The day of the month and the weekday for the date "leaf" on session cards (Western digits, Doha time).
+String fmtDay(String iso) => latinDigits(DateFormat('d').format(qatarTime(iso)));
+String fmtWeekday(String iso, String locale) => DateFormat('EEEE', locale).format(qatarTime(iso));

@@ -8,6 +8,7 @@ import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
+import '../common/motion.dart';
 import '../format.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
@@ -31,7 +32,7 @@ class HomeTab extends StatelessWidget {
           Text(t.cityFull, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: HzSpace.s4),
           if (sessions.isEmpty) Text(t.noSessions),
-          for (final s in sessions) _SessionCard(s),
+          for (final (i, s) in sessions.indexed) RiseIn(index: i, child: _SessionCard(s)),
         ]),
       ),
     );
@@ -61,14 +62,31 @@ class _SessionCard extends StatelessWidget {
                 : () => context.push('/book', extra: s),
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.s4),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // the experience, then the date on its own line: a "·" never dangles at the end of a wrapped line
-            Text(experienceName(t, s.experience), style: Theme.of(context).textTheme.titleLarge),
-            Text(fmtWhen(s.startsAt, lang), style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: HzSpace.s1),
-            Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
-            const SizedBox(height: HzSpace.s2),
-            Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // the date as a calendar leaf, as on the website (decoration: the date line beside it says the same)
+            ExcludeSemantics(
+              child: Container(
+                width: 60,
+                padding: const EdgeInsets.symmetric(vertical: HzSpace.s2),
+                decoration: BoxDecoration(color: c.primarySubtle, borderRadius: BorderRadius.circular(HzRadius.md)),
+                child: Column(children: [
+                  Text(fmtDay(s.startsAt), style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: c.primary, fontWeight: FontWeight.w800, height: 1.05)),
+                  Text(fmtWeekday(s.startsAt, lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.primary)),
+                ]),
+              ),
+            ),
+            const SizedBox(width: HzSpace.s4),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // the experience, then the date on its own line: a "·" never dangles at the end of a wrapped line
+                Text(experienceName(t, s.experience), style: Theme.of(context).textTheme.titleLarge),
+                Text(fmtWhen(s.startsAt, lang), style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: HzSpace.s1),
+                Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
+                const SizedBox(height: HzSpace.s2),
+                Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
+              ]),
+            ),
           ]),
         ),
       ),

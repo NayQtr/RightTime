@@ -85,6 +85,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'حاولي مرة أخرى';
 
   @override
+  String get nextEvent => 'لقاؤك القادم';
+
+  @override
+  String get loading => 'جارٍ التحميل…';
+
+  @override
   String get signOut => 'تسجيل الخروج';
 
   @override

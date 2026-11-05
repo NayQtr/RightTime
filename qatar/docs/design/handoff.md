@@ -55,7 +55,8 @@ Numbers use Western digits everywhere (web `fmtDate`, app `latinDigits`); prices
 ### Spacing, radius, motion
 Spacing `--s-1..12` = 4, 8, 12, 16, 20, 24, 32, 40, 48 px (Flutter `HzSpace.s1..s12`). Gutter 16–20 px.
 Radius: 10 (fields), 16 (cards, buttons), 24, pill. Elevation is flat: cards have no border and no shadow; only the top
-and tab bars have a soft scroll-edge shadow. Motion: 120 ms (press), 200 ms, 320 ms (page entrance), ease `cubic-bezier(0.2, 0, 0, 1)`.
+and tab bars have a soft scroll-edge shadow. Motion: 120 ms (press), 200 ms, 320 ms (page entrance), ease `cubic-bezier(0.2, 0, 0, 1)`. Headings stay light and modest (Alexandria 600; display 32 px, h1 26 px): the owner asked on 30 Oct for less weight and size, so
+visual emphasis comes from colour blocks and motion, not from larger headings.
 
 ## 3. Layout and breakpoints
 
@@ -84,6 +85,10 @@ Bottom space: `96px + safe-area` above the tab bar, `128px + safe-area` above a 
 | Tab bar | 4 items, 56 px tall, icon 24 + 12 px label, badge 12 px | selected = wine; the inbox badge shows the unread count (hidden at 0) |
 | Accordion | `.faq details` summary 52 px; consent-update accordions 44 px | open = "+" rotates 45° |
 | Hold pill | `#hold` pill above the pay button, MM:SS | expired = row replaced by "choose again" |
+| Next-meetup card | web `.next-card` (home) and `.card.hero` (My events); app `_NextMeetupCard` (My events). Fill `--c-primary`, text `--c-onPrimary` (88% for secondary lines, 80% for stepper labels), radius 24, the button is inverted (on-colour fill, brand text) | the only filled card on its screen; contrast 6.5-9.4:1 light, 5.5-7.6:1 dark (a web test checks every text on it) |
+| Date leaf | web `.event-card .d`; app session card (`fmtDay`, `fmtWeekday`) | 60 px square, `--c-primarySubtle` fill, day in `--c-primary` 800; decoration only (the date line beside it is read out) |
+| Loading skeleton | web `.skel`; app `SkeletonList` | a title bar and three cards in the page's rhythm, slow 1.4 s fade (opacity 1 to 0.5); still under reduced motion; a "loading" label for screen readers |
+| List entrance | web `main .list > li`; app `RiseIn(index)` | each item 50 ms (web) / 8% of 600 ms (app) after the one before, fade + 10 px lift, 360 ms, ease-out; none under reduced motion |
 | Table drawing | web `tableSvg`, app `TableArt(seats, filled, size)` | filled seat solid `--c-seat`, open seat dashed |
 
 ### Edge cases

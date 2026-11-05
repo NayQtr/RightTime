@@ -236,6 +236,18 @@ abstract class AppLocalizations {
   /// **'حاولي مرة أخرى'**
   String get retry;
 
+  /// No description provided for @nextEvent.
+  ///
+  /// In ar, this message translates to:
+  /// **'لقاؤك القادم'**
+  String get nextEvent;
+
+  /// No description provided for @loading.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ التحميل…'**
+  String get loading;
+
   /// No description provided for @signOut.
   ///
   /// In ar, this message translates to:

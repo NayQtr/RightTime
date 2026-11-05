@@ -4,6 +4,7 @@ import '../../core/api_error.dart';
 import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
+import 'motion.dart';
 
 /// Loads data for a screen and shows loading, error (with retry) or the content. Pull to refresh reloads.
 class Loader<T> extends StatefulWidget {
@@ -29,7 +30,7 @@ class _LoaderState<T> extends State<Loader<T>> {
   Widget build(BuildContext context) => FutureBuilder<T>(
         future: _future,
         builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+          if (snap.connectionState != ConnectionState.done) return SkeletonList(label: AppLocalizations.of(context).loading);
           if (snap.hasError) {
             final e = snap.error is ApiError ? snap.error as ApiError : const ApiError(status: 0, code: 'UNKNOWN', message: '');
             return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
