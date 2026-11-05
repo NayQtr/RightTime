@@ -91,8 +91,8 @@ abstract final class HzType {
   static const TextStyle arBody = TextStyle(fontFamily: 'IBM Plex Sans Arabic', fontFamilyFallback: ['Noto Sans Arabic'], fontSize: 16.0, height: 1.65, fontWeight: FontWeight.w400, letterSpacing: 0.0);
   static const TextStyle arLabel = TextStyle(fontFamily: 'IBM Plex Sans Arabic', fontFamilyFallback: ['Noto Sans Arabic'], fontSize: 15.0, height: 1.5, fontWeight: FontWeight.w500, letterSpacing: 0.0);
   static const TextStyle arCaption = TextStyle(fontFamily: 'IBM Plex Sans Arabic', fontFamilyFallback: ['Noto Sans Arabic'], fontSize: 13.0, height: 1.55, fontWeight: FontWeight.w400, letterSpacing: 0.0);
-  static const TextStyle enDisplay = TextStyle(fontFamily: 'Alexandria', fontFamilyFallback: ['IBM Plex Sans Arabic'], fontSize: 32.0, height: 1.15, fontWeight: FontWeight.w600, letterSpacing: -0.64);
-  static const TextStyle enH1 = TextStyle(fontFamily: 'Alexandria', fontFamilyFallback: ['IBM Plex Sans Arabic'], fontSize: 24.0, height: 1.2, fontWeight: FontWeight.w600, letterSpacing: -0.24);
+  static const TextStyle enDisplay = TextStyle(fontFamily: 'Alexandria', fontFamilyFallback: ['IBM Plex Sans Arabic'], fontSize: 32.0, height: 1.15, fontWeight: FontWeight.w600, letterSpacing: 0.0);
+  static const TextStyle enH1 = TextStyle(fontFamily: 'Alexandria', fontFamilyFallback: ['IBM Plex Sans Arabic'], fontSize: 24.0, height: 1.2, fontWeight: FontWeight.w600, letterSpacing: 0.0);
   static const TextStyle enH2 = TextStyle(fontFamily: 'Alexandria', fontFamilyFallback: ['IBM Plex Sans Arabic'], fontSize: 19.0, height: 1.3, fontWeight: FontWeight.w600, letterSpacing: 0.0);
   static const TextStyle enBody = TextStyle(fontFamily: 'IBM Plex Sans Arabic', fontFamilyFallback: [], fontSize: 16.0, height: 1.5, fontWeight: FontWeight.w400, letterSpacing: 0.0);
   static const TextStyle enLabel = TextStyle(fontFamily: 'IBM Plex Sans Arabic', fontFamilyFallback: [], fontSize: 15.0, height: 1.4, fontWeight: FontWeight.w500, letterSpacing: 0.0);

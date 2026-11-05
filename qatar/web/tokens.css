@@ -120,8 +120,8 @@
 :root[lang="en"] {
   --font-body: var(--font-en);
   --font-display: var(--font-display-en);
-  --t-display-size: calc(var(--u) * 2); --t-display-lh: 1.15; --t-display-weight: 600; --t-display-ls: -0.02em;
-  --t-h1-size: calc(var(--u) * 1.5000); --t-h1-lh: 1.2; --t-h1-weight: 600; --t-h1-ls: -0.01em;
+  --t-display-size: calc(var(--u) * 2); --t-display-lh: 1.15; --t-display-weight: 600; --t-display-ls: 0em;
+  --t-h1-size: calc(var(--u) * 1.5000); --t-h1-lh: 1.2; --t-h1-weight: 600; --t-h1-ls: 0em;
   --t-h2-size: calc(var(--u) * 1.1875); --t-h2-lh: 1.3; --t-h2-weight: 600; --t-h2-ls: 0;
   --t-body-size: calc(var(--u) * 1); --t-body-lh: 1.5; --t-body-weight: 400; --t-body-ls: 0;
   --t-label-size: calc(var(--u) * 0.9375); --t-label-lh: 1.4; --t-label-weight: 500; --t-label-ls: 0;
