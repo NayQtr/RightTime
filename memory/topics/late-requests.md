@@ -49,7 +49,7 @@ Claude's open questions (waiting for the owner's answer):
      Then Claude verifies, re-runs the baseline checks, and releases (merge release, CI green, production build, smoke checks, Sentry).
 
 Still open in the plan:
-14. (done 5 Nov) Production released: herzone-production serves ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
+14. (done 5 Nov, later) Production released again: herzone-production serves 9d72927 (deployment dpl_GCa4DZJJLFUfrQU3w4Z9tUhWU67k, READY). Checks: release tag herzone-web@9d729270e845, call-requests and admin routes 401 without login, venue page 200, Sentry no new production issues. Migration 017 pasted and verified in both projects. Previously: herzone-production served ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
 14a. Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
 14b. At launch: move the herzone.app domain to herzone-production (production WEB_BASE_URL already says https://herzone.app; until then links in production messages open the staging site). Owner's decision.
 14c. Production venue page needs an email provider (no on-screen code in production).
