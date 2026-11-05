@@ -32,6 +32,9 @@ Claude's open questions (waiting for the owner's answer):
 13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code)? Yes/no.
 13a. Backups: Supabase Pro or a daily encrypted dump by GitHub Actions? (see 12a)
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
+13c. Design proposals from the herzone.app audit (qatar/docs/design/herzone.app.md, items 5–7), approve each:
+     two-column desktop welcome from 1024 px; review page rows stacked + hold timer as a pill; booking progress
+     steps with bold current step and ticks. Then the same audit on the Flutter app.
 
 Still open in the plan:
 14. Production code still on the old release (promotion needs the owner's approval).
