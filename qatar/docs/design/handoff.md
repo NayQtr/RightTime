@@ -20,17 +20,17 @@ Why-decisions are in `herzone.app.md` (design map and taste principles).
 ### Colour (light / dark)
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--c-bg` | `#EFDFCD` (soft butter, «زبدة ناعمة») | `#65444E` (velvet wine, «نبيذي مخملي») | page |
-| `--c-surface` | `#F8F0E6` | `#6E4C57` | inputs, tab bar |
-| `--c-surfaceSunken` | `#E6D3BF` | `#583B44` | cards, notices |
-| `--c-text` / `--c-textMuted` | `#2A1A20` / `#5A444C` | `#FBF4EA` / `#EFDFCD` | text |
-| `--c-textDisabled` | `#8C7A74` | `#C0A8AF` | disabled controls only |
-| `--c-primary` (= `--c-cta`) | `#65444E` | `#EFDFCD` | buttons, selection, one headline word |
-| `--c-primarySubtle` | `#E2CBC3` | `#4B3039` | selected row, hold pill |
-| `--c-onPrimary` | `#FBF5EC` | `#3A222A` | text on primary |
-| `--c-border` / `--c-borderStrong` | `#D3BEA9` / `#85676E` | `#8A6B76` / `#C4A9B1` | dividers / field outlines |
-| `--c-success` `--c-warning` `--c-danger` `--c-info` | `#1F6B3A` `#8A5600` `#A8302A` `#35607A` | `#A9E3B8` `#F5CD84` `#FFC4BA` `#B3D6EE` | status |
-| `--c-seat` | `#D98E5F` | `#E9A178` | the table drawing only |
+| `--c-bg` | `#F2D9ED` (almond blossom, «زهر اللوز») | `#3A2C39` (enchanting violet, «البنفسجي الساحر») | page |
+| `--c-surface` | `#FBF1F8` | `#463645` | inputs, tab bar |
+| `--c-surfaceSunken` | `#E7C6DF` | `#302430` | cards, notices |
+| `--c-text` / `--c-textMuted` | `#2A1F29` / `#634D60` | `#FBF1F8` / `#F2D9ED` | text |
+| `--c-textDisabled` | `#8E768B` | `#BFA6BB` | disabled controls only |
+| `--c-primary` (= `--c-cta`) | `#3A2C39` | `#F2D9ED` | buttons, selection, one headline word |
+| `--c-primarySubtle` | `#E1BFD8` | `#2A1F29` | selected row, hold pill |
+| `--c-onPrimary` | `#FBF1F8` | `#2A1F29` | text on primary |
+| `--c-border` / `--c-borderStrong` | `#D9B9D1` / `#8A6C86` | `#6E586C` / `#A8909F` | dividers / field outlines |
+| `--c-success` `--c-warning` `--c-danger` `--c-info` | `#1F6B3A` `#8A5600` `#A3302B` `#35607A` | `#A9E3B8` `#F5CD84` `#FFC4BA` `#B3D6EE` | status |
+| `--c-seat` | `#B07AA1` | `#D9A3C9` | the table drawing only |
 
 Contrast (measured): muted text 6.9:1 on the page and 6.3:1 on cards; text on primary 9.4:1. Disabled text is exempt.
 Never use a colour as the only signal (a done step has a tick, an unread item a "new" tag).

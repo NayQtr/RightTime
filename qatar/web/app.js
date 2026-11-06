@@ -198,7 +198,7 @@ function isDark() {
 function setTheme(t) {
   store.set("theme", t);
   document.documentElement.setAttribute("data-theme", t);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#65444E" : "#EFDFCD"); });
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#3A2C39" : "#F2D9ED"); });
   renderTopbar();
   document.getElementById("theme").focus();
 }
@@ -1279,7 +1279,7 @@ async function scrDetails(id) {
   // identity check (015): the venue and table code wait for the review of the name on her card
   const idNote = e.identity_check === "pending" ? `<div class="banner banner-info" id="id-check" role="status"><span class="icon">${icon("info")}</span><div>${esc(T("idCheckPending"))}</div></div>` : "";
   view(T("detailsTitle"), `${offlineNote}${idNote}
-    <header class="det-head">${statusBadge(e.booking)}
+    <header class="det-head">${track ? "" : statusBadge(e.booking)}
       <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
       <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
       <span class="ref">${num(e.booking.ref)}${cd ? ` · ${esc(cd)}` : ""}</span></header>
@@ -1312,10 +1312,10 @@ async function scrDetails(id) {
     ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
     <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact, id)}
-      ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-secondary btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
-    ${act("cancel") ? `<a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
+      ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-ghost btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
+    ${act("cancel") ? `<section class="stack" data-u="mt6"><a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
-        : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}`);
+        : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p></section>` : ""}`);
   const ci = $("#ci");
   if (ci) ci.onclick = async () => { setBusy(ci, true); const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); setBusy(ci, false); } };
   if (ph === "completed") renderContacts(id);

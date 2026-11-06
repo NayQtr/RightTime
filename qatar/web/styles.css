@@ -60,6 +60,15 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
 /* a chosen theme also drives the browser's own controls (scrollbars, date pickers) */
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
+/* identity (6 Nov): the top bar floats as one rounded bar over the page, as wide as the content column, instead of a
+   full-width strip; it keeps the frosted surface, and goes solid when the device asks for less transparency */
+.topbar { top: var(--s-2); width: calc(100% - 2 * var(--s-3)); max-width: calc(var(--col) + 2 * var(--s-3)); margin: var(--s-2) auto 0;
+  padding-inline: var(--s-4); border-radius: var(--r-pill); background: var(--c-surface); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar { background: color-mix(in oklch, var(--c-surface) 82%, transparent); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .topbar { background: var(--c-surface); } }
+.topbar.scrolled { box-shadow: 0 8px 22px -14px color-mix(in oklch, var(--c-text) 40%, transparent); }
 .brand { display: inline-flex; align-items: center; gap: var(--s-2); text-decoration: none; color: var(--c-text);
   font-family: var(--font-display); font-weight: 700; font-size: min(calc(var(--u) * 1.1250), 22px); letter-spacing: 0; min-height: 44px; }
 .brand .mark { width: 48px; height: 48px; flex: none; }
@@ -324,7 +333,8 @@ body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: ca
 /* narrow phones (360 px) */
 .topbar .btn-ghost { padding: 0 var(--s-2); min-width: 44px; }
 @media (max-width: 380px) {
-  .topbar { gap: var(--s-2); padding-inline: var(--s-4); }
+  .topbar { gap: var(--s-1); width: calc(100% - 2 * var(--s-2)); padding-inline: var(--s-3); }
+  .topbar .env-badge { display: none; } /* the test-site label gives way to the logo and controls on the narrowest phones */
   main { padding-inline: var(--s-4); }
 }
 

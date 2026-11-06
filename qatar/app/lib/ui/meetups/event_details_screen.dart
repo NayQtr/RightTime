@@ -167,14 +167,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               const SizedBox(height: HzSpace.s6),
               _CoordinatorButtons(bookingId: widget.bookingId),
               if (r.offlineSavedAt == null && ['forming', 'locked', 'revealed', 'day_of', 'completed'].contains(d.phase))
-                OutlinedButton.icon(
+                TextButton.icon(
                   key: const Key('report'),
+                  style: TextButton.styleFrom(foregroundColor: c.primary, minimumSize: const Size.fromHeight(48)),
                   icon: const Icon(Icons.flag_outlined),
                   label: Text(t.privateReport),
                   onPressed: () => context.push('/report/$bookingId'),
                 ),
               if (d.action('cancel') && r.offlineSavedAt == null) ...[
-                const SizedBox(height: HzSpace.s3),
+                const SizedBox(height: HzSpace.s8),
                 OutlinedButton(
                   key: const Key('cancel'),
                   style: OutlinedButton.styleFrom(foregroundColor: c.danger, side: BorderSide(color: c.danger), minimumSize: const Size.fromHeight(52)),
