@@ -374,6 +374,18 @@ abstract class AppLocalizations {
   /// **'English'**
   String get language;
 
+  /// No description provided for @themeToDark.
+  ///
+  /// In ar, this message translates to:
+  /// **'الوضع الداكن'**
+  String get themeToDark;
+
+  /// No description provided for @themeToLight.
+  ///
+  /// In ar, this message translates to:
+  /// **'الوضع العادي'**
+  String get themeToLight;
+
   /// No description provided for @dinner.
   ///
   /// In ar, this message translates to:

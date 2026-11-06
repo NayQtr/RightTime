@@ -54,6 +54,8 @@
   "offline": "لا يوجد اتصال بالإنترنت.",
   "comingSoon": "هذه الشاشة قيد البناء في التطبيق. كل شيء متاح الآن على herzone.app.",
   "language": "English",
+  "themeToDark": "الوضع الداكن",
+  "themeToLight": "الوضع العادي",
   "dinner": "عشاء",
   "coffee": "قهوة",
   "seatsLeft": "{n} مقاعد متبقية",

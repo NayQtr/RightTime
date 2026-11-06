@@ -94,6 +94,17 @@ void main() {
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();
     expect(find.text('مريم'), findsOneWidget);
+    // light or dark by choice: one tap switches the whole app, the next switches back
+    Brightness shown() => Theme.of(tester.element(find.byKey(const Key('theme')))).brightness;
+    expect(shown(), Brightness.light);
+    await tester.tap(find.byKey(const Key('theme')));
+    await tester.pumpAndSettle();
+    expect(shown(), Brightness.dark);
+    expect(find.text('الوضع العادي'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('theme')));
+    await tester.pumpAndSettle();
+    expect(shown(), Brightness.light);
+    expect(find.text('الوضع الداكن'), findsOneWidget);
     // English switches the whole app to left to right
     await tester.tap(find.byKey(const Key('lang')));
     await tester.pumpAndSettle();
@@ -119,6 +130,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // "keep my account" sends nothing
+    await tester.ensureVisible(find.byKey(const Key('deleteAccount'))); // the last item on a longer profile
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('deleteAccount')));
     await tester.pumpAndSettle();
     expect(find.text('سنحذف بياناتك وفق سياسة الاحتفاظ. هل أنتِ متأكدة؟'), findsOneWidget);
@@ -127,6 +140,8 @@ void main() {
     expect(log, isNot(contains('DELETE /api/v1/users/me')));
     expect(store.token, 'rt_1');
 
+    await tester.ensureVisible(find.byKey(const Key('deleteAccount'))); // the last item on a longer profile
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('deleteAccount')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('deleteYes')));

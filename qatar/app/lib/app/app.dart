@@ -9,12 +9,14 @@ import '../core/config.dart';
 import '../core/device_unlock.dart';
 import '../core/link_opener.dart';
 import '../core/token_store.dart';
+import '../design/herzone_tokens.dart';
 import '../data/auth_repository.dart';
 import '../data/meetups_repository.dart';
 import '../data/onboarding.dart';
 import '../data/trip_store.dart';
 import '../domain/locale_controller.dart';
 import '../domain/session.dart';
+import '../domain/theme_controller.dart';
 import '../domain/update_gate.dart';
 import '../l10n/app_localizations.dart';
 import '../ui/auth/sign_in_view_model.dart';
@@ -45,6 +47,7 @@ class HerZoneApp extends StatefulWidget {
 
 class _HerZoneAppState extends State<HerZoneApp> {
   final locale = LocaleController();
+  final theme = ThemeController()..load();
   final updateGate = UpdateGate();
   late final PrivacyLock privacyLock = PrivacyLock(widget.deviceUnlock ?? LocalDeviceUnlock());
   late final ApiClient api;
@@ -104,6 +107,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: locale),
+        ChangeNotifierProvider.value(value: theme),
         ChangeNotifierProvider.value(value: updateGate),
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: privacyLock),
@@ -115,7 +119,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
         ChangeNotifierProvider.value(value: signIn),
       ],
       child: ListenableBuilder(
-        listenable: locale,
+        listenable: Listenable.merge([locale, theme]),
         builder: (context, _) => MaterialApp.router(
           onGenerateTitle: (c) => AppLocalizations.of(c).brand,
           debugShowCheckedModeBanner: false,
@@ -129,6 +133,8 @@ class _HerZoneAppState extends State<HerZoneApp> {
           ],
           theme: herZoneTheme(Brightness.light, locale.code),
           darkTheme: herZoneTheme(Brightness.dark, locale.code),
+          themeMode: theme.mode,
+          themeAnimationCurve: HzMotion.easingInOut, // a colour change, not an arrival
           routerConfig: router,
           // a required update replaces everything (NMX-61)
           builder: (context, child) => PrivacyCover(

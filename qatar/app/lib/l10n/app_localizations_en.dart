@@ -160,6 +160,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'العربية';
 
   @override
+  String get themeToDark => 'Dark mode';
+
+  @override
+  String get themeToLight => 'Light mode';
+
+  @override
   String get dinner => 'Dinner';
 
   @override

@@ -46,6 +46,8 @@
   "offline": "You're offline.",
   "comingSoon": "This screen is being built in the app. Everything is available now on herzone.app.",
   "language": "العربية",
+  "themeToDark": "Dark mode",
+  "themeToLight": "Light mode",
   "dinner": "Dinner",
   "coffee": "Coffee",
   "seatsLeft": "{n} seats left",

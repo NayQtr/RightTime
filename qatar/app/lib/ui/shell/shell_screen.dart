@@ -8,6 +8,7 @@ import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/press.dart';
+import '../../domain/theme_controller.dart';
 
 /// The four tabs of the web app: home, my meetups, notifications, account.
 class ShellScreen extends StatelessWidget {
@@ -50,6 +51,12 @@ class AccountTab extends StatelessWidget {
         Press(child: OutlinedButton(key: const Key('my-answers'), onPressed: () => context.push('/quiz'), child: Text(t.myAnswers))),
         const SizedBox(height: HzSpace.s3),
         Press(child: OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
+        const SizedBox(height: HzSpace.s3),
+        Press(child: OutlinedButton(
+          key: const Key('theme'),
+          onPressed: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
+          child: Text(Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark),
+        )),
         const SizedBox(height: HzSpace.s3),
         Press(child: OutlinedButton(key: const Key('documents'), onPressed: () => context.push('/documents'), child: Text(t.docsTitle))),
         const SizedBox(height: HzSpace.s3),
