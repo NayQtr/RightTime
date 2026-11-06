@@ -1,0 +1,56 @@
+# Daily encrypted backup of the production database (public and app schemas), kept 14 days as a workflow artifact.
+# The dump is encrypted with age before it leaves the runner; only the owner's offline private key can open it, so the
+# artifact is safe even though the repository is public. Until the two secrets exist the job says so and stops (green).
+# Setup and restore: qatar/docs/ops/backup-restore.md
+name: Database backup
+
+on:
+  schedule:
+    - cron: "17 23 * * *" # 02:17 in Doha
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+    steps:
+      - name: Secrets present?
+        id: ready
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$AGE_RECIPIENT" ]; then
+            echo "SUPABASE_DB_URL or BACKUP_AGE_RECIPIENT is not set yet: no backup taken (see qatar/docs/ops/backup-restore.md)."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.go == 'true'
+      - name: Postgres 17 client and age
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Dump and encrypt
+        if: steps.ready.outputs.go == 'true'
+        run: OUT_DIR=backup bash qatar/ops/db-backup.sh
+      - uses: actions/upload-artifact@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          name: herzone-db-${{ github.run_id }}
+          path: backup/*.age
+          retention-days: 14
+          if-no-files-found: error
