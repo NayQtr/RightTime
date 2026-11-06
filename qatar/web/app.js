@@ -967,8 +967,8 @@ document.addEventListener("click", (e) => {
       ${wa ? `<a class="btn btn-secondary" id="wa-coord" href="${esc(waLink())}" target="_blank" rel="noopener noreferrer">${icon("message-circle")}<span>${esc(T("csChat"))}</span></a>` : ""}
       <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`,
     phone: () => `${title("csPhone")}
-      <button type="button" class="btn btn-primary cs-opt" data-go="form"><span>${esc(T("csRequest"))}</span><small>${esc(T("csRequestSub"))}</small></button>
-      <a class="btn btn-secondary cs-opt" id="call-coord" href="${esc(tel)}"><span>${esc(T("csCallNow"))}</span><small>${esc(T("csCallNowSub"))}</small></a>
+      <div class="cs-group"><button type="button" class="btn btn-primary" data-go="form"><span>${esc(T("csRequest"))}</span></button><p class="cs-hint">${esc(T("csRequestSub"))}</p></div>
+      <div class="cs-group"><a class="btn btn-secondary" id="call-coord" href="${esc(tel)}"><span>${esc(T("csCallNow"))}</span></a><p class="cs-hint">${esc(T("csCallNowSub"))}</p></div>
       <button type="button" class="btn btn-ghost" data-go="top">${esc(T("back"))}</button>`,
     form: () => `${title("csRequest")}
       <form class="cs-form" novalidate>

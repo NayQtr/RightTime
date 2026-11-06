@@ -413,16 +413,22 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
 
   Widget _option({Key? key, required String label, String? sub, IconData? icon, required VoidCallback onTap, bool primary = false}) {
     final hz = hzColors(context);
-    final child = Column(mainAxisSize: MainAxisSize.min, children: [
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: HzSpace.s2)],
-        Flexible(child: Text(label, textAlign: TextAlign.center)),
-      ]),
-      if (sub != null) Text(sub, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: primary ? hz.onPrimary.withValues(alpha: 0.92) : null)),
+    // the label is the button; the explanation sits under it as a caption, never inside the button
+    final button = Row(mainAxisSize: MainAxisSize.min, children: [
+      if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: HzSpace.s2)],
+      Flexible(child: Text(label, textAlign: TextAlign.center)),
     ]);
-    return primary
-        ? FilledButton(key: key, onPressed: onTap, child: child)
-        : OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface), onPressed: onTap, child: child);
+    final control = primary
+        ? FilledButton(key: key, onPressed: onTap, child: button)
+        : OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface), onPressed: onTap, child: button);
+    if (sub == null) return control;
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      control,
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: HzSpace.s3, vertical: HzSpace.s2),
+        child: Text(sub, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: hz.textMuted)),
+      ),
+    ]);
   }
 
   @override

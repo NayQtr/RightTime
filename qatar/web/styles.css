@@ -336,8 +336,8 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 45%, transparent); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); }
 .contact-sheet[open] { display: grid; grid-auto-rows: max-content; align-content: center; gap: var(--s-3); animation: sheet-in 220ms var(--m-ease); }
 .contact-sheet .btn { width: 100%; align-self: start; height: auto; flex-wrap: wrap; row-gap: 2px; padding-block: var(--s-3); }
-.contact-sheet .cs-opt { flex-direction: column; row-gap: 2px; }
-.contact-sheet .cs-opt small { font-size: var(--t-caption-size); font-weight: 500; opacity: 0.92; text-align: center; }
+.contact-sheet .cs-group { display: grid; gap: var(--s-2); }
+.contact-sheet .cs-hint { margin: 0; padding-inline: var(--s-3); font-size: var(--t-caption-size); line-height: 1.5; color: var(--c-textMuted); text-align: center; }
 .contact-sheet { width: min(380px, calc(100% - 2 * var(--s-5))); }
 .contact-sheet .cs-form { display: grid; gap: var(--s-2); background: var(--c-surface); border-radius: var(--r-xl); padding: var(--s-4); }
 .contact-sheet .cs-form .btn-ghost { background: transparent; }
