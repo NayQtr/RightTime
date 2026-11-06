@@ -42,7 +42,8 @@ radius = "\n".join(f"  --r-{k}: {v['$value']};" for k, v in t["radius"].items())
 shadow = "\n".join(f"  --e-{k}: {v['$value']['offsetX']} {v['$value']['offsetY']} {v['$value']['blur']} {v['$value']['spread']} {v['$value']['color']};"
                    for k, v in t["elevation"].items() if v.get("$type") == "shadow")
 motion = "\n".join(f"  --m-{k}: {v['$value']};" for k, v in t["motion"].items() if v.get("$type") == "duration")
-ease = "cubic-bezier(" + ", ".join(str(x) for x in t["motion"]["easing"]["$value"]) + ")"
+bez = lambda k: "cubic-bezier(" + ", ".join(str(x) for x in t["motion"][k]["$value"]) + ")"
+ease = bez("easing")
 
 css = f"""/* GENERATED from qatar/design/tokens.json by build_tokens_css.py — do not edit by hand. */
 :root {{
@@ -57,6 +58,8 @@ css = f"""/* GENERATED from qatar/design/tokens.json by build_tokens_css.py — 
 {shadow}
 {motion}
   --m-ease: {ease};
+  --m-ease-in: {bez("easingIn")};
+  --m-ease-in-out: {bez("easingInOut")};
   color-scheme: light dark;
 }}
 @media (prefers-color-scheme: dark) {{

@@ -22,6 +22,7 @@ import 'home_tab.dart' show experienceName;
 import 'resolution_section.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/motion.dart' show Pulse;
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -207,11 +208,13 @@ class _CoordinatorButtons extends StatelessWidget {
         if (c == null) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(bottom: HzSpace.s3),
-          child: OutlinedButton.icon(
-            key: const Key('contact-coord'),
-            icon: const Icon(Icons.chat_bubble_outline),
-            label: Text(t.contactRequest),
-            onPressed: () => showContactSheet(context, c, bookingId: bookingId),
+          child: Builder(
+            builder: (button) => OutlinedButton.icon(
+              key: const Key('contact-coord'),
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: Text(t.contactRequest),
+              onPressed: () => showContactSheet(context, c, bookingId: bookingId, from: button),
+            ),
           ),
         );
       },
@@ -279,24 +282,32 @@ class _Tracker extends StatelessWidget {
 ///   level 3  the request form; then a confirmation.
 /// WhatsApp opens the coordinator's chat with a first message carrying her name and her next booking's number (no membership
 /// number exists). Tap outside, the close button or Back closes it. With high contrast the blur gives way to a nearly solid backdrop.
-Future<void> showContactSheet(BuildContext context, Coordinator c, {String? bookingId}) {
+///
+/// Motion: the sheet grows out of the button that opened it ([from]) at 0.95 with ease-out, and shrinks back into it with
+/// ease-in, 20% faster (it is gone after 176 of the route's 220 ms). Only the sheet scales; the blurred page just fades.
+Future<void> showContactSheet(BuildContext context, Coordinator c, {String? bookingId, BuildContext? from}) {
   final t = AppLocalizations.of(context);
   final links = context.read<LinkOpener>();
   final repo = context.read<MeetupsRepository>();
   final me = context.read<Session>().me;
   final mq = MediaQuery.of(context);
   final solid = mq.highContrast;
+  var origin = Alignment.center;
+  final box = from?.findRenderObject();
+  if (box is RenderBox && box.hasSize && mq.size.width > 0 && mq.size.height > 0) {
+    final p = box.localToGlobal(box.size.center(Offset.zero));
+    origin = Alignment(p.dx / mq.size.width * 2 - 1, p.dy / mq.size.height * 2 - 1);
+  }
+  Animation<double> eased(Animation<double> a) =>
+      CurvedAnimation(parent: a, curve: HzMotion.easing, reverseCurve: Interval(0.2, 1, curve: HzMotion.easingIn.flipped));
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: t.close,
     barrierColor: Colors.transparent,
     transitionDuration: mq.disableAnimations ? Duration.zero : const Duration(milliseconds: 220),
-    transitionBuilder: (ctx, anim, _, child) => FadeTransition(
-      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
-      child: ScaleTransition(scale: Tween<double>(begin: 0.97, end: 1).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)), child: child),
-    ),
-    pageBuilder: (ctx, _, _) {
+    transitionBuilder: (ctx, anim, _, child) => FadeTransition(opacity: eased(anim), child: child),
+    pageBuilder: (ctx, anim, _) {
       final hz = hzColors(ctx);
       final scrim = ColoredBox(color: hz.bg.withValues(alpha: solid ? 0.94 : 0.45), child: const SizedBox.expand());
       return Material(
@@ -306,15 +317,19 @@ Future<void> showContactSheet(BuildContext context, Coordinator c, {String? book
           onTap: () => Navigator.of(ctx).pop(),
           child: Stack(fit: StackFit.expand, children: [
             solid ? scrim : BackdropFilter(filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: scrim),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 380),
-                    child: Padding(
-                      padding: const EdgeInsets.all(HzSpace.s5),
-                      child: _ContactSheetBody(coordinator: c, bookingId: bookingId, repo: repo, links: links, me: me),
+            ScaleTransition(
+              alignment: origin,
+              scale: Tween<double>(begin: 0.95, end: 1).animate(eased(anim)),
+              child: SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 380),
+                      child: Padding(
+                        padding: const EdgeInsets.all(HzSpace.s5),
+                        child: _ContactSheetBody(coordinator: c, bookingId: bookingId, repo: repo, links: links, me: me),
+                      ),
                     ),
                   ),
                 ),
@@ -498,15 +513,28 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
         ];
       case _Level.sent:
         children = [
-          Container(
-            padding: const EdgeInsets.all(HzSpace.s4),
-            decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
-            child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
+          Pulse(
+            child: Container(
+              padding: const EdgeInsets.all(HzSpace.s4),
+              decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
+              child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
+            ),
           ),
           gap,
           ghost(const Key('contact-close'), t.close, () => Navigator.of(context).pop()),
         ];
     }
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+    // the new level crossfades over the old one (they overlap for 150 ms) while the sheet eases to its new height
+    final still = MediaQuery.of(context).disableAnimations;
+    return AnimatedSize(
+      duration: still ? Duration.zero : HzMotion.base,
+      curve: HzMotion.easingInOut,
+      child: AnimatedSwitcher(
+        duration: still ? Duration.zero : const Duration(milliseconds: 150),
+        switchInCurve: HzMotion.easing,
+        switchOutCurve: HzMotion.easingIn,
+        child: Column(key: ValueKey(_level), mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+      ),
+    );
   }
 }

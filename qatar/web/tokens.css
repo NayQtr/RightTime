@@ -52,7 +52,10 @@
   --m-fast: 120ms;
   --m-base: 200ms;
   --m-slow: 320ms;
+  --m-stagger: 30ms;
   --m-ease: cubic-bezier(0.2, 0, 0, 1);
+  --m-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --m-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {

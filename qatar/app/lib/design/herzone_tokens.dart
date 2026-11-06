@@ -80,7 +80,13 @@ abstract final class HzMotion {
   static const Duration fast = Duration(milliseconds: 120);
   static const Duration base = Duration(milliseconds: 200);
   static const Duration slow = Duration(milliseconds: 320);
+  static const Duration stagger = Duration(milliseconds: 30);
+  /// Ease-out for entrances.
   static const Curve easing = Cubic(0.2, 0.0, 0.0, 1.0);
+  /// Ease-in for exits (about 20% shorter than the entrance).
+  static const Curve easingIn = Cubic(0.4, 0.0, 1.0, 1.0);
+  /// Ease-in-out for movement across the screen.
+  static const Curve easingInOut = Cubic(0.65, 0.0, 0.35, 1.0);
 }
 
 /// Text styles per language. Arabic uses taller lines; English display sizes are tighter.

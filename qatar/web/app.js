@@ -51,18 +51,31 @@ function every(ms, fn) { const t = setInterval(fn, ms); state.timers.push(t); re
 
 // Toasts hide after 4 s and can be dismissed by tapping so they never keep covering content. A toast survives the one
 // navigation that usually follows the action it confirms (e.g. quiz -> what you get), and is cleared on the next.
+const lessMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Exits run 20% shorter than entrances (styles.css: in 220 ms, out 176 ms).
+const EXIT_MS = 176;
 function toast(msg) {
   const el = document.getElementById("toast");
+  clearTimeout(toast.outT);
+  el.classList.remove("out");
   el.textContent = msg;
-  el.onclick = () => { clearTimeout(toast.t); el.textContent = ""; };
+  el.onclick = () => { clearTimeout(toast.t); hideToast(el); };
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => { el.textContent = ""; }, 4000);
+  toast.t = setTimeout(() => hideToast(el), 4000);
   toast.navs = 1;
+}
+function hideToast(el) {
+  if (!el.textContent || lessMotion()) { el.textContent = ""; return; }
+  el.classList.add("out");
+  toast.outT = setTimeout(() => { el.textContent = ""; el.classList.remove("out"); }, EXIT_MS);
 }
 function toastOnNavigate() {
   if (toast.navs > 0) { toast.navs--; return; }
   clearTimeout(toast.t);
-  document.getElementById("toast").textContent = "";
+  clearTimeout(toast.outT);
+  const el = document.getElementById("toast");
+  el.classList.remove("out");
+  el.textContent = "";
 }
 
 // Direction of the last navigation: quiz steps enter from the reading direction going forward and from the other
@@ -195,12 +208,26 @@ function renderTopbar() {
 function isDark() {
   return (document.documentElement.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
 }
+// The new colours are revealed through a circle growing from the switch (a mask, not a fade) where the browser has View
+// Transitions and motion is welcome; otherwise they change at once.
 function setTheme(t) {
-  store.set("theme", t);
-  document.documentElement.setAttribute("data-theme", t);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#3A2C39" : "#F2D9ED"); });
-  renderTopbar();
-  document.getElementById("theme").focus();
+  const root = document.documentElement;
+  const apply = () => {
+    store.set("theme", t);
+    root.setAttribute("data-theme", t);
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#3A2C39" : "#F2D9ED"); });
+    renderTopbar();
+    const sw = document.getElementById("theme");
+    sw.classList.add("icon-swap");
+    sw.focus();
+  };
+  const from = document.getElementById("theme");
+  if (!document.startViewTransition || lessMotion() || !from) { apply(); return; }
+  const r = from.getBoundingClientRect();
+  root.style.setProperty("--vt-x", `${Math.round(r.left + r.width / 2)}px`);
+  root.style.setProperty("--vt-y", `${Math.round(r.top + r.height / 2)}px`);
+  root.classList.add("theme-reveal");
+  document.startViewTransition(apply).finished.finally(() => root.classList.remove("theme-reveal"));
 }
 
 function setLocale(l) {
@@ -795,7 +822,7 @@ async function scrPlans() {
     setBusy($("#promo-go"), false);
     if (!r.ok) { $("#promo-msg").innerHTML = errorBanner(r.data); return; }
     pct = r.data.valid ? r.data.percent_off : 0;
-    $("#promo-msg").innerHTML = r.data.valid ? `<div class="banner banner-success"><div>${esc(T("promoOk", { n: pct }))}</div></div>`
+    $("#promo-msg").innerHTML = r.data.valid ? `<div class="banner banner-success pulse"><div>${esc(T("promoOk", { n: pct }))}</div></div>`
       : `<div class="banner banner-danger"><div>${esc(T("promoBad"))}</div></div>`;
     paint();
   };
@@ -984,20 +1011,29 @@ document.addEventListener("click", (e) => {
         <button type="button" class="btn btn-ghost" data-go="phone">${esc(T("back"))}</button>
       </form>`,
     sent: () => `${title("csRequest")}
-      <div class="banner banner-success" role="status"><div>${esc(T("callRequested"))}</div></div>
+      <div class="banner banner-success pulse" role="status"><div>${esc(T("callRequested"))}</div></div>
       <button type="button" class="btn btn-ghost" data-close>${esc(T("close"))}</button>`,
   };
   const show = (level) => {
     dlg.innerHTML = levels[level]();
+    if (dlg.open) { dlg.classList.remove("level-in"); void dlg.offsetWidth; dlg.classList.add("level-in"); } // the new level fades in
     const first = dlg.querySelector("textarea, button, a");
     if (first) first.focus();
   };
+  // it shrinks back into the button that opened it, a little faster than it came out
+  const closeSheet = () => {
+    if (!dlg.open || dlg.classList.contains("closing")) return;
+    if (lessMotion()) { dlg.close(); return; }
+    dlg.classList.add("closing");
+    setTimeout(() => dlg.close(), EXIT_MS);
+  };
+  dlg.addEventListener("cancel", (ev) => { ev.preventDefault(); closeSheet(); }); // Escape
   dlg.addEventListener("close", () => dlg.remove());
   dlg.addEventListener("click", (ev) => {
-    if (ev.target === dlg) { dlg.close(); return; }
+    if (ev.target === dlg) { closeSheet(); return; }
     const go = ev.target.closest("[data-go]");
     if (go) { show(go.dataset.go); return; }
-    if (ev.target.closest("[data-close], a")) dlg.close(); // WhatsApp and "Call us now" open, and the sheet closes
+    if (ev.target.closest("[data-close], a")) closeSheet(); // WhatsApp and "Call us now" open, and the sheet closes
   });
   dlg.addEventListener("input", () => { const m = dlg.querySelector("#cs-err"); if (m) m.innerHTML = ""; }); // typing clears the message
   dlg.addEventListener("submit", async (ev) => {
@@ -1023,6 +1059,9 @@ document.addEventListener("click", (e) => {
   show("top");
   document.body.appendChild(dlg);
   dlg.showModal();
+  // it grows out of the button that opened it
+  const from = b.getBoundingClientRect(), at = dlg.getBoundingClientRect();
+  dlg.style.transformOrigin = `${Math.round(from.left + from.width / 2 - at.left)}px ${Math.round(from.top + from.height / 2 - at.top)}px`;
   // her next booking, for the WhatsApp message and the request; the link is updated when it arrives
   api("GET", "/api/v1/bookings").then((r) => {
     const list = (r.ok && r.data.bookings) || [];
@@ -1340,7 +1379,7 @@ async function renderContacts(id, note = "") {
     return `<li class="row between contact-row" data-u="wrap8"><span><strong>${name}</strong>${m.state === "incoming"
       ? `<br><span class="caption">${esc(T("contactIncoming"))}</span>` : ""}</span>${action}</li>`;
   };
-  box.innerHTML = `${note ? `<div class="banner banner-success" role="status"><div>${esc(note)}</div></div>` : ""}
+  box.innerHTML = `${note ? `<div class="banner banner-success pulse" role="status"><div>${esc(note)}</div></div>` : ""}
     ${c.members.length ? `<ul class="list" data-u="gap0">${c.members.map(row).join("")}</ul>` : ""}
     <p class="caption">${esc(c.open ? T("contactUntil", { date: fmtDate(c.closes_at) }) : T("contactClosed"))}</p>
     <div id="contacts-err" role="alert"></div>`;
@@ -1580,7 +1619,7 @@ async function scrCases() {
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     const a = await api("POST", `/api/v1/cases/${encodeURIComponent(b.dataset.ref)}/appeal`);
-    $("#msg").innerHTML = a.ok ? `<div class="banner banner-success"><div>${esc(T("appealSent"))}</div></div>` : errorBanner(a.data);
+    $("#msg").innerHTML = a.ok ? `<div class="banner banner-success pulse"><div>${esc(T("appealSent"))}</div></div>` : errorBanner(a.data);
   }));
 }
 

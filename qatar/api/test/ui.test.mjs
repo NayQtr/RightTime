@@ -129,6 +129,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await bg(), "#F2D9ED", "light by default");
   assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع الداكن");
   await page.click("#theme");
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark"); // revealed through a growing circle
   assert.equal(await page.getAttribute("html", "data-theme"), "dark");
   assert.equal(await bg(), "#3A2C39");
   assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع العادي");
@@ -138,6 +139,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await bg(), "#3A2C39", "the choice is remembered");
   assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), "#3A2C39", "browser bar follows");
   await page.click("#theme");
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light");
   assert.equal(await bg(), "#F2D9ED");
   assert.equal(await page.getAttribute("html", "data-theme"), "light");
   await page.click("#start");

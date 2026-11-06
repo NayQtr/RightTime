@@ -73,7 +73,7 @@ class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderSt
   }
 }
 
-/// Fades and lifts a list item into place, each [index] a little after the one before (like the website's lists).
+/// Fades and lifts a list item into place, each [index] 30 ms after the one before (like the website's lists).
 /// One controller, no timers: the item at [index] simply starts later in the same 600 ms. Shown at once when the device
 /// asks for reduced motion.
 class RiseIn extends StatefulWidget {
@@ -94,7 +94,8 @@ class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_a != null) return;
-    final start = widget.index.clamp(0, 5) * 0.08;
+    // 30 ms between rows (HzMotion.stagger) inside the 600 ms run
+    final start = widget.index.clamp(0, 5) * HzMotion.stagger.inMilliseconds / 600;
     _a = CurvedAnimation(parent: _c, curve: Interval(start, 1, curve: Curves.easeOutCubic));
     if (MediaQuery.of(context).disableAnimations) {
       _c.value = 1;
@@ -114,4 +115,42 @@ class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
         opacity: _a!,
         child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero).animate(_a!), child: widget.child),
       );
+}
+
+/// A small pulse (to 1.03 and back, ease-in-out) once an action has gone through, so the confirmation is felt as well as
+/// read. Still when the device asks for reduced motion. Same as the website's `.pulse`.
+class Pulse extends StatefulWidget {
+  const Pulse({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<Pulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(tween: ConstantTween(1), weight: 120),
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.03).chain(CurveTween(curve: HzMotion.easingInOut)), weight: 180),
+    TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0).chain(CurveTween(curve: HzMotion.easingInOut)), weight: 180),
+  ]).animate(_c);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!MediaQuery.of(context).disableAnimations) _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(scale: _scale, child: widget.child);
 }
