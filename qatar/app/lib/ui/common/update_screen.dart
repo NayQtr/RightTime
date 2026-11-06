@@ -6,6 +6,7 @@ import '../../design/herzone_tokens.dart';
 import '../../domain/update_gate.dart';
 import '../../l10n/app_localizations.dart';
 import 'test_id.dart';
+import 'press.dart';
 
 /// Shown instead of the whole app when the server requires a newer version (NMX-61). The only action is the store.
 class UpdateScreen extends StatelessWidget {
@@ -28,11 +29,11 @@ class UpdateScreen extends StatelessWidget {
             Text(gate.message.isNotEmpty ? gate.message : t.updateBody, textAlign: TextAlign.center),
             const SizedBox(height: HzSpace.s6),
             if (gate.storeUrl != null)
-              TestId('update', child: FilledButton(
+              TestId('update', child: Press(child: FilledButton(
                 key: const Key('update'),
                 onPressed: () => context.read<LinkOpener>().open(Uri.parse(gate.storeUrl!)),
                 child: Text(t.updateButton),
-              )),
+              ))),
           ]),
         ),
       ),

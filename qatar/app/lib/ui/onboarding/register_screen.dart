@@ -13,6 +13,7 @@ import '../theme.dart';
 import 'quiz_view_model.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 /// Finishing sign-up: optional first name, women-only and age confirmation, the documents to accept. Then the answers
 /// given before sign-up are sent with the new account.
@@ -88,7 +89,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           builder: (context, scroll) => ListView(controller: scroll, padding: const EdgeInsets.all(HzSpace.gutter), children: [
             Text(d.text, key: Key('doc-${d.type}')),
             const SizedBox(height: HzSpace.s4),
-            OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(AppLocalizations.of(context).close)),
+            Press(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(AppLocalizations.of(context).close))),
           ]),
         ),
       );
@@ -113,12 +114,12 @@ class _RegisterFormState extends State<_RegisterForm> {
           title: Text(_label(t, d.type)),
           subtitle: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(key: Key('read-${d.type}'), onPressed: () => _read(d), child: Text(t.readDoc)),
+            child: Press(child: TextButton(key: Key('read-${d.type}'), onPressed: () => _read(d), child: Text(t.readDoc))),
           ),
         )),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
-      FilledButton(key: const Key('register'), onPressed: ready && !busy ? _submit : null, child: BusyLabel(busy: busy, child: Text(t.continueLabel))),
+      Press(child: FilledButton(key: const Key('register'), onPressed: ready && !busy ? _submit : null, child: BusyLabel(busy: busy, child: Text(t.continueLabel)))),
     ]);
   }
 }

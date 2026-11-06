@@ -5,6 +5,7 @@ import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import 'motion.dart';
+import 'press.dart';
 
 /// Loads data for a screen and shows loading, error (with retry) or the content. Pull to refresh reloads.
 class Loader<T> extends StatefulWidget {
@@ -36,7 +37,7 @@ class _LoaderState<T> extends State<Loader<T>> {
             return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
               ErrorBanner(e),
               const SizedBox(height: HzSpace.s4),
-              OutlinedButton(key: const Key('retry'), onPressed: _reload, child: Text(AppLocalizations.of(context).retry)),
+              Press(child: OutlinedButton(key: const Key('retry'), onPressed: _reload, child: Text(AppLocalizations.of(context).retry))),
             ]);
           }
           return RefreshIndicator(onRefresh: _reload, child: widget.builder(context, snap.data as T, _reload));

@@ -17,6 +17,7 @@ import '../theme.dart';
 import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 /// Booking: hold the seat, review (fee, refund terms, and the no-refund acknowledgement close to the date), pay on the
 /// payment provider's page in the browser, then come back: the app checks the booking and shows the result.
@@ -110,16 +111,16 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
       const SizedBox(height: HzSpace.s4),
     ];
     if (bk == null) {
-      children.add(FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat)));
+      children.add(Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat))));
     } else if (bk.paid) {
       children.addAll([
         TestId('paid', child: Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success))),
         Text('${t.bookingRef} ${bk.ref}'),
         const SizedBox(height: HzSpace.s4),
-        FilledButton(onPressed: () => context.go('/events'), child: Text(t.viewDetails)),
+        Press(child: FilledButton(onPressed: () => context.go('/events'), child: Text(t.viewDetails))),
       ]);
     } else if (bk.expired) {
-      children.addAll([Text(t.holdExpired, key: const Key('expired')), const SizedBox(height: HzSpace.s4), OutlinedButton(onPressed: () => context.go('/home'), child: Text(t.backHome))]);
+      children.addAll([Text(t.holdExpired, key: const Key('expired')), const SizedBox(height: HzSpace.s4), Press(child: OutlinedButton(onPressed: () => context.go('/home'), child: Text(t.backHome)))]);
     } else {
       children.addAll([
         Text(t.reviewTitle, style: tt.titleLarge),
@@ -138,8 +139,8 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         if (bk.paymentFailed) Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(t.payFailed, style: TextStyle(color: c.danger))),
         const SizedBox(height: HzSpace.s4),
         if (waiting) ...[TestId('waiting', child: Text(t.waitingPayment, key: const Key('waiting'))), const SizedBox(height: HzSpace.s3)],
-        FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: BusyLabel(busy: busy, child: Text(t.payNow))),
-        if (waiting) TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment)),
+        Press(child: FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: BusyLabel(busy: busy, child: Text(t.payNow)))),
+        if (waiting) Press(child: TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment))),
       ]);
     }
     if (error != null) children.addAll([const SizedBox(height: HzSpace.s3), ErrorBanner(error!)]);

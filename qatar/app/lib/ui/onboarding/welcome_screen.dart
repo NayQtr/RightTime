@@ -7,6 +7,7 @@ import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/table_art.dart';
 import '../theme.dart';
+import '../common/press.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -39,7 +40,7 @@ class WelcomeScreen extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
-                    child: TextButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language)),
+                    child: Press(child: TextButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
                   ),
                   const SizedBox(height: HzSpace.s4),
                   Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary)),
@@ -50,11 +51,11 @@ class WelcomeScreen extends StatelessWidget {
                   const Spacer(),
                   const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: HzSpace.s3), child: TableArt(size: 150))),
                   const Spacer(),
-                  FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted)),
+                  Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
                   const SizedBox(height: HzSpace.s2),
                   Text(t.quizLength, textAlign: TextAlign.center, style: tt.bodySmall),
                   const SizedBox(height: HzSpace.s5),
-                  OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount)),
+                  Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
                   const SizedBox(height: HzSpace.s3),
                   Text(t.deviceNote, textAlign: TextAlign.center, style: tt.bodySmall?.copyWith(color: c.textMuted)),
                 ]),

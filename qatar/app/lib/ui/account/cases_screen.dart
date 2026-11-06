@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../meetups/report_screen.dart' show categoryLabel;
+import '../common/press.dart';
 
 /// "Decisions about you": decisions taken after a report, in words, with the right to appeal within 14 days. A member
 /// whose account is suspended can still open it (the server allows this route while suspended).
@@ -82,7 +83,7 @@ class _CaseCardState extends State<_CaseCard> {
             const SizedBox(height: HzSpace.s3),
             Text(t.appealUntil(fmtWhen(c.appealUntil, widget.lang)), style: tt.bodySmall),
             const SizedBox(height: HzSpace.s2),
-            OutlinedButton(key: Key('appeal-${c.ref}'), onPressed: busy ? null : _appeal, child: Text(t.appeal)),
+            Press(child: OutlinedButton(key: Key('appeal-${c.ref}'), onPressed: busy ? null : _appeal, child: Text(t.appeal))),
           ],
           if (sent) ...[const SizedBox(height: HzSpace.s3), Text(t.appealSent, key: const Key('appeal-sent'))],
           if (error != null) ...[

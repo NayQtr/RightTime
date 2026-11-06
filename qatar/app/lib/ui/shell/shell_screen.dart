@@ -7,6 +7,7 @@ import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
+import '../common/press.dart';
 
 /// The four tabs of the web app: home, my meetups, notifications, account.
 class ShellScreen extends StatelessWidget {
@@ -46,22 +47,22 @@ class AccountTab extends StatelessWidget {
         const SizedBox(height: HzSpace.s2),
         if (session.me?.displayName != null) Text(session.me!.displayName!),
         const SizedBox(height: HzSpace.s6),
-        OutlinedButton(key: const Key('my-answers'), onPressed: () => context.push('/quiz'), child: Text(t.myAnswers)),
+        Press(child: OutlinedButton(key: const Key('my-answers'), onPressed: () => context.push('/quiz'), child: Text(t.myAnswers))),
         const SizedBox(height: HzSpace.s3),
-        OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language)),
+        Press(child: OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
         const SizedBox(height: HzSpace.s3),
-        OutlinedButton(key: const Key('documents'), onPressed: () => context.push('/documents'), child: Text(t.docsTitle)),
+        Press(child: OutlinedButton(key: const Key('documents'), onPressed: () => context.push('/documents'), child: Text(t.docsTitle))),
         const SizedBox(height: HzSpace.s3),
-        OutlinedButton(key: const Key('cases'), onPressed: () => context.push('/cases'), child: Text(t.casesTitle)),
+        Press(child: OutlinedButton(key: const Key('cases'), onPressed: () => context.push('/cases'), child: Text(t.casesTitle))),
         const SizedBox(height: HzSpace.s3),
-        FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut)),
+        Press(child: FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut))),
         const SizedBox(height: HzSpace.s6),
-        TextButton(
+        Press(child: TextButton(
           key: const Key('deleteAccount'),
           style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
           onPressed: () => _confirmDelete(context, session),
           child: Text(t.deleteAccount),
-        ),
+        )),
       ]),
     );
   }
@@ -74,13 +75,13 @@ class AccountTab extends StatelessWidget {
       builder: (c) => AlertDialog(
         content: Text(t.deleteConfirm),
         actions: [
-          TextButton(key: const Key('deleteNo'), onPressed: () => Navigator.pop(c, false), child: Text(t.deleteNo)),
-          TextButton(
+          Press(child: TextButton(key: const Key('deleteNo'), onPressed: () => Navigator.pop(c, false), child: Text(t.deleteNo))),
+          Press(child: TextButton(
             key: const Key('deleteYes'),
             style: TextButton.styleFrom(foregroundColor: Theme.of(c).colorScheme.error),
             onPressed: () => Navigator.pop(c, true),
             child: Text(t.deleteYes),
-          ),
+          )),
         ],
       ),
     );

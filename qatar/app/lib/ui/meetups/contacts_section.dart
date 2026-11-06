@@ -10,6 +10,7 @@ import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../format.dart';
+import '../common/press.dart';
 
 /// After the meetup: ask a tablemate to stay in touch. A WhatsApp button appears only once both agree; a decline is
 /// never shown to the sender.
@@ -77,30 +78,30 @@ class _ContactsSectionState extends State<ContactsSection> {
                 child: Row(children: [
                   Expanded(child: Text(m.state == 'incoming' ? '${m.name ?? t.unnamed} ${t.contactIncoming}' : (m.name ?? t.unnamed))),
                   if (m.state == 'connected' && m.whatsappUrl != null)
-                    FilledButton.icon(
+                    Press(child: FilledButton.icon(
                       key: Key('wa-${m.seat}'),
                       style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                       icon: const Icon(Icons.chat),
                       label: Text(t.contactWhatsapp),
                       onPressed: () => context.read<LinkOpener>().open(Uri.parse(m.whatsappUrl!)),
-                    ),
+                    )),
                   if (m.state == 'sent') Text(t.contactSent),
                   if (m.state == 'incoming' && m.requestId != null) ...[
-                    TextButton(key: Key('decline-${m.seat}'), onPressed: () => _act(() => repo.answerContact(m.requestId!, accept: false), t.contactDeclined), child: Text(t.contactDecline)),
-                    FilledButton(
+                    Press(child: TextButton(key: Key('decline-${m.seat}'), onPressed: () => _act(() => repo.answerContact(m.requestId!, accept: false), t.contactDeclined), child: Text(t.contactDecline))),
+                    Press(child: FilledButton(
                       key: Key('accept-${m.seat}'),
                       style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                       onPressed: () => _act(() => repo.answerContact(m.requestId!, accept: true), t.contactAccepted),
                       child: Text(t.contactAccept),
-                    ),
+                    )),
                   ],
                   if (m.state == 'none' && m.canSend)
-                    OutlinedButton(
+                    Press(child: OutlinedButton(
                       key: Key('ask-${m.seat}'),
                       style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                       onPressed: () => _act(() => repo.requestContact(widget.bookingId, m.seat), t.contactSent),
                       child: Text(t.contactSend),
-                    ),
+                    )),
                 ]),
               ),
         ]),

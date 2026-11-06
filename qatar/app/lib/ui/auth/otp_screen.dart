@@ -8,6 +8,7 @@ import 'sign_in_view_model.dart';
 import 'widgets.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -59,13 +60,13 @@ class _OtpScreenState extends State<OtpScreen> {
             ))),
             if (vm.error != null) ...[const SizedBox(height: HzSpace.s4), ErrorBanner(vm.error!)],
             const SizedBox(height: HzSpace.s6),
-            FilledButton(key: const Key('verify'), onPressed: vm.busy ? null : () => vm.verify(_code.text), child: BusyLabel(busy: vm.busy, child: Text(t.verify))),
+            Press(child: FilledButton(key: const Key('verify'), onPressed: vm.busy ? null : () => vm.verify(_code.text), child: BusyLabel(busy: vm.busy, child: Text(t.verify)))),
             const SizedBox(height: HzSpace.s3),
-            OutlinedButton(
+            Press(child: OutlinedButton(
               key: const Key('resend'),
               onPressed: vm.busy || vm.resendIn > 0 ? null : vm.resend,
               child: Text(vm.resendIn > 0 ? t.resendIn(vm.resendIn) : t.resend),
-            ),
+            )),
           ],
         ),
       ),

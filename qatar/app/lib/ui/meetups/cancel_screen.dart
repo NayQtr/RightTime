@@ -12,6 +12,7 @@ import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
+import '../common/press.dart';
 
 /// Cancelling: the refund outcome is stated before she confirms (full refund, none after the deadline, or nothing paid).
 class CancelScreen extends StatelessWidget {
@@ -100,12 +101,12 @@ class _CancelFormState extends State<_CancelForm> {
       ),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
-      FilledButton(
+      Press(child: FilledButton(
         key: const Key('confirm-cancel'),
         style: FilledButton.styleFrom(backgroundColor: c.danger, foregroundColor: c.onDanger),
         onPressed: !d.canCancel || busy || widget.r.offlineSavedAt != null ? null : _confirm,
         child: Text(t.confirmCancel),
-      ),
+      )),
     ]);
   }
 }

@@ -13,6 +13,7 @@ import '../common/loader.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 const _categories = ['harassment', 'threat_violence', 'photo_without_consent', 'stalking_unwanted_contact', 'fraud', 'disruptive'];
 
@@ -82,14 +83,14 @@ class _ReportFormState extends State<_ReportForm> {
             title: Text(t.emTitle),
             content: Text(t.emBody),
             actions: [
-              TestId('call-999', child: FilledButton.icon(
+              TestId('call-999', child: Press(child: FilledButton.icon(
                 key: const Key('call-999'),
                 style: FilledButton.styleFrom(backgroundColor: c.danger, foregroundColor: c.onDanger),
                 icon: const Icon(Icons.call),
                 label: Text(t.emCall),
                 onPressed: () => context.read<LinkOpener>().open(Uri.parse('tel:999')),
-              )),
-              TextButton(onPressed: () => Navigator.pop(context), child: Text(t.close)),
+              ))),
+              Press(child: TextButton(onPressed: () => Navigator.pop(context), child: Text(t.close))),
             ],
           ));
         },
@@ -119,7 +120,7 @@ class _ReportFormState extends State<_ReportForm> {
       return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
         TestId('report-sent', child: Text(t.reportSent(caseRef!), key: const Key('report-sent'), style: tt.titleLarge)),
         const SizedBox(height: HzSpace.s6),
-        FilledButton(onPressed: () => context.go('/home'), child: Text(t.backHome)),
+        Press(child: FilledButton(onPressed: () => context.go('/home'), child: Text(t.backHome))),
       ]);
     }
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
@@ -168,7 +169,7 @@ class _ReportFormState extends State<_ReportForm> {
       TextField(key: const Key('desc'), controller: _desc, maxLines: 4, maxLength: 2000, decoration: InputDecoration(labelText: t.describe)),
       if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
       const SizedBox(height: HzSpace.s4),
-      FilledButton(key: const Key('send-report'), onPressed: category == null || busy ? null : _submit, child: BusyLabel(busy: busy, child: Text(t.submitReport))),
+      Press(child: FilledButton(key: const Key('send-report'), onPressed: category == null || busy ? null : _submit, child: BusyLabel(busy: busy, child: Text(t.submitReport)))),
     ]);
   }
 }

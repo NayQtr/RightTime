@@ -10,6 +10,7 @@ import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
 import '../format.dart';
+import '../common/press.dart';
 
 /// Notifications in full (the lock screen only ever shows a generic line, NMX-21).
 class InboxTab extends StatelessWidget {
@@ -30,7 +31,7 @@ class InboxTab extends StatelessWidget {
           const SizedBox(height: HzSpace.s3),
           Text(t.inboxLocked, key: const Key('inbox-locked')),
           const SizedBox(height: HzSpace.s4),
-          FilledButton.icon(key: const Key('unlock'), icon: const Icon(Icons.fingerprint), label: Text(t.unlock), onPressed: () => lock.unlock(t.unlockReason)),
+          Press(child: FilledButton.icon(key: const Key('unlock'), icon: const Icon(Icons.fingerprint), label: Text(t.unlock), onPressed: () => lock.unlock(t.unlockReason))),
         ]),
       );
     }

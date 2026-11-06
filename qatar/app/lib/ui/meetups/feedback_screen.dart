@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../theme.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 /// Private feedback after the meetup: two required ratings, the rest optional. No one at the table sees it.
 class FeedbackScreen extends StatefulWidget {
@@ -50,12 +51,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     final c = hzColors(context);
     return Row(children: [
       for (var i = 1; i <= 5; i++)
-        IconButton(
+        Press(child: IconButton(
           key: Key('$key-$i'),
           tooltip: '$i/5',
           icon: Icon(value != null && i <= value ? Icons.star : Icons.star_border, color: c.primary),
           onPressed: () => onChanged(i),
-        ),
+        )),
     ]);
   }
 
@@ -70,7 +71,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             ? [
                 Text(t.fbThanks, key: const Key('fb-thanks'), style: tt.titleLarge),
                 const SizedBox(height: HzSpace.s6),
-                FilledButton(onPressed: () => context.go('/events'), child: Text(t.tabEvents)),
+                Press(child: FilledButton(onPressed: () => context.go('/events'), child: Text(t.tabEvents))),
               ]
             : [
                 Text(t.fbTitle, style: tt.headlineMedium),
@@ -85,7 +86,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 TextField(key: const Key('comment'), controller: _comment, maxLength: 500, maxLines: 3, decoration: InputDecoration(labelText: t.commentLabel, helperText: t.commentHelp)),
                 if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
                 const SizedBox(height: HzSpace.s4),
-                FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: BusyLabel(busy: busy, child: Text(t.send))),
+                Press(child: FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: BusyLabel(busy: busy, child: Text(t.send)))),
               ]),
       ),
     );

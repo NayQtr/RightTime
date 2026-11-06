@@ -12,6 +12,7 @@ import '../format.dart';
 import '../theme.dart';
 import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
+import '../common/press.dart';
 
 /// My meetups: upcoming first, then past ones. Each opens its details.
 class EventsTab extends StatelessWidget {
@@ -84,11 +85,11 @@ class _NextMeetupCard extends StatelessWidget {
             const SizedBox(height: HzSpace.s1),
             Text('${b.district} · ${t.bookingRef} ${b.ref}', style: tt.bodyMedium?.copyWith(color: soft)),
             const SizedBox(height: HzSpace.s4),
-            FilledButton(
+            Press(child: FilledButton(
               onPressed: open,
               style: FilledButton.styleFrom(backgroundColor: c.onPrimary, foregroundColor: c.primary),
               child: Text(t.viewDetails),
-            ),
+            )),
           ]),
         ),
       ),

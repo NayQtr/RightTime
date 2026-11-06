@@ -23,6 +23,7 @@ import 'resolution_section.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/motion.dart' show Pulse;
+import '../common/press.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -128,12 +129,12 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       Text(v.billPolicy, style: tt.bodySmall),
                       if (v.mapUrl.isNotEmpty)
                         // opened, not copied: the clipboard is readable by other apps and keyboards (app review #10)
-                        TextButton.icon(
+                        Press(child: TextButton.icon(
                           key: const Key('open-map'),
                           icon: const Icon(Icons.map_outlined, size: 18),
                           label: Text(t.openMap),
                           onPressed: () => context.read<LinkOpener>().open(Uri.parse(v.mapUrl)),
-                        ),
+                        )),
                     ]),
                   ),
                 )),
@@ -154,7 +155,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               ],
               if (r.offlineSavedAt == null && d.action('check_in')) ...[
                 const SizedBox(height: HzSpace.s4),
-                FilledButton(key: const Key('check-in'), onPressed: () => _checkIn(context), child: Text(t.imHere)),
+                Press(child: FilledButton(key: const Key('check-in'), onPressed: () => _checkIn(context), child: Text(t.imHere))),
               ],
               if (d.status == 'checked_in') ...[
                 const SizedBox(height: HzSpace.s4),
@@ -162,27 +163,27 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               ],
               if (r.offlineSavedAt == null && d.action('feedback')) ...[
                 const SizedBox(height: HzSpace.s4),
-                FilledButton(key: const Key('rate'), onPressed: () => context.push('/booking/$bookingId/feedback'), child: Text(t.rateIt)),
+                Press(child: FilledButton(key: const Key('rate'), onPressed: () => context.push('/booking/$bookingId/feedback'), child: Text(t.rateIt))),
               ],
               if (d.phase == 'completed' && r.offlineSavedAt == null) ...[const SizedBox(height: HzSpace.s4), ContactsSection(bookingId: bookingId)],
               const SizedBox(height: HzSpace.s6),
               _CoordinatorButtons(bookingId: widget.bookingId),
               if (r.offlineSavedAt == null && ['forming', 'locked', 'revealed', 'day_of', 'completed'].contains(d.phase))
-                TextButton.icon(
+                Press(child: TextButton.icon(
                   key: const Key('report'),
                   style: TextButton.styleFrom(foregroundColor: c.primary, minimumSize: const Size.fromHeight(48)),
                   icon: const Icon(Icons.flag_outlined),
                   label: Text(t.privateReport),
                   onPressed: () => context.push('/report/$bookingId'),
-                ),
+                )),
               if (d.action('cancel') && r.offlineSavedAt == null) ...[
                 const SizedBox(height: HzSpace.s8),
-                OutlinedButton(
+                Press(child: OutlinedButton(
                   key: const Key('cancel'),
                   style: OutlinedButton.styleFrom(foregroundColor: c.danger, side: BorderSide(color: c.danger), minimumSize: const Size.fromHeight(52)),
                   onPressed: () => context.push('/booking/$bookingId/cancel'),
                   child: Text(t.cancelBooking),
-                ),
+                )),
               ],
             ]);
           },
@@ -209,12 +210,12 @@ class _CoordinatorButtons extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: HzSpace.s3),
           child: Builder(
-            builder: (button) => OutlinedButton.icon(
+            builder: (button) => Press(child: OutlinedButton.icon(
               key: const Key('contact-coord'),
               icon: const Icon(Icons.chat_bubble_outline),
               label: Text(t.contactRequest),
               onPressed: () => showContactSheet(context, c, bookingId: bookingId, from: button),
-            ),
+            )),
           ),
         );
       },
@@ -435,8 +436,8 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
       Flexible(child: Text(label, textAlign: TextAlign.center)),
     ]);
     final control = primary
-        ? FilledButton(key: key, onPressed: onTap, child: button)
-        : OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface), onPressed: onTap, child: button);
+        ? Press(child: FilledButton(key: key, onPressed: onTap, child: button))
+        : Press(child: OutlinedButton(key: key, style: OutlinedButton.styleFrom(backgroundColor: hz.surface), onPressed: onTap, child: button));
     if (sub == null) return control;
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       control,
@@ -453,7 +454,7 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
     final hz = hzColors(context);
     const gap = SizedBox(height: HzSpace.s3);
     Widget ghost(Key key, String label, VoidCallback onTap) =>
-        TextButton(key: key, style: TextButton.styleFrom(foregroundColor: hz.primary, minimumSize: const Size.fromHeight(48)), onPressed: onTap, child: Text(label));
+        Press(child: TextButton(key: key, style: TextButton.styleFrom(foregroundColor: hz.primary, minimumSize: const Size.fromHeight(48)), onPressed: onTap, child: Text(label)));
     final wa = widget.coordinator.whatsappUrl;
     final List<Widget> children;
     switch (_level) {
@@ -505,9 +506,9 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
               if (_problem != null) ...[gap, Text(_problem!, key: const Key('cs-problem'), style: TextStyle(color: hz.danger, fontWeight: FontWeight.w600))],
               if (_error != null) ...[gap, ErrorBanner(_error!)],
               gap,
-              FilledButton(key: const Key('cs-send'), onPressed: _sending ? null : () => _send(t), child: BusyLabel(busy: _sending, child: Text(t.csSend))),
+              Press(child: FilledButton(key: const Key('cs-send'), onPressed: _sending ? null : () => _send(t), child: BusyLabel(busy: _sending, child: Text(t.csSend)))),
               const SizedBox(height: HzSpace.s1),
-              TextButton(key: const Key('contact-back'), onPressed: () => _go(_Level.phone), child: Text(t.back)),
+              Press(child: TextButton(key: const Key('contact-back'), onPressed: () => _go(_Level.phone), child: Text(t.back))),
             ]),
           ),
         ];

@@ -10,6 +10,7 @@ import '../theme.dart';
 import 'quiz_view_model.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -47,7 +48,7 @@ class _QuizScreenState extends State<QuizScreen> {
       body = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
         if (vm.error != null) ErrorBanner(vm.error!),
         const SizedBox(height: HzSpace.s4),
-        OutlinedButton(key: const Key('retry'), onPressed: vm.load, child: Text(t.retry)),
+        Press(child: OutlinedButton(key: const Key('retry'), onPressed: vm.load, child: Text(t.retry))),
       ]);
     } else if (vm.done && !vm.signedIn) {
       body = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
@@ -55,7 +56,7 @@ class _QuizScreenState extends State<QuizScreen> {
         const SizedBox(height: HzSpace.s3),
         Text(t.quizDoneBody),
         const SizedBox(height: HzSpace.s6),
-        FilledButton(key: const Key('save-answers'), onPressed: () => context.go('/sign-in'), child: Text(t.saveAnswers)),
+        Press(child: FilledButton(key: const Key('save-answers'), onPressed: () => context.go('/sign-in'), child: Text(t.saveAnswers))),
       ]);
     } else if (q == null) {
       body = const Center(child: CircularProgressIndicator());
@@ -85,11 +86,11 @@ class _QuizScreenState extends State<QuizScreen> {
     final showNav = q != null && !(vm.done && !vm.signedIn);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
+        leading: Press(child: IconButton(
           tooltip: t.back,
           icon: const BackButtonIcon(),
           onPressed: () => vm.step > 0 && !vm.done ? vm.back() : (vm.signedIn ? context.go('/home') : context.go('/')),
-        ),
+        )),
       ),
       body: SafeArea(child: body),
       bottomNavigationBar: !showNav
@@ -99,12 +100,12 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(HzSpace.gutter),
                 child: Row(children: [
                   if (!q.required) ...[
-                    Expanded(child: OutlinedButton(key: const Key('skip'), onPressed: vm.busy ? null : vm.skip, child: Text(t.skipQ))),
+                    Expanded(child: Press(child: OutlinedButton(key: const Key('skip'), onPressed: vm.busy ? null : vm.skip, child: Text(t.skipQ)))),
                     const SizedBox(width: HzSpace.s3),
                   ],
                   Expanded(
                     flex: 2,
-                    child: FilledButton(key: const Key('next'), onPressed: vm.canNext && !vm.busy ? vm.next : null, child: BusyLabel(busy: vm.busy, child: Text(vm.step + 1 == vm.total ? t.continueLabel : t.next))),
+                    child: Press(child: FilledButton(key: const Key('next'), onPressed: vm.canNext && !vm.busy ? vm.next : null, child: BusyLabel(busy: vm.busy, child: Text(vm.step + 1 == vm.total ? t.continueLabel : t.next)))),
                   ),
                 ]),
               ),

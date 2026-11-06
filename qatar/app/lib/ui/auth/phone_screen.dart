@@ -9,6 +9,7 @@ import 'sign_in_view_model.dart';
 import 'widgets.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
+import '../common/press.dart';
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -60,11 +61,11 @@ class _PhoneScreenState extends State<PhoneScreen> {
             ))),
             if (vm.error != null) ...[const SizedBox(height: HzSpace.s4), ErrorBanner(vm.error!)],
             const SizedBox(height: HzSpace.s6),
-            FilledButton(
+            Press(child: FilledButton(
               key: const Key('send'),
               onPressed: vm.busy ? null : () => _submit(vm),
               child: BusyLabel(busy: vm.busy, child: Text(t.sendCode)),
-            ),
+            )),
           ],
         ),
       ),
