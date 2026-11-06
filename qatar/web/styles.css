@@ -76,8 +76,15 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
 .mark circle:not(.ring) { fill: var(--c-primary); }
 .brand-mark { display: none; }
 .topbar .spacer { flex: 1; }
-.env-badge { font-size: min(calc(var(--u) * 0.7500), 14px); white-space: nowrap; line-height: 1; padding: 6px 10px; border-radius: var(--r-pill); background: var(--c-surfaceSunken); color: var(--c-textMuted); }
-.topbar #lang { font-family: var(--font-display); font-weight: 700; font-size: min(calc(var(--u) * 0.8750), 18px); color: var(--c-textMuted); }
+.brand { flex: none; }
+.brand-name { display: grid; line-height: 1.1; }
+/* test-site label: a small line under the name, never a pill competing for room in the bar (it covered the name on
+   iPhone, 6 Nov) */
+.env-badge { display: block; font-family: var(--font-body); font-size: 11px; font-weight: 500; line-height: 1.3; white-space: nowrap; color: var(--c-textMuted); }
+.topbar #lang { font-family: var(--font-display); font-weight: 700; font-size: min(calc(var(--u) * 0.8750), 18px); color: var(--c-textMuted); flex: none; white-space: nowrap; }
+.topbar .spacer { min-width: 0; }
+/* the narrowest phones with large text: a smaller mark keeps every control inside the bar */
+@media (max-width: 340px) { .brand .mark { width: 36px; height: 36px; } .topbar { padding-inline: var(--s-2); } .topbar .btn-ghost { padding: 0 var(--s-1); } }
 main { max-width: var(--col); margin: 0 auto; padding: var(--s-4) var(--s-5) calc(var(--s-8) + env(safe-area-inset-bottom)); }
 main:focus { outline: none; }
 /* view() moves focus to the screen heading for screen readers; it is not interactive, so no focus ring */
@@ -354,7 +361,6 @@ body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: ca
 .topbar .btn-ghost { padding: 0 var(--s-2); min-width: 44px; }
 @media (max-width: 380px) {
   .topbar { gap: var(--s-1); width: calc(100% - 2 * var(--s-2)); padding-inline: var(--s-3); }
-  .topbar .env-badge { display: none; } /* the test-site label gives way to the logo and controls on the narrowest phones */
   main { padding-inline: var(--s-4); }
 }
 

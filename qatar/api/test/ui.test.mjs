@@ -48,6 +48,35 @@ async function noHorizontalScroll(page) {
     [...document.querySelectorAll("body *")].filter((e) => { const r = e.getBoundingClientRect(); return r.right > document.documentElement.clientWidth + 1 || r.left < -1; })
       .slice(0, 5).map((e) => `${e.tagName}.${e.className}`)]);
   assert.ok(sw <= cw + 1, `horizontal overflow on ${page.url()}: ${sw} > ${cw} (${culprits.join(", ")})`);
+  await cleanLayout(page);
+}
+
+// Nothing covers anything else in a bar or row, and no label spills out of its box (owner, 6 Nov: the test-site label
+// covered the logo on an iPhone). Waits for entrance animations to settle first.
+async function cleanLayout(page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect && a.effect.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
+  const problems = await page.evaluate(() => {
+    const out = [];
+    const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.opacity !== "0"; };
+    const name = (e) => `${e.tagName.toLowerCase()}${e.id ? "#" + e.id : ""}${typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).join(".") : ""}`;
+    for (const bar of document.querySelectorAll(".topbar, .tabbar, .quiz-foot, .sticky-bar, .quiz-head, .row, .brand, .det-head, .cs-group")) {
+      if (!vis(bar)) continue;
+      const kids = [...bar.children].filter(vis), br = bar.getBoundingClientRect();
+      for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+        const a = kids[i].getBoundingClientRect(), c = kids[j].getBoundingClientRect();
+        if (Math.min(a.right, c.right) - Math.max(a.left, c.left) > 1 && Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 1) out.push(`overlap in ${name(bar)}: ${name(kids[i])} / ${name(kids[j])}`);
+      }
+      if (bar.matches(".topbar, .tabbar")) for (const k of kids) { const r = k.getBoundingClientRect(); if (r.left < br.left - 1 || r.right > br.right + 1) out.push(`${name(k)} sticks out of ${name(bar)}`); }
+    }
+    for (const e of document.querySelectorAll("button, a, .btn, label, h1, h2, h3, .chip, .badge, .env-badge, .brand-name, .option")) {
+      if (!vis(e)) continue;
+      const cs = getComputedStyle(e);
+      if (cs.overflowX !== "visible" || cs.display === "inline") continue;
+      if (e.scrollWidth > e.clientWidth + 2) out.push(`text spills out of ${name(e)}: ${e.scrollWidth} > ${e.clientWidth}`);
+    }
+    return out;
+  });
+  assert.deepEqual(problems, [], `clean layout on ${page.url()}`);
 }
 
 async function oneH1(page) {
@@ -825,4 +854,19 @@ test("admin console: a member's contact request shows with her note, number and 
   assert.equal((await env.sql`SELECT status FROM app.call_requests WHERE user_id = ${M.userId}`)[0].status, "called");
   assert.deepEqual(ad.errors, []);
   await ad.page.context().close();
+});
+
+test("top bar: logo, test-site label, theme and language never overlap, even on a 320 px phone with large text", async () => {
+  for (const [w, fs, loc] of [[320, 22, "ar"], [320, 22, "en"], [360, 19, "ar"], [402, 16, "ar"], [402, 22, "en"]]) {
+    const { page, errors } = await newPage({ width: w, height: 700 });
+    await page.goto(env.base + "/");
+    await page.evaluate((l) => localStorage.setItem("q_locale", JSON.stringify(l)), loc);
+    await page.reload();
+    await page.waitForSelector(".hero-welcome h1");
+    await page.evaluate((px) => document.documentElement.style.setProperty("font-size", `${px}px`, "important"), fs); // larger text, as on a phone set to bigger type
+    assert.equal(await page.locator(".topbar .brand .env-badge").count(), 1, "the test-site label sits under the name, inside the logo link");
+    await cleanLayout(page);
+    assert.deepEqual(errors, []);
+    await page.close();
+  }
 });

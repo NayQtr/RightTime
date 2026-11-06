@@ -37,9 +37,11 @@ const num = (s) => `<bdi class="num">${esc(s)}</bdi>`;
 // a numeric range such as "18–24" is reordered to "24–18" inside Arabic text; keep it left to right
 const optLabel = (s) => (/^\d+\s*[–-]\s*\d+$/.test(s) ? `<bdi dir="ltr">${esc(s)}</bdi>` : esc(s));
 const intlLocale = () => (locale === "ar" ? "ar-QA-u-nu-latn" : "en-GB");
-// The time and its "م" / "PM" never split across lines (no-break space), as in the app.
+// The time and its "م" / "PM" never split across lines (no-break space), as in the app. Times are 12-hour in both
+// languages, like the app ("6:47 PM", «6:47 م»), never "06:47" or "18:47".
 const fmtDate = (iso, opts = { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) =>
-  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts }).format(new Date(iso)).replace(/(\d)[ \u202F](م|ص|AM|PM)/g, "$1\u00A0$2") : "";
+  iso ? new Intl.DateTimeFormat(intlLocale(), { timeZone: "Asia/Qatar", ...opts, ...(opts.hour ? { hour12: true } : {}) }).format(new Date(iso))
+    .replace(/(\d)[ \u202F](م|ص|am|pm|AM|PM)/g, (_, d, m) => `${d}\u00A0${m.toUpperCase()}`) : "";
 const fmtTime = (iso) => fmtDate(iso, { weekday: "short", hour: "numeric", minute: "2-digit" });
 const $ = (sel, root = main) => root.querySelector(sel);
 const $$ = (sel, root = main) => [...root.querySelectorAll(sel)];
@@ -195,8 +197,7 @@ function renderTopbar() {
   const signedIn = !!store.get("tokens");
   const dark = isDark();
   document.getElementById("topbar").innerHTML = `
-    <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}">${brandMark()}<span>${esc(T("brand"))}</span></a>
-    ${CFG.staging ? `<span class="env-badge">${esc(T("staging"))}</span>` : ""}
+    <a class="brand" href="${signedIn ? "#/home" : "#/welcome"}">${brandMark()}<span class="brand-name">${esc(T("brand"))}${CFG.staging ? `<small class="env-badge">${esc(T("staging"))}</small>` : ""}</span></a>
     <span class="spacer"></span>
     <button class="icon-btn" id="theme" type="button" aria-label="${esc(T(dark ? "themeToLight" : "themeToDark"))}" title="${esc(T(dark ? "themeToLight" : "themeToDark"))}">${icon(dark ? "sun" : "moon")}</button>
     <button class="btn btn-ghost" id="lang" lang="${locale === "ar" ? "en" : "ar"}">${esc(T("langToggle"))}</button>`;
@@ -1327,7 +1328,7 @@ async function scrDetails(id) {
       <li>${icon("map-pin")}<span>${esc(e.session.district)}</span><span class="k">${esc(T("district"))}</span></li>
       <li>${icon("languages")}<span>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</span><span class="k">${esc(T("tableLanguage"))}</span></li>
       <li>${icon("wallet")}<span>${esc(e.session.food_price_band.display)}</span><span class="k">${esc(T("foodBandLabel"))}</span></li>
-      <li>${icon("clock")}<span class="num">${esc(fmtDate(e.session.starts_at, { hour: "numeric", minute: "2-digit" }))}</span><span class="k">${esc(T("dateTime"))} · Asia/Qatar</span></li>
+      <li>${icon("clock")}<span class="num">${esc(fmtDate(e.session.starts_at, { hour: "numeric", minute: "2-digit" }))}</span><span class="k">${esc(T("dateTime"))}</span></li>
       ${acc ? `<li>${icon("info")}<span>${esc(acc)}</span><span class="k">${esc(T("accessibility"))}</span></li>` : ""}</ul>
     ${e.table ? `<section class="card stack"><div class="table-figure">${tableSvg({ seats: e.table.capacity, filled: e.table.confirmed_count,
         label: T("tableSeats", { n: e.table.confirmed_count, cap: e.table.capacity }) })}
