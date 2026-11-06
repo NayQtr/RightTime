@@ -30,7 +30,9 @@ From the launch checklist (5 Nov):
 
 Claude's open questions (waiting for the owner's answer):
 13. (done, eab2e63) Secret scan in the build gate: CI fails when a server key format appears in the shipped web files.
-13a. Backups: Supabase Pro or a daily encrypted dump by GitHub Actions? (see 12a)
+13a. Backups (6 Nov, Claude's recommendation, owner said do it): daily age-encrypted pg_dump by GitHub Actions now (.github/workflows/db-backup.yml, qatar/ops/db-backup.sh, steps in qatar/docs/ops/backup-restore.md; round trip tested locally), Supabase Pro at launch. Owner: make age key, add secrets SUPABASE_DB_URL (session pooler) + BACKUP_AGE_RECIPIENT, run once, test restore on staging.
+13g. GitHub default branch is the stale `add-rea-mcp-permissions`: scheduled/manual workflows (db-backup, Maestro app-e2e) only run from the default branch (dispatch returned 404). Owner: set default branch to `rightime-app`.
+13h. (done 6 Nov, 2ee806b) Light/dark switch in the Flutter app (profile), remembered on the device.
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
 13c. (done 5 Nov) Design proposals for the website and the app were approved and applied; see qatar/docs/design/herzone.app.md.
 13d. Copy proposals from the design pass of 5 Nov (qatar/docs/design/handoff.md section 8), each needs the owner's wording:
