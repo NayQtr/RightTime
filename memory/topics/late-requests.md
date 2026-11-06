@@ -29,7 +29,7 @@ From the launch checklist (5 Nov):
 12c. Real payment gateway: test cards / test mode only until launch.
 
 Claude's open questions (waiting for the owner's answer):
-13. Add a secret scan to the build gate (stop the deploy if a key appears in frontend code)? Yes/no.
+13. (done, eab2e63) Secret scan in the build gate: CI fails when a server key format appears in the shipped web files.
 13a. Backups: Supabase Pro or a daily encrypted dump by GitHub Actions? (see 12a)
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
 13c. (done 5 Nov) Design proposals for the website and the app were approved and applied; see qatar/docs/design/herzone.app.md.
@@ -50,7 +50,7 @@ Claude's open questions (waiting for the owner's answer):
 
 Identity (6 Nov, owner's image, replaces the butter palette): light = almond blossom «زهر اللوز» #F2D9ED with enchanting violet «البنفسجي الساحر» #3A2C39 ink; dark = #3A2C39 with #F2D9ED. Logo kept. Floating rounded top bar; details screen: report is a text link, cancel stands apart, no duplicate status pill. 52/52 contrast pairs pass.
 Motion (6 Nov, owner's list): ease-out in, ease-in out 20% shorter, press 0.97, stagger 30 ms, popovers from 0.95 out of their trigger, success pulse, theme circle reveal; tokens stagger/easingIn/easingInOut. Published 54af301. App press 0.97: owner said yes; every button wrapped in `Press` (lib/ui/common/press.dart, 56 buttons + 2 icon buttons). Linear NMX-67/68/69, Notion rows added.
-Older palette (5 Nov): light = soft butter «زبدة ناعمة» #EFDFCD with velvet-wine ink #65444E; dark = velvet wine «نبيذي مخملي» #65444E with butter #EFDFCD. Applied to design/tokens.json (web + app), icons, manifest; all 52 contrast pairs pass. Committed on rightime-app, NOT yet published to herzone.app or production (waits for the owner's word).
+Older palette (5 Nov): light = soft butter «زبدة ناعمة» #EFDFCD with velvet-wine ink #65444E; dark = velvet wine «نبيذي مخملي» #65444E with butter #EFDFCD. Applied to design/tokens.json (web + app), icons, manifest; all 52 contrast pairs pass. Replaced on 6 Nov by the identity above (never published).
 Still open in the plan:
 14. (done 5 Nov, later) Production released again: herzone-production serves 9d72927 (deployment dpl_GCa4DZJJLFUfrQU3w4Z9tUhWU67k, READY). Checks: release tag herzone-web@9d729270e845, call-requests and admin routes 401 without login, venue page 200, Sentry no new production issues. Migration 017 pasted and verified in both projects. Previously: herzone-production served ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
 14a. Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
