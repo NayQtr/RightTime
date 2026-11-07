@@ -10,6 +10,7 @@ import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
 
+import 'booking_test.dart' as b show Fake;
 import 'meetups_test.dart' as m show api, bookingId;
 import 'onboarding_test.dart' as o;
 import 'safety_test.dart' as s show Fake;
@@ -77,6 +78,27 @@ void main() {
       await tester.tap(find.byKey(const Key('danger')));
       await tester.pumpAndSettle();
       await expectLater(find.byType(MaterialApp), matchesGoldenFile(out('05_safety')));
+    });
+
+    testWidgets('$device: booking review after the seat is held', skip: skip, (tester) async {
+      size(tester);
+      final f = b.Fake();
+      await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: f.client));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('session-s9')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('hold')));
+      await tester.pumpAndSettle();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile(out('06_book')));
+    });
+
+    testWidgets('$device: account', skip: skip, (tester) async {
+      size(tester);
+      await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => m.api(online: () => true)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('حسابي').last);
+      await tester.pumpAndSettle();
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile(out('07_account')));
     });
   }
 }
