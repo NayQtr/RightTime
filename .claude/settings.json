@@ -2,6 +2,22 @@
   "permissions": {
     "allow": [
       "mcp__rea__*"
+    ],
+    "deny": [
+      "Read(**/node_modules/**)",
+      "Read(**/dist/**)",
+      "Read(**/build/**)",
+      "Read(**/.next/**)",
+      "Read(**/coverage/**)",
+      "Read(**/*.log)",
+      "Read(**/*.lock)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.apk)",
+      "Read(**/*.aab)"
     ]
   },
   "hooks": {
