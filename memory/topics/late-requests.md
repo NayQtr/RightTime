@@ -62,3 +62,4 @@ Still open in the plan:
 14c. Production venue page needs an email provider (no on-screen code in production).
 15. Maestro full-journey run needs the branch merged (NMX-56).
 16. Blockers NMX-22/23/24/26/28; the real payment gateway must send the cardholder name.
+17. Design phase 4, round 2 (7 Nov): the owner said the round-1 images were pink and violet like the site and app, so the page looked one-colour. Cause: Claude had put #F2D9ED and #3A2C39 in the image prompts. Regenerated 8 images in warm sand, cream, coffee and saffron tones (Qatari café: americano, iced latte, Spanish latte, saffron cake, tiramisu, cheesecake; no kunafa), plus 11 synthesised UI sounds and a Qatari-style instrumental. Credits used so far 185.33 of the owner's 300. Open: (a) which images to approve for the site and app; (b) whether the site and app palette should also move warmer, or keep the 6 Nov identity and let the photos bring the warmth; (c) approve the UI sounds and music.
