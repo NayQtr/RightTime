@@ -42,7 +42,6 @@ python3 qatar/design/contrast_check.py qatar/design/tokens.json
   production deployment, then smoke checks (release tag, pages 200, API 401 without login) and Sentry.
 - Never bypass a blocked or denied action; report it to the owner.
 - No pull requests unless asked. No purchases. No model names in commits.
-- Do not download or decompile competitors' apps.
 - English decks and materials use English screenshots only.
 - UI changes: the UI tests block Google Fonts, so also check layout with the real fonts at 360, 390, 402 and 430 px,
   in Arabic and English, light and dark. Temporary browser scripts go in `qatar/api/test/` (to import
