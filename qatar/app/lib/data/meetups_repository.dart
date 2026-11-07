@@ -110,7 +110,9 @@ class MeetupsRepository {
 
   /// Holds a seat for a few minutes and returns what the review needs (and the checkout link when no acknowledgement
   /// is needed).
-  Future<BookingStart> book(String sessionId) async => BookingStart.fromJson((await _api.send('POST', '/api/v1/bookings', body: {'session_id': sessionId}))!);
+  /// [occasion] is 'birthday' or 'other' when she celebrates on this date (the coordinator is told); null otherwise.
+  Future<BookingStart> book(String sessionId, {String? occasion}) async =>
+      BookingStart.fromJson((await _api.send('POST', '/api/v1/bookings', body: {'session_id': sessionId, 'occasion': ?occasion}))!);
 
   Future<BookingStart> booking(String bookingId) async => BookingStart.fromJson((await _api.send('GET', '/api/v1/bookings/$bookingId'))!);
 

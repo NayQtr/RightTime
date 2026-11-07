@@ -11,7 +11,7 @@ bookings = [BookingInput(
     conversation_language=b["conversation_language"], budget_tier_rank=int(b["budget_tier_rank"]),
     q05_topics=frozenset(b["q05_topics"]) if b.get("q05_topics") else None,
     consents_current=b.get("consents_current", True), age_attested=b.get("age_attested", True),
-    account_active=b.get("account_active", True), answers=b.get("answers")) for b in job["bookings"]]
+    account_active=b.get("account_active", True), answers=b.get("answers"), occasion=b.get("occasion")) for b in job["bookings"]]
 venues = None if job.get("venues") is None else [VenueInput(v["venue_id"], v["tier_rank"], v["capacity"], v["tables_available"]) for v in job["venues"]]
 r = run_matching(job["session_id"], job["mode"], job["rule_version"], job["seed"], bookings,
                  block_rows=[tuple(x) for x in job.get("blocks", [])], venue_capacity=job.get("venue_capacity", 6),

@@ -53,7 +53,7 @@ const NAV = [
   ["#/cases", "Trust & Safety", ["trust_safety"]],
   ["#/identity", "Identity checks", ["owner", "trust_safety"]],
   ["#/approvals", "Approvals", ["owner", "ops", "finance", "trust_safety", "analyst"]],
-  ["#/support", "Q07 private contact", ["owner", "ops"]],
+  ["#/support", "Support requests", ["owner", "ops"]],
   ["#/promo-codes", "Promo codes", ["owner"]],
   ["#/audit", "Audit log", ["owner"]],
 ];
@@ -462,11 +462,15 @@ async function scrApprovals() {
   $$("[data-rj]").forEach((b) => (b.onclick = async () => { const res = await api("POST", `${A}/approvals/${b.dataset.rj}:reject`); flash(msg(res, "Rejected")); if (res.ok) setTimeout(scrApprovals, 900); }));
 }
 
+const CASE_TYPES = { practical_arrangement_Q07: "Q07 private contact", occasion_celebration: "Celebration", payment: "Payment", refund: "Refund", general: "General" };
+const OCCASION_LABELS = { birthday: "birthday", other: "other occasion" };
+
 async function scrSupport() {
   const r = await api("GET", `${A}/support-cases`);
-  view("Q07", `<h1>Q07 private-contact requests</h1><p class="caption">Only the request is stored — never the reason (Article 16 Option A). Call the person, offer direct contact with the venue, and record only the outcome.</p><div id="flash"></div>
-    <table><thead><tr><th>Created</th><th>Name</th><th>Lang</th><th>Status</th><th></th></tr></thead><tbody>
-    ${(r.data.cases || []).map((c) => `<tr><td>${dt(c.created_at)}</td><td>${esc(c.display_name || "—")}</td><td>${esc(c.locale)}</td><td>${esc(c.status)}</td>
+  view("Support requests", `<h1>Support requests</h1><p class="caption">Q07 private contact: only the request is stored — never the reason (Article 16 Option A). Call the person, offer direct contact with the venue, and record only the outcome.<br>Celebration: she celebrates an occasion at this booking. Arrange the small preparations with the venue before the date.</p><div id="flash"></div>
+    <table><thead><tr><th>Created</th><th>Request</th><th>Name</th><th>Lang</th><th>Booking</th><th>Status</th><th></th></tr></thead><tbody>
+    ${(r.data.cases || []).map((c) => `<tr><td>${dt(c.created_at)}</td><td>${esc(CASE_TYPES[c.type] || c.type)}${c.occasion ? ` · ${esc(OCCASION_LABELS[c.occasion] || c.occasion)}` : ""}</td><td>${esc(c.display_name || "—")}</td><td>${esc(c.locale)}</td>
+      <td>${c.booking_ref ? `<span class="num">${esc(c.booking_ref)}</span> · ${esc(c.experience || "")} ${c.starts_at ? dt(c.starts_at) : ""}` : "—"}</td><td>${esc(c.status)}</td>
       <td><select class="input inline" data-sc="${c.id}"><option value="">set status…</option><option>in_progress</option><option>waiting_user</option><option>resolved</option><option>closed</option></select></td></tr>`).join("")}</tbody></table>`);
   $$("[data-sc]").forEach((s) => (s.onchange = async () => { if (!s.value) return; const res = await api("PATCH", `${A}/support-cases/${s.dataset.sc}`, { status: s.value }); flash(msg(res, "Updated")); }));
 }

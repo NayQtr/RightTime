@@ -1008,9 +1008,12 @@ async function decideApproval(ctx, approve) {
 // ------------------------------------------------------------------ support cases (Q07), audit, config
 async function supportCases(ctx) {
   const rows = await ctx.sql`
-    SELECT c.id, c.type, c.status, c.created_at, u.display_name, u.locale FROM app.support_cases c JOIN app.users u ON u.id = c.user_id
+    SELECT c.id, c.type, c.status, c.created_at, u.display_name, u.locale,
+           b.booking_ref, b.occasion, b.status AS booking_status, s.experience, s.starts_at
+      FROM app.support_cases c JOIN app.users u ON u.id = c.user_id
+      LEFT JOIN app.bookings b ON b.id = c.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id
      ORDER BY (c.status IN ('resolved','closed')), c.created_at DESC LIMIT 200`;
-  return json(200, { cases: rows.map((c) => ({ ...c, created_at: qa(c.created_at) })) });
+  return json(200, { cases: rows.map((c) => ({ ...c, created_at: qa(c.created_at), starts_at: qa(c.starts_at) })) });
 }
 
 async function updateSupportCase(ctx) {

@@ -95,7 +95,8 @@ export const paths = {
     responses: { 201: ok(obj({ session_id: uuid, position: { type: "integer" }, status: str({ enum: ["waiting"] }) }), "On the waitlist"), ...errors(401, 403, 404, 409) } } },
   "/api/v1/bookings": {
     post: { tags: ["bookings"], ...user, ...idem, summary: "Hold a seat (minutes) and get the checkout link",
-      requestBody: body(obj({ session_id: uuid, alternate_session_ids: { type: "array", items: uuid, maxItems: 3 } }, ["session_id"])),
+      requestBody: body(obj({ session_id: uuid, alternate_session_ids: { type: "array", items: uuid, maxItems: 3 },
+        occasion: nullable(str({ enum: ["birthday", "other"], description: "She celebrates an occasion on this date; the coordinator is told" })) }, ["session_id"])),
       responses: { 201: ok(obj({ booking_id: uuid, ref: str(), status: ref("BookingStatus"), hold_expires_at: ts,
         checkout_url: nullable(str({ description: "null when the late no-refund acknowledgement is required first (POST .../checkout)" })),
         amount: ref("Money"), cancellation: ref("RefundTerms") }), "Seat held"), ...errors(401, 403, 404, 409, 422) } },

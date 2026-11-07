@@ -32,6 +32,7 @@ class BookScreen extends StatefulWidget {
 class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
   BookingStart? b;
   bool busy = false, ack = false, waiting = false;
+  String occasion = 'none'; // celebration meetups: birthday | other | none
   ApiError? error;
   Timer? _poll;
 
@@ -68,7 +69,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _hold() => _run(() async => b = await context.read<MeetupsRepository>().book(widget.session.id));
+  Future<void> _hold() => _run(() async => b = await context.read<MeetupsRepository>().book(widget.session.id, occasion: occasion == 'none' ? null : occasion));
 
   Future<void> _pay() => _run(() async {
         final repo = context.read<MeetupsRepository>();
@@ -111,7 +112,20 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
       const SizedBox(height: HzSpace.s4),
     ];
     if (bk == null) {
-      children.add(Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat))));
+      children.addAll([
+        Text(t.occasionLegend, style: tt.titleMedium),
+        RadioGroup<String>(
+          groupValue: occasion,
+          onChanged: (v) => setState(() => occasion = v ?? 'none'),
+          child: Column(children: [
+            for (final (v, label) in [('birthday', t.occasionBirthday), ('other', t.occasionOther), ('none', t.occasionNo)])
+              TestId('occasion-$v', child: RadioListTile<String>(key: Key('occasion-$v'), contentPadding: EdgeInsets.zero, value: v, title: Text(label),
+                  secondary: v == 'birthday' ? const Icon(Icons.cake_outlined) : null)),
+          ]),
+        ),
+        const SizedBox(height: HzSpace.s3),
+        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat))),
+      ]);
     } else if (bk.paid) {
       children.addAll([
         TestId('paid', child: Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success))),

@@ -584,6 +584,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get bookSeat => 'احجزي مقعدك';
 
   @override
+  String get occasionLegend => 'هل تحتفلين بمناسبة في هذا الموعد؟';
+
+  @override
+  String get occasionBirthday => 'عيد ميلادي';
+
+  @override
+  String get occasionOther => 'مناسبة أخرى';
+
+  @override
+  String get occasionNo => 'لا';
+
+  @override
   String get reviewTitle => 'راجعي حجزك';
 
   @override

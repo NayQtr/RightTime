@@ -108,9 +108,9 @@ test("registration gate, consents, idempotent replay, refresh rotation", async (
 });
 
 // ===================================================================== questionnaire
-test("questionnaire QA-2026-04: validation codes, Q07 private contact case, derived profile", async () => {
+test("questionnaire QA-2026-05: validation codes, Q07 private contact case, derived profile", async () => {
   const q = (await call("GET", "/api/v1/questionnaires/current", { token: S.first.token, locale: "en" })).body;
-  assert.deepEqual(q.questions.map((x) => x.key), ["Q09", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q01", "Q04", "Q17", "Q05", "Q18", "Q19", "Q20", "Q06", "Q21", "Q22", "Q23", "Q24", "Q07"]);
+  assert.deepEqual(q.questions.map((x) => x.key), ["Q09", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q01", "Q04", "Q17", "Q05", "Q18", "Q19", "Q20", "Q06", "Q25", "Q21", "Q22", "Q23", "Q24", "Q07"]);
   assert.equal(q.questions.find((x) => x.key === "Q01").text, "In which language can you comfortably hold a full group conversation?");
   const opt = (key, ks) => { const qq = q.questions.find((x) => x.key === key); return { question_id: qq.id, option_ids: qq.options.filter((o) => ks.includes(o.key)).map((o) => o.id) }; };
   const bad = await call("POST", "/api/v1/questionnaire-responses", { token: S.first.token, body: { questionnaire_version_id: q.questionnaire_version_id, status: "submitted",
@@ -125,7 +125,7 @@ test("questionnaire QA-2026-04: validation codes, Q07 private contact case, deri
   assert.equal(ok.status, 201, JSON.stringify(ok.body));
   assert.deepEqual(ok.body.derived.conversation_languages, ["ar"]);
   assert.ok(ok.body.derived.private_contact_case_id);
-  assert.deepEqual(ok.body.completeness, { required_answered: 3, required_total: 3, optional_answered: 3, optional_total: 17 });
+  assert.deepEqual(ok.body.completeness, { required_answered: 3, required_total: 3, optional_answered: 3, optional_total: 18 });
   const [c] = await sql`SELECT type, notes_enc FROM app.support_cases WHERE id = ${ok.body.derived.private_contact_case_id}`;
   assert.equal(c.type, "practical_arrangement_Q07");
   assert.equal(c.notes_enc, null, "no Q07 details stored");

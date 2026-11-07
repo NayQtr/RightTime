@@ -81,6 +81,7 @@ class BookingInput:
     account_active: bool = True
     # r2-personality: {question_key: [option_key, ...]}, cleaned by the engine (personality.clean_answers)
     answers: Optional[Dict[str, List[str]]] = field(default=None, hash=False, compare=False)
+    occasion: Optional[str] = None     # migration 018: 'birthday' | 'other' | None
 
 
 @dataclass(frozen=True)
@@ -159,6 +160,26 @@ def jaccard(a: FrozenSet[str], b: FrozenSet[str]) -> float:
 def blocked_pairs(rows: Iterable[Tuple[str, str]]) -> Set[FrozenSet[str]]:
     """user_blocks rows (blocker, blocked) -> mutual pair set."""
     return {frozenset((a, b)) for a, b in rows if a != b}
+
+
+# Celebration tables (migration 018): a woman celebrating an occasion is seated only with women whose Q25 answer says
+# they would enjoy or not mind it. Applied as blocked pairs, so seating and validation enforce it like a block.
+CELEBRATION_QUESTION = "Q25"
+CELEBRATION_OK = ("love_to_join", "dont_mind")
+
+
+def celebration_pairs(pool: Sequence[BookingInput]) -> List[Tuple[str, str]]:
+    out: List[Tuple[str, str]] = []
+    for c in pool:
+        if not c.occasion:
+            continue
+        for o in pool:
+            if o.user_id == c.user_id:
+                continue
+            a = (o.answers or {}).get(CELEBRATION_QUESTION) or []
+            if not any(k in CELEBRATION_OK for k in a):
+                out.append((c.user_id, o.user_id))
+    return out
 
 
 def _conflicts(member: BookingInput, group: Sequence[BookingInput], blocks: Set[FrozenSet[str]]) -> bool:
@@ -448,8 +469,6 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
             check_questionnaire(questionnaire)
         except PersonalityError as e:
             raise MatchingError(str(e)) from None
-    blocks = blocked_pairs(block_rows)
-
     pool: List[BookingInput] = []
     ineligible: List[Tuple[BookingInput, str]] = []
     seen_users: Set[str] = set()
@@ -469,6 +488,7 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         else:
             seen_users.add(b.user_id)
             pool.append(b)
+    blocks = blocked_pairs(list(block_rows) + celebration_pairs(pool))
     answers_dropped = 0
     if personality:
         for i, b in enumerate(pool):

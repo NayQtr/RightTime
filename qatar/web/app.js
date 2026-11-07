@@ -860,6 +860,9 @@ async function scrSessions(preselect) {
       ${ok.length ? `<fieldset><legend class="sr-only">${esc(T("sessionsTitle"))}</legend><div class="options">${ok.map(card).join("")}</div></fieldset>`
         : `<div class="banner banner-info"><div>${esc(T("noSessions"))} <a href="#/quiz/${stepOfKey("Q01")}">${esc(T("editLanguages"))}</a></div></div>`}
       <fieldset id="alts" hidden><legend class="label">${esc(T("alternatesLegend"))}</legend><p class="caption">${esc(T("alternatesHelp"))}</p><div class="options" id="altlist"></div></fieldset>
+      <fieldset id="occ" hidden><legend class="label">${esc(T("occasionLegend"))}</legend><div class="options">
+        ${[["birthday", "occasionBirthday"], ["other", "occasionOther"], ["", "occasionNo"]].map(([v, k]) => `<label class="option radio"><input type="radio" name="occasion" value="${v}" ${v ? "" : "checked"}><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span>${v === "birthday" ? icon("cake") : ""}</label>`).join("")}
+      </div></fieldset>
       <div id="err" role="alert"></div>
     </form>
     <div class="sticky-bar"><div>
@@ -875,6 +878,7 @@ async function scrSessions(preselect) {
     setBusy($("#go"), false);
     const others = ok.filter((s) => s.id !== x.value && !s.my_booking_id);
     $("#alts").hidden = !others.length;
+    $("#occ").hidden = false;
     $("#altlist").innerHTML = others.slice(0, 6).map((s) => `<label class="option"><input type="checkbox" name="alt" value="${s.id}"><span class="tick" aria-hidden="true"></span><span>${esc(fmtDate(s.starts_at))} · ${esc(s.district)}</span></label>`).join("");
     $$("input[name=alt]").forEach((a) => (a.onchange = () => {
       const n = $$("input[name=alt]:checked").length;
@@ -887,7 +891,8 @@ async function scrSessions(preselect) {
     const chosen = radios.find((x) => x.checked);
     if (!chosen) return;
     setBusy($("#go"), true);
-    const r2 = await api("POST", "/api/v1/bookings", { session_id: chosen.value, alternate_session_ids: $$("input[name=alt]:checked").map((a) => a.value) });
+    const occasion = ($$("input[name=occasion]").find((o) => o.checked) || {}).value || null;
+    const r2 = await api("POST", "/api/v1/bookings", { session_id: chosen.value, alternate_session_ids: $$("input[name=alt]:checked").map((a) => a.value), occasion });
     setBusy($("#go"), false);
     if (!r2.ok) {
       $("#err").innerHTML = errorBanner(r2.data) + (r2.data.waitlist_href ? `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>` : "");

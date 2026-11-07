@@ -567,6 +567,8 @@ async function createPayment(tx, ctx, booking, attempt = 0) {
   return p;
 }
 
+const OCCASIONS = ["birthday", "other"];
+
 async function createBooking(ctx) {
   const { sql, body, user, cfg, locale } = ctx;
   requireUuid(body.session_id, "session_id");
@@ -574,6 +576,9 @@ async function createBooking(ctx) {
   alternates.forEach((a) => requireUuid(a, "alternate_session_ids"));
   if (alternates.length > 3 || alternates.includes(body.session_id)) fail(422, "VALIDATION_FAILED", [{ field: "alternate_session_ids", code: "INVALID" }]);
   if (!user.woman_confirmed_at) fail(422, "WOMEN_ONLY", [{ field: "woman_confirmed", code: "REQUIRED" }]);
+  // Celebration meetups (migration 018): she can say the date is for an occasion; the coordinator gets a case.
+  const occasion = body.occasion ?? null;
+  if (occasion !== null && !OCCASIONS.includes(occasion)) fail(422, "VALIDATION_FAILED", [{ field: "occasion", code: "INVALID" }]);
   const resp = await submittedResponse(sql, user.id);
   if (!resp) fail(422, "QUESTIONNAIRE_INCOMPLETE");
   const prof = await profileOf(sql, resp.id);
@@ -601,6 +606,11 @@ async function createBooking(ctx) {
     result = await sql.begin(async (tx) => {
       const [b] = await tx`
         SELECT (h).* FROM (SELECT app.hold_seat(${user.id}, ${s.id}, ${prof.tier.id}, ${resp.id}, ${alternates}::uuid[], ${idemKey}, ${cfg.seatHoldMinutes}) AS h) x`;
+      await tx`UPDATE app.bookings SET occasion = ${occasion} WHERE id = ${b.id}`;
+      if (occasion) {
+        const [open] = await tx`SELECT id FROM app.support_cases WHERE booking_id = ${b.id} AND type = 'occasion_celebration'`;
+        if (!open) await tx`INSERT INTO app.support_cases (user_id, booking_id, type) VALUES (${user.id}, ${b.id}, 'occasion_celebration')`;
+      }
       const [existing] = await tx`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
       const p = existing || await createPayment(tx, ctx, b);
       return { b, p };

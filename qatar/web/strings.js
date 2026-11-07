@@ -24,6 +24,7 @@ export const STRINGS = {
     priceStrip: "رسم التنظيم {fee} · الطعام يُدفع للمكان", continueToPay: "متابعة للدفع", noSessions: "لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.",
     editLanguages: "عدّلي لغاتك", alreadyBooked: "محجوز", languageMismatch: "بلغة لم تختاريها",
     // SCR-05
+    occasionLegend: "هل تحتفلين بمناسبة في هذا الموعد؟", occasionBirthday: "عيد ميلادي", occasionOther: "مناسبة أخرى", occasionNo: "لا",
     reviewTitle: "راجعي حجزك", experience: "التجربة", dateTime: "الموعد", district: "المنطقة", tableLanguage: "لغة الطاولة", groupSizeLabel: "حجم المجموعة",
     feeNow: "رسم التنظيم (يُدفع الآن)", foodAtVenue: "الطعام والمشروبات (تُدفع للمكان)", foodBand: "ضمن ميزانيتك: {band}",
     policyBox: "يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
@@ -160,6 +161,7 @@ export const STRINGS = {
     alternatesLegend: "Other sessions I could attend if needed (optional)", alternatesHelp: "Used only to offer a rebooking if the table doesn't fill. We never move you automatically.",
     priceStrip: "Organising fee {fee} · food paid to the venue", continueToPay: "Continue to payment", noSessions: "There are no sessions in your languages right now. We run Arabic and English tables only.",
     editLanguages: "Edit your languages", alreadyBooked: "Booked", languageMismatch: "Not in your languages",
+    occasionLegend: "Are you celebrating an occasion on this date?", occasionBirthday: "My birthday", occasionOther: "Another occasion", occasionNo: "No",
     reviewTitle: "Review your booking", experience: "Experience", dateTime: "Date & time", district: "Area", tableLanguage: "Table language", groupSizeLabel: "Group size",
     feeNow: "Organising fee (paid now)", foodAtVenue: "Food & drinks (paid to the venue)", foodBand: "Within your budget: {band}",
     policyBox: "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",

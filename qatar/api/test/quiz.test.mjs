@@ -1,5 +1,5 @@
 // Quiz-first questionnaire (spec 2026-10-28): public preview with display metadata, answers carried over from an
-// older version, QA-2026-04 required questions, and the HerZone women-only confirmation.
+// older version, QA-2026-05 required questions, and the HerZone women-only confirmation.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { buildTemplate, client, startTestEnv } from "./helpers.mjs";
@@ -21,7 +21,7 @@ async function registeredUser(name) {
 test("preview: published v4 without a token, with display metadata and the Qatar adaptations", async () => {
   const r = await call("GET", "/api/v1/questionnaires/preview", { locale: "en" });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(r.body.code, "QA-2026-04");
+  assert.equal(r.body.code, "QA-2026-05");
   assert.equal(r.body.draft, undefined, "no user data in the preview");
   const by = Object.fromEntries(r.body.questions.map((q) => [q.key, q]));
   assert.equal(by.Q05.layout, "chips");
@@ -54,7 +54,7 @@ test("current: answers from an older version are carried by question and option 
                  WHERE q.questionnaire_version_id = ${v1.id}
                    AND ((q.key = 'Q05' AND o.key IN ('food', 'travel', 'no_pref')) OR (q.key = 'Q01' AND o.key = 'lang_ar') OR (q.key = 'Q04' AND o.key = 'tier_2'))`;
   const cur = (await call("GET", "/api/v1/questionnaires/current", { token: u.token })).body;
-  assert.equal(cur.code, "QA-2026-04");
+  assert.equal(cur.code, "QA-2026-05");
   assert.equal(cur.submitted, null);
   assert.equal(cur.has_submitted_any, true);
   assert.equal(cur.carried.from_version_id, v1.id);

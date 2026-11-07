@@ -1166,6 +1166,30 @@ abstract class AppLocalizations {
   /// **'احجزي مقعدك'**
   String get bookSeat;
 
+  /// No description provided for @occasionLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل تحتفلين بمناسبة في هذا الموعد؟'**
+  String get occasionLegend;
+
+  /// No description provided for @occasionBirthday.
+  ///
+  /// In ar, this message translates to:
+  /// **'عيد ميلادي'**
+  String get occasionBirthday;
+
+  /// No description provided for @occasionOther.
+  ///
+  /// In ar, this message translates to:
+  /// **'مناسبة أخرى'**
+  String get occasionOther;
+
+  /// No description provided for @occasionNo.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا'**
+  String get occasionNo;
+
   /// No description provided for @reviewTitle.
   ///
   /// In ar, this message translates to:

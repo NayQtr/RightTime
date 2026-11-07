@@ -176,3 +176,41 @@ def test_invalid_input_rejected(kwargs):
 def test_booking_from_other_session_rejected():
     with pytest.raises(MatchingError):
         run_matching(SESSION, "dry_run", "r1-baseline", 1, make(4) + make(1, start=70, session="s-other"))
+
+
+# ----------------------------------------------------------------------------- celebration tables (migration 018)
+from dataclasses import replace as _replace
+
+
+def _q25(b, key):
+    return _replace(b, answers={"Q25": [key]} if key else None)
+
+
+@pytest.mark.parametrize("rule", ["r1-baseline", "r1-interest"])
+def test_celebrant_never_sits_with_a_woman_who_prefers_no_celebrations(rule):
+    pool = make(8)
+    pool[0] = _replace(_q25(pool[0], "love_to_join"), occasion="birthday")
+    pool[1] = _q25(pool[1], "prefer_none")
+    for i in range(2, 8):
+        pool[i] = _q25(pool[i], "dont_mind" if i % 2 else "love_to_join")
+    for seed in range(20):
+        r = run_matching(SESSION, "dry_run", rule, seed, pool)
+        for t in r.tables:
+            ids = {m.user_id for m in t.members}
+            assert not {"u000", "u001"} <= ids
+
+
+def test_unanswered_q25_counts_as_not_accepting():
+    pool = [_q25(b, "dont_mind") for b in make(5)]
+    pool[0] = _replace(pool[0], occasion="other")
+    pool[4] = _q25(pool[4], None)              # answered v4 only: no Q25
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 7, pool)
+    seated = {m.user_id for t in r.tables for m in t.members}
+    assert not {"u000", "u004"} <= seated
+    assert len(seated) == 4 and len(r.leftovers) == 1 and r.leftovers[0].booking.user_id in {"u000", "u004"}
+
+
+def test_no_celebrant_means_no_extra_rule():
+    pool = [_q25(b, "prefer_none") for b in make(6)]
+    r = run_matching(SESSION, "dry_run", "r1-baseline", 3, pool)
+    assert [t.size for t in r.tables] == [6]

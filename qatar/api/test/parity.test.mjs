@@ -13,6 +13,12 @@ const TOPICS = ["food", "travel", "sport", "books_culture", "creative_hobbies", 
 
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32); }
 
+// Q25 (questionnaire QA-2026-05) drives the celebration rule; sometimes missing, so "unanswered" is covered too.
+function withCelebration(r, answers) {
+  if (r() < 0.2) return answers;
+  return { ...(answers || {}), Q25: [["love_to_join", "dont_mind", "prefer_none"][Math.floor(r() * 3)]] };
+}
+
 function makeJob(seed) {
   const r = rng(seed);
   const n = 1 + Math.floor(r() * 30);
@@ -25,7 +31,8 @@ function makeJob(seed) {
       status: r() < 0.93 ? "paid_awaiting_group" : "payment_pending",
       conversation_language: r() < 0.7 ? "ar" : "en", budget_tier_rank: 1 + Math.floor(r() * 3),
       q05_topics: t.size ? [...t] : null, consents_current: r() < 0.97, age_attested: true, account_active: true,
-      answers: randomAnswers(r),
+      answers: withCelebration(r, randomAnswers(r)),
+      occasion: r() < 0.15 ? (r() < 0.7 ? "birthday" : "other") : null,
     });
   }
   const blocks = [];

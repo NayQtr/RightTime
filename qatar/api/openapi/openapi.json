@@ -1373,6 +1373,21 @@
                       "format": "uuid"
                     },
                     "maxItems": 3
+                  },
+                  "occasion": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "birthday",
+                          "other"
+                        ],
+                        "description": "She celebrates an occasion on this date; the coordinator is told"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [

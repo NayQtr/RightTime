@@ -16,6 +16,10 @@ const LANGUAGES = ["ar", "en"];
 const MODES = ["dry_run", "published"];
 const NO_PREF = "no_pref";
 const MAX_OPT_PASSES = 50;
+// Celebration tables (migration 018): a woman celebrating an occasion is seated only with women whose Q25 answer
+// says they would enjoy or not mind it. Applied as blocked pairs, so seating and validation enforce it like a block.
+export const CELEBRATION_QUESTION = "Q25";
+export const CELEBRATION_OK = ["love_to_join", "dont_mind"];
 
 export class MatchingError extends Error {}
 
@@ -47,6 +51,19 @@ export function blockedPairs(rows) {
   const s = new Set();
   for (const [a, b] of rows) if (a !== b) s.add(pairKey(a, b));
   return s;
+}
+
+export function celebrationPairs(pool) {
+  const out = [];
+  for (const c of pool) {
+    if (!c.occasion) continue;
+    for (const o of pool) {
+      if (o.user_id === c.user_id) continue;
+      const a = (o.answers && o.answers[CELEBRATION_QUESTION]) || [];
+      if (!a.some((k) => CELEBRATION_OK.includes(k))) out.push([c.user_id, o.user_id]);
+    }
+  }
+  return out;
 }
 
 const conflicts = (m, group, blocks) => group.some((o) => blocks.has(pairKey(m.user_id, o.user_id)));
@@ -327,8 +344,6 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
   if (personality) {
     try { checkQuestionnaire(questionnaire); } catch (e) { throw e instanceof PersonalityError ? new MatchingError(e.message) : e; }
   }
-  const blocks = blockedPairs(blockRows);
-
   const pool = [], ineligible = [], seenUsers = new Set();
   for (const b of bookings) {
     if (b.session_id !== sessionId) throw new MatchingError(`booking ${b.booking_id} belongs to another session`);
@@ -339,6 +354,7 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
     else if (seenUsers.has(b.user_id)) ineligible.push([b, "duplicate_user_in_session"]);
     else { seenUsers.add(b.user_id); pool.push(b); }
   }
+  const blocks = blockedPairs([...blockRows, ...celebrationPairs(pool)]);
   let answersDropped = 0;
   if (personality) {
     for (let i = 0; i < pool.length; i++) {

@@ -61,6 +61,19 @@ Future<RecordingLinkOpener> start(WidgetTester tester, Fake f) async {
 }
 
 void main() {
+  testWidgets('celebration: she says the date is her birthday, and the booking carries the occasion', (tester) async {
+    final f = Fake();
+    await start(tester, f);
+    expect(find.text('هل تحتفلين بمناسبة في هذا الموعد؟'), findsOneWidget);
+    expect(find.text('عيد ميلادي'), findsOneWidget);
+    expect(find.byIcon(Icons.cake_outlined), findsOneWidget);
+    await tester.tap(find.byKey(const Key('occasion-birthday')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    expect(f.sent['/api/v1/bookings'], {'session_id': 's9', 'occasion': 'birthday'});
+  });
+
   testWidgets('book: hold the seat, review fee and refund terms, pay on the provider page, come back paid', (tester) async {
     final f = Fake();
     final links = await start(tester, f);

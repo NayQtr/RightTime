@@ -176,7 +176,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   const seen = await walkQuiz(page);
   assert.deepEqual(seen.inters, ["doha", "community", "how", "energy", "science", "vibe", "curating", "ready", "safety", "data"]);
   assert.ok(seen.dataText.includes("لنتحدث عن بياناتك") && seen.dataText.includes("لا يرين رقمكِ ولا إجاباتكِ"), "data screen before sign-up");
-  assert.equal(seen.keys.length, 20, "20 questions in QA-2026-04");
+  assert.equal(seen.keys.length, 21, "21 questions in QA-2026-05");
   assert.ok(seen.keys.includes("ما الذي تبحثين عنه؟") && !seen.keys.some((k) => k.includes("تعرّف نفسك")), "addressed to a woman, no gender question");
   assert.equal(seen.timeleft, false, "no Timeleft text anywhere");
   assert.ok(!seen.keys.some((k) => /فكاهة|غير لائقة/.test(k)), "no politically incorrect humour question");
@@ -223,7 +223,7 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   assert.equal(await page.evaluate(() => localStorage.getItem("q_quiz")), null, "device copy deleted after submit");
   const [{ n: answered }] = await env.sql`SELECT count(DISTINCT a.question_id)::int AS n FROM app.answers a JOIN app.questionnaire_responses r ON r.id = a.response_id
                                           JOIN app.users u ON u.id = r.user_id WHERE u.display_name = 'مريم' AND r.status = 'submitted'`;
-  assert.equal(answered, 20, "every quiz answer saved");
+  assert.equal(answered, 21, "every quiz answer saved");
   await page.screenshot({ path: `${SHOTS}/05-what-you-get-ar.png`, fullPage: true });
   // the fixed bottom button never covers the last content (spec 2026-10-29 §4)
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -294,9 +294,15 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.waitForSelector("input[name=s]:checked");
   assert.equal(await page.locator("#go").isDisabled(), false);
   await page.screenshot({ path: `${SHOTS}/07-sessions-ar.png` });
+  // celebration meetups: the occasion question appears once a session is picked; "No" is preselected
+  assert.ok((await page.locator("#occ").innerText()).includes("هل تحتفلين بمناسبة في هذا الموعد؟"));
+  assert.equal(await page.locator("input[name=occasion]:checked").getAttribute("value"), "");
+  await page.locator("input[name=occasion][value=birthday]").check({ force: true });
   await page.click("#go");
   // review: the seeded session starts in ~24 h -> no-refund warning + acknowledgement (audit F1)
   await page.waitForSelector("#pay");
+  const occ = await env.sql`SELECT b.occasion, c.type FROM app.bookings b LEFT JOIN app.support_cases c ON c.booking_id = b.id ORDER BY b.created_at DESC LIMIT 1`;
+  assert.deepEqual(occ.map((r) => [r.occasion, r.type]), [["birthday", "occasion_celebration"]], "occasion stored, coordinator told");
   assert.ok((await page.locator("main").innerText()).includes("59 ر.ق"));
   assert.ok((await page.locator("#late").innerText()).includes("فلن يُسترد رسم التنظيم"));
   assert.equal(await page.locator("#pay").isDisabled(), true);

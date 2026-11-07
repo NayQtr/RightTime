@@ -590,6 +590,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookSeat => 'Book your seat';
 
   @override
+  String get occasionLegend => 'Are you celebrating an occasion on this date?';
+
+  @override
+  String get occasionBirthday => 'My birthday';
+
+  @override
+  String get occasionOther => 'Another occasion';
+
+  @override
+  String get occasionNo => 'No';
+
+  @override
   String get reviewTitle => 'Review your booking';
 
   @override

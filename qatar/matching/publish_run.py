@@ -43,7 +43,8 @@ def main(argv=None):
         conversation_language=b["conversation_language"], budget_tier_rank=int(b["budget_tier_rank"]),
         q05_topics=frozenset(b["q05_topics"]) if b.get("q05_topics") else None,
         consents_current=bool(b["consents_current"]), age_attested=bool(b["age_attested"]),
-        account_active=bool(b["account_active"])) for b in data["bookings"]]
+        account_active=bool(b["account_active"]),
+        answers=b.get("answers"), occasion=b.get("occasion")) for b in data["bookings"]]
     venues = [VenueInput(v["venue_id"], int(v["tier_rank"]), int(v["capacity"]), int(v["tables_available"]))
               for v in data["venues"]]
     max_tables = args.max_tables if args.max_tables is not None else sum(v.tables_available for v in venues)
