@@ -31,6 +31,7 @@ From the launch checklist (5 Nov):
 Claude's open questions (waiting for the owner's answer):
 13. (done, eab2e63) Secret scan in the build gate: CI fails when a server key format appears in the shipped web files.
 13a. Backups (6 Nov, Claude's recommendation, owner said do it): daily age-encrypted pg_dump by GitHub Actions now (.github/workflows/db-backup.yml, qatar/ops/db-backup.sh, steps in qatar/docs/ops/backup-restore.md; round trip tested locally), Supabase Pro at launch. Owner: make age key, add secrets SUPABASE_DB_URL (session pooler) + BACKUP_AGE_RECIPIENT, run once, test restore on staging.
+13i. (7 Nov) Fixes agenda: 19 items in the Notion database «إصلاحات هيرزون» (https://app.notion.com/p/b020674ff9434e2a98ae8de7ab7b1d4e); the owner marks decisions there, then Claude implements the approved ones in priority order.
 13g. GitHub default branch is the stale `add-rea-mcp-permissions`: scheduled/manual workflows (db-backup, Maestro app-e2e) only run from the default branch (dispatch returned 404). Owner: set default branch to `rightime-app`.
 13h. (done 6 Nov, 2ee806b) Light/dark switch in the Flutter app (profile), remembered on the device.
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.
