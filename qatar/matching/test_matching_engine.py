@@ -48,8 +48,9 @@ def test_thirteen_users_min_leftovers_unlimited_tables_seats_everyone():
 
 
 @pytest.mark.parametrize("n, max_tables, expected, left", [
-    (9, None, [4, 5], 0), (9, 2, [4, 5], 0), (9, 1, [6], 3), (10, None, [4, 6], 0),
-    (16, None, [4, 6, 6], 0), (12, None, [6, 6], 0), (7, None, [6], 1), (3, None, [], 3), (8, 0, [], 8),
+    # seats spread evenly (owner, 10 Nov: prefer 5-6 over 4): 10 -> 5 + 5, 16 -> 6 + 5 + 5, 15 -> 5 + 5 + 5
+    (9, None, [4, 5], 0), (9, 2, [4, 5], 0), (9, 1, [6], 3), (10, None, [5, 5], 0), (15, None, [5, 5, 5], 0),
+    (16, None, [5, 5, 6], 0), (12, None, [6, 6], 0), (7, None, [6], 1), (3, None, [], 3), (8, 0, [], 8),
 ])
 def test_min_leftovers_packing(n, max_tables, expected, left):
     r = run_matching(SESSION, "dry_run", "r1-baseline", 21, make(n), max_tables=max_tables)
@@ -214,3 +215,176 @@ def test_no_celebrant_means_no_extra_rule():
     pool = [_q25(b, "prefer_none") for b in make(6)]
     r = run_matching(SESSION, "dry_run", "r1-baseline", 3, pool)
     assert [t.size for t in r.tables] == [6]
+
+
+def test_celebrant_keeps_her_seat_the_other_woman_is_left_out():
+    # item 31: one of the two must be left out; it is always the woman who prefers no celebrations, never the celebrant
+    for q in ("prefer_none", None):
+        pool = [_q25(b, "dont_mind") for b in make(5)]
+        pool[0] = _replace(pool[0], occasion="birthday")
+        pool[4] = _q25(pool[4], q)
+        for rule in ("r1-baseline", "r1-interest"):
+            for seed in range(25):
+                r = run_matching(SESSION, "dry_run", rule, seed, pool)
+                assert [lo.booking.user_id for lo in r.leftovers] == ["u004"], (q, rule, seed)
+
+
+# ----------------------------------------------------------------------------- matching rules (migration 020)
+from matching_engine import (AGE_BANDS, HISTORY_LOOKBACK_DAYS, MATCHING_RULES, PRIORITY_REASON, age_band,
+                             effective_rules, repeat_rules)
+
+
+def _age(b, band):
+    return _replace(b, answers={**(b.answers or {}), "Q11": [band]})
+
+
+def _together(tables, a, b):
+    return any({a, b} <= {m.user_id for m in t.members} for t in tables)
+
+
+def _pair_seen(pool, history, rule="r1-baseline", seeds=range(30), a="u000", b="u001"):
+    return [seed for seed in seeds
+            if _together(run_matching(SESSION, "dry_run", rule, seed, pool, history=history).tables, a, b)]
+
+
+def test_rules_are_the_owners_provisional_values():
+    assert MATCHING_RULES == {
+        "repeat_block_days": 14, "repeat_decay_end_days": 42, "repeat_penalty": 0.1, "max_age_band_gap": 2,
+        "small_pool_below": 24, "small_repeat_block_days": 7, "small_max_age_band_gap": 3,
+        "low_match_below": {"personality_v1": 0.3, "interest_opt_v1": 0.15, "baseline_random": 0.15},
+        "priority_days": 28, "priority_boost": 0.05, "size4_penalty": 0.02}
+    assert MATCHING_RULES["repeat_decay_end_days"] <= HISTORY_LOOKBACK_DAYS
+    assert MATCHING_RULES["priority_days"] <= HISTORY_LOOKBACK_DAYS
+    small, regular = effective_rules(23, "interest_opt_v1"), effective_rules(24, "interest_opt_v1")
+    assert (small["small_session"], small["repeat_block_days"], small["max_age_band_gap"]) == (True, 7, 3)
+    assert (regular["small_session"], regular["repeat_block_days"], regular["max_age_band_gap"]) == (False, 14, 2)
+    assert regular["low_match_below"] == 0.15 and effective_rules(30, "personality_v1")["low_match_below"] == 0.3
+
+
+def test_no_repeat_within_14_days_in_a_regular_session():
+    pool = make(24)
+    assert _pair_seen(pool, [["u000", "u001", 14, False]]) == []
+    assert _pair_seen(pool, [["u001", "u000", 3, False]]) == []           # either order
+    assert _pair_seen(pool, [["u000", "u001", 15, False]]) != []          # after the block: allowed (baseline has no penalty)
+    r = run_matching(SESSION, "dry_run", "r1-interest", 1, pool, history=[["u000", "u001", 14, False]])
+    assert r.explanations["rules"]["repeat_block_days"] == 14 and r.explanations["rules"]["small_session"] is False
+
+
+def test_small_session_blocks_repeats_for_7_days_only():
+    pool = make(12)
+    assert _pair_seen(pool, [["u000", "u001", 7, False]]) == []
+    assert _pair_seen(pool, [["u000", "u001", 8, False]]) != []
+    assert run_matching(SESSION, "dry_run", "r1-baseline", 1, pool).explanations["rules"]["small_session"] is True
+
+
+def test_both_asked_to_meet_again_lifts_the_block_and_the_penalty():
+    assert _pair_seen(make(24), [["u000", "u001", 2, True]]) != []
+    blocked, penalties = repeat_rules([["u000", "u001", 2, True], ["u002", "u003", 20, True]],
+                                      effective_rules(24, "interest_opt_v1"))
+    assert blocked == [] and penalties == {}
+
+
+def test_repeat_penalty_falls_linearly_to_zero_at_42_days():
+    rules = effective_rules(24, "interest_opt_v1")
+    _, p = repeat_rules([["a", "b", 15, False], ["c", "d", 28, False], ["e", "f", 41, False], ["g", "h", 42, False]], rules)
+    assert p == {frozenset("ab"): 27 / 28, frozenset("cd"): 0.5, frozenset("ef"): 1 / 28}
+    _, p = repeat_rules([["a", "b", 8, False]], effective_rules(12, "interest_opt_v1"))
+    assert p == {frozenset("ab"): 34 / 35}            # small session: from the 7-day block down to 0 at 42 days
+    # recorded with the table: 0.1 x factor for the pair that sits together
+    pool = make(24)
+    seed = _pair_seen(pool, [["u000", "u001", 28, False]])[0]
+    r = run_matching(SESSION, "dry_run", "r1-baseline", seed, pool, history=[["u000", "u001", 28, False]])
+    rows = [e for t, e in zip(r.tables, r.explanations["tables"]) if _together([t], "u000", "u001")]
+    assert [e["repeat_penalty"] for e in rows] == [0.05]
+
+
+def test_optimised_rules_avoid_a_recent_repeat_when_tables_are_otherwise_equal():
+    pool = make(24, topics=False)                     # no answers: every seating scores the same, so the penalty decides
+    for seed in range(15):
+        r = run_matching(SESSION, "dry_run", "r1-interest", seed, pool, history=[["u000", "u001", 20, False]])
+        assert not _together(r.tables, "u000", "u001"), seed
+
+
+def test_age_gap_at_most_two_bands_in_a_regular_session():
+    assert age_band(_age(make(1)[0], "age_45_54")) == 3 and age_band(make(1)[0]) is None
+    assert age_band(_replace(make(1)[0], answers={"Q11": ["age_18_24", "age_55_plus"]})) is None
+    pool = make(24)
+    pool[0], pool[1], pool[2] = _age(pool[0], "age_18_24"), _age(pool[1], "age_45_54"), _age(pool[2], "age_35_44")
+    assert _pair_seen(pool, []) == []                               # 3 bands apart: never at one table
+    assert _pair_seen(pool, [], b="u002") != []                     # 2 bands apart: allowed
+    assert _pair_seen(pool, [], a="u001", b="u003") != []           # no age band: not limited
+
+
+def test_small_session_allows_three_age_bands():
+    pool = make(12)
+    pool[0], pool[1], pool[2] = _age(pool[0], "age_18_24"), _age(pool[1], "age_45_54"), _age(pool[2], "age_55_plus")
+    assert _pair_seen(pool, []) != []                               # 3 bands: allowed in a small session
+    assert _pair_seen(pool, [], b="u002") == []                     # 4 bands: never
+
+
+def test_low_match_tables_are_flagged_and_everyone_is_still_seated():
+    shared = [_replace(b, q05_topics=frozenset({"food", "travel"})) for b in make(6)]
+    assert run_matching(SESSION, "dry_run", "r1-interest", 1, shared).explanations["tables"][0]["low_match"] is False
+    one_each = ["food", "travel", "sport", "tech", "books_culture", "creative_hobbies"]
+    apart = [_replace(b, q05_topics=frozenset({t})) for b, t in zip(make(6), one_each)]
+    r = run_matching(SESSION, "dry_run", "r1-interest", 1, apart)
+    e = r.explanations["tables"][0]
+    assert e["score"] == 0 and e["low_match"] is True and r.tables[0].low_match is True
+    assert len(r.tables) == 1 and r.leftovers == []
+    assert r.explanations["rules"]["low_match_below"] == 0.15
+    silent = run_matching(SESSION, "dry_run", "r1-interest", 1, make(6, topics=False))
+    assert silent.explanations["tables"][0]["low_match"] is False   # no score: nothing to judge
+
+
+def test_every_table_records_its_score_components():
+    pool = make(13)
+    pool[0] = _replace(pool[0], unseated_days_ago=5)
+    r = run_matching(SESSION, "dry_run", "r1-interest", 3, pool, history=[["u001", "u002", 30, False]])
+    keys = {"interest", "cohesion", "score", "repeat_penalty", "priority_boost", "size_penalty", "objective", "low_match"}
+    for e in r.explanations["tables"]:
+        assert keys <= set(e)
+        assert e["size_penalty"] == (0.02 if e["size"] == 4 else 0)
+        assert abs(e["objective"] - (e["score"] - e["repeat_penalty"] + e["priority_boost"] - e["size_penalty"])) < 1e-3
+    assert sum(e["priority_boost"] for e in r.explanations["tables"]) == 0.05
+
+
+def test_a_woman_left_without_a_table_lately_gets_a_seat_first():
+    pool = make(13, topics=False)                     # 2 tables for 13 women: one is left out
+    left_out = set()
+    for seed in range(20):
+        who = run_matching(SESSION, "dry_run", "r1-interest", seed, pool, max_tables=2).leftovers[0].booking.booking_id
+        left_out.add(who)
+        prio = [_replace(b, unseated_days_ago=10) if b.booking_id == who else b for b in pool]
+        r = run_matching(SESSION, "dry_run", "r1-interest", seed, prio, max_tables=2)
+        assert len(r.leftovers) == 1 and r.leftovers[0].booking.booking_id != who, seed
+        assert r.leftovers[0].reason == PRIORITY_REASON
+        assert sum(t.size for t in r.tables) == 12      # the number seated never falls
+        late = [_replace(b, unseated_days_ago=29) if b.booking_id == who else b for b in pool]
+        assert run_matching(SESSION, "dry_run", "r1-interest", seed, late, max_tables=2).leftovers[0].booking.booking_id == who
+        assert run_matching(SESSION, "dry_run", "r1-baseline", seed, prio, max_tables=2).leftovers[0].booking.booking_id == who
+    assert len(left_out) > 1
+
+
+def test_priority_never_takes_a_celebrants_seat():
+    pool = [_q25(b, "love_to_join") for b in make(7, topics=False)]
+    pool[0] = _replace(pool[0], occasion="birthday")
+    for seed in range(20):
+        r = run_matching(SESSION, "dry_run", "r1-interest", seed, pool, max_tables=1)
+        others = [lo.booking.booking_id for lo in r.leftovers]
+        prio = [_replace(b, unseated_days_ago=3) if b.booking_id in others else b for b in pool]
+        r = run_matching(SESSION, "dry_run", "r1-interest", seed, prio, max_tables=1)
+        assert "u000" in {m.user_id for m in r.tables[0].members}, seed
+        assert len(r.tables[0].members) == 6
+
+
+def test_history_and_unseated_days_enter_the_inputs_hash_only_when_present():
+    pool = make(8)
+    plain = run_matching(SESSION, "dry_run", "r1-interest", 1, pool).inputs_hash
+    assert run_matching(SESSION, "dry_run", "r1-interest", 1, pool, history=[]).inputs_hash == plain
+    assert run_matching(SESSION, "dry_run", "r1-interest", 1, pool, history=[["u000", "u001", 50, False]]).inputs_hash != plain
+    pool2 = [_replace(pool[0], unseated_days_ago=40)] + pool[1:]
+    assert run_matching(SESSION, "dry_run", "r1-interest", 1, pool2).inputs_hash != plain
+
+
+def test_age_bands_are_the_questionnaire_order():
+    assert AGE_BANDS == ("age_18_24", "age_25_34", "age_35_44", "age_45_54", "age_55_plus")

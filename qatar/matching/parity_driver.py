@@ -1,9 +1,14 @@
 """Reads a JSON matching job on stdin, runs the Python reference engine, prints a JSON result.
-Used by qatar/api/test/parity.test.mjs to prove the JavaScript port gives identical results."""
+Used by qatar/api/test/parity.test.mjs to prove the JavaScript port gives identical results.
+With --rules it prints MATCHING_RULES instead, so the test can check both engines use the same values."""
 import json
 import sys
 
-from matching_engine import BookingInput, VenueInput, run_matching
+from matching_engine import MATCHING_RULES, BookingInput, VenueInput, run_matching
+
+if "--rules" in sys.argv:
+    print(json.dumps(MATCHING_RULES))
+    sys.exit(0)
 
 job = json.load(sys.stdin)
 bookings = [BookingInput(
@@ -11,12 +16,13 @@ bookings = [BookingInput(
     conversation_language=b["conversation_language"], budget_tier_rank=int(b["budget_tier_rank"]),
     q05_topics=frozenset(b["q05_topics"]) if b.get("q05_topics") else None,
     consents_current=b.get("consents_current", True), age_attested=b.get("age_attested", True),
-    account_active=b.get("account_active", True), answers=b.get("answers"), occasion=b.get("occasion")) for b in job["bookings"]]
+    account_active=b.get("account_active", True), answers=b.get("answers"), occasion=b.get("occasion"),
+    unseated_days_ago=b.get("unseated_days_ago")) for b in job["bookings"]]
 venues = None if job.get("venues") is None else [VenueInput(v["venue_id"], v["tier_rank"], v["capacity"], v["tables_available"]) for v in job["venues"]]
 r = run_matching(job["session_id"], job["mode"], job["rule_version"], job["seed"], bookings,
                  block_rows=[tuple(x) for x in job.get("blocks", [])], venue_capacity=job.get("venue_capacity", 6),
                  venues=venues, packing_mode=job.get("packing_mode", "min_leftovers"), max_tables=job.get("max_tables"),
-                 questionnaire=job.get("questionnaire"))
+                 questionnaire=job.get("questionnaire"), history=job.get("history") or [])
 print(json.dumps({
     "tables": [{"code": t.table_code, "language": t.language, "tier": t.tier_rank, "venue_id": t.venue_id,
                 "members": [m.booking_id for m in t.members], "themes": t.themes} for t in r.tables],

@@ -24,6 +24,14 @@ Soft objective (rule_version 'interest_opt_v1' only; baseline is random within c
   Missing Q05 answers (or 'no_pref') are re-weighted, not penalised: such members are simply left out
   of I and C, and if a component cannot be computed its weight moves to the other component.
 Ties are broken by the stored seed. Weights are hypotheses, not validated (A08).
+
+Matching rules (owner's proposals, built provisionally on 10 Nov 2026; values in MATCHING_RULES):
+  * hard: no repeat of the same two women at a table within 14 days (7 in a small session), unless both asked to stay
+    in touch; no two women more than 2 Q11 age bands apart (3 in a small session). Applied as blocked pairs.
+  * soft (optimised rule versions): a repeat penalty that falls to 0 at 42 days, a small boost for a woman left
+    without a table in the last 28 days, and a small penalty for a table of 4. Tables below a score threshold are
+    flagged "low match" for coordinators; everyone is still seated.
+  * celebrants are seated first, so the celebration rule leaves the other woman out (item 31).
 """
 from __future__ import annotations
 
@@ -82,6 +90,7 @@ class BookingInput:
     # r2-personality: {question_key: [option_key, ...]}, cleaned by the engine (personality.clean_answers)
     answers: Optional[Dict[str, List[str]]] = field(default=None, hash=False, compare=False)
     occasion: Optional[str] = None     # migration 018: 'birthday' | 'other' | None
+    unseated_days_ago: Optional[int] = None  # migration 020: days since a session where she was left without a table
 
 
 @dataclass(frozen=True)
@@ -105,6 +114,9 @@ class Table:
     member_scores: Dict[str, Optional[float]] = field(default_factory=dict)
     energy: Optional[float] = None
     themes: List[dict] = field(default_factory=list)
+    soft: Dict[str, float] = field(default_factory=dict)   # repeat_penalty, priority_boost, size_penalty
+    objective: Optional[float] = None
+    low_match: bool = False
 
     @property
     def size(self) -> int:
@@ -129,6 +141,7 @@ class MatchResult:
     leftovers: List[Leftover]
     ineligible: List[Tuple[BookingInput, str]]
     explanations: dict
+    rules: dict = field(default_factory=dict)
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -182,6 +195,99 @@ def celebration_pairs(pool: Sequence[BookingInput]) -> List[Tuple[str, str]]:
     return out
 
 
+# Age range (Q11), in order: the age-gap rule counts bands between two women.
+AGE_QUESTION = "Q11"
+AGE_BANDS = ("age_18_24", "age_25_34", "age_35_44", "age_45_54", "age_55_plus")
+
+# Matching rules: the owner's proposals, built provisionally on 10 Nov 2026 (Notion fixes 1, 2, 5, 7, 8, 9, 13 and
+# item 31). Change them here AND in MATCHING_RULES in qatar/api/src/matching/engine.js: the parity test checks that
+# both are equal. Days are Doha calendar days between two sessions (app.matching_input, migration 020). Scores and
+# penalties are on the engine's 0..1 table-score scale. Soft rules steer the optimised rule versions only.
+MATCHING_RULES = {
+    "repeat_block_days": 14,       # hard: the same two women never share a table again within 14 days...
+    "repeat_decay_end_days": 42,   # ...then a penalty that falls linearly to 0 at 42 days...
+    "repeat_penalty": 0.1,         # ...worth 0.1 per pair at full strength. Both asked to stay in touch = exempt.
+    "max_age_band_gap": 2,         # hard: at most 2 Q11 age bands apart at one table; no age band = not limited
+    "small_pool_below": 24,        # a session with fewer eligible women than this is small, and then:
+    "small_repeat_block_days": 7,  #   the hard no-repeat window is 7 days
+    "small_max_age_band_gap": 3,   #   and 3 age bands apart are allowed
+    # Coordinators see "Low match" on a table scoring below this (everyone is still seated). Per algorithm, because
+    # the scales differ: r2 averages similarity over all answers, r1 is Jaccard overlap of topics only.
+    "low_match_below": {"personality_v1": 0.3, "interest_opt_v1": 0.15, "baseline_random": 0.15},
+    "priority_days": 28,           # a woman left without a table in a session in the last 28 days (4 weeks)...
+    "priority_boost": 0.05,        # ...adds 0.05 to her table's score: she takes a seat when that costs the table less
+    "size4_penalty": 0.02,         # a table of 4 counts 0.02 less, so the engine prefers 5-6 when it can
+}
+# app.matching_input() returns history from this many days back (migration 020); the day windows must fit in it.
+HISTORY_LOOKBACK_DAYS = 90
+PRIORITY_REASON = "seat_given_to_priority"
+
+
+def effective_rules(pool_size: int, algorithm: str) -> dict:
+    """Rules in force for this pool: a small session relaxes the hard rules."""
+    r = MATCHING_RULES
+    small = pool_size < r["small_pool_below"]
+    return {
+        "small_session": small,
+        "repeat_block_days": r["small_repeat_block_days"] if small else r["repeat_block_days"],
+        "repeat_decay_end_days": r["repeat_decay_end_days"],
+        "repeat_penalty": r["repeat_penalty"],
+        "max_age_band_gap": r["small_max_age_band_gap"] if small else r["max_age_band_gap"],
+        "priority_days": r["priority_days"],
+        "priority_boost": r["priority_boost"],
+        "size4_penalty": r["size4_penalty"],
+        "low_match_below": r["low_match_below"][algorithm],
+    }
+
+
+def age_band(b: BookingInput) -> Optional[int]:
+    """Index of her Q11 age band, or None when she gave none (or more than one)."""
+    given = (b.answers or {}).get(AGE_QUESTION)
+    known = {x for x in given if x in AGE_BANDS} if isinstance(given, list) else set()
+    return AGE_BANDS.index(next(iter(known))) if len(known) == 1 else None
+
+
+def age_gap_pairs(pool: Sequence[BookingInput], max_gap: int) -> List[Tuple[str, str]]:
+    """Pairs more than max_gap age bands apart; applied as blocked pairs (hard)."""
+    out: List[Tuple[str, str]] = []
+    bands = [age_band(b) for b in pool]
+    for i in range(len(pool)):
+        if bands[i] is None:
+            continue
+        for j in range(i + 1, len(pool)):
+            if bands[j] is not None and abs(bands[i] - bands[j]) > max_gap:
+                out.append((pool[i].user_id, pool[j].user_id))
+    return out
+
+
+def repeat_rules(history: Iterable[Sequence], rules: dict):
+    """history rows (app.matching_input, migration 020): [user_a, user_b, days apart, both asked to stay in touch].
+    Returns (blocked pairs within the block window, {pair: penalty factor from 1 down to 0} after it)."""
+    blocked: List[Tuple[str, str]] = []
+    penalties: Dict[FrozenSet[str], float] = {}
+    span = rules["repeat_decay_end_days"] - rules["repeat_block_days"]
+    for a, b, days, mutual in history:
+        if a == b or mutual:
+            continue
+        if days <= rules["repeat_block_days"]:
+            blocked.append((a, b))
+        elif days < rules["repeat_decay_end_days"]:
+            f = (rules["repeat_decay_end_days"] - days) / span
+            k = frozenset((a, b))
+            if k not in penalties or f > penalties[k]:
+                penalties[k] = f
+    return blocked, penalties
+
+
+def _has_priority(b: BookingInput, rules: dict) -> bool:
+    return b.unseated_days_ago is not None and b.unseated_days_ago <= rules["priority_days"]
+
+
+def _celebrants_first(items: list, booking=lambda x: x) -> list:
+    """Item 31: celebrants are seated first, so when the celebration rule leaves someone out it is the other woman."""
+    return [x for x in items if booking(x).occasion] + [x for x in items if not booking(x).occasion]
+
+
 def _conflicts(member: BookingInput, group: Sequence[BookingInput], blocks: Set[FrozenSet[str]]) -> bool:
     return any(frozenset((member.user_id, other.user_id)) in blocks for other in group)
 
@@ -217,14 +323,44 @@ def _total(groups: Sequence[Sequence[BookingInput]]) -> float:
     return sum((score_group(g)[2] or 0.0) for g in groups)
 
 
+def _soft_parts(g: Sequence[BookingInput], rules: dict, soft: dict) -> Dict[str, float]:
+    """Soft rules at one table, on the score scale: the repeat penalty of every pair that met recently, the priority
+    boost of each woman left without a table lately, and the size-4 penalty. Sums run left to right as in engine.js."""
+    rp = 0.0
+    penalties = soft["penalties"]
+    if penalties:
+        for i in range(len(g)):
+            for j in range(i + 1, len(g)):
+                f = penalties.get(frozenset((g[i].user_id, g[j].user_id)))
+                if f is not None:
+                    rp += f
+    np_ = sum(1 for m in g if m.booking_id in soft["priority"])
+    return {"repeat_penalty": rules["repeat_penalty"] * rp, "priority_boost": rules["priority_boost"] * np_,
+            "size_penalty": rules["size4_penalty"] if len(g) == MIN_TABLE else 0}
+
+
+def _objective_of(score: float, p: Dict[str, float]) -> float:
+    return score - p["repeat_penalty"] + p["priority_boost"] - p["size_penalty"]
+
+
+def _make_objective(algorithm: str, rules: dict, soft: dict):
+    """The value the optimiser maximises for one table: its score with the soft rules applied."""
+    score = _scorer(algorithm)
+
+    def objective(g):
+        return _objective_of(score(g)[2] or 0.0, _soft_parts(g, rules, soft))
+    return objective
+
+
 def _table_sizes(n: int, max_size: int, packing: str = PACKING_MODE, max_tables: Optional[int] = None) -> List[int]:
     """Target table sizes for n people (each 4..max_size, at most max_tables tables; None = no limit).
 
     greedy_6:      full tables first; a remainder of 4+ forms its own table, a smaller one is left over
                    (v0.3 §4.4.1 D19: 13 -> 6 + 6 + 1). Full tables are never split to rescue a remainder.
     min_leftovers: choose the table count k that seats the most people (k * 4 <= n, seated = min(n, k * max)),
-                   preferring fewer tables on a tie; then fill each table to max_size while every remaining
-                   table can still reach 4 (9 -> 5 + 4, 13 -> 5 + 4 + 4, 16 -> 6 + 6 + 4)."""
+                   preferring fewer tables on a tie; then spread the seats evenly, which gives the fewest tables of
+                   4 (owner, 10 Nov: prefer 5-6; a table of 4 stays allowed): 9 -> 5 + 4, 10 -> 5 + 5,
+                   13 -> 5 + 4 + 4, 16 -> 6 + 5 + 5."""
     limit = n // MIN_TABLE if max_tables is None else min(max_tables, n // MIN_TABLE)
     if limit <= 0:
         return []
@@ -233,12 +369,8 @@ def _table_sizes(n: int, max_size: int, packing: str = PACKING_MODE, max_tables:
         sizes = [max_size] * full + ([rest] if rest >= MIN_TABLE else [])
         return sizes[:limit]
     k = max(range(1, limit + 1), key=lambda k: (min(n, k * max_size), -k))
-    left, sizes = min(n, k * max_size), []
-    for i in range(k, 0, -1):
-        size = min(max_size, left - MIN_TABLE * (i - 1))
-        sizes.append(size)
-        left -= size
-    return sizes
+    base, extra = divmod(min(n, k * max_size), k)
+    return [base + 1 if i < extra else base for i in range(k)]
 
 
 # ----------------------------------------------------------------------------- group formation
@@ -327,13 +459,12 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], val
     return groups
 
 
-def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], algorithm: str, max_size: int):
+def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], algorithm: str, max_size: int,
+                  objective):
     """r2: the cohesion term can trap swap search between two profiles, so a second start first clusters on
-    pair_total; both starts then climb on the table score and the higher total wins (never below the plain climb)."""
-    score = _scorer(algorithm)
-
-    def value(g):
-        return score(g)[2] or 0.0
+    pair_total; both starts then climb on the table value and the higher total wins (never below the plain climb).
+    objective(group) is the table score with the soft rules applied (_make_objective)."""
+    value = objective
 
     if algorithm != PERSONALITY:
         return _optimise(groups, blocks, value)
@@ -349,9 +480,15 @@ def _optimise_for(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]],
 
 
 def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[str]], algorithm: str, seed: int,
-                packing: str = PACKING_MODE, budget: Optional[dict] = None):
-    """budget = {"left": int | None}: tables still available in the session; consumed by the tables formed."""
-    ordered = stable_shuffle(cell, seed)
+                packing: str = PACKING_MODE, budget: Optional[dict] = None, objective=None):
+    """budget = {"left": int | None}: tables still available in the session; consumed by the tables formed.
+    objective(group) = table value for the optimiser (default: the plain table score)."""
+    if objective is None:
+        score = _scorer(algorithm)
+
+        def objective(g):
+            return score(g)[2] or 0.0
+    ordered = _celebrants_first(stable_shuffle(cell, seed))
     sizes = _table_sizes(len(ordered), max_size, packing, None if budget is None else budget["left"])
     if budget is not None and budget["left"] is not None:
         budget["left"] -= len(sizes)
@@ -359,23 +496,33 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
         return [], [(m, "cell_below_quorum") for m in ordered]
     groups, unseated = _seat_greedy(ordered, sizes, blocks)
     if algorithm in OPTIMISED and len(groups) > 1:
-        groups = _optimise_for(groups, blocks, algorithm, max_size)
+        groups = _optimise_for(groups, blocks, algorithm, max_size, objective)
     return groups, unseated
+
+
+def _table_fit(t: Table):
+    return (t.size, -t.tier_rank, t.table_code)
+
+
+def _can_join(m: BookingInput, t: Table, max_size: int, blocks: Set[FrozenSet[str]]) -> bool:
+    return (t.language == m.conversation_language and t.tier_rank <= m.budget_tier_rank
+            and t.size < max_size and not _conflicts(m, t.members, blocks))
 
 
 def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max_size: int,
                              blocks: Set[FrozenSet[str]], algorithm: str, seed: int, next_code,
-                             packing: str = PACKING_MODE, budget: Optional[dict] = None) -> Tuple[List[Table], List[Leftover]]:
+                             packing: str = PACKING_MODE, budget: Optional[dict] = None,
+                             objective=None) -> Tuple[List[Table], List[Leftover]]:
     """Seat leftovers at an existing table of the SAME language whose tier <= their cap (never higher);
     then pool what remains per language and form new tables at the lowest cap among members."""
     remaining: List[Leftover] = []
-    for lo in sorted(leftovers, key=lambda x: (_stable_key(seed, x.booking.booking_id))):
+    ordered = _celebrants_first(sorted(leftovers, key=lambda x: (_stable_key(seed, x.booking.booking_id))),
+                                lambda lo: lo.booking)
+    for lo in ordered:
         m = lo.booking
-        fit = [t for t in tables
-               if t.language == m.conversation_language and t.tier_rank <= m.budget_tier_rank
-               and t.size < max_size and not _conflicts(m, t.members, blocks)]
+        fit = [t for t in tables if _can_join(m, t, max_size, blocks)]
         if fit:
-            target = min(fit, key=lambda t: (t.size, -t.tier_rank, t.table_code))
+            target = min(fit, key=_table_fit)
             target.members.append(m)
         else:
             remaining.append(lo)
@@ -384,12 +531,51 @@ def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max
     for lang in LANGUAGES:
         pool = [lo.booking for lo in remaining if lo.booking.conversation_language == lang]
         reasons = {lo.booking.booking_id: lo.reason for lo in remaining}
-        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed, packing, budget)
+        groups, unseated = form_groups(pool, max_size, blocks, algorithm, seed, packing, budget, objective)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang,
                                 tier_rank=min(m.budget_tier_rank for m in g), members=list(g)))
         final_left.extend(Leftover(m, reasons.get(m.booking_id, r)) for m, r in unseated)
     return tables, final_left
+
+
+def seat_priority(tables: List[Table], leftovers: List[Leftover], max_size: int, blocks: Set[FrozenSet[str]],
+                  objective, soft: dict, seed: int) -> List[Leftover]:
+    """Priority (Notion fix 9): a woman still without a seat who was left without a table lately takes the seat of a
+    woman without priority when the table's value (score with the boost) rises, i.e. when the swap costs the table
+    less than the boost. The best such swap is taken; a celebrant never gives up her seat (item 31). The woman who
+    gives up her seat takes any other seat she fits, else she is a leftover. The number seated never falls."""
+    left = list(leftovers)
+    queue = sorted((lo for lo in left if lo.booking.booking_id in soft["priority"]),
+                   key=lambda lo: _stable_key(seed, lo.booking.booking_id))
+    for lo in queue:
+        m = lo.booking
+        best = None
+        for t in tables:
+            if t.language != m.conversation_language or t.tier_rank > m.budget_tier_rank:
+                continue
+            before = objective(t.members)
+            for i, s in enumerate(t.members):
+                if s.booking_id in soft["priority"] or s.occasion:
+                    continue
+                cand = t.members[:i] + [m] + t.members[i + 1:]
+                if not _group_ok(cand, blocks):
+                    continue
+                gain = objective(cand) - before
+                if gain > 1e-12 and (best is None or gain > best[2] + 1e-12):
+                    best = (t, i, gain, cand)
+        if best is None:
+            continue
+        t, i, _, cand = best
+        out = t.members[i]
+        t.members = cand
+        left = [x for x in left if x is not lo]
+        fit = [x for x in tables if x is not t and _can_join(out, x, max_size, blocks)]
+        if fit:
+            min(fit, key=_table_fit).members.append(out)
+        else:
+            left.append(Leftover(out, PRIORITY_REASON))
+    return left
 
 
 def assign_venues(tables: List[Table], venues: Optional[Sequence[VenueInput]]) -> List[str]:
@@ -409,7 +595,9 @@ def assign_venues(tables: List[Table], venues: Optional[Sequence[VenueInput]]) -
     return warnings
 
 
-def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], params: dict, with_answers: bool = False) -> str:
+def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], params: dict, with_answers: bool = False,
+                history: Sequence[Sequence] = ()) -> str:
+    """history and unseated days (migration 020) are added only when present, so earlier runs keep their hash."""
     doc = {
         "params": params,
         "pool": sorted([
@@ -418,6 +606,11 @@ def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], param
             for b in pool]),
         "blocks": sorted(sorted(p) for p in blocks),
     }
+    if history:
+        doc["history"] = sorted([a, b, d, bool(m)] if a < b else [b, a, d, bool(m)] for a, b, d, m in history)
+    unseated = sorted([b.booking_id, b.unseated_days_ago] for b in pool if b.unseated_days_ago is not None)
+    if unseated:
+        doc["unseated"] = unseated
     return hashlib.sha256(json.dumps(doc, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
 
 
@@ -446,9 +639,11 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
                  bookings: Sequence[BookingInput], block_rows: Iterable[Tuple[str, str]] = (),
                  venue_capacity: int = MAX_TABLE, venues: Optional[Sequence[VenueInput]] = None,
                  packing_mode: str = PACKING_MODE, max_tables: Optional[int] = None,
-                 questionnaire: Optional[Dict[str, List[str]]] = None) -> MatchResult:
+                 questionnaire: Optional[Dict[str, List[str]]] = None,
+                 history: Iterable[Sequence] = ()) -> MatchResult:
     """max_tables = bookable venue tables for the session (None = unlimited). Cells are filled in sorted
-    (language, tier) order, so when tables are scarce earlier cells are served first."""
+    (language, tier) order, so when tables are scarce earlier cells are served first.
+    history = rows [user_a, user_b, days apart, mutual] (repeat_rules); bookings may carry unseated_days_ago."""
     if mode not in MODES:
         raise MatchingError(f"mode must be one of {MODES}")
     if rule_version not in RULE_OBJECTIVES:
@@ -488,7 +683,13 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
         else:
             seen_users.add(b.user_id)
             pool.append(b)
-    blocks = blocked_pairs(list(block_rows) + celebration_pairs(pool))
+    history = [list(row) for row in (history or ())]
+    rules = effective_rules(len(pool), algorithm)
+    repeat_blocked, penalties = repeat_rules(history, rules)
+    blocks = blocked_pairs(list(block_rows) + celebration_pairs(pool) + age_gap_pairs(pool, rules["max_age_band_gap"])
+                           + repeat_blocked)
+    soft = {"penalties": penalties, "priority": {b.booking_id for b in pool if _has_priority(b, rules)}}
+    objective = _make_objective(algorithm, rules, soft)
     answers_dropped = 0
     if personality:
         for i, b in enumerate(pool):
@@ -510,13 +711,15 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
     leftovers: List[Leftover] = []
     for (lang, tier) in sorted(cells):
         groups, unseated = form_groups(cells[(lang, tier)], venue_capacity, blocks, algorithm, seed,
-                                       packing_mode, budget)
+                                       packing_mode, budget, objective)
         for g in groups:
             tables.append(Table(table_code=next_code(), language=lang, tier_rank=tier, members=list(g)))
         leftovers.extend(Leftover(m, r) for m, r in unseated)
 
     tables, leftovers = place_leftovers_downward(tables, leftovers, venue_capacity, blocks, algorithm,
-                                                 seed, next_code, packing_mode, budget)
+                                                 seed, next_code, packing_mode, budget, objective)
+    if algorithm in OPTIMISED and soft["priority"]:
+        leftovers = seat_priority(tables, leftovers, venue_capacity, blocks, objective, soft, seed)
     venue_warnings = assign_venues(tables, venues)
 
     for t in tables:
@@ -526,6 +729,9 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
             t.themes = table_themes(t.members)
         else:
             t.interest, t.cohesion, t.score, t.member_scores = score_group(t.members)
+        t.soft = _soft_parts(t.members, rules, soft)
+        t.objective = _objective_of(t.score or 0.0, t.soft)
+        t.low_match = t.score is not None and t.score < rules["low_match_below"]
 
     errors = validate_tables(tables, venue_capacity, blocks)
     if errors:
@@ -533,9 +739,10 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
 
     params = {"session_id": session_id, "rule_version": rule_version, "seed": seed, "venue_capacity": venue_capacity,
               "packing_mode": packing_mode, "max_tables": max_tables}
-    h = inputs_hash(pool, blocks, params, personality)
-    explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings, answers_dropped)
-    return MatchResult(session_id, mode, rule_version, algorithm, seed, h, tables, leftovers, ineligible, explanations)
+    h = inputs_hash(pool, blocks, params, personality, history)
+    explanations = explain(tables, leftovers, ineligible, seed, algorithm, venue_warnings, answers_dropped, rules)
+    return MatchResult(session_id, mode, rule_version, algorithm, seed, h, tables, leftovers, ineligible, explanations,
+                       rules)
 
 
 def _shared_topic_count(group: Sequence[BookingInput]) -> int:
@@ -547,7 +754,7 @@ def _shared_topic_count(group: Sequence[BookingInput]) -> int:
 
 
 def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, seed: int,
-            algorithm: str, venue_warnings: List[str], answers_dropped: int = 0) -> dict:
+            algorithm: str, venue_warnings: List[str], answers_dropped: int = 0, rules: Optional[dict] = None) -> dict:
     """Pseudonymous explanation stored in matching_runs.explanations (no user_id, no names, no answers)."""
     personality = algorithm == PERSONALITY
     out_tables = []
@@ -569,9 +776,14 @@ def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, 
             "interest": None if t.interest is None else round(t.interest, 4),
             "cohesion": None if t.cohesion is None else round(t.cohesion, 4),
             "score": None if t.score is None else round(t.score, 4),
+            "repeat_penalty": round(t.soft.get("repeat_penalty", 0.0), 4),
+            "priority_boost": round(t.soft.get("priority_boost", 0.0), 4),
+            "size_penalty": round(t.soft.get("size_penalty", 0.0), 4),
+            "objective": round(t.objective if t.objective is not None else (t.score or 0.0), 4),
+            "low_match": t.low_match,
             "answered_q05": sum(1 for m in t.members if _topics(m) is not None),
             "checks": {"same_language": True, "tier_within_caps": True, "no_blocked_pair": True,
-                       "size_within_bounds": True},
+                       "size_within_bounds": True, "no_recent_repeat": True, "age_gap_within_limit": True},
             "warnings": warnings,
         }
         if personality:
@@ -582,6 +794,7 @@ def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, 
         "algorithm": algorithm,
         "weights": {"interest": W_INTEREST, "cohesion": W_COHESION} if algorithm == "interest_opt_v1"
         else PERSONALITY_WEIGHTS if personality else None,
+        "rules": rules,
         "tables": out_tables,
         "leftovers": [{"seat": _pseudonym(seed, lo.booking.booking_id), "reason": lo.reason} for lo in leftovers],
         "ineligible": [{"seat": _pseudonym(seed, b.booking_id), "reason": r} for b, r in ineligible],

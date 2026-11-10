@@ -143,6 +143,8 @@ async function scrSession(id) {
   const d = r.data, s = d.session;
   const role = ss.get("admin").role;
   const ops = ["owner", "ops"].includes(role);
+  // engine flag (matching rules, 10 Nov): the table scored below the low-match threshold; members are still seated
+  const lowMatch = (on, score) => (on ? ` <span class="badge badge-warning"${score === null || score === undefined ? "" : ` title="Score ${Math.round(score * 100)}%"`}>Low match</span>` : "");
   view("Session", `<a href="#/sessions">← Sessions</a><h1>${esc(s.experience)} · ${esc(s.language)} · ${esc(s.district)} · ${dt(s.starts_at)}</h1><div id="flash"></div>
     <div class="grid3">
       <section class="card"><h2>Timeline</h2><dl class="facts"><dt>Booking closes</dt><dd>${dt(s.booking_closes_at)}</dd><dt>Lock</dt><dd>${dt(s.lock_at)}</dd>
@@ -162,7 +164,7 @@ async function scrSession(id) {
     ${ops ? `<div class="row"><button class="btn btn-secondary" id="rev">Reveal locked tables</button><button class="btn btn-secondary" id="cmp">Complete session (after end)</button></div>` : ""}
     <div class="grid3">${d.tables.map((t) => `<section class="card stack"><div class="row between"><h3>${esc(t.code)} · ${esc(t.venue || "no venue")}</h3>
       <span class="badge badge-${t.status === "locked" ? "success" : t.status.startsWith("cancelled") ? "danger" : "info"}">${esc(t.status)}</span></div>
-      <p>${t.confirmed_count}/${t.capacity} confirmed ${t.confirmed_count < 4 && t.status === "forming" ? `<span class="badge badge-danger">below quorum</span>` : ""} · venue confirmed: ${t.venue_confirmed_at ? "✓" : "✗"}</p>
+      <p>${t.confirmed_count}/${t.capacity} confirmed ${t.confirmed_count < 4 && t.status === "forming" ? `<span class="badge badge-danger">below quorum</span>` : ""}${lowMatch(t.low_match, t.match_score)} · venue confirmed: ${t.venue_confirmed_at ? "✓" : "✗"}</p>
       <ul class="plain">${t.members.map((m) => `<li><span class="num">${esc(m.ref)}</span> ${esc(m.display_name || "—")} · ${esc(m.status)}${m.checked_in ? " ✓" : ""}
         ${ops && t.status === "forming" ? ` <select class="input inline" data-move="${m.booking_id}"><option value="">move to…</option>${d.tables.filter((x) => x.id !== t.id && x.status === "forming").map((x) => `<option value="${x.id}">${esc(x.code)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>
       ${ops ? `<div class="row">${t.status === "forming" ? `<button class="btn btn-primary" data-lock="${t.id}">Lock</button><button class="btn btn-danger" data-cq="${t.id}">Cancel (quorum)</button>` : ""}
@@ -180,7 +182,7 @@ async function scrSession(id) {
       Answers ignored (unknown or "prefer not to say"): ${ex.answers_dropped}.</p>
       <table><thead><tr><th>Table</th><th>Lang</th><th>Tier</th><th>Size</th><th>Answered</th><th title="average similarity of every pair at the table">Closeness</th>
         <th title="the member least similar to the others">Least-matched member</th><th title="100% = every energy level present">Energy mix</th><th>Score</th><th>Checks</th><th>Warnings</th></tr></thead><tbody>
-      ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.answered}/${t.size}</td>
+      ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}${lowMatch(t.low_match, t.score)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.answered}/${t.size}</td>
         <td>${pct(t.interest)}</td><td>${pct(t.cohesion)}</td><td>${pct(t.energy_balance)}</td><td>${pct(t.score)}</td>
         <td>${Object.values(t.checks).every(Boolean) ? "✓ all" : "✗"}</td><td>${esc(t.warnings.join("; "))}</td></tr>`).join("")}</tbody></table>`;
   };
@@ -190,7 +192,7 @@ async function scrSession(id) {
     $("#explain").innerHTML = `<section class="card"><h2>${esc(res.data.mode)} · seed ${res.data.seed} · inputs ${esc(res.data.inputs_hash.slice(0, 12))}…</h2>
       <p><code>${esc(JSON.stringify(res.data.summary))}</code></p>
       ${ex.algorithm === "personality_v1" ? personalityTable(ex) : `<table><thead><tr><th>Table</th><th>Lang</th><th>Tier</th><th>Size</th><th>I</th><th>C</th><th>Score</th><th>Pseudonymous seats</th><th>Checks</th><th>Warnings</th></tr></thead><tbody>
-      ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.interest ?? "—"}</td><td>${t.cohesion ?? "—"}</td><td>${t.score ?? "—"}</td>
+      ${ex.tables.map((t) => `<tr><td>${esc(t.table_code)}${lowMatch(t.low_match, t.score)}</td><td>${esc(t.language)}</td><td>${t.tier_rank}</td><td>${t.size}</td><td>${t.interest ?? "—"}</td><td>${t.cohesion ?? "—"}</td><td>${t.score ?? "—"}</td>
         <td class="caption">${t.seats.map(esc).join(" ")}</td><td>${Object.values(t.checks).every(Boolean) ? "✓ all" : "✗"}</td><td>${esc(t.warnings.join("; "))}</td></tr>`).join("")}</tbody></table>`}
       <p>Leftovers: ${ex.leftovers.map((l) => `${esc(l.seat)} (${esc(l.reason)})`).join(", ") || "none"} · Ineligible: ${ex.ineligible.length} · Venue warnings: ${esc(ex.venue_warnings.join("; ") || "none")}</p></section>`;
   };
