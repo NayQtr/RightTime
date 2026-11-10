@@ -88,9 +88,71 @@ test("matching: the celebrant never shares a table with a woman who prefers no c
     const table = dry.body.explanations.tables.find((t) => t.seats.includes(seat(seed, U.sara.booking)));
     if (!table) continue;                      // she may be the one left over; never seated with them
     together++;
+    U.seatedSeed ??= seed;
     assert.ok(!table.seats.includes(seat(seed, U["منى"].booking)), `seed ${seed}: prefers no celebrations`);
     assert.ok(!table.seats.includes(seat(seed, U["ليلى"].booking)), `seed ${seed}: never answered Q25`);
     assert.ok(table.seats.length >= 4);
   }
   assert.ok(together > 0, "the celebrant is seated in at least one run");
+});
+
+// Item 32 (provisional, 10 Nov): a celebration needs CELEBRATION_NOTICE_HOURS (default 72) of notice.
+test("a celebration needs 3 days' notice: the sessions list says so and a sooner occasion is refused", async () => {
+  const s = await call("POST", "/api/admin/v1/sessions", { token: owner.token, body: { experience: "dinner", conversation_language: "ar",
+    starts_at: new Date(Date.now() + 2 * DAY).toISOString(), duration_minutes: 120, max_seats: 18, district_hint_ar: "لوسيل", district_hint_en: "Lusail" } });
+  assert.equal(s.status, 201, JSON.stringify(s.body));
+  assert.equal((await call("POST", `/api/admin/v1/sessions/${s.body.id}:open-sale`, { token: owner.token })).status, 200);
+  const u = await signUp(call, { name: "دانة", extra: { Q25: ["dont_mind"] } });
+  const list = (await call("GET", "/api/v1/sessions", { token: u.token })).body.sessions;
+  const soon = list.find((x) => x.id === s.body.id), far = list.find((x) => x.id === U.session);
+  assert.equal(soon.occasion_allowed, false);
+  assert.equal(far.occasion_allowed, true);
+  assert.equal(soon.occasion_notice_hours, 72);
+  const late = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: s.body.id, occasion: "birthday" } });
+  assert.equal(late.status, 422, JSON.stringify(late.body));
+  assert.deepEqual(late.body.details, [{ field: "occasion", code: "NOTICE_TOO_SHORT", min_notice_hours: 72 }]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.bookings WHERE session_id = ${s.body.id}`)[0].n, 0, "no seat held");
+  const plain = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: s.body.id, occasion: null } });
+  assert.equal(plain.status, 201, "the same session without an occasion books as before");
+});
+
+// Item 33 (provisional, 10 Nov): after the reveal the other women at the table read a line with no name; the API gives
+// the kind only, never who, and the celebrant does not see her own.
+test("after the reveal, tablemates learn that a guest celebrates (kind only); the celebrant does not", async () => {
+  assert.ok(U.seatedSeed, "a seed that seats the celebrant");
+  const pub = await call("POST", `/api/admin/v1/sessions/${U.session}/matching:publish`, { token: owner.token, body: { seed: U.seatedSeed } });
+  assert.equal(pub.status, 201, JSON.stringify(pub.body));
+  const det = (await call("GET", `/api/admin/v1/sessions/${U.session}`, { token: owner.token })).body;
+  const all = [U.sara, U.huda, ...["منى", "ليلى", "نورة", "ريم", "أمل"].map((n) => U[n])];
+  const byBooking = (id) => all.find((u) => u.booking.booking_id === id);
+  const hers = det.tables.find((t) => t.members.some((m) => m.booking_id === U.sara.booking.booking_id));
+  const mates = hers.members.filter((m) => m.booking_id !== U.sara.booking.booking_id).map((m) => byBooking(m.booking_id));
+  const others = all.filter((u) => u !== U.sara && !mates.includes(u));
+  const details = async (u, locale = "ar") => (await call("GET", `/api/v1/bookings/${u.booking.booking_id}/event-details`, { token: u.token, locale })).body;
+  for (const t of det.tables) assert.equal((await call("POST", `/api/admin/v1/tables/${t.id}:lock`, { token: owner.token })).status, 200);
+  const locked = await details(mates[0]);
+  assert.equal(locked.reveal.phase, "locked");
+  assert.equal(locked.table.celebration, undefined, "nothing before the reveal");
+  // time travel: every session timestamp moves together so reveal_at was a minute ago
+  const [ss] = await sql`SELECT reveal_at FROM app.event_sessions WHERE id = ${U.session}`;
+  const shift = Date.now() - 60000 - new Date(ss.reveal_at).getTime();
+  await sql`UPDATE app.event_sessions SET starts_at = starts_at + ${shift} * interval '1 millisecond', ends_at = ends_at + ${shift} * interval '1 millisecond',
+            booking_opens_at = LEAST(booking_opens_at + ${shift} * interval '1 millisecond', now() - interval '30 days'),
+            booking_closes_at = booking_closes_at + ${shift} * interval '1 millisecond', lock_at = lock_at + ${shift} * interval '1 millisecond',
+            reveal_at = reveal_at + ${shift} * interval '1 millisecond', check_in_opens_at = check_in_opens_at + ${shift} * interval '1 millisecond'
+            WHERE id = ${U.session}`;
+  assert.equal((await call("POST", `/api/admin/v1/sessions/${U.session}:reveal`, { token: owner.token })).status, 200);
+  for (const m of mates) {
+    const d = await details(m);
+    assert.equal(d.reveal.phase, "revealed");
+    assert.equal(d.table.celebration, "birthday");
+    assert.ok(!JSON.stringify(d).includes(U.sara.booking.booking_id) && !JSON.stringify(d).includes("سارة"), "never who");
+  }
+  assert.equal((await details(U.sara)).table.celebration, null, "the celebrant does not see her own occasion");
+  for (const u of others) assert.ok(!(await details(u)).table?.celebration, "other tables (or no table) see nothing");
+  // a second celebrant at the same table: the birthday still leads for the others, and Sara now reads "other"
+  await sql`UPDATE app.bookings SET occasion = 'other' WHERE id = ${mates[0].booking.booking_id}`;
+  assert.equal((await details(U.sara)).table.celebration, "other");
+  assert.equal((await details(mates[1], "en")).table.celebration, "birthday");
+  assert.equal((await details(mates[0])).table.celebration, "birthday");
 });

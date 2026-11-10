@@ -1383,7 +1383,7 @@
                           "birthday",
                           "other"
                         ],
-                        "description": "She celebrates an occasion on this date; the coordinator is told"
+                        "description": "She celebrates an occasion on this date; the coordinator is told. Refused (422, field occasion, code NOTICE_TOO_SHORT) when the session starts sooner than CELEBRATION_NOTICE_HOURS (default 72)"
                       },
                       {
                         "type": "null"
@@ -3935,6 +3935,14 @@
                 "type": "null"
               }
             ]
+          },
+          "occasion_allowed": {
+            "type": "boolean",
+            "description": "The occasion question may be offered: the session starts at least occasion_notice_hours from now"
+          },
+          "occasion_notice_hours": {
+            "type": "integer",
+            "description": "Minimum notice for a celebration (CELEBRATION_NOTICE_HOURS, default 72)"
           }
         },
         "required": [
@@ -3952,7 +3960,9 @@
           "full_refund_until",
           "full_refund_until_hours",
           "booking_closes_at",
-          "my_booking_id"
+          "my_booking_id",
+          "occasion_allowed",
+          "occasion_notice_hours"
         ]
       },
       "RefundTerms": {
@@ -4325,6 +4335,21 @@
                         "display_name"
                       ]
                     }
+                  },
+                  "celebration": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "birthday",
+                          "other"
+                        ],
+                        "description": "After the reveal (phases revealed and day_of): another woman at this table celebrates; never says who, and never shows her own occasion"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
