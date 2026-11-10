@@ -25,6 +25,7 @@ const BOOKING_STATUSES = ["payment_pending", "paid_awaiting_group", "group_locke
   "cancelled_by_user", "cancelled_by_organizer", "expired", "payment_failed", "waitlisted"];
 const REPORT_CATEGORIES = ["harassment", "threat_violence", "photo_without_consent", "stalking_unwanted_contact", "fraud", "disruptive"];
 const CONSENT_TYPES = ["terms", "conduct", "privacy_notice", "marketing"];
+const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation", "no_shows", "other"];
 
 export const paths = {
   // ------------------------------------------------------------------ auth
@@ -66,8 +67,8 @@ export const paths = {
       responses: { 200: ok(obj({ user: { allOf: [ref("User"), obj({ outdated_consents: { type: "array", items: str({ enum: ["terms", "conduct", "privacy_notice"] }) } })] } })), ...errors(401) } },
     delete: { tags: ["account"], ...userAny, summary: "Request account deletion; every session ends at once",
       responses: { 202: ok(obj({ status: str({ enum: ["deletion_requested"] }) }), "Deletion requested"), ...errors(401) } } },
-  "/api/v1/users/me/export": { get: { tags: ["account"], ...userAny, summary: "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings, reports I made. Other members' data is never included",
-    responses: { 200: { ...ok({ type: "object", required: ["exported_at", "account", "consents", "questionnaire", "bookings", "payments", "refunds", "ratings", "reports_made"] }),
+  "/api/v1/users/me/export": { get: { tags: ["account"], ...userAny, summary: "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings (with low-rating reasons), reports I made, \"notify me\" alerts, discount codes issued to me. Other members' data is never included",
+    responses: { 200: { ...ok({ type: "object", required: ["exported_at", "account", "consents", "questionnaire", "bookings", "payments", "refunds", "ratings", "reports_made", "session_alerts", "discount_codes"] }),
       headers: { "Content-Disposition": { schema: str({ example: "attachment; filename=\"herzone-my-data-2026-11-04.json\"" }) } } }, ...errors(401) } } },
   "/api/v1/users/me/registration": { post: { tags: ["account"], ...userAny, ...idem, summary: "Complete registration: name, language, age and women-only confirmation, consents",
     requestBody: body(obj({ display_name: str({ minLength: 1, maxLength: 30, description: "First name, as on her payment card (required; compared with the name on the card). Letters, spaces and hyphens" }), locale: str({ enum: ["ar", "en"] }),
@@ -89,7 +90,12 @@ export const paths = {
   // ------------------------------------------------------------------ sessions and bookings
   "/api/v1/sessions": { get: { tags: ["bookings"], ...user, summary: "Dinners on sale, with the member's language match and any booking she holds",
     parameters: [{ name: "experience", in: "query", required: false, schema: str() }],
-    responses: { 200: ok(obj({ profile_languages: { type: "array", items: str() }, sessions: { type: "array", items: ref("Session") } })), ...errors(401, 403) } } },
+    responses: { 200: ok(obj({ profile_languages: { type: "array", items: str() },
+      notify_me_active: { type: "boolean", description: "She asked to be told when a session in her language opens (POST /api/v1/session-alerts) and has not been told yet" },
+      sessions: { type: "array", items: ref("Session") } })), ...errors(401, 403) } } },
+  "/api/v1/session-alerts": { post: { tags: ["bookings"], ...user, ...idem,
+    summary: "\"Notify me when a session is available\" (v0.3 E-LANG-1). Independent of marketing consent. When a session in one of her questionnaire languages (Q01) goes on sale she gets one notification (inbox, and Web Push if enabled), then the alert ends. One open alert per member: asking again returns it.",
+    responses: { 201: ok(ref("SessionAlert"), "Alert created"), 200: ok(ref("SessionAlert"), "She already had an open alert"), ...errors(400, 401, 403, 422) } } },
   "/api/v1/sessions/{id}/waitlist": { post: { tags: ["bookings"], ...user, ...idem, summary: "Join the waitlist of a full dinner",
     parameters: [idParam("id", "Session id"), ...idem.parameters],
     responses: { 201: ok(obj({ session_id: uuid, position: { type: "integer" }, status: str({ enum: ["waiting"] }) }), "On the waitlist"), ...errors(401, 403, 404, 409) } } },
@@ -129,7 +135,10 @@ export const paths = {
   "/api/v1/bookings/{id}/feedback": { post: { tags: ["bookings"], ...user, ...idem, summary: "Private feedback after the dinner (once)",
     parameters: [idParam(), ...idem.parameters],
     requestBody: body(obj({ overall_rating: { type: "integer", minimum: 1, maximum: 5 }, comfort_rating: { type: "integer", minimum: 1, maximum: 5 },
-      venue_rating: { type: "integer", minimum: 1, maximum: 5 }, would_book_again: { type: "boolean" }, comment: str({ maxLength: 500 }) }, ["overall_rating", "comfort_rating"])),
+      venue_rating: { type: "integer", minimum: 1, maximum: 5 }, would_book_again: { type: "boolean" }, comment: str({ maxLength: 500 }),
+      low_rating_reasons: { type: "array", uniqueItems: true, items: str({ enum: LOW_RATING_REASONS }),
+        description: "What fell short, picked with an overall rating of 3 or less (server setting LOW_RATING_REASONS_MAX); ignored above it. Coordinators see them." } },
+      ["overall_rating", "comfort_rating"])),
     responses: { 201: ok(obj({ saved: { const: true } }), "Saved"), ...errors(401, 403, 404, 409, 422) } } },
 
   // ------------------------------------------------------------------ after the dinner
@@ -171,7 +180,7 @@ export const paths = {
     responses: { 201: ok(obj({ subscribed: { const: true } }), "Subscribed"), ...errors(401, 422) } } },
   "/api/v1/push/subscriptions:delete": { post: { tags: ["notifications"], ...userAny, summary: "Stop Web Push on this browser",
     requestBody: body(obj({ endpoint: str() })), responses: { 200: ok(obj({ subscribed: { const: false } })), ...errors(401) } } },
-  "/api/v1/promo-codes:check": { post: { tags: ["subscriptions"], ...user, summary: "Check a promo code (plans are display-only; nothing is redeemed). At most 10 checks per hour.",
+  "/api/v1/promo-codes:check": { post: { tags: ["subscriptions"], ...user, summary: "Check a promo code (plans are display-only; nothing is redeemed). A compensation code issued to one member is valid only for her. At most 10 checks per hour.",
     requestBody: body(obj({ code: str({ maxLength: 24 }) })),
     responses: { 200: ok({ oneOf: [obj({ valid: { const: true }, percent_off: { type: "integer" } }), obj({ valid: { const: false } })] }), ...errors(401, 403, 422, 429) } } },
 };
@@ -251,6 +260,7 @@ export const spec = {
         rebooked_into: obj({ booking_id: uuid, ref: str(), status: ref("BookingStatus") }),
         resolution: { type: "object", description: "Rebook or refund options after the organiser cancels" },
       }, ["booking", "session", "reveal", "table", "venue", "payment", "actions"]),
+      SessionAlert: obj({ active: { const: true }, created_at: ts, languages: { type: "array", items: str(), description: "Her current Q01 languages; the alert follows them if she edits her answers" } }),
       ContactDecision: obj({ status: str({ enum: ["accepted", "declined"] }), whatsapp_url: nullable(str()) }),
     },
   },

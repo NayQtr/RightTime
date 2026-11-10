@@ -75,6 +75,9 @@ test("public, account, questionnaire and notification responses match the descri
   conforms("get", "/api/v1/notifications", await call("GET", "/api/v1/notifications", { token: u.token }));
   conforms("get", "/api/v1/cases/mine", await call("GET", "/api/v1/cases/mine", { token: u.token }));
   conforms("post", "/api/v1/promo-codes:check", await call("POST", "/api/v1/promo-codes:check", { token: u.token, body: { code: "NOPE" } }));
+  conforms("post", "/api/v1/session-alerts", await call("POST", "/api/v1/session-alerts", { token: u.token }));
+  conforms("post", "/api/v1/session-alerts", await call("POST", "/api/v1/session-alerts", { token: u.token }));
+  conforms("get", "/api/v1/users/me/export", await call("GET", "/api/v1/users/me/export", { token: u.token }));
   conforms("get", "/api/v1/push/key", await call("GET", "/api/v1/push/key"));
   // errors use the problem envelope
   conforms("get", "/api/v1/users/me", await call("GET", "/api/v1/users/me"));

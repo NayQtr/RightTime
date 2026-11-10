@@ -309,8 +309,10 @@ async function exportMe(ctx) {
                                FROM app.payments WHERE user_id = ${user.id} ORDER BY created_at`;
   const refunds = await sql`SELECT r.booking_id, r.amount_minor, r.reason, r.status, r.completed_at, r.created_at
                               FROM app.refunds r JOIN app.payments p ON p.id = r.payment_id WHERE p.user_id = ${user.id} ORDER BY r.created_at`;
-  const feedback = await sql`SELECT booking_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private, submitted_at
+  const feedback = await sql`SELECT booking_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private, low_rating_reasons, submitted_at
                                FROM app.event_feedback WHERE user_id = ${user.id} ORDER BY submitted_at`;
+  const alerts = await sql`SELECT created_at, notified_at FROM app.session_alerts WHERE user_id = ${user.id} ORDER BY created_at`;
+  const codes = await sql`SELECT code, percent_off, is_active, uses, max_uses, created_at FROM app.promo_codes WHERE user_id = ${user.id} ORDER BY created_at`;
   const reports = await sql`SELECT case_ref, booking_id, category, timing, immediate_danger, description_enc, status, created_at
                               FROM app.safety_reports WHERE reporter_user_id = ${user.id} ORDER BY created_at`;
   const asks = await sql`SELECT callback_when, status, message_enc, contact_phone_enc, created_at, handled_at
@@ -332,7 +334,9 @@ async function exportMe(ctx) {
     refunds: refunds.map((r) => ({ booking_ref: refOf[r.booking_id] ?? null, amount: money(r.amount_minor, locale), reason: r.reason, status: r.status,
       completed_at: qa(r.completed_at), created_at: qa(r.created_at) })),
     ratings: feedback.map((f) => ({ booking_ref: refOf[f.booking_id] ?? null, overall: f.overall_rating, comfort: f.comfort_rating, venue: f.venue_rating,
-      would_book_again: f.would_book_again, private_comment: f.comment_private, submitted_at: qa(f.submitted_at) })),
+      would_book_again: f.would_book_again, private_comment: f.comment_private, low_rating_reasons: f.low_rating_reasons, submitted_at: qa(f.submitted_at) })),
+    session_alerts: alerts.map((a) => ({ requested_at: qa(a.created_at), notified_at: qa(a.notified_at) })),
+    discount_codes: codes.map((c) => ({ code: c.code, percent_off: c.percent_off, usable: c.is_active && (c.max_uses === null || c.uses < c.max_uses), issued_at: qa(c.created_at) })),
     reports_made: reports.map((r) => ({ case_ref: r.case_ref, booking_ref: refOf[r.booking_id] ?? null, category: r.category, timing: r.timing,
       immediate_danger: r.immediate_danger, description: r.description_enc ? decrypt(keys.dataKey, r.description_enc) : null, status: r.status, created_at: qa(r.created_at) })),
     contact_requests: asks.map((r) => ({ requested_at: qa(r.created_at), callback_when: r.callback_when, status: r.status,
@@ -529,8 +533,10 @@ async function listSessions(ctx) {
      WHERE s.status IN ('on_sale','sold_out') AND s.booking_closes_at > now() AND s.booking_opens_at <= now()
        AND (${exp}::text IS NULL OR s.experience::text = ${exp})
      ORDER BY s.starts_at`;
+  const [alert] = await sql`SELECT 1 FROM app.session_alerts WHERE user_id = ${user.id} AND notified_at IS NULL`;
   return json(200, {
     profile_languages: prof ? prof.languages : [],
+    notify_me_active: Boolean(alert),
     sessions: rows.map((s) => ({
       id: s.id, experience: s.experience, conversation_language: s.conversation_language.trim(),
       language_match: prof ? prof.languages.includes(s.conversation_language.trim()) : null,
@@ -557,6 +563,36 @@ async function joinWaitlist(ctx) {
   return json(201, { session_id: s.id, position: row.position, status: "waiting" });
 }
 
+// "Notify me when a session is available" (v0.3 E-LANG-1, migration 023, provisional): one open alert per member, whatever
+// her marketing consent. It is answered once, when a session in one of her Q01 languages goes on sale
+// (notifySessionAlerts below, called from the admin's open-sale), and then it ends.
+async function requestSessionAlert(ctx) {
+  const { sql, user } = ctx;
+  const resp = await submittedResponse(sql, user.id);
+  if (!resp) fail(422, "QUESTIONNAIRE_INCOMPLETE");
+  const [created] = await sql`INSERT INTO app.session_alerts (user_id) VALUES (${user.id})
+                              ON CONFLICT (user_id) WHERE notified_at IS NULL DO NOTHING RETURNING created_at`;
+  const [row] = created ? [created] : await sql`SELECT created_at FROM app.session_alerts WHERE user_id = ${user.id} AND notified_at IS NULL`;
+  const prof = await profileOf(sql, resp.id);
+  return json(created ? 201 : 200, { active: true, created_at: qa(row.created_at), languages: prof.languages });
+}
+
+// A session went on sale: every open alert of an active member whose current Q01 languages include the session's language
+// is closed and answered with one notification (inbox, and her phone if she turned notifications on). Returns how many.
+export async function notifySessionAlerts(tx, sessionId) {
+  const due = await tx`
+    UPDATE app.session_alerts a SET notified_at = now(), session_id = ${sessionId}
+      FROM app.event_sessions s
+     WHERE s.id = ${sessionId} AND a.notified_at IS NULL
+       AND EXISTS (SELECT 1 FROM app.users u WHERE u.id = a.user_id AND u.status = 'active')
+       AND EXISTS (SELECT 1 FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
+                     JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q01' JOIN app.question_options o ON o.id = x.option_id
+                    WHERE r.user_id = a.user_id AND r.status = 'submitted' AND o.maps_to->>'language' = trim(s.conversation_language))
+    RETURNING a.user_id`;
+  for (const d of due) await notify(tx, d.user_id, "SESSION_AVAILABLE", { session_id: sessionId });
+  return due.length;
+}
+
 // ------------------------------------------------------------------ bookings
 async function createPayment(tx, ctx, booking, attempt = 0) {
   const intent = newPaymentIntentId();
@@ -568,6 +604,9 @@ async function createPayment(tx, ctx, booking, attempt = 0) {
 }
 
 const OCCASIONS = ["birthday", "other"];
+// Reasons she can pick with a low rating (migration 023, provisional list). Their words are in web/strings.js (fbReason_*),
+// the app's .arb files and the admin console (English).
+export const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation", "no_shows", "other"];
 
 async function createBooking(ctx) {
   const { sql, body, user, cfg, locale } = ctx;
@@ -870,13 +909,17 @@ async function feedback(ctx) {
   if (!r15(body.comfort_rating)) details.push({ field: "comfort_rating", code: "REQUIRED" });
   if (body.venue_rating != null && !r15(body.venue_rating)) details.push({ field: "venue_rating", code: "INVALID" });
   if (body.comment != null && String(body.comment).length > 500) details.push({ field: "comment", code: "TOO_LONG" });
+  const reasons = body.low_rating_reasons ?? [];
+  if (!Array.isArray(reasons) || reasons.some((x) => !LOW_RATING_REASONS.includes(x))) details.push({ field: "low_rating_reasons", code: "INVALID" });
   if (details.length) fail(422, "VALIDATION_FAILED", details);
+  // reasons are kept only with a low overall rating (023): above it the screen does not offer them
+  const kept = body.overall_rating <= cfg.lowRatingReasonsMax && reasons.length ? LOW_RATING_REASONS.filter((x) => reasons.includes(x)) : null;
   await sql.begin(async (tx) => {
     const [dup] = await tx`SELECT id FROM app.event_feedback WHERE booking_id = ${b.id}`;
     if (dup) fail(409, "ALREADY_SUBMITTED");
-    await tx`INSERT INTO app.event_feedback (booking_id, user_id, table_id, venue_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private)
+    await tx`INSERT INTO app.event_feedback (booking_id, user_id, table_id, venue_id, overall_rating, comfort_rating, venue_rating, would_book_again, comment_private, low_rating_reasons)
              VALUES (${b.id}, ${ctx.user.id}, ${t.id}, ${t.venue_id}, ${body.overall_rating}, ${body.comfort_rating}, ${body.venue_rating ?? null},
-                     ${typeof body.would_book_again === "boolean" ? body.would_book_again : null}, ${body.comment ?? null})`;
+                     ${typeof body.would_book_again === "boolean" ? body.would_book_again : null}, ${body.comment ?? null}, ${kept})`;
   });
   return json(201, { saved: true });
 }
@@ -1142,9 +1185,10 @@ async function checkPromoCode(ctx) {
   await sql`INSERT INTO app.promo_code_checks (user_id) VALUES (${user.id})`;
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.promo_code_checks WHERE user_id = ${user.id} AND at > now() - interval '1 hour'`;
   if (n > PROMO_CHECKS_PER_HOUR) fail(429, "RATE_LIMITED");
+  // a compensation code (023) belongs to one member: for anyone else it does not exist
   const [p] = await sql`SELECT percent_off FROM app.promo_codes
                          WHERE code = ${code} AND is_active AND (expires_at IS NULL OR expires_at > now())
-                           AND (max_uses IS NULL OR uses < max_uses)`;
+                           AND (max_uses IS NULL OR uses < max_uses) AND (user_id IS NULL OR user_id = ${user.id})`;
   return json(200, p ? { valid: true, percent_off: p.percent_off } : { valid: false });
 }
 
@@ -1168,6 +1212,7 @@ export const userRoutes = [
   { method: "POST", path: "/api/v1/questionnaire-responses", auth: "user", idem: true, handler: submitQuestionnaire },
   { method: "GET", path: "/api/v1/sessions", auth: "user", handler: listSessions },
   { method: "POST", path: "/api/v1/sessions/{id}/waitlist", auth: "user", idem: true, handler: joinWaitlist },
+  { method: "POST", path: "/api/v1/session-alerts", auth: "user", idem: true, handler: requestSessionAlert },
   { method: "POST", path: "/api/v1/bookings", auth: "user", idem: true, handler: createBooking },
   { method: "GET", path: "/api/v1/bookings", auth: "user", handler: listBookings },
   { method: "GET", path: "/api/v1/bookings/{id}", auth: "user", handler: getBooking },
