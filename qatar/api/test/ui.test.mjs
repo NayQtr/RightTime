@@ -876,3 +876,32 @@ test("top bar: logo, test-site label, theme and language never overlap, even on 
     await page.close();
   }
 });
+
+test("a failed load is never shown as an empty list: home, my events, inbox and decisions show the error and a retry (v0.3 E-NET)", async () => {
+  const call = client(env.base);
+  const u = await signUp(call, { name: "Hind" });
+  const { page, errors } = await newPage();
+  await page.goto(env.base + "/");
+  await page.evaluate((t) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify("ar")); },
+    { access_token: u.token, refresh_token: u.refresh });
+  const screens = [["#/home", /\/api\/v1\/bookings$/], ["#/events", /\/api\/v1\/bookings$/], ["#/inbox", /\/api\/v1\/notifications$/], ["#/cases", /\/api\/v1\/cases\/mine$/]];
+  for (const [hash, path] of screens) {
+    let fail = true;
+    const handler = (r) => (fail && r.request().method() === "GET" ? r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL", message: "خطأ في الخادم" }) }) : r.continue());
+    await page.route(path, handler);
+    await page.goto(env.base + "/" + hash);
+    await page.waitForSelector("#retry-load");
+    const text = await page.locator("main").innerText();
+    assert.ok(await page.locator("main .banner-danger[role=alert]").count() === 1, `${hash}: error banner`);
+    for (const empty of ["لا توجد مواعيد متاحة", "لا لقاءات قادمة", "لا إشعارات بعد"]) assert.ok(!text.includes(empty), `${hash}: "${empty}" shown on a failed load`);
+    assert.equal(await page.locator("main ul.list, main .tbl").count(), 0, `${hash}: no list rendered on a failed load`);
+    await noHorizontalScroll(page);
+    fail = false;
+    await page.click("#retry-load");
+    await page.waitForSelector("#retry-load", { state: "detached" });
+    assert.equal(await page.locator("main .banner-danger").count(), 0, `${hash}: retry loads the screen`);
+    await page.unroute(path, handler);
+  }
+  assert.deepEqual(errors.filter((e) => !/500/.test(e)), []);
+  await page.close();
+});

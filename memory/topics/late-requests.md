@@ -41,6 +41,21 @@ Celebration meetups:
 34. Who pays for the preparations (cake, candle, decoration): the celebrant, the organising fee, or the venue.
 35. Should the privacy notice mention that the occasion is kept with the booking? Legal text not changed.
 36. Publish to the test site: apply migration 018 and seed_questionnaire_v5.sql to the staging database and deploy the API (CI green on 11851dc). Production only with the owner's approval afterwards.
+Development plan (10 Nov, qatar/docs/plans/2026-11-10-development-blueprint.md, section 14 has the full questions):
+37. SMS provider for sign-in codes (T3, launch condition): production returns 503 today (api/src/routes/user.js line 108, no provider). International, Qatar-local, or WhatsApp with SMS fallback? Paid; the owner decides and adds the key as a Supabase secret.
+38. Visitors' phone numbers (T12): the server accepts +974 only (user.js lines 95-96). Keep Qatar only, add the Gulf, or all countries? Decide before choosing the SMS provider.
+39. Payment gateway (T4, launch condition), and whether it accepts cards from outside Qatar.
+40. Coordinator alert for an S1/S2 report during a meetup (T13, launch condition): today it writes an audit row only (user.js line 1020), nothing is sent. Who is on duty each night, which channel (push, SMS, or both as spec v0.3 says), and after how many minutes it escalates, to whom.
+41. Pricing: organising fee per booking, subscriptions (plans.js shows 51.99 / 119.99 / 223.99 QAR, display only), or both.
+42. Devices: support iPad/tablet in the stores? Keep the one-column member layout on desktop (recommended)?
+43. Sessions per week at launch and in which districts (decides when day/district filters appear; proposal: more than 8).
+44. Step counting for sign-up and booking on our own server, without outside trackers (U2)? A privacy-notice line may be needed, in the owner's or counsel's wording.
+45. Coordinators: how many per night, desktop or phone (decides A1/A3), and is an English-only admin console enough?
+46. Encouragement in the questionnaire limited to progress and time left, no streaks, badges or points (U3)?
+47. Real-font check rule: keep as is, with automatic screenshots only as an aid (recommended), or replace it with a permanent test?
+48. Approve the plan's stages; target launch date in Q1 2027; length of the closed trial (proposal: two weeks); the postpone list if time is short.
+49. Is spec v0.3 (docs/qatar-phase2/Qatar_Phase2_Completion_v0.3.md) still the reference for screens and texts? When the built product differs, which wins?
+Done on 10 Nov without a decision (no new text): four website screens (home, my events, inbox, decisions) show the error and a retry on a failed load instead of an empty list; guard tests for Arabic/English text parity (site and app) and the offline file list; design docs aligned with the code (colours, press 0.97).
 
 From the launch checklist (5 Nov):
 12a. Backups: Supabase is on the Free plan (no automatic backups). Choose: Pro plan (automatic daily backups) or a daily

@@ -9,7 +9,7 @@ Why-decisions are in `herzone.app.md` (design map and taste principles).
 
 1. **Arabic first, right to left.** Every layout is built with logical properties (`inline-start`, `inset-inline`);
    English is the same layout mirrored, not a second design.
-2. **One column, one accent.** A 560 px column on every screen size; wine `--c-primary` is the only accent and marks
+2. **One column, one accent.** A 560 px column on every screen size; primary `--c-primary` (#3A2C39) is the only accent and marks
    the next action. Exception: the welcome screen is two columns from 1024 px.
 3. **The table drawing replaces photos.** Members are never pictured (web welcome and interstitials, app `TableArt`).
 4. **Facts as rows.** Dates, places and refund rules are label/value rows, never prose.
@@ -73,16 +73,16 @@ Bottom space: `96px + safe-area` above the tab bar, `128px + safe-area` above a 
 
 | Component | Spec (web class / app widget) | States |
 |---|---|---|
-| Button | `.btn` min-height 52, radius 16, Alexandria 700; `FilledButton` min 52 | primary (wine), secondary (outline 1.5 px), danger (outline), ghost (text; 44 px wide in the top bar); pressed scale 0.98 at 0 ms; disabled = sunken fill + disabled text |
+| Button | `.btn` min-height 52, radius 16, Alexandria 700; `FilledButton` min 52 | primary (primary), secondary (outline 1.5 px), danger (outline), ghost (text; 44 px wide in the top bar); pressed scale 0.97 at 0 ms; disabled = sunken fill + disabled text |
 | Field | `.input` min-height 52, 1.5 px inset outline; focus = 2 px inset text-colour ring | numeric fields `inputmode`, `autocomplete` set (`tel-national`, `one-time-code`, `given-name`) |
 | Option row | `.option` min-height 64, tick right (radio round, checkbox 7 px radius) | hover, checked (subtle fill + 2 px primary ring), disabled |
-| Chip | `.chip` min-height 46, pill | unchecked sunken, checked wine; at the pick limit the rest are disabled (hint line above says "up to N") |
+| Chip | `.chip` min-height 46, pill | unchecked sunken, checked primary; at the pick limit the rest are disabled (hint line above says "up to N") |
 | Card | `.card` sunken fill, radius 16, padding 16×20; app `CardThemeData` same | `.card-link` adds pressed state |
 | Banner / note | `.banner` icon + text, sunken; info, warning, success, danger | `role="alert"` only for errors |
 | Segmented toggle | `.segmented button` min 44 × 96 | pressed = text-colour fill |
 | Week ribbon | `.week`: 7 columns, gap 2 px, each ≥ 44 px wide, 64 px tall | pressed day filled; day with a session has a dot |
-| Progress (4 steps) | `.track` / app `_Tracker`: bar + label; done = ✓ (web glyph, app check icon), current bold wine | bars level when a label wraps |
-| Tab bar | 4 items, 56 px tall, icon 24 + 12 px label, badge 12 px | selected = wine; the inbox badge shows the unread count (hidden at 0) |
+| Progress (4 steps) | `.track` / app `_Tracker`: bar + label; done = ✓ (web glyph, app check icon), current bold primary | bars level when a label wraps |
+| Tab bar | 4 items, 56 px tall, icon 24 + 12 px label, badge 12 px | selected = primary; the inbox badge shows the unread count (hidden at 0) |
 | Accordion | `.faq details` summary 52 px; consent-update accordions 44 px | open = "+" rotates 45° |
 | Hold pill | `#hold` pill above the pay button, MM:SS | expired = row replaced by "choose again" |
 | Next-meetup card | web `.next-card` (home) and `.card.hero` (My events); app `_NextMeetupCard` (My events). Fill `--c-primary`, text `--c-onPrimary` (88% for secondary lines, 80% for stepper labels), radius 24, the button is inverted (on-colour fill, brand text) | the only filled card on its screen; contrast 6.5-9.4:1 light, 5.5-7.6:1 dark (a web test checks every text on it) |

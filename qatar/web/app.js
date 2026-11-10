@@ -103,6 +103,13 @@ function errorBanner(err) {
   return `<div class="banner banner-danger" role="alert"><span class="icon">${icon("triangle-alert")}</span><div>${esc(msg)}</div></div>`;
 }
 
+// A failed load never looks like an empty list (a member with a paid booking must not read "no upcoming meetups"):
+// the error and a retry that re-runs the screen. Spec v0.3 E-NET; the app's Loader does the same.
+function failedView(title, r, again) {
+  view(title, `<h1>${esc(title)}</h1><div class="stack">${errorBanner(r && r.data)}<button type="button" class="btn btn-secondary" id="retry-load">${esc(T("retry"))}</button></div>`);
+  $("#retry-load").onclick = again;
+}
+
 // A request in flight: the button keeps its width and shows a spinner (styles.css .btn[aria-busy]); re-enabling clears both.
 function setBusy(el, on) { el.disabled = on; if (on) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy"); }
 function loadingView() { main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
@@ -1190,6 +1197,7 @@ async function scrHome() {
   const askWoman = Boolean(state.me && state.me.woman_confirmed === false);
   const [sR, bR, contact, legalR] = await Promise.all([api("GET", "/api/v1/sessions"), api("GET", "/api/v1/bookings"), loadContact(),
     outdated.length ? api("GET", "/api/v1/legal/current", undefined, { noAuth: true }) : null]);
+  if (!sR.ok || !bR.ok) return failedView(T("city"), sR.ok ? bR : sR, scrHome);
   const docs = legalR && legalR.ok ? outdated.filter((k) => legalR.data[k]).map((k) => ({ type: k, ...legalR.data[k] })) : [];
   const onlyPrivacy = docs.length === 1 && docs[0].type === "privacy_notice";
   const DOC_NAME = { terms: "docTerms", conduct: "docConduct", privacy_notice: "privacyTitle" };
@@ -1264,7 +1272,8 @@ async function scrEvents() {
   if (!(await guard())) return;
   loadingView();
   const [r, contact] = await Promise.all([api("GET", "/api/v1/bookings"), loadContact()]);
-  const bookings = r.ok ? r.data.bookings : [];
+  if (!r.ok) return failedView(T("eventsTitle"), r, scrEvents);
+  const bookings = r.data.bookings;
   const upcoming = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   const choice = bookings.find((b) => b.status === "cancelled_by_organizer" && new Date(b.starts_at) > new Date(Date.now() - 2 * 86400000));
   const next = upcoming[0];
@@ -1558,7 +1567,8 @@ async function scrInbox() {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
   const r = await api("GET", "/api/v1/notifications");
-  const list = r.ok ? r.data.notifications : [];
+  if (!r.ok) return failedView(T("inbox"), r, scrInbox);
+  const list = r.data.notifications;
   const seen = store.get("inboxSeen");
   const isNew = (n) => !seen || new Date(n.created_at) > new Date(seen);
   if (r.ok) { if (list.length) store.set("inboxSeen", list[0].created_at); inboxFetch = null; showInboxBadge(0); }
@@ -1616,7 +1626,8 @@ async function scrCases() {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
   const r = await api("GET", "/api/v1/cases/mine");
-  const cases = r.ok ? r.data.cases : [];
+  if (!r.ok) return failedView(T("casesTitle"), r, scrCases);
+  const cases = r.data.cases;
   view(T("casesTitle"), `<h1>${esc(T("casesTitle"))}</h1>${cases.length ? `<ul class="list">${cases.map((c) => `
     <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision_label || c.decision)}</span></div>
     <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(c.category === "identity_mismatch" ? "cIdentity" : REPORT_CATS[c.category] || "cDisruptive"))}</p>

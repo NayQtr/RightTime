@@ -1,5 +1,8 @@
 # herzone.app: design audit (5 Nov 2026)
 
+Checked against the code on 10 Nov 2026: colours follow the 6 Nov identity in `design/tokens.json` (the 5 Nov beige and wine
+are listed only as history); the press scale is 0.97.
+
 Method: the taste pipeline (DOM extraction + screenshots) on the live site at 1440×900 and 390×844, plus the 30
 screenshots of the full member journey from `api/test/ui.test.mjs` (360 px, Arabic). Values below come from
 `web/tokens.css` (generated from `design/tokens.json`) and `web/styles.css`.
@@ -26,11 +29,12 @@ excluded: their washed-out look is timing, not design.
 ## Taste DNA
 
 1. **Warm paper, one accent.** Trigger: a women-only social product that must feel safe and calm, not like a dating
-   app. Decision: beige `#FAF4EC` ground and a single wine accent `#7E1E35`, used for the CTA, the selected state and
+   app. Decision: almond-blossom `#F2D9ED` ground and a single violet accent `#3A2C39` (identity of 6 Nov; on 5 Nov
+   it was beige `#FAF4EC` with wine `#7E1E35`), used for the CTA, the selected state and
    one word of the headline. Reason: one accent makes the next action obvious on every screen. Evidence: every screen
    has one filled button; everything else is outline, link or sunken card.
 2. **The table is the picture.** Trigger: no photos of members may be shown. Decision: an abstract table with filled
-   and dashed seats (`#DA915F`) stands in for imagery on welcome, quiz interstitials and the booking card.
+   and dashed seats (token `seat`, `#B07AA1`) stands in for imagery on welcome, quiz interstitials and the booking card.
    Reason: it shows "4–6 women, some seats still open" without a single face. Evidence: the same drawing appears on
    welcome, quiz results and "your table".
 3. **Restraint: one column everywhere.** Trigger: most members book from a phone. Decision: a 560 px column on
