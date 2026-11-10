@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS app.matching_run_tables (
   UNIQUE (matching_run_id, table_code)
 );
 CREATE INDEX IF NOT EXISTS matching_run_tables_table_id_fk_idx ON app.matching_run_tables (table_id);
+-- a published table is created by exactly one run (the admin session view joins on it)
+CREATE UNIQUE INDEX IF NOT EXISTS matching_run_tables_one_per_table ON app.matching_run_tables (table_id) WHERE table_id IS NOT NULL;
 COMMENT ON TABLE app.matching_run_tables IS 'Score and components of every table of every matching run (020); low_match = below the engine threshold';
 
 -- same protection as every app table (002, 007): RLS with an explicit deny-all policy, no client-role privileges
