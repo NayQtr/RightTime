@@ -92,6 +92,16 @@ export const TEMPLATES = {
   PRIVATE_CONTACT: ["سيتواصل معك فريقنا بشكل خاص قبل اللقاء.", "Our team will contact you privately before the event."],
 };
 
+// A length of time for {window} (021, provisional wording): whole hours, else minutes. Arabic number agreement:
+// 1 ساعة, 2 ساعتين, 3–10 ساعات, 11+ ساعة (the same for دقيقة).
+export function durationText(minutes, locale) {
+  const m = Math.max(1, Math.round(Number(minutes) || 0));
+  const [n, unit] = m % 60 === 0 ? [m / 60, "h"] : [m, "m"];
+  if (locale === "en") return `${n} ${unit === "h" ? "hour" : "minute"}${n === 1 ? "" : "s"}`;
+  const [one, two, few, many] = unit === "h" ? ["ساعة", "ساعتين", "ساعات", "ساعة"] : ["دقيقة", "دقيقتين", "دقائق", "دقيقة"];
+  return n === 1 ? one : n === 2 ? two : `${n} ${n <= 10 ? few : many}`;
+}
+
 export function renderTemplate(key, locale, payload = {}) {
   const t = TEMPLATES[key];
   if (!t) return key;

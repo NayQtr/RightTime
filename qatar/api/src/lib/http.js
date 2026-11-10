@@ -40,6 +40,7 @@ const PG_MAP = {
   P0040: [422, "VALIDATION_FAILED"], P0041: [404, "NOT_FOUND"], P0042: [422, "VALIDATION_FAILED"],
   P0043: [409, "CONFLICT"], P0044: [409, "CONFLICT"], P0045: [422, "VALIDATION_FAILED"], P0046: [422, "VALIDATION_FAILED"],
   P0050: [409, "CONFLICT"], P0051: [403, "FORBIDDEN"], P0052: [403, "FORBIDDEN"],
+  P0060: [409, "CONFLICT"], // 021: a booking status move outside the status model
   "23505": [409, "CONFLICT"], "23514": [422, "VALIDATION_FAILED"], "22P02": [400, "MALFORMED_REQUEST"],
   // database busy (no free connection, or starting up): a short, retryable 503, never a 500 (NMX-31)
   "53300": [503, "UNAVAILABLE"], "57P03": [503, "UNAVAILABLE"],

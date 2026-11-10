@@ -620,10 +620,15 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "funnel_counter": {
+                      "type": "boolean",
+                      "description": "Public setting: when true, the client sends one POST /api/v1/funnel/steps per sign-up and booking step it reaches; when false it sends nothing"
                     }
                   },
                   "required": [
-                    "coordinator"
+                    "coordinator",
+                    "funnel_counter"
                   ]
                 }
               }
@@ -631,6 +636,66 @@
           }
         },
         "operationId": "getSupportContact",
+        "security": []
+      }
+    },
+    "/api/v1/funnel/steps": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Step counter (provisional, off by default): add 1 to today's count for a sign-up or booking step on a platform. No sign-in and no Idempotency-Key: nothing identifying is read or kept. While the counter is off, nothing is stored and the answer is the same 204",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "step": {
+                    "type": "string",
+                    "enum": [
+                      "signup_welcome",
+                      "signup_quiz",
+                      "signup_phone",
+                      "signup_code",
+                      "signup_register",
+                      "signup_done",
+                      "booking_sessions",
+                      "booking_review",
+                      "booking_checkout",
+                      "booking_paid"
+                    ]
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "web",
+                      "ios",
+                      "android"
+                    ]
+                  }
+                },
+                "required": [
+                  "step",
+                  "platform"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Counted (or the counter is off)"
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postFunnelSteps",
         "security": []
       }
     },
@@ -1291,7 +1356,7 @@
             "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
-        "summary": "Join the waitlist of a full dinner",
+        "summary": "Join the waitlist of a full dinner. When a seat frees up, the first member waiting gets it kept for her for a while (WAITLIST_OFFER notification); the session list then shows waitlist.status offered, and the session is bookable for her until offer_expires_at",
         "responses": {
           "201": {
             "description": "On the waitlist",
@@ -2896,6 +2961,18 @@
                               }
                             ]
                           },
+                          "session_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "description": "A waitlist offer: the session whose seat is kept for her (book it from the session list)"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "text": {
                             "type": "string"
                           }
@@ -2905,6 +2982,7 @@
                           "template_key",
                           "created_at",
                           "booking_id",
+                          "session_id",
                           "text"
                         ]
                       }
@@ -3934,6 +4012,65 @@
                 "type": "null"
               }
             ]
+          },
+          "waitlist": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "waiting",
+                      "offered"
+                    ]
+                  },
+                  "position": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "description": "Her place among the members still waiting"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "offer_expires_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "window_text": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Time left on the offer in the request language, e.g. ساعتين / 2 hours"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "position",
+                  "offer_expires_at",
+                  "window_text"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -3951,7 +4088,8 @@
           "full_refund_until",
           "full_refund_until_hours",
           "booking_closes_at",
-          "my_booking_id"
+          "my_booking_id",
+          "waitlist"
         ]
       },
       "RefundTerms": {

@@ -5,10 +5,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { userRoutes } from "../src/routes/user.js";
 import { pushRoutes } from "../src/routes/push.js";
+import { funnelRoutes } from "../src/routes/funnel.js";
 import { spec } from "../openapi/spec.mjs";
 
 const NOT_FOR_APPS = new Set(["/api/internal/push:dispatch"]);
-const served = [...userRoutes, ...pushRoutes].filter((r) => !NOT_FOR_APPS.has(r.path));
+// admin console routes (/api/admin/v1/*) that live next to a member feature are not for app clients either
+const served = [...userRoutes, ...pushRoutes, ...funnelRoutes].filter((r) => !NOT_FOR_APPS.has(r.path) && !r.path.startsWith("/api/admin/"));
 
 test("every member route is described, and every described route exists", () => {
   const described = Object.entries(spec.paths).flatMap(([p, ops]) => Object.keys(ops).map((m) => `${m.toUpperCase()} ${p}`));

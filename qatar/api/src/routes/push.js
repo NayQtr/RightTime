@@ -1,10 +1,12 @@
 // Phone notifications (Web Push, migration 013). A member's browser or home-screen app registers a push subscription;
 // every notification queued for her on the "push" channel (the same rows the inbox shows) is then also sent to her
 // devices by the dispatcher, which pg_cron calls every minute with a token only the database and the API know.
-import { safeEqual } from "../lib/crypto.js";
-import { fail, json } from "../lib/http.js";
+import { decrypt, safeEqual } from "../lib/crypto.js";
+import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { loadOptionalKey } from "../lib/keys.js";
+import { audit } from "../services/common.js";
 import { generateVapidKey, sendPush, vapidFromJwk } from "../services/webpush.js";
+import { notificationText } from "./user.js";
 
 // Only the browsers' own push services: the API never posts to an address a client made up.
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
@@ -13,6 +15,10 @@ const MAX_DEVICES = 10;
 const BATCH = 50;
 const FRESH_HOURS = 24; // older queued notifications are not pushed (still in the inbox)
 const SUBJECT = "https://herzone.app";
+// Retries (021, Notion fix 6, provisional): a notification no device accepted (a network error or a push-service error,
+// not a device that no longer exists) is tried again after these many minutes: at most 3 more tries, with growing gaps.
+// After the last one it is marked failed and listed for coordinators in the admin console.
+export const PUSH_RETRY_MINUTES = [2, 10, 30];
 
 let vapidCache = null;
 export async function vapidKeys(sql, getEnv) {
@@ -56,8 +62,9 @@ async function unsubscribe(ctx) {
 }
 
 // Sends due push-channel notifications to every device of their member. Rows are claimed first (so two runs never send
-// the same one), then marked sent (at least one device got it), failed (every device refused) or cancelled (no device,
-// or too old to push). A device is only sent what was queued after it subscribed. Dead subscriptions are removed.
+// the same one), then marked sent (at least one device got it), queued again for a retry (no device got it and one of
+// them may be reachable later: PUSH_RETRY_MINUTES), failed (every device refused, retries used up) or cancelled (no
+// device, or too old to push). A device is only sent what was queued after it subscribed. Dead subscriptions are removed.
 export const LOCK_SCREEN_TEXT = {
   ar: "لديكِ تحديث جديد في HerZone. افتحي التطبيق لقراءته.",
   en: "You have a new update in HerZone. Open the app to read it.",
@@ -70,13 +77,14 @@ export async function dispatchPush(sql, getEnv, { fetchImpl = fetch, limit = BAT
     UPDATE app.notifications_outbox SET provider_ref = 'push:claimed:' || to_char(now(), 'YYYYMMDDHH24MISS'), updated_at = now()
      WHERE id IN (SELECT id FROM app.notifications_outbox
                    WHERE channel = 'push' AND status = 'queued' AND send_after <= now()
-                     AND (provider_ref IS NULL OR (provider_ref LIKE 'push:claimed:%' AND updated_at < now() - interval '5 minutes'))
+                     AND (provider_ref IS NULL OR provider_ref LIKE 'push:retry:%'
+                          OR (provider_ref LIKE 'push:claimed:%' AND updated_at < now() - interval '5 minutes'))
                    ORDER BY created_at LIMIT ${limit} FOR UPDATE SKIP LOCKED)
      RETURNING *`;
-  if (!rows.length) return { processed: 0, sent: 0, failed: 0, no_device: 0 };
+  if (!rows.length) return { processed: 0, sent: 0, failed: 0, no_device: 0, retrying: 0 };
   const subs = await sql`SELECT * FROM app.push_subscriptions WHERE user_id IN ${sql([...new Set(rows.map((r) => r.user_id))])}`;
   const vapid = await vapidKeys(sql, getEnv);
-  const out = { processed: rows.length, sent: 0, failed: 0, no_device: 0 };
+  const out = { processed: rows.length, sent: 0, failed: 0, no_device: 0, retrying: 0 };
   for (const n of rows) {
     const devices = subs.filter((s) => s.user_id === n.user_id && new Date(s.created_at) <= new Date(n.created_at));
     if (!devices.length) {
@@ -87,20 +95,69 @@ export async function dispatchPush(sql, getEnv, { fetchImpl = fetch, limit = BAT
     const ar = n.locale !== "en";
     // NMX-21: the lock screen shows one generic line, never a name, place, time or booking reference; the text itself
     // is read in the app (inbox), behind sign-in, and in the mobile app behind Face ID / fingerprint (NMX-52).
+    const p = n.payload || {};
+    // a waitlist offer (021) opens the session list at that session, where she books the seat kept for her
     const message = { title: "HerZone", body: ar ? LOCK_SCREEN_TEXT.ar : LOCK_SCREEN_TEXT.en, tag: n.id, lang: ar ? "ar" : "en", dir: ar ? "rtl" : "ltr",
-      url: (n.payload || {}).booking_id ? `/#/booking/${n.payload.booking_id}` : "/#/inbox" };
-    let delivered = 0;
+      url: p.booking_id ? `/#/booking/${p.booking_id}` : p.session_id ? `/#/sessions?s=${p.session_id}` : "/#/inbox" };
+    let delivered = 0, lastError = null, mayRecover = false;
     for (const d of devices) {
       const r = await sendPush(d, message, vapid, { subject: SUBJECT, fetchImpl });
-      if (r.ok) { delivered += 1; await sql`UPDATE app.push_subscriptions SET failures = 0, last_success_at = now(), last_error = NULL WHERE id = ${d.id}`; }
-      else if (r.gone) await sql`DELETE FROM app.push_subscriptions WHERE id = ${d.id}`;
-      else await sql`UPDATE app.push_subscriptions SET failures = failures + 1, last_error = ${`${r.status} ${r.error || ""}`.trim().slice(0, 200)} WHERE id = ${d.id}`;
+      if (r.ok) { delivered += 1; await sql`UPDATE app.push_subscriptions SET failures = 0, last_success_at = now(), last_error = NULL WHERE id = ${d.id}`; continue; }
+      lastError = `${r.status} ${r.error || ""}`.trim().slice(0, 200);
+      if (r.gone) await sql`DELETE FROM app.push_subscriptions WHERE id = ${d.id}`;
+      else { mayRecover = true; await sql`UPDATE app.push_subscriptions SET failures = failures + 1, last_error = ${lastError} WHERE id = ${d.id}`; }
     }
-    await sql`UPDATE app.notifications_outbox SET status = ${delivered ? "sent" : "failed"}, sent_at = ${delivered ? new Date() : null},
-               provider_ref = ${`push:${delivered}/${devices.length}`} WHERE id = ${n.id}`;
-    if (delivered) out.sent += 1; else out.failed += 1;
+    const tries = n.attempts + 1;
+    if (delivered) {
+      await sql`UPDATE app.notifications_outbox SET status = 'sent', sent_at = now(), attempts = ${tries}, last_error = NULL,
+                 provider_ref = ${`push:${delivered}/${devices.length}`} WHERE id = ${n.id}`;
+      out.sent += 1;
+    } else if (mayRecover && n.attempts < PUSH_RETRY_MINUTES.length) {
+      await sql`UPDATE app.notifications_outbox SET attempts = ${tries}, last_error = ${lastError}, provider_ref = ${`push:retry:${tries}`},
+                 send_after = now() + make_interval(mins => ${PUSH_RETRY_MINUTES[n.attempts]}) WHERE id = ${n.id}`;
+      out.retrying += 1;
+    } else {
+      await sql`UPDATE app.notifications_outbox SET status = 'failed', sent_at = NULL, attempts = ${tries}, last_error = ${lastError},
+                 provider_ref = ${`push:0/${devices.length}`} WHERE id = ${n.id}`;
+      out.failed += 1;
+    }
   }
   return out;
+}
+
+// ------------------------------------------------------------------ failed notifications (021), admin console
+// Phone notifications that could not be delivered after every retry: coordinators reach the member another way (call,
+// WhatsApp) and mark it handled. The list shows her first name and number (reading it is recorded in the audit log, as
+// for call requests) and the message in English and in her language. ?count=1 returns only the open count (no numbers).
+async function listFailedNotifications(ctx) {
+  const { sql, keys, admin, url } = ctx;
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.notifications_outbox WHERE channel = 'push' AND status = 'failed' AND handled_at IS NULL`;
+  if (url.searchParams.get("count")) return json(200, { open_count: n });
+  const handled = url.searchParams.get("status") === "handled";
+  const rows = await sql`
+    SELECT o.*, u.display_name, u.phone_e164_enc, u.status AS member_status, b.booking_ref, s.starts_at, a.name AS handled_by_name
+      FROM app.notifications_outbox o JOIN app.users u ON u.id = o.user_id
+      LEFT JOIN app.bookings b ON b.id = (CASE WHEN o.payload->>'booking_id' ~* '^[0-9a-f-]{36}$' THEN (o.payload->>'booking_id')::uuid END)
+      LEFT JOIN app.event_sessions s ON s.id = COALESCE(b.session_id, CASE WHEN o.payload->>'session_id' ~* '^[0-9a-f-]{36}$' THEN (o.payload->>'session_id')::uuid END)
+      LEFT JOIN app.admin_users a ON a.id = o.handled_by
+     WHERE o.channel = 'push' AND o.status = 'failed' AND ${handled ? sql`o.handled_at IS NOT NULL` : sql`o.handled_at IS NULL`}
+     ORDER BY ${handled ? sql`o.handled_at DESC` : sql`o.created_at`} LIMIT 100`;
+  if (rows.length) await audit(sql, admin.id, "read_failed_notifications", "notifications_outbox", null, `${handled ? "handled" : "open"}_${rows.length}`, ctx.ipTrunc);
+  return json(200, { open_count: n, notifications: rows.map((r) => ({ id: r.id, template_key: r.template_key, created_at: qa(r.created_at),
+    attempts: r.attempts, last_error: r.last_error, last_try_at: qa(r.updated_at), name: r.display_name, member_status: r.member_status, locale: r.locale,
+    phone: r.phone_e164_enc && r.phone_e164_enc.length ? decrypt(keys.dataKey, r.phone_e164_enc) : null,
+    booking_ref: r.booking_ref, starts_at: qa(r.starts_at), text_en: notificationText(r, "en"), text: notificationText(r, r.locale),
+    handled_at: qa(r.handled_at), handled_by: r.handled_by_name })) });
+}
+
+async function handleFailedNotification(ctx) {
+  const { sql, params, admin } = ctx;
+  requireUuid(params.id, "notification_id");
+  const rows = await sql`UPDATE app.notifications_outbox SET handled_at = now(), handled_by = ${admin.id}
+                          WHERE id = ${params.id} AND channel = 'push' AND status = 'failed' AND handled_at IS NULL RETURNING id`;
+  if (!rows.length) fail(409, "CONFLICT");
+  await audit(sql, admin.id, "notification_failure_handled", "notifications_outbox", params.id, null, ctx.ipTrunc);
+  return json(200, { id: params.id, handled: true });
 }
 
 async function dispatch(ctx) {
@@ -115,4 +172,6 @@ export const pushRoutes = [
   { method: "POST", path: "/api/v1/push/subscriptions", auth: "user_any", handler: subscribe },
   { method: "POST", path: "/api/v1/push/subscriptions:delete", auth: "user_any", handler: unsubscribe },
   { method: "POST", path: "/api/internal/push:dispatch", auth: "none", handler: dispatch },
+  { method: "GET", path: "/api/admin/v1/notifications/failed", auth: "admin", roles: ["owner", "ops"], handler: listFailedNotifications },
+  { method: "POST", path: "/api/admin/v1/notifications/{id}:handled", auth: "admin", roles: ["owner", "ops"], handler: handleFailedNotification },
 ];

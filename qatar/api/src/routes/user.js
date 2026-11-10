@@ -1,7 +1,7 @@
 // User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
 import { decrypt, encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
-import { decisionLabel, renderTemplate } from "../lib/i18n.js";
+import { decisionLabel, durationText, renderTemplate } from "../lib/i18n.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
@@ -529,18 +529,41 @@ async function listSessions(ctx) {
      WHERE s.status IN ('on_sale','sold_out') AND s.booking_closes_at > now() AND s.booking_opens_at <= now()
        AND (${exp}::text IS NULL OR s.experience::text = ${exp})
      ORDER BY s.starts_at`;
+  const waits = await myWaitlist(sql, user.id);
   return json(200, {
     profile_languages: prof ? prof.languages : [],
-    sessions: rows.map((s) => ({
-      id: s.id, experience: s.experience, conversation_language: s.conversation_language.trim(),
-      language_match: prof ? prof.languages.includes(s.conversation_language.trim()) : null,
-      starts_at: qa(s.starts_at), ends_at: qa(s.ends_at), district: district(s, locale),
-      seats_left: s.max_seats - s.seats_sold, is_full: s.status === "sold_out" || s.seats_sold >= s.max_seats,
-      price: money(s.service_fee_minor, locale), group_size: "4–6",
-      full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), full_refund_until_hours: s.full_refund_until_hours, booking_closes_at: qa(s.booking_closes_at),
-      my_booking_id: s.my_booking_id,
-    })),
+    sessions: rows.map((s) => {
+      const w = waits.get(s.id) || null;
+      const offered = Boolean(w && w.status === "offered");
+      return {
+        id: s.id, experience: s.experience, conversation_language: s.conversation_language.trim(),
+        language_match: prof ? prof.languages.includes(s.conversation_language.trim()) : null,
+        starts_at: qa(s.starts_at), ends_at: qa(s.ends_at), district: district(s, locale),
+        // a seat kept for her from the waitlist (021) is hers to book: the session is not full for her
+        seats_left: offered ? Math.max(1, s.max_seats - s.seats_sold) : s.max_seats - s.seats_sold,
+        is_full: !offered && (s.status === "sold_out" || s.seats_sold >= s.max_seats),
+        price: money(s.service_fee_minor, locale), group_size: "4–6",
+        full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), full_refund_until_hours: s.full_refund_until_hours, booking_closes_at: qa(s.booking_closes_at),
+        my_booking_id: s.my_booking_id,
+        waitlist: w && {
+          status: w.status, position: offered ? null : w.place,
+          offer_expires_at: offered ? qa(w.offer_expires_at) : null,
+          window_text: offered ? durationText(Math.ceil((new Date(w.offer_expires_at) - Date.now()) / 60000), locale) : null,
+        },
+      };
+    }),
   });
+}
+
+// Her open waitlist entries (021) by session: waiting (with her place among those still waiting) or offered.
+async function myWaitlist(sql, userId) {
+  const rows = await sql`
+    SELECT e.session_id, e.status, e.offer_expires_at,
+           1 + (SELECT count(*)::int FROM app.waitlist_entries o
+                 WHERE o.session_id = e.session_id AND o.status = 'waiting' AND o.position < e.position) AS place
+      FROM app.waitlist_entries e
+     WHERE e.user_id = ${userId} AND (e.status = 'waiting' OR (e.status = 'offered' AND e.offer_expires_at > now()))`;
+  return new Map(rows.map((r) => [r.session_id, r]));
 }
 
 async function joinWaitlist(ctx) {
@@ -598,7 +621,10 @@ async function createBooking(ctx) {
   }
   await sql`SELECT app.release_expired_holds()`;
   const [fresh] = await sql`SELECT status, seats_sold, max_seats FROM app.event_sessions WHERE id = ${s.id}`;
-  if (fresh.status === "sold_out" || fresh.seats_sold >= fresh.max_seats)
+  // a live waitlist offer (021): the seat kept for her is in seats_sold, so the session looks full; hold_seat gives it to her
+  const [offer] = await sql`SELECT 1 FROM app.waitlist_entries WHERE user_id = ${user.id} AND session_id = ${s.id}
+                              AND status = 'offered' AND offer_expires_at > now()`;
+  if (!offer && (fresh.status === "sold_out" || fresh.seats_sold >= fresh.max_seats))
     fail(409, "SESSION_FULL", [{ field: "session_id", code: "SESSION_FULL" }], { waitlist_href: `/api/v1/sessions/${s.id}/waitlist` });
   const idemKey = ctx.req.headers.get("idempotency-key");
   let result;
@@ -1058,26 +1084,28 @@ async function appeal(ctx) {
 export function notificationText(n, locale) {
   const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
     [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, locale)
-      : k === "name" && !v ? (locale === "en" ? "A tablemate" : "زميلة طاولتك") : v]));
+      : k === "name" && !v ? (locale === "en" ? "A tablemate" : "زميلة طاولتك") : k === "window" ? durationText(v, locale) : v]));
   return renderTemplate(n.template_key, locale, fmt(n.payload));
 }
 
 async function notifications(ctx) {
   const rows = await ctx.sql`SELECT * FROM app.notifications_outbox WHERE user_id = ${ctx.user.id} ORDER BY created_at DESC LIMIT 50`;
   return json(200, { notifications: rows.map((n) => ({ id: n.id, template_key: n.template_key, created_at: qa(n.created_at),
-    booking_id: (n.payload || {}).booking_id || null, text: notificationText(n, ctx.locale) })) });
+    booking_id: (n.payload || {}).booking_id || null, session_id: (n.payload || {}).session_id || null, text: notificationText(n, ctx.locale) })) });
 }
 
 // Health probe: confirms the API, database and server keys load; reports where the keys come from (audit F6).
 const health = async (ctx) => json(200, { status: "ok", key_source: ctx.keys.source });
 
 // Coordinator on duty (audit F10): a real channel the app can show as call / WhatsApp buttons. Empty when not configured.
+// It is also where the clients read public settings: funnel_counter (021) tells them whether to send step pings.
 function supportContact(ctx) {
   const phone = ctx.cfg.coordinatorPhone;
-  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) return json(200, { coordinator: null });
+  const funnel = ctx.cfg.funnelCounter;
+  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) return json(200, { coordinator: null, funnel_counter: funnel });
   const local = phone.startsWith("+974") ? `+974 ${phone.slice(4, 8)} ${phone.slice(8)}` : phone;
   return json(200, { coordinator: { phone_e164: phone, phone_display: local, tel_url: `tel:${phone}`,
-    whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null } }, { "Cache-Control": "public, max-age=300" });
+    whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null }, funnel_counter: funnel }, { "Cache-Control": "public, max-age=300" });
 }
 
 // "Request contact" (owner's design, 5 Nov): she writes what the problem or request is, confirms the number to call and when
