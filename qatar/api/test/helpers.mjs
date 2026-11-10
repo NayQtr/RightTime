@@ -10,7 +10,8 @@ import { sha256hex, totpAt } from "../src/lib/crypto.js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../..");
 export const PG = { host: process.env.PGHOST_TCP || "localhost", port: Number(process.env.PGPORT || 5433), user: process.env.PGUSER || "app" };
-const TEMPLATE = "qatar_api_tpl";
+// TEST_DB_TEMPLATE lets two checkouts run the suite at the same time without sharing a template database.
+const TEMPLATE = process.env.TEST_DB_TEMPLATE || "qatar_api_tpl";
 
 function psql(db, args) {
   // psql connects over the local socket in /tmp by default; CI points PGHOST_PSQL at the Postgres service (localhost)
