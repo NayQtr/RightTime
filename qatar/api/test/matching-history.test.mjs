@@ -81,8 +81,14 @@ test("matching_input: who shared a table lately (days apart), and how long ago a
   assert.equal(await unseatedFor("no_table_formed"), 6);
   assert.equal(await unseatedFor("below_quorum"), 6);
   assert.equal(await unseatedFor("account_banned"), null, "any other cancellation is not a missed table");
-  await sql`UPDATE app.bookings SET status = 'paid_awaiting_group', cancelled_at = NULL, cancel_actor = NULL, cancel_reason_code = NULL
-            WHERE id = ${W.left.bookingA}`;
+  // back to the starting data for the next tests: a cancelled booking never returns in the product (021 status guard),
+  // so the guard is off for this one fixture step only
+  await sql.begin(async (tx) => {
+    await tx`ALTER TABLE app.bookings DISABLE TRIGGER bookings_status_guard`;
+    await tx`UPDATE app.bookings SET status = 'paid_awaiting_group', cancelled_at = NULL, cancel_actor = NULL, cancel_reason_code = NULL
+             WHERE id = ${W.left.bookingA}`;
+    await tx`ALTER TABLE app.bookings ENABLE TRIGGER bookings_status_guard`;
+  });
   const [fn] = await sql`SELECT proconfig FROM pg_proc WHERE oid = 'app.matching_input(uuid)'::regprocedure`;
   assert.deepEqual(fn.proconfig, ["search_path=app, pg_temp"]);
   // A itself has no history: its own table does not count
