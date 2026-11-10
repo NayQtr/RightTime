@@ -23,6 +23,8 @@ export const STRINGS = {
     alternatesLegend: "مواعيد أخرى أستطيع حضورها إن لزم الأمر (اختياري)", alternatesHelp: "نستخدمها فقط لعرض بديل إن لم تكتمل الطاولة؛ لا ننقلك تلقائيًا أبدًا.",
     priceStrip: "رسم التنظيم {fee} · الطعام يُدفع للمكان", continueToPay: "متابعة للدفع", noSessions: "لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.",
     editLanguages: "عدّلي لغاتك", alreadyBooked: "محجوز", languageMismatch: "بلغة لم تختاريها",
+    // provisional (10 Nov): notify me (v0.3 E-LANG-1, feminised), day and area filters on a long list (item 43)
+    notifyMe: "أعلميني عند توفر موعد", notifyMeOn: "سنُعلمكِ عند توفر موعد بلغتك.", filterDay: "اليوم", filterAll: "الكل", noFilterMatch: "لا مواعيد بهذا الاختيار.",
     // SCR-05
     occasionLegend: "هل تحتفلين بمناسبة في هذا الموعد؟", occasionBirthday: "عيد ميلادي", occasionOther: "مناسبة أخرى", occasionNo: "لا",
     reviewTitle: "راجعي حجزك", experience: "التجربة", dateTime: "الموعد", district: "المنطقة", tableLanguage: "لغة الطاولة", groupSizeLabel: "حجم المجموعة",
@@ -64,6 +66,8 @@ export const STRINGS = {
     fbTitle: "كيف كانت التجربة؟", overall: "التقييم العام", comfort: "هل شعرتِ بالراحة في الحوار؟", venueRating: "تقييم المكان (اختياري)",
     commentLabel: "تعليق خاص (اختياري)", commentHelp: "لن يراه أحد من الطاولة", contactLegend: "التواصل بعد اللقاء", contactSend: "طلب تواصل", contactSent: "أُرسل الطلب", contactIncoming: "ترغب بالتواصل معكِ", contactAccept: "قبول", contactDecline: "اعتذار", contactWhatsapp: "واتساب", contactUntil: "متاح حتى {date}", contactClosed: "انتهت مدة طلبات التواصل لهذا اللقاء.", contactDeclined: "تم. لن نخبرها باعتذاركِ.", contactAccepted: "تم. يظهر لكما الآن زر واتساب.", contactGo: "التواصل بعد اللقاء", contactHelp: "أرسلي طلب تواصل لمن ترغبين بلقائها مجددًا. إن قبلت، يظهر لكما زر واتساب. لا نخبر أحدًا إن لم يُقبل الطلب.", send: "إرسال", fbThanks: "شكرًا! وصلنا تقييمك.",
     reportSeparate: "شيء أزعجك؟ إبلاغ خاص", wouldBookAgain: "سأحجز مرة أخرى",
+    // provisional (Notion fix 10): reasons with a rating of 3 stars or less
+    fbReasonsLegend: "ما الذي لم يعجبكِ؟ (اختياري)", fbReasonTable: "الانسجام مع الطاولة", fbReasonFood: "الطعام أو الخدمة", fbReasonOrg: "التنظيم والمواعيد", fbReasonNoShows: "غياب بعض الحاضرات",
     // SCR-10
     reportTitle: "إبلاغ خاص", reportIntro: "بلاغك سري. لن نكشف هويتك للشخص المُبلَّغ عنه.", category: "نوع المشكلة",
     cHarassment: "تحرش أو إزعاج", cThreat: "تهديد أو عنف", cPhoto: "تصوير دون إذن", cStalking: "ملاحقة أو تواصل غير مرغوب", cFraud: "احتيال", cDisruptive: "سلوك مزعج أو غير محترم",
@@ -77,6 +81,7 @@ export const STRINGS = {
     // quiz-first experience (spec 2026-10-28)
     welcomeHero: "تعرّفي على ناس.. {em}", welcomeHeroEm: "تفهمك", welcomeHeroPlain: "تعرّفي على ناس.. تفهمك", welcomeSub: "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.", getStarted: "ابدئي", haveAccount: "لديّ حساب", quizLength: "أسئلة قصيرة تأخذ دقائق قليلة.",
     skipQ: "تخطَّي", qOf: "{i} من {n}",
+    timeLeft: "بقي نحو {m} دقيقة", timeLeftUnder: "بقيت أقل من دقيقة", // provisional (U3)
     dohaTitle: "نبدأ في الدوحة", dohaBody: "HerZone متاح حاليًا في الدوحة فقط. سنخبركِ عند افتتاح مدن أخرى.",
     communityTitle: "أهلًا بكِ في HerZone", communityBody: "نصنع مساحة نسائية للقاءات حقيقية وآمنة وجهًا لوجه، تحوّل الغريبات إلى صديقات. أجيبي عن أسئلة قصيرة لنعرفكِ أكثر.",
     howTitle: "كيف يعمل HerZone", how1: "تجيبين عن أسئلة قصيرة", how2: "تختارين موعدًا وتدفعين رسم التنظيم", how3: "نكوّن طاولة من 4 إلى 6 سيدات بلغة مشتركة وضمن ميزانيتك", how4: "نكشف لكِ المكان قبل اللقاء بيوم",
@@ -161,6 +166,7 @@ export const STRINGS = {
     alternatesLegend: "Other sessions I could attend if needed (optional)", alternatesHelp: "Used only to offer a rebooking if the table doesn't fill. We never move you automatically.",
     priceStrip: "Organising fee {fee} · food paid to the venue", continueToPay: "Continue to payment", noSessions: "There are no sessions in your languages right now. We run Arabic and English tables only.",
     editLanguages: "Edit your languages", alreadyBooked: "Booked", languageMismatch: "Not in your languages",
+    notifyMe: "Notify me when a session opens", notifyMeOn: "We'll let you know when a session in your language opens.", filterDay: "Day", filterAll: "All", noFilterMatch: "No sessions match this choice.",
     occasionLegend: "Are you celebrating an occasion on this date?", occasionBirthday: "My birthday", occasionOther: "Another occasion", occasionNo: "No",
     reviewTitle: "Review your booking", experience: "Experience", dateTime: "Date & time", district: "Area", tableLanguage: "Table language", groupSizeLabel: "Group size",
     feeNow: "Organising fee (paid now)", foodAtVenue: "Food & drinks (paid to the venue)", foodBand: "Within your budget: {band}",
@@ -196,6 +202,7 @@ export const STRINGS = {
     fbTitle: "How was it?", overall: "Overall rating", comfort: "Did you feel comfortable in the conversation?", venueRating: "Venue rating (optional)",
     commentLabel: "Private comment (optional)", commentHelp: "No one at your table will see it", contactLegend: "Contact after the event", contactSend: "Ask to stay in touch", contactSent: "Request sent", contactIncoming: "would like to stay in touch", contactAccept: "Accept", contactDecline: "Decline", contactWhatsapp: "WhatsApp", contactUntil: "Open until {date}", contactClosed: "Contact requests for this meetup are closed.", contactDeclined: "Done. We won't tell her you declined.", contactAccepted: "Done. You both now have a WhatsApp button.", contactGo: "Stay in touch after the meetup", contactHelp: "Ask a tablemate you'd like to see again. If she accepts, you both get a WhatsApp button. We never tell anyone if a request isn't accepted.", send: "Send", fbThanks: "Thank you! We received your feedback.",
     reportSeparate: "Something bothered you? Private report", wouldBookAgain: "I'd book again",
+    fbReasonsLegend: "What didn't work for you? (optional)", fbReasonTable: "Fit with my table", fbReasonFood: "Food or service", fbReasonOrg: "Organisation and timing", fbReasonNoShows: "Some guests didn't come",
     reportTitle: "Private report", reportIntro: "Your report is confidential. We won't reveal your identity to the person reported.", category: "What happened?",
     cHarassment: "Harassment", cThreat: "Threat or violence", cPhoto: "Photographed without consent", cStalking: "Stalking or unwanted contact", cFraud: "Fraud", cDisruptive: "Disruptive or disrespectful behaviour",
     whenLegend: "When did it happen?", during: "During the event", afterEv: "After the event", whoLegend: "Who? (optional)", notSure: "I don't know / prefer not to say",
@@ -206,6 +213,7 @@ export const STRINGS = {
     suspended: "Your account is currently suspended.",
     welcomeHero: "Meet people who {em}.", welcomeHeroEm: "get you", welcomeHeroPlain: "Meet people who get you.", welcomeSub: "A table of 4 to 6 women, in your language and within your budget, in Doha.", getStarted: "Get started", haveAccount: "I already have an account", quizLength: "Short questions that take a few minutes.",
     skipQ: "Skip", qOf: "{i} of {n}",
+    timeLeft: "About {m} min left", timeLeftUnder: "Less than a minute left",
     dohaTitle: "We're starting in Doha", dohaBody: "HerZone is available in Doha only for now. We'll let you know when other cities open.",
     communityTitle: "Welcome to HerZone", communityBody: "We create a women-only space for real, safe, face-to-face moments that turn strangers into friends. Answer a few short questions so we get to know you.",
     howTitle: "How HerZone works", how1: "You answer a few short questions", how2: "You pick a time and pay the organising fee", how3: "We form a table of 4 to 6 women with a shared language, within your budget", how4: "We reveal the venue the day before",

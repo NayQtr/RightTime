@@ -1,6 +1,6 @@
 // HerZone user web app — SCR-01 … SCR-10 (v0.3 §1). Vanilla ES modules, hash router, RTL-first.
 import { STRINGS } from "./strings.js";
-import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, toPayload, vibeOf, energyOf } from "./quiz-flow.js";
+import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, minutesLeft, toPayload, vibeOf, energyOf } from "./quiz-flow.js";
 import { icon } from "./icons.js";
 import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
@@ -515,6 +515,12 @@ function stepOfKey(key) {
   return i >= 0 ? i : INTERSTITIALS.start.length;
 }
 
+// "About 3 min left" for the questions still to answer, this one included (U3, provisional).
+function timeLeftText(remaining) {
+  const m = minutesLeft(remaining);
+  return m ? T("timeLeft", { m }) : T("timeLeftUnder");
+}
+
 function quizHead(back, section, progress) {
   return `<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
       <span class="section">${esc(section || "")}</span><span></span></div>
@@ -547,7 +553,7 @@ async function scrQuiz(stepStr) {
   }
   view(qq.text, `${quizHead(back, qq.section, { i: step.index + 1, n })}
     <form id="f" class="quiz-q" novalidate>
-      <p class="step-k">${esc(T("qStep", { i: step.index + 1, n }))}</p>
+      <p class="step-k">${esc(T("qStep", { i: step.index + 1, n }))}<span class="time-left"> · ${esc(timeLeftText(n - step.index))}</span></p>
       <h1 id="qh">${esc(qq.text)}</h1>
       <p class="caption why">${qq.max_selections ? `${esc(T("chooseUpTo", { n: qq.max_selections }))} · ` : ""}${esc(qq.purpose)}</p>
       ${body}
@@ -597,7 +603,7 @@ function scrInter(id, i, back) {
       <h1>${esc(T(`vibe_${vibe}`))}</h1><p class="lead">${esc(T(`vibe_${vibe}Body`))}</p><p class="caption">${esc(T("vibeNote"))}</p>`,
     curating: () => `<div class="dots-loader">${tableSvg({ seats: 6, filled: 0 })}<b id="pct" class="num">0%</b></div>
       <h1>${esc(T("curatingTitle"))}</h1><ul class="checklist" id="cl">${["cur1", "cur2", "cur3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
-    ready: () => `<h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
+    ready: () => `<div class="done-art">${tableSvg({ seats: 6, filled: 6 })}</div><h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
       <div class="choice-stack"><button type="button" class="option plain" id="yes">${esc(T("readyYes"))}</button><a class="option plain" id="unsure" href="#/what-you-get">${esc(T("readyNo"))}</a></div>`,
     energy: () => `<div class="art">${icon("sparkle")}</div><h1>${esc(T(`energy_${energy}`))}</h1><p class="lead">${esc(T(`energy_${energy}Body`))}</p>`,
     data: () => `<div class="art">${icon("lock")}</div><h1>${esc(T("dataTitle"))}</h1><p class="lead">${esc(T("dataIntro"))}</p>
@@ -837,6 +843,25 @@ async function scrPlans() {
 }
 
 // ------------------------------------------------------------------ SCR-04 sessions
+// Day and area filters appear on the session list only when more sessions than this are listed (item 43, provisional).
+const FILTERS_ABOVE = 8;
+
+// "Notify me when a session is available" (v0.3 E-LANG-1, migration 023): shown with "no sessions in your languages".
+function notifyMeBox(active) {
+  return active ? `<p class="caption" role="status" id="nm-on">${esc(T("notifyMeOn"))}</p>`
+    : `<button type="button" class="btn btn-secondary" id="notify-me">${icon("bell")}<span>${esc(T("notifyMe"))}</span></button>`;
+}
+function wireNotifyMe() {
+  const b = $("#notify-me");
+  if (!b) return;
+  b.onclick = async () => {
+    setBusy(b, true);
+    const r = await api("POST", "/api/v1/session-alerts", {});
+    if (!r.ok) { setBusy(b, false); $("#nm").insertAdjacentHTML("beforeend", errorBanner(r.data)); return; }
+    $("#nm").innerHTML = notifyMeBox(true);
+  };
+}
+
 async function scrSessions(preselect) {
   if (!(await guard())) return;
   loadingView();
@@ -847,7 +872,7 @@ async function scrSessions(preselect) {
   const exp = store.get("exp") || "dinner";
   const all = r.data.sessions.filter((x) => x.experience === exp);
   const ok = all.filter((s) => s.language_match);
-  const card = (s) => `
+  const card = (s) => `<div class="sess" data-id="${s.id}">
     <label class="option radio" data-u="start">
       <input type="radio" name="s" value="${s.id}" ${s.is_full || s.my_booking_id ? "disabled" : ""}>
       <span class="tick" aria-hidden="true"></span>
@@ -856,16 +881,28 @@ async function scrSessions(preselect) {
           ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
       </span></label>
-    ${s.is_full && !s.my_booking_id ? `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>` : ""}`;
+    ${s.is_full && !s.my_booking_id ? `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>` : ""}</div>`;
+  // a long list gets day and area chips; "All" in each group shows everything again
+  const days = [...new Set(ok.map((s) => qatarDay(s.starts_at)))];
+  const areas = [...new Set(ok.map((s) => s.district))];
+  const chip = (name, value, label) => `<label class="chip"><input type="radio" name="${name}" value="${esc(value)}" ${value === "" ? "checked" : ""}><span>${esc(label)}</span></label>`;
+  const filters = ok.length > FILTERS_ABOVE ? `<div class="filters" id="filters">
+      <fieldset><legend class="label">${esc(T("filterDay"))}</legend><div class="chips">${chip("fday", "", T("filterAll"))}${days.map((d) =>
+        chip("fday", d, fmtDate(ok.find((s) => qatarDay(s.starts_at) === d).starts_at, { weekday: "short", day: "numeric" }))).join("")}</div></fieldset>
+      <fieldset><legend class="label">${esc(T("district"))}</legend><div class="chips">${chip("farea", "", T("filterAll"))}${areas.map((a, k) => chip("farea", String(k), a)).join("")}</div></fieldset>
+    </div>` : "";
   view(T("sessionsTitle"), `
     <h1>${esc(T("sessionsTitle"))}</h1>
     <div class="segmented" role="group" aria-label="${esc(T("experience"))}">
       <button type="button" data-exp="dinner" aria-pressed="${exp === "dinner"}">${esc(T("dinner"))}</button>
       <button type="button" data-exp="coffee" aria-pressed="${exp === "coffee"}">${esc(T("coffee"))}</button>
     </div>
+    ${filters}
     <form id="f" class="stack" novalidate>
-      ${ok.length ? `<fieldset><legend class="sr-only">${esc(T("sessionsTitle"))}</legend><div class="options">${ok.map(card).join("")}</div></fieldset>`
-        : `<div class="banner banner-info"><div>${esc(T("noSessions"))} <a href="#/quiz/${stepOfKey("Q01")}">${esc(T("editLanguages"))}</a></div></div>`}
+      ${ok.length ? `<fieldset><legend class="sr-only">${esc(T("sessionsTitle"))}</legend><div class="options">${ok.map(card).join("")}</div>
+        <p class="caption" id="no-match" role="status" hidden>${esc(T("noFilterMatch"))}</p></fieldset>`
+        : `<div class="banner banner-info" id="no-sessions"><div class="stack"><p>${esc(T("noSessions"))} <a href="#/quiz/${stepOfKey("Q01")}">${esc(T("editLanguages"))}</a></p>
+          <div id="nm">${notifyMeBox(r.data.notify_me_active)}</div></div></div>`}
       <fieldset id="alts" hidden><legend class="label">${esc(T("alternatesLegend"))}</legend><p class="caption">${esc(T("alternatesHelp"))}</p><div class="options" id="altlist"></div></fieldset>
       <fieldset id="occ" hidden><legend class="label">${esc(T("occasionLegend"))}</legend><div class="options">
         ${[["birthday", "occasionBirthday"], ["other", "occasionOther"], ["", "occasionNo"]].map(([v, k]) => `<label class="option radio"><input type="radio" name="occasion" value="${v}" ${v ? "" : "checked"}><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span>${v === "birthday" ? icon("cake") : ""}</label>`).join("")}
@@ -876,6 +913,21 @@ async function scrSessions(preselect) {
       <span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>
       <button class="btn btn-primary btn-block" id="go" disabled>${esc(T("continueToPay"))}</button></div></div>`);
   $$("[data-exp]").forEach((b) => (b.onclick = () => { store.set("exp", b.dataset.exp); scrSessions(); }));
+  wireNotifyMe();
+  // filters hide whole rows; a chosen session that gets hidden is let go, so "Continue" never books one she cannot see
+  $$("#filters input").forEach((x) => (x.onchange = () => {
+    const day = ($$("input[name=fday]").find((i) => i.checked) || {}).value || "";
+    const k = ($$("input[name=farea]").find((i) => i.checked) || {}).value || "";
+    let shown = 0;
+    for (const s of ok) {
+      const row = $(`.sess[data-id="${s.id}"]`);
+      row.hidden = Boolean((day && qatarDay(s.starts_at) !== day) || (k !== "" && s.district !== areas[Number(k)]));
+      if (!row.hidden) shown += 1;
+      const radio = $("input[name=s]", row);
+      if (row.hidden && radio.checked) { radio.checked = false; $("#go").disabled = true; $("#alts").hidden = true; $("#occ").hidden = true; }
+    }
+    $("#no-match").hidden = shown > 0;
+  }));
   $$("[data-wait]").forEach((b) => (b.onclick = async () => {
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
     toast(w.ok ? T("onWaitlist", { n: w.data.position }) : (w.data.message || T("errGeneric")));
@@ -1481,6 +1533,12 @@ async function scrChoose(id) {
 }
 
 // ------------------------------------------------------------------ SCR-09 feedback
+// Reasons she can pick when the overall rating is this or lower (Notion fix 10, provisional; the server keeps them up to
+// LOW_RATING_REASONS_MAX, api/src/lib/config.js). Keys as the API expects them, with the words shown for each.
+const LOW_RATING_REASONS_UP_TO = 3;
+const LOW_RATING_REASONS = [["table_fit", "fbReasonTable"], ["venue", "venue"], ["food_service", "fbReasonFood"], ["organisation", "fbReasonOrg"],
+  ["no_shows", "fbReasonNoShows"], ["other", "rOther"]];
+
 async function scrFeedback(id) {
   if (!(await guard({ needQuestionnaire: false }))) return;
   loadingView();
@@ -1491,18 +1549,28 @@ async function scrFeedback(id) {
   view(T("fbTitle"), `
     <h1>${esc(T("fbTitle"))}</h1>
     <form id="f" class="stack" novalidate>
-      ${stars("overall", T("overall"), true)}${stars("comfort", T("comfort"), true)}${stars("venue", T("venueRating"), false)}
+      ${stars("overall", T("overall"), true)}
+      <fieldset id="reasons" hidden><legend class="label">${esc(T("fbReasonsLegend"))}</legend><div class="chips">
+        ${LOW_RATING_REASONS.map(([k, label]) => `<label class="chip"><input type="checkbox" name="reason" value="${k}"><span>${esc(T(label))}</span></label>`).join("")}</div></fieldset>
+      ${stars("comfort", T("comfort"), true)}${stars("venue", T("venueRating"), false)}
       <label class="check"><input type="checkbox" id="again"><span>${esc(T("wouldBookAgain"))}</span></label>
       <div class="field"><label class="label" for="cm">${esc(T("commentLabel"))}</label><textarea class="input" id="cm" maxlength="500" aria-describedby="cmh"></textarea><span id="cmh" class="caption">${esc(T("commentHelp"))}</span></div>
       <div id="err" role="alert"></div>
       <button class="btn btn-primary btn-block" type="submit" id="go">${esc(T("send"))}</button>
     </form>
     <a class="btn btn-ghost btn-block" href="#/report/${id}">${esc(T("reportSeparate"))}</a>`);
+  const val = (n) => { const x = $$(`input[name=${n}]:checked`)[0]; return x ? Number(x.value) : null; };
+  // 3 stars or less: the reasons appear under the overall rating; a higher rating hides and clears them
+  $$("input[name=overall]").forEach((x) => (x.onchange = () => {
+    const low = val("overall") !== null && val("overall") <= LOW_RATING_REASONS_UP_TO;
+    $("#reasons").hidden = !low;
+    if (!low) $$("input[name=reason]").forEach((r) => { r.checked = false; });
+  }));
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
-    const val = (n) => { const x = $$(`input[name=${n}]:checked`)[0]; return x ? Number(x.value) : null; };
+    const reasons = $$("input[name=reason]:checked").map((r) => r.value);
     const c = await api("POST", `/api/v1/bookings/${id}/feedback`, { overall_rating: val("overall"), comfort_rating: val("comfort"), venue_rating: val("venue"),
-      would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null });
+      would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null, ...(reasons.length ? { low_rating_reasons: reasons } : {}) });
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); return; }
     view(T("fbThanks"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("fbThanks"))}</h1>
       <a class="btn btn-secondary" href="#/booking/${id}">${esc(T("contactGo"))}</a>

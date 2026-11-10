@@ -7,6 +7,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
+import { SECONDS_PER_QUESTION, minutesLeft } from "../../web/quiz-flow.js";
 
 const DAY = 86400000;
 let env, call, sql, owner, ops;
@@ -27,6 +28,17 @@ before(async () => {
   ops = await adminLogin(call, sql, "ops.oncall@example.test");
 });
 after(async () => { await env.stop(); });
+
+test("time left in the questionnaire: questions still to answer x seconds each, whole minutes, 0 under a minute", () => {
+  assert.equal(SECONDS_PER_QUESTION, 10);
+  assert.equal(minutesLeft(21), 4, "21 questions: 210 s, about 4 min");
+  assert.equal(minutesLeft(9), 2, "90 s rounds to 2");
+  assert.equal(minutesLeft(6), 1);
+  assert.equal(minutesLeft(5), 0, "under a minute");
+  assert.equal(minutesLeft(1), 0);
+  assert.equal(minutesLeft(-3), 0);
+  assert.equal(minutesLeft(12, 20), 4, "the average is a parameter");
+});
 
 // ===================================================================== notify me
 test("notify me: one open alert per member, whatever her marketing consent; the sessions list says it is on", async () => {
