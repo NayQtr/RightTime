@@ -21,6 +21,27 @@ Waiting on the owner (decisions, explained on 4 Nov):
 11. A phone number with a fixed code for the Apple reviewer.
 12. An admin tool to delete the account of a member who lost her number (after launch, two-person approval).
 
+Waiting on the owner (decisions, 7 Nov: design phases and celebration meetups; details in items 17-20a below):
+Design (photos, sound, store):
+21. Which of the 8 round-3 photos go on the website, and which in the app (sheet sent 7 Nov; files in scratchpad adobe-5-1/out).
+22. Redo photo 4 (male waiter and chefs seen from behind) and photo 6 (bottles on a shelf behind the glass, likely syrups)? Not used in the marketing kit until decided.
+23. Approve the 3 GIFs (steam, iced latte, candle), or redo with stronger, longer motion (32 frames, 1.5 credits each).
+24. The 8-second video is from round 1 (pink and violet): keep, or regenerate in the warm café style (about 128 credits)?
+25. Website and app colours: keep the 6 Nov identity and let the warm photos bring the warmth (Claude's recommendation), or move the UI palette warmer too. The logo never changes.
+26. Approve the 11 app sounds (tap, pull-to-refresh, success, notification, sheet, switch, error) and the Qatari-style music, or ask for changes.
+27. The real service fee for the store screenshots: the booking shot shows the tests' sample "59 ر.ق".
+28. Remove "Asia/Qatar" from the app's meetup details, as was done on the website (0ddd837)?
+29. English captions for the English store screenshots (owner's wording).
+30. Phase 7: approval to put the approved photos and sounds into the website and app, then to publish.
+Higgsfield credits: 220.08 of the owner's 300 used; 79.92 left.
+Celebration meetups:
+31. Priority for the celebrant: when the rule leaves one woman out, should the celebrant keep her seat? (Claude recommends yes.)
+32. Minimum notice before the date for a celebration booking (proposal: 3 days); needs the owner's wording for the message.
+33. What the other women at the table are told beforehand, and whether her first name is shown or a general line such as "one of the guests is celebrating her birthday".
+34. Who pays for the preparations (cake, candle, decoration): the celebrant, the organising fee, or the venue.
+35. Should the privacy notice mention that the occasion is kept with the booking? Legal text not changed.
+36. Publish to the test site: apply migration 018 and seed_questionnaire_v5.sql to the staging database and deploy the API (CI green on 11851dc). Production only with the owner's approval afterwards.
+
 From the launch checklist (5 Nov):
 12a. Backups: Supabase is on the Free plan (no automatic backups). Choose: Pro plan (automatic daily backups) or a daily
      encrypted dump by GitHub Actions (the repo is public, so the dump must be encrypted; the database connection
