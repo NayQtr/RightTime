@@ -10,6 +10,12 @@ import '../auth/widgets.dart';
 import '../theme.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/test_id.dart';
+
+/// Reasons she can pick when the overall rating is this or lower (Notion fix 10, provisional). The server keeps them up to
+/// LOW_RATING_REASONS_MAX (api/src/lib/config.js); the website uses LOW_RATING_REASONS_UP_TO in web/app.js.
+const lowRatingReasonsUpTo = 3;
+const lowRatingReasons = ['table_fit', 'venue', 'food_service', 'organisation', 'no_shows', 'other'];
 
 /// Private feedback after the meetup: two required ratings, the rest optional. No one at the table sees it.
 class FeedbackScreen extends StatefulWidget {
@@ -23,6 +29,8 @@ class FeedbackScreen extends StatefulWidget {
 class _FeedbackScreenState extends State<FeedbackScreen> {
   int? overall, comfort, venue;
   bool again = false, busy = false, sent = false;
+  final Set<String> reasons = {};
+  bool get _low => overall != null && overall! <= lowRatingReasonsUpTo;
   final _comment = TextEditingController();
   ApiError? error;
 
@@ -38,7 +46,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       error = null;
     });
     try {
-      await context.read<MeetupsRepository>().feedback(widget.bookingId, overall: overall!, comfort: comfort!, venue: venue, again: again, comment: _comment.text);
+      await context.read<MeetupsRepository>().feedback(widget.bookingId, overall: overall!, comfort: comfort!, venue: venue, again: again, comment: _comment.text,
+          reasons: _low ? [for (final k in lowRatingReasons) if (reasons.contains(k)) k] : const []);
       if (mounted) setState(() => sent = true);
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e);
@@ -60,6 +69,26 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     ]);
   }
 
+  Widget _reasonChips(AppLocalizations t) {
+    final c = hzColors(context);
+    final label = {'table_fit': t.fbReasonTable, 'venue': t.fbReasonVenue, 'food_service': t.fbReasonFood, 'organisation': t.fbReasonOrg,
+        'no_shows': t.fbReasonNoShows, 'other': t.reasonOther};
+    return Wrap(spacing: HzSpace.s2, runSpacing: HzSpace.s2, children: [
+      for (final k in lowRatingReasons)
+        TestId('reason-$k', child: FilterChip(
+          key: Key('reason-$k'),
+          label: Text(label[k]!),
+          selected: reasons.contains(k),
+          showCheckmark: false,
+          selectedColor: c.primary,
+          backgroundColor: c.surfaceSunken,
+          labelStyle: TextStyle(color: reasons.contains(k) ? c.onPrimary : c.text),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: reasons.contains(k) ? c.primary : c.borderStrong)),
+          onSelected: (on) => setState(() => on ? reasons.add(k) : reasons.remove(k)),
+        )),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
@@ -77,7 +106,17 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 Text(t.fbTitle, style: tt.headlineMedium),
                 const SizedBox(height: HzSpace.s4),
                 Text(t.overall, style: tt.titleMedium),
-                _stars('overall', overall, (v) => setState(() => overall = v)),
+                // 3 stars or less: what fell short (optional); a higher rating hides and clears them
+                _stars('overall', overall, (v) => setState(() {
+                      overall = v;
+                      if (!_low) reasons.clear();
+                    })),
+                if (_low) ...[
+                  Text(t.fbReasonsLegend, key: const Key('reasons'), style: tt.titleMedium),
+                  const SizedBox(height: HzSpace.s2),
+                  _reasonChips(t),
+                  const SizedBox(height: HzSpace.s3),
+                ],
                 Text(t.comfort, style: tt.titleMedium),
                 _stars('comfort', comfort, (v) => setState(() => comfort = v)),
                 Text(t.venueRating, style: tt.titleMedium),

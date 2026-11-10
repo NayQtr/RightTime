@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../theme.dart';
 import 'quiz_view_model.dart';
+import '../common/table_art.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
@@ -52,6 +53,9 @@ class _QuizScreenState extends State<QuizScreen> {
       ]);
     } else if (vm.done && !vm.signedIn) {
       body = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+        // the end of the questions: the table drawing with every seat taken (as on the website's last screen)
+        const Align(alignment: AlignmentDirectional.centerStart, child: TableArt(key: Key('done-table'), filled: 6, size: 132)),
+        const SizedBox(height: HzSpace.s4),
         Text(t.quizDoneTitle, style: tt.headlineMedium),
         const SizedBox(height: HzSpace.s3),
         Text(t.quizDoneBody),
@@ -64,7 +68,12 @@ class _QuizScreenState extends State<QuizScreen> {
       body = ListView(key: ValueKey(q.id), padding: const EdgeInsets.all(HzSpace.gutter), children: [
         LinearProgressIndicator(value: (vm.step + 1) / vm.total, color: c.primary, backgroundColor: c.surfaceSunken, minHeight: 6, borderRadius: BorderRadius.circular(3)),
         const SizedBox(height: HzSpace.s3),
-        Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+        // the step count, then the time left in a quieter colour
+        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+          Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+          Text(' · ${vm.minutesToGo > 0 ? t.timeLeft(vm.minutesToGo) : t.timeLeftUnder}', key: const Key('time-left'),
+              style: tt.bodySmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+        ]),
         if (q.section != null) Text(q.section!, style: tt.bodySmall),
         const SizedBox(height: HzSpace.s2),
         TestId('question', child: Text(q.text, key: const Key('question'), style: tt.headlineMedium)),

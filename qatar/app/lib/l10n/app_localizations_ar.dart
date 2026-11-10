@@ -191,6 +191,21 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.';
 
   @override
+  String get notifyMe => 'أعلميني عند توفر موعد';
+
+  @override
+  String get notifyMeOn => 'سنُعلمكِ عند توفر موعد بلغتك.';
+
+  @override
+  String get filterDay => 'اليوم';
+
+  @override
+  String get filterAll => 'الكل';
+
+  @override
+  String get noFilterMatch => 'لا مواعيد بهذا الاختيار.';
+
+  @override
   String get cityFull => 'الدوحة، قطر';
 
   @override
@@ -296,6 +311,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String qOf(int i, int n) {
     return '$i من $n';
   }
+
+  @override
+  String timeLeft(int m) {
+    return 'بقي نحو $m دقيقة';
+  }
+
+  @override
+  String get timeLeftUnder => 'بقيت أقل من دقيقة';
 
   @override
   String chooseUpTo(int n) {
@@ -665,6 +688,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get venueRating => 'تقييم المكان (اختياري)';
+
+  @override
+  String get fbReasonsLegend => 'ما الذي لم يعجبكِ؟ (اختياري)';
+
+  @override
+  String get fbReasonTable => 'الانسجام مع الطاولة';
+
+  @override
+  String get fbReasonVenue => 'المكان';
+
+  @override
+  String get fbReasonFood => 'الطعام أو الخدمة';
+
+  @override
+  String get fbReasonOrg => 'التنظيم والمواعيد';
+
+  @override
+  String get fbReasonNoShows => 'غياب بعض الحاضرات';
 
   @override
   String get commentLabel => 'تعليق خاص (اختياري)';

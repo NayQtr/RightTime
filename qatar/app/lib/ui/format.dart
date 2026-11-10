@@ -17,3 +17,7 @@ String fmtTime(String iso, String locale) => _glueTime(latinDigits(DateFormat('h
 /// The day of the month and the weekday for the date "leaf" on session cards (Western digits, Doha time).
 String fmtDay(String iso) => latinDigits(DateFormat('d').format(qatarTime(iso)));
 String fmtWeekday(String iso, String locale) => DateFormat('EEEE', locale).format(qatarTime(iso));
+
+/// The Doha calendar day (yyyy-mm-dd) of a session, to filter by day; and its chip label ("Thu 12", "الخميس 12").
+String qatarDayKey(String iso) => qatarTime(iso).toIso8601String().substring(0, 10);
+String fmtDayChip(String iso, String locale) => latinDigits(DateFormat('EEE d', locale).format(qatarTime(iso)));

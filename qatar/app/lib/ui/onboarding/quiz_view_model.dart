@@ -4,6 +4,16 @@ import '../../core/api_error.dart';
 import '../../data/onboarding.dart';
 import '../../domain/session.dart';
 
+/// Average seconds per question for "about N min left" (U3, provisional 10 Nov: progress and time left only, no streaks,
+/// badges or points). The website uses the same figure: SECONDS_PER_QUESTION in web/quiz-flow.js.
+const secondsPerQuestion = 10;
+
+/// Whole minutes for the questions still to answer, this one included; 0 means less than a minute.
+int minutesLeft(int remaining, [int seconds = secondsPerQuestion]) {
+  final s = (remaining < 0 ? 0 : remaining) * seconds;
+  return s < 60 ? 0 : (s / 60).round();
+}
+
 /// The questionnaire, one question per screen. Before sign-up the answers stay on the device (QuizStore); for a
 /// signed-in member every step is saved as a server draft and the last step submits.
 class QuizViewModel extends ChangeNotifier {
@@ -25,6 +35,7 @@ class QuizViewModel extends ChangeNotifier {
   Set<String> get selected => answers[current?.id] ?? <String>{};
   bool get canNext => current != null && (!current!.required || selected.isNotEmpty);
   int get total => q?.questions.length ?? 0;
+  int get minutesToGo => minutesLeft(total - step);
 
   /// Forgets the previous person's answers when a session ends on this device (app review #5).
   void reset() {
