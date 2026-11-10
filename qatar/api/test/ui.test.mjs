@@ -294,15 +294,15 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.waitForSelector("input[name=s]:checked");
   assert.equal(await page.locator("#go").isDisabled(), false);
   await page.screenshot({ path: `${SHOTS}/07-sessions-ar.png` });
-  // celebration meetups: the occasion question appears once a session is picked; "No" is preselected
-  assert.ok((await page.locator("#occ").innerText()).includes("هل تحتفلين بمناسبة في هذا الموعد؟"));
-  assert.equal(await page.locator("input[name=occasion]:checked").getAttribute("value"), "");
-  await page.locator("input[name=occasion][value=birthday]").check({ force: true });
+  // celebration meetups: the seeded session starts in ~24 h, less than the 3 days' notice a celebration needs (item 32,
+  // provisional), so the occasion question stays hidden and a short note says why (booking-ui.test.mjs: a far session)
+  assert.equal(await page.locator("#occ").isHidden(), true);
+  assert.equal((await page.locator("#occ-note").innerText()).trim(), "الاحتفال بمناسبة يحتاج إلى حجز قبل 3 أيام على الأقل.");
   await page.click("#go");
   // review: the seeded session starts in ~24 h -> no-refund warning + acknowledgement (audit F1)
   await page.waitForSelector("#pay");
   const occ = await env.sql`SELECT b.occasion, c.type FROM app.bookings b LEFT JOIN app.support_cases c ON c.booking_id = b.id ORDER BY b.created_at DESC LIMIT 1`;
-  assert.deepEqual(occ.map((r) => [r.occasion, r.type]), [["birthday", "occasion_celebration"]], "occasion stored, coordinator told");
+  assert.deepEqual(occ.map((r) => [r.occasion, r.type]), [[null, null]], "no occasion for a session under 3 days away");
   assert.ok((await page.locator("main").innerText()).includes("59 ر.ق"));
   assert.ok((await page.locator("#late").innerText()).includes("فلن يُسترد رسم التنظيم"));
   assert.equal(await page.locator("#pay").isDisabled(), true);
