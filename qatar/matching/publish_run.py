@@ -6,7 +6,8 @@ publish_run.py — bridge between PostgreSQL and matching_engine (standard libra
       | psql -v ON_ERROR_STOP=1 -1
 
 Reads app.matching_input() JSON on stdin, runs run_matching(), and writes SQL on stdout:
-  * always:          one matching_runs row (dry_run or published) with seed, inputs_hash, explanations;
+  * always:          one matching_runs row (dry_run or published) with seed, inputs_hash, explanations, and one
+                     matching_run_tables row per table (score and components; only where migration 020 exists);
   * published only:  the previous current assignments are retired, event_tables rows are created
                      ('forming'), and table_assignments rows are inserted.
 Leftovers are reported as a SQL comment and on stderr; ops handles them per Runbook A.
@@ -44,17 +45,21 @@ def main(argv=None):
         q05_topics=frozenset(b["q05_topics"]) if b.get("q05_topics") else None,
         consents_current=bool(b["consents_current"]), age_attested=bool(b["age_attested"]),
         account_active=bool(b["account_active"]),
-        answers=b.get("answers"), occasion=b.get("occasion")) for b in data["bookings"]]
+        answers=b.get("answers"), occasion=b.get("occasion"),
+        unseated_days_ago=b.get("unseated_days_ago")) for b in data["bookings"]]
     venues = [VenueInput(v["venue_id"], int(v["tier_rank"]), int(v["capacity"]), int(v["tables_available"]))
               for v in data["venues"]]
     max_tables = args.max_tables if args.max_tables is not None else sum(v.tables_available for v in venues)
     res = run_matching(data["session_id"], args.mode, args.rule_version, args.seed, bookings,
                        block_rows=[tuple(x) for x in data["blocks"]], venue_capacity=args.venue_capacity,
-                       venues=venues, packing_mode=args.packing_mode, max_tables=max_tables)
+                       venues=venues, packing_mode=args.packing_mode, max_tables=max_tables,
+                       history=data.get("history") or [])
 
     run_id = str(uuid.uuid4())
     summary = {"tables": len(res.tables), "seated": sum(t.size for t in res.tables),
-               "leftovers": len(res.leftovers), "ineligible": len(res.ineligible)}
+               "leftovers": len(res.leftovers), "ineligible": len(res.ineligible),
+               "low_match": sum(1 for t in res.tables if t.low_match)}
+    table_ids = {}
     out = ["SET search_path = app, public;"]
     out.append(
         "INSERT INTO matching_runs (id, session_id, mode, rule_version, questionnaire_version_id, algorithm, seed, "
@@ -68,12 +73,26 @@ def main(argv=None):
                    f"(SELECT id FROM bookings WHERE session_id = {q(res.session_id)});")
         for t in res.tables:
             tid = str(uuid.uuid4())
+            table_ids[t.table_code] = tid
             out.append("INSERT INTO event_tables (id, session_id, venue_id, table_code, capacity, status) VALUES "
                        f"({q(tid)}, {q(res.session_id)}, {q(t.venue_id)}, {q(t.table_code)}, {args.venue_capacity}, 'forming');")
             for m in t.members:
                 ms = t.member_scores.get(m.booking_id)
                 out.append("INSERT INTO table_assignments (booking_id, table_id, matching_run_id, member_score) VALUES "
                            f"({q(m.booking_id)}, {q(tid)}, {q(run_id)}, {'NULL' if ms is None else round(ms, 4)});")
+    # every table's score and components (migration 020); skipped on a database without that table
+    rows = []
+    for e in res.explanations["tables"]:
+        components = {k: e.get(k) for k in ("interest", "cohesion", "energy_balance", "repeat_penalty", "priority_boost",
+                                            "size_penalty", "objective")}
+        rows.append("    INSERT INTO matching_run_tables (matching_run_id, table_id, table_code, language, tier_rank, size, "
+                    f"score, components, low_match) VALUES ({q(run_id)}, {q(table_ids.get(e['table_code']))}::uuid, "
+                    f"{q(e['table_code'])}, {q(e['language'])}, {e['tier_rank']}, {e['size']}, "
+                    f"{'NULL' if e['score'] is None else e['score']}, {q(json.dumps(components))}::jsonb, "
+                    f"{'true' if e['low_match'] else 'false'});")
+    if rows:
+        out.append("DO $mrt$ BEGIN\n  IF to_regclass('app.matching_run_tables') IS NOT NULL THEN\n"
+                   + "\n".join(rows) + "\n  END IF;\nEND $mrt$;")
     for lo in res.leftovers:
         out.append(f"-- leftover booking {lo.booking.booking_id} reason={lo.reason}")
         print(f"leftover {lo.booking.booking_id} {lo.reason}", file=sys.stderr)

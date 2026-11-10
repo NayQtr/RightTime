@@ -193,7 +193,8 @@ async function sessionDetail(ctx) {
      WHERE bp.user_a IN (SELECT user_id FROM app.bookings WHERE session_id = ${s.id} AND status = 'paid_awaiting_group')
        AND bp.user_b IN (SELECT user_id FROM app.bookings WHERE session_id = ${s.id} AND status = 'paid_awaiting_group')`;
   const tables = await sql`
-    SELECT t.*, v.name AS venue_name FROM app.event_tables t LEFT JOIN app.venues v ON v.id = t.venue_id
+    SELECT t.*, v.name AS venue_name, mt.low_match, mt.score AS match_score FROM app.event_tables t LEFT JOIN app.venues v ON v.id = t.venue_id
+      LEFT JOIN app.matching_run_tables mt ON mt.table_id = t.id
      WHERE t.session_id = ${s.id} AND (t.status <> 'planned' OR EXISTS (SELECT 1 FROM app.table_assignments a WHERE a.table_id = t.id AND a.is_current))
      ORDER BY t.table_code`;
   const members = await sql`
@@ -213,6 +214,7 @@ async function sessionDetail(ctx) {
     pool, holds, waitlist, blocks_in_pool: blocks,
     tables: tables.map((t) => ({ id: t.id, code: t.table_code, status: t.status, confirmed_count: t.confirmed_count, capacity: t.capacity,
       venue: t.venue_name, venue_confirmed_at: qa(t.venue_confirmed_at),
+      low_match: t.low_match === true, match_score: t.match_score === null || t.match_score === undefined ? null : Number(t.match_score),
       members: members.filter((m) => m.table_id === t.id).map((m) => ({ booking_id: m.booking_id, ref: m.booking_ref, status: m.status,
         display_name: m.display_name, checked_in: !!m.checked_in_at })) })),
     unassigned: unassigned.map((m) => ({ booking_id: m.booking_id, ref: m.booking_ref, display_name: m.display_name })),
@@ -238,13 +240,14 @@ async function runFor(ctx, mode) {
   try {
     res = runMatching({ sessionId: s.id, mode, ruleVersion, seed, packingMode, maxTables,
       bookings: input.bookings.map((b) => ({ ...b, q05_topics: b.q05_topics || null })),
-      blockRows: input.blocks, venueCapacity: 6, venues: input.venues, questionnaire: input.questionnaire });
+      blockRows: input.blocks, venueCapacity: 6, venues: input.venues, questionnaire: input.questionnaire, history: input.history || [] });
   } catch (e) {
     if (e instanceof MatchingError) fail(422, "VALIDATION_FAILED", [{ reason: e.message }]);
     throw e;
   }
   const summary = { tables: res.tables.length, seated: res.tables.reduce((a, t) => a + t.members.length, 0),
-    leftovers: res.leftovers.length, ineligible: res.ineligible.length, packing_mode: packingMode, max_tables: maxTables };
+    leftovers: res.leftovers.length, ineligible: res.ineligible.length, packing_mode: packingMode, max_tables: maxTables,
+    low_match: res.tables.filter((t) => t.low_match).length };
   const runId = await sql.begin(async (tx) => {
     // continue table numbering after existing codes so a re-publish never collides
     const [{ maxno }] = await tx`SELECT COALESCE(max(substring(table_code from 2)::int), 0) AS maxno FROM app.event_tables WHERE session_id = ${s.id} AND table_code ~ '^T[0-9]+$'`;
@@ -258,6 +261,7 @@ async function runFor(ctx, mode) {
       VALUES (${s.id}, ${mode}, ${ruleVersion}, ${input.questionnaire_version_id}, ${res.algorithm}, ${seed}, ${res.inputs_hash},
               ${tx.json(summary)}, ${tx.json(res.explanations)}, ${admin.id}, ${mode === "published" ? new Date() : null})
       RETURNING id`;
+    const tableIds = new Map();   // published: table_code -> event_tables.id
     if (mode === "published") {
       await tx`UPDATE app.table_assignments SET is_current = false WHERE is_current AND booking_id IN (SELECT id FROM app.bookings WHERE session_id = ${s.id})`;
       // theme labels come from the published questionnaire the run was checked against
@@ -269,6 +273,7 @@ async function runFor(ctx, mode) {
           .map((r) => ({ q: r.q, o: r.o, ar: r.label_ar, en: r.label_en }));
         const [et] = await tx`INSERT INTO app.event_tables (session_id, venue_id, table_code, capacity, status, match_themes)
                               VALUES (${s.id}, ${t.venue_id}, ${t.table_code}, 6, 'forming', ${themes.length ? tx.json(themes) : null}) RETURNING id`;
+        tableIds.set(t.table_code, et.id);
         for (const m of t.members) {
           const ms = t.member_scores[m.booking_id];
           await tx`INSERT INTO app.table_assignments (booking_id, table_id, matching_run_id, member_score)
@@ -276,6 +281,14 @@ async function runFor(ctx, mode) {
         }
       }
       await audit(tx, admin.id, "matching_publish", "matching_runs", run.id, ruleVersion);
+    }
+    // every table's score and components, for every run (Notion fix 3; migration 020)
+    for (const e of res.explanations.tables) {
+      const components = { interest: e.interest, cohesion: e.cohesion, energy_balance: e.energy_balance ?? null, repeat_penalty: e.repeat_penalty,
+        priority_boost: e.priority_boost, size_penalty: e.size_penalty, objective: e.objective };
+      await tx`INSERT INTO app.matching_run_tables (matching_run_id, table_id, table_code, language, tier_rank, size, score, components, low_match)
+               VALUES (${run.id}, ${tableIds.get(e.table_code) ?? null}, ${e.table_code}, ${e.language}, ${e.tier_rank}, ${e.size}, ${e.score},
+                       ${tx.json(components)}, ${e.low_match})`;
     }
     return run.id;
   });
