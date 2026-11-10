@@ -28,10 +28,12 @@ const CONSENT_TYPES = ["terms", "conduct", "privacy_notice", "marketing"];
 
 export const paths = {
   // ------------------------------------------------------------------ auth
-  "/api/v1/auth/otp:request": { post: { tags: ["auth"], summary: "Send a sign-in code by SMS to a Qatar mobile number", ...idem,
-    requestBody: body(obj({ phone_e164: str({ example: "+97455501234", description: "+974 followed by 8 digits starting 3-7" }), locale: str({ enum: ["ar", "en"] }) }, ["phone_e164"])),
+  "/api/v1/auth/otp:request": { post: { tags: ["auth"], ...idem,
+    summary: "Send a sign-in code by SMS (in the request's locale) to a mobile number of an allowed country (Qatar only by default). 422 UNSUPPORTED_COUNTRY for other countries; 429 also when the hourly cap for a visitor country is reached; 503 when no SMS provider is set up or the provider refused the message (nothing is kept, ask again)",
+    requestBody: body(obj({ phone_e164: str({ example: "+97455501234", description: "+974 followed by 8 digits starting 3-7; another allowed country (server setting PHONE_ALLOWED_COUNTRY_CODES): any valid E.164 number" }),
+      locale: str({ enum: ["ar", "en"], description: "Language of the SMS; without it, the Accept-Language of the request" }) }, ["phone_e164"])),
     responses: { 202: ok(obj({ challenge_id: uuid, expires_in: { type: "integer", example: 300 }, resend_after: { type: "integer", example: 45 }, code_length: { type: "integer", example: 6 },
-      dev_code: str({ description: "Staging only (OTP_DEV_MODE). Never present in production." }) }, ["challenge_id", "expires_in", "resend_after", "code_length"]), "Code sent"),
+      dev_code: str({ description: "Staging only (OTP_DEV_MODE with no SMS provider). Never present in production." }) }, ["challenge_id", "expires_in", "resend_after", "code_length"]), "Code sent"),
     ...errors(400, 422, 429, 503) } } },
   "/api/v1/auth/otp:verify": { post: { tags: ["auth"], summary: "Exchange the code for a session (creates the account on first sign-in)",
     requestBody: body(obj({ challenge_id: uuid, code: str({ pattern: "^[0-9]{6}$" }), locale: str({ enum: ["ar", "en"] }) }, ["challenge_id", "code"])),

@@ -1,8 +1,10 @@
 // User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
 import { decrypt, encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
-import { decisionLabel, renderTemplate } from "../lib/i18n.js";
+import { decisionLabel, outboundText, renderTemplate } from "../lib/i18n.js";
+import { sendSms, smsSettings } from "../lib/sms.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
+import { alertKind, pageCoordinators, raiseAlert } from "../services/coordinator_alerts.js";
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
 
@@ -88,12 +90,29 @@ async function tableMembers(sql, tableId) {
 }
 
 // ------------------------------------------------------------------ auth
+// Item 11: Apple and Google reviewers sign in with one fixed number and code, the Edge Function secrets
+// REVIEW_PHONE_E164 and REVIEW_OTP_CODE (off unless both are set and the code is 6 digits). For that number no SMS is
+// sent and the challenge carries that code; the request limits and the 5 attempts stay, and each use is audited.
+export function reviewLogin(getEnv) {
+  const phone = String((getEnv && getEnv("REVIEW_PHONE_E164")) || "").replace(/[\s\-().]/g, "");
+  const code = String((getEnv && getEnv("REVIEW_OTP_CODE")) || "").trim();
+  return /^\+[1-9][0-9]{6,14}$/.test(phone) && /^[0-9]{6}$/.test(code) ? { phone, code } : null;
+}
+
+// The allowed calling code a number starts with, or null (calling codes are prefix-free, so at most one matches).
+export const countryOf = (phone, codes) => codes.find((c) => phone.startsWith(`+${c}`)) || null;
+
 async function otpRequest(ctx) {
   const { sql, cfg, keys, body } = ctx;
   const phone = String(body.phone_e164 || "").trim();
   if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
-  if (!phone.startsWith("+974")) fail(422, "UNSUPPORTED_COUNTRY", [{ field: "phone_e164", code: "UNSUPPORTED_COUNTRY" }]);
-  if (!/^\+974[3-7][0-9]{7}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
+  const review = reviewLogin(ctx.getEnv);
+  const isReview = Boolean(review && review.phone === phone);
+  // Item 38 (provisional: Qatar only at launch; PHONE_ALLOWED_COUNTRY_CODES widens it). A Qatar number keeps its strict
+  // pattern; another allowed country takes any valid international number. The reviewer's number is taken as set.
+  const country = countryOf(phone, cfg.phoneCountryCodes);
+  if (!country && !isReview) fail(422, "UNSUPPORTED_COUNTRY", [{ field: "phone_e164", code: "UNSUPPORTED_COUNTRY" }]);
+  if (country === "974" && !isReview && !/^\+974[3-7][0-9]{7}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
   const lookup = hmacHex(keys.phonePepper, phone);
   await sql`SELECT app.purge_otp_challenges()`;
   const [last] = await sql`SELECT created_at FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} ORDER BY created_at DESC LIMIT 1`;
@@ -105,15 +124,35 @@ async function otpRequest(ctx) {
   if (n_phone >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
   const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipBucket}::inet AND created_at > now() - interval '1 hour'`;
   if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  if (!cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
+  // Paid SMS outside Qatar: at most OTP_COUNTRY_HOURLY_CAP codes an hour per country, against abuse.
+  if (country && country !== "974" && !isReview) {
+    const [{ n_cc }] = await sql`SELECT count(*)::int AS n_cc FROM app.otp_challenges WHERE country_code = ${country} AND created_at > now() - interval '1 hour'`;
+    if (n_cc >= cfg.otpCountryHourlyCap) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
+  }
+  // Item 37: the code goes by SMS when a provider is set up (SMS_PROVIDER and its secrets). Without one, only staging's
+  // OTP_DEV_MODE (code in the answer) or the reviewer's number can sign in; production answers 503 as before.
+  const sms = isReview ? null : smsSettings(ctx.getEnv, cfg.smsProvider);
+  if (!isReview && !sms && !cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
   const id = randomUUID();
-  const code = randomDigits(6);
+  const code = isReview ? review.code : randomDigits(6);
   await sql`
-    INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc)
+    INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc, country_code)
     VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
-            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet)`;
+            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet, ${country})`;
+  if (isReview) await audit(sql, null, "review_login_code", "otp_challenges", id, "no_sms", ctx.ipTrunc);
+  if (sms) {
+    // in her language: the one she chose in the app, else the request's
+    const locale = ["ar", "en"].includes(body.locale) ? body.locale : ctx.locale;
+    const sent = await sendSms({ to: phone, body: outboundText("SMS_SIGN_IN_CODE", locale, { code, minutes: Math.round(cfg.otpTtl / 60) }) }, sms);
+    if (!sent.ok) {
+      // no code reached her: the challenge goes, so it neither counts against her nor can be guessed
+      await sql`DELETE FROM app.otp_challenges WHERE id = ${id}`;
+      fail(503, "UNAVAILABLE", [{ reason: "SMS not sent" }]);
+    }
+  }
+  // the code is shown only on staging without a provider, and never for the reviewer's number
   return json(202, { challenge_id: id, expires_in: cfg.otpTtl, resend_after: cfg.otpResendAfter, code_length: 6,
-    ...(cfg.otpDevMode ? { dev_code: code } : {}) });
+    ...(cfg.otpDevMode && !sms && !isReview ? { dev_code: code } : {}) });
 }
 
 async function otpVerify(ctx) {
@@ -146,6 +185,8 @@ async function otpVerify(ctx) {
     [user] = await sql`UPDATE app.users SET status = 'active' WHERE id = ${user.id} AND status = 'deletion_requested' RETURNING *`;
   }
   await sql`UPDATE app.users SET last_login_at = now() WHERE id = ${user.id}`;
+  const review = reviewLogin(ctx.getEnv);
+  if (review && hmacHex(keys.phonePepper, review.phone) === ch.phone_lookup_hash) await audit(sql, null, "review_login", "users", user.id, null, ctx.ipTrunc);
   // A sign-in while another session of this account is still active: tell her (NMX-38). The lock screen shows only the
   // generic line (NMX-21); the text is in her inbox.
   if (!isNew) {
@@ -996,6 +1037,8 @@ async function createReport(ctx) {
     reported = m.user_id;
   }
   const severity = danger ? 1 : SEVERITY_BY_CATEGORY[body.category];
+  const kind = alertKind({ danger, severity, timing: body.timing });
+  let alertId = null;
   const report = await sql.begin(async (tx) => {
     const [r] = await tx`
       INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, booking_id, table_id, category, timing,
@@ -1017,10 +1060,13 @@ async function createReport(ctx) {
       await tx`UPDATE app.users SET status = 'suspended' WHERE id = ${reported} AND status = 'active'`;
       await audit(tx, null, "user_suspend_interim", "users", reported, "S1_pending_review");
     }
-    if (severity <= 2 && body.timing === "during") await audit(tx, null, "coordinator_paged", "safety_reports", r.id, "push_and_sms");
+    // T13: S1/S2 during the meetup, or "I am in danger now": an alert for the coordinators, sent once this is saved
+    if (kind) alertId = await raiseAlert(tx, r, kind);
     await notify(tx, user.id, "REPORT_RECEIVED", { case: r.case_ref });
     return r;
   });
+  // push to coordinators' devices and SMS to their numbers; the audit row "coordinator_paged" records what was sent
+  if (alertId) await pageCoordinators(sql, alertId, { getEnv: ctx.getEnv, cfg: ctx.cfg });
   return json(201, { case_ref: report.case_ref, severity: report.severity, status: report.status,
     emergency: { show: danger, number: "999" } });
 }

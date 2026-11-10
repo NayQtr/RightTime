@@ -98,6 +98,21 @@ export function renderTemplate(key, locale, payload = {}) {
   return (locale === "en" ? t[1] : t[0]).replace(/\{(\w+)\}/g, (_, k) => (payload[k] ?? `{${k}}`));
 }
 
+// Texts sent outside the app (provisional, 10 Nov, until the owner words them): the sign-in code by SMS (to her), and
+// the venue portal's sign-in code by email (to the restaurant, addressed as the venue page addresses it).
+export const OUTBOUND = {
+  SMS_SIGN_IN_CODE: ["رمز الدخول إلى HerZone: {code}\nصالح لمدة {minutes} دقائق. لا تشاركيه مع أحد.",
+    "Your HerZone sign-in code: {code}\nIt is valid for {minutes} minutes. Do not share it with anyone."],
+  VENUE_CODE_SUBJECT: ["رمز الدخول إلى صفحة المطاعم الشريكة في HerZone", "Your HerZone partner venues sign-in code"],
+  VENUE_CODE_BODY: ["رمز الدخول: {code}\nصالح لمدة {minutes} دقائق. إن لم تطلب هذا الرمز فتجاهل هذه الرسالة.",
+    "Your sign-in code: {code}\nIt is valid for {minutes} minutes. If you did not ask for this code, ignore this email."],
+};
+
+export function outboundText(key, locale, payload = {}) {
+  const t = OUTBOUND[key];
+  return (locale === "en" ? t[1] : t[0]).replace(/\{(\w+)\}/g, (_, k) => String(payload[k] ?? `{${k}}`));
+}
+
 // Sanction decisions are stored as keys in notification payloads and rendered in the reader's language.
 export const DECISIONS = {
   warning: ["تنبيه", "a warning"], suspension: ["إيقاف مؤقت", "a temporary suspension"], ban: ["إيقاف دائم", "a permanent ban"],

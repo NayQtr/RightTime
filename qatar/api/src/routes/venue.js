@@ -3,7 +3,9 @@
 // tables and marks arrivals. It never sees a member's phone number, surname or booking id: only the table code, how
 // many women, and their first names from 3 hours before the meetup.
 import { hmacB64, jwtSign, randomDigits, safeEqual, sha256hex } from "../lib/crypto.js";
+import { emailSettings, sendEmail } from "../lib/email.js";
 import { fail, json, qa, requireUuid } from "../lib/http.js";
+import { outboundText } from "../lib/i18n.js";
 import { audit, seatToken } from "../services/common.js";
 
 const CODE_TTL_MIN = 10;
@@ -16,6 +18,9 @@ const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.length <= 25
 const emailHash = (keys, e) => sha256hex(`venue-email:${e}`);
 
 // The same answer whether or not the email is registered, so the page never tells who is a partner.
+// Item 14c: the code goes by email when a provider is set up (EMAIL_PROVIDER and its secrets, lib/email.js), and only
+// to a registered, active address. Without a provider production answers 503 (the page says codes cannot be sent);
+// only staging's OTP_DEV_MODE shows the code on screen, and never once a provider is set up.
 async function requestCode(ctx) {
   const { sql, body, keys, cfg } = ctx;
   const email = normEmail(body.email);
@@ -25,15 +30,24 @@ async function requestCode(ctx) {
   if (n_email >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
   const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.venue_login_codes WHERE ip_trunc = ${ctx.ipBucket}::inet AND created_at > now() - interval '1 hour'`;
   if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  if (!cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no email provider configured" }]);
+  const mail = emailSettings(ctx.getEnv, cfg.emailProvider);
+  if (!mail && !cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no email provider configured" }]);
   const [u] = await sql`SELECT id FROM app.venue_users WHERE email = ${email} AND status = 'active'`;
   const code = randomDigits(6);
   const [c] = await sql`
     INSERT INTO app.venue_login_codes (venue_user_id, email_hash, expires_at, ip_trunc)
     VALUES (${u ? u.id : null}, ${eh}, now() + make_interval(mins => ${CODE_TTL_MIN}), ${ctx.ipBucket}::inet) RETURNING id`;
   if (u) await sql`UPDATE app.venue_login_codes SET code_hash = ${hmacB64(keys.phonePepper, `${c.id}:${code}`)} WHERE id = ${c.id}`;
-  // staging only (no email provider yet): the code is shown on screen, as for members' SMS codes
-  return json(202, { sent: true, expires_in: CODE_TTL_MIN * 60, ...(cfg.otpDevMode && u ? { dev_code: code } : {}) });
+  if (u && mail) {
+    // in the page's language (Accept-Language): Arabic, or English when the venue switched to it
+    const sent = await sendEmail({ to: email, subject: outboundText("VENUE_CODE_SUBJECT", ctx.locale),
+      text: outboundText("VENUE_CODE_BODY", ctx.locale, { code, minutes: CODE_TTL_MIN }) }, mail);
+    if (!sent.ok) {
+      await sql`DELETE FROM app.venue_login_codes WHERE id = ${c.id}`;
+      fail(503, "UNAVAILABLE", [{ reason: "email not sent" }]);
+    }
+  }
+  return json(202, { sent: true, expires_in: CODE_TTL_MIN * 60, ...(cfg.otpDevMode && !mail && u ? { dev_code: code } : {}) });
 }
 
 async function verifyCode(ctx) {
