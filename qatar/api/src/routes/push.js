@@ -3,8 +3,8 @@
 // devices by the dispatcher, which pg_cron calls every minute with a token only the database and the API know.
 import { safeEqual } from "../lib/crypto.js";
 import { fail, json } from "../lib/http.js";
-import { loadOptionalKey } from "../lib/keys.js";
-import { generateVapidKey, sendPush, vapidFromJwk } from "../services/webpush.js";
+import { coordinatorAlertsTick } from "../services/coordinator_alerts.js";
+import { resetVapidCache, sendPush, vapidKeys } from "../services/webpush.js";
 
 // Only the browsers' own push services: the API never posts to an address a client made up.
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
@@ -14,19 +14,15 @@ const BATCH = 50;
 const FRESH_HOURS = 24; // older queued notifications are not pushed (still in the inbox)
 const SUBJECT = "https://herzone.app";
 
-let vapidCache = null;
-export async function vapidKeys(sql, getEnv) {
-  if (!vapidCache) vapidCache = await vapidFromJwk(await loadOptionalKey(sql, getEnv, "VAPID_PRIVATE_JWK", generateVapidKey));
-  return vapidCache;
-}
-export function resetVapidCache() { vapidCache = null; }
+// the key loader lives in services/webpush.js (coordinator alerts use it too); kept exported here for existing callers
+export { resetVapidCache, vapidKeys };
 
 export function validEndpoint(endpoint) {
   let u;
   try { u = new URL(String(endpoint || "")); } catch { return false; }
   return u.protocol === "https:" && String(endpoint).length <= 1000 && PUSH_HOSTS.some((re) => re.test(u.hostname));
 }
-const b64uKey = (s, min, max) => typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s) && s.length >= min && s.length <= max;
+export const b64uKey = (s, min, max) => typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s) && s.length >= min && s.length <= max;
 
 async function publicKey(ctx) {
   const v = await vapidKeys(ctx.sql, ctx.getEnv);
@@ -107,7 +103,11 @@ async function dispatch(ctx) {
   const given = ctx.req.headers.get("x-dispatch-token") || "";
   const [t] = await ctx.sql`SELECT token FROM app.push_dispatch_token WHERE id = 1`;
   if (!t || !given || !safeEqual(given, t.token)) fail(401, "UNAUTHENTICATED");
-  return json(200, await dispatchPush(ctx.sql, ctx.getEnv));
+  // Coordinator alerts (019) ride on this every-minute call: an alert left unsent is paged, and one nobody acknowledged
+  // in time is sent again. First, and on its own, so a member-push problem can never hold a safety alert back.
+  const alerts = await coordinatorAlertsTick(ctx.sql, { getEnv: ctx.getEnv, cfg: ctx.cfg })
+    .catch((e) => { console.error("coordinator alerts tick failed:", e && e.message); return { error: true }; });
+  return json(200, { ...(await dispatchPush(ctx.sql, ctx.getEnv)), coordinator_alerts: alerts });
 }
 
 export const pushRoutes = [

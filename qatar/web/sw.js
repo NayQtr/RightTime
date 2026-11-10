@@ -42,6 +42,8 @@ self.addEventListener("push", (e) => {
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.registration.showNotification(d.title || "HerZone", {
     body: d.body || "", lang: d.lang || "ar", dir: d.dir || "rtl", tag: d.tag, icon: "/icons/icon-192.png", badge: "/icons/badge-96.png",
+    // a coordinator's safety alert (urgent) stays on screen until she acts on it
+    requireInteraction: d.urgent === true,
     data: { url: typeof d.url === "string" && d.url.startsWith("/") ? d.url : "/#/inbox" },
   }));
 });
@@ -50,7 +52,11 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || "/#/inbox", self.location.origin).href;
   e.waitUntil((async () => {
-    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    // a window already on the same page first (the admin console for an alert, the app for a member's update); the list
+    // from matchAll is frozen, so a copy is sorted
+    const path = (u) => new URL(u).pathname.replace(/(.)\/$/, "$1");
+    const same = (w) => Number(path(w.url) === path(url));
+    const wins = [...await self.clients.matchAll({ type: "window", includeUncontrolled: true })].sort((a, b) => same(b) - same(a));
     for (const w of wins) {
       if (new URL(w.url).origin === self.location.origin) {
         await w.focus();

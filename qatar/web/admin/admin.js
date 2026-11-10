@@ -46,6 +46,7 @@ function flash(html) { const el = document.getElementById("flash"); el.innerHTML
 const NAV = [
   ["#/sessions", "Sessions & Matching", ["owner", "ops", "analyst", "finance"]],
   ["#/live", "Tonight", ["owner", "ops"]],
+  ["#/alerts", "Alerts", ["owner", "ops"]],
   ["#/venues", "Venues", ["owner", "ops"]],
   ["#/venue-requests", "Venue requests", ["owner", "ops"]],
   ["#/call-requests", "Call requests", ["owner", "ops"]],
@@ -65,6 +66,7 @@ function renderNav() {
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
   if (a && ["owner", "ops"].includes(a.role)) callBadge();
+  alertStrip();
   const lo = document.getElementById("logout");
   // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
   if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
@@ -568,13 +570,125 @@ async function scrCallRequests() {
   }
 }
 
+// ------------------------------------------------------------------ coordinator alerts (019, plan T13)
+// S1/S2 reports during a meetup and "I am in danger now". Owner and ops see the open ones above every screen, checked
+// every 30 s, with Acknowledge (who and when are recorded). #/alerts lists them and turns alerts on for this browser.
+const COORDINATORS = ["owner", "ops"];
+const ALERT_KIND = { immediate_danger: "Immediate danger", report_during: "Report during a meetup" };
+const alertWhat = (x) => `${ALERT_KIND[x.kind] || x.kind} · S${x.severity} · <span class="num">${esc(x.case_ref)}</span>`;
+const alertWhere = (x) => [x.venue, x.table_code].filter(Boolean).map(esc).join(" · ");
+let alertTimer = null;
+
+async function ackAlert(id, btn) {
+  btn.disabled = true;
+  const r = await api("POST", `${A}/coordinator-alerts/${id}:acknowledge`, {});
+  const out = document.getElementById("alerts-msg");
+  if (out) out.innerHTML = r.ok ? "" : msg(r);
+  if (!r.ok && r.status !== 409) { btn.disabled = false; return; }
+  await alertStrip(true);
+  if (location.hash === "#/alerts") scrAlerts();
+}
+
+async function alertStrip(force = false) {
+  const box = document.getElementById("alerts");
+  const a = ss.get("admin");
+  if (!box) return;
+  if (!a || !COORDINATORS.includes(a.role) || !ss.get("token")) { box.innerHTML = ""; box.dataset.sig = ""; return; }
+  if (!alertTimer) alertTimer = setInterval(() => alertStrip(), 30000);
+  const r = await api("GET", `${A}/coordinator-alerts`);
+  if (!r.ok) return;
+  const open = r.data.alerts || [];
+  // the count on the menu, which stays in sight on a phone (the menu is redrawn on every screen)
+  const link = nav.querySelector('a[href="#/alerts"]');
+  if (link) {
+    link.querySelector(".alert-count")?.remove();
+    if (open.length) link.insertAdjacentHTML("beforeend", ` <span class="badge badge-danger alert-count"><span class="sr-only">not acknowledged: </span>${open.length}</span>`);
+  }
+  // redrawn only when the open alerts change, so a screen reader announces each new alert once
+  const sig = open.map((x) => `${x.id}${x.escalated_at ? "+" : ""}`).join(",");
+  if (!force && box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = open.length ? `<div class="alert-strip" role="alert">${open.slice(0, 3).map((x) => `<div class="banner banner-danger">
+      <div><strong>Safety alert</strong> · ${alertWhat(x)}${alertWhere(x) ? ` · ${alertWhere(x)}` : ""}<br><span class="caption">Raised ${dt(x.created_at)}${x.escalated_at ? ` · not acknowledged, sent again ${dt(x.escalated_at)}` : ""}</span></div>
+      <button class="btn btn-primary" data-ack="${esc(x.id)}">Acknowledge</button></div>`).join("")}
+    ${open.length > 3 ? `<p><a href="#/alerts">See all ${open.length} alerts</a></p>` : ""}</div><div id="alerts-msg"></div>` : "";
+  box.querySelectorAll("[data-ack]").forEach((b) => (b.onclick = () => ackAlert(b.dataset.ack, b)));
+}
+
+// This browser: alerts arrive as notifications through the site's service worker (the same as members' notifications).
+// Turning them off only tells the server to stop; the browser's subscription stays, in case it also serves the member app.
+const pushReady = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+async function browserSub() {
+  try { const reg = await navigator.serviceWorker.getRegistration("/"); return reg && reg.pushManager ? await reg.pushManager.getSubscription() : null; }
+  catch { return null; }
+}
+const keyBytes = (s) => { const t = s.replace(/-/g, "+").replace(/_/g, "/"); const b = atob(t + "=".repeat((4 - (t.length % 4)) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function alertsOnHere() {
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return { ok: false, data: { code: "NOTIFICATIONS_BLOCKED", message: "Allow notifications for this site in the browser settings, then try again." } };
+  const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  const k = await api("GET", "/api/v1/push/key");
+  if (!k.ok) return k;
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(k.data.public_key) });
+  const j = sub.toJSON();
+  return api("POST", `${A}/push/subscriptions`, { endpoint: j.endpoint, keys: j.keys });
+}
+
+let alertFilter = "open";
+async function scrAlerts() {
+  const [r, mine] = await Promise.all([api("GET", `${A}/coordinator-alerts?status=${alertFilter}`), api("GET", `${A}/push/subscriptions`)]);
+  const rows = (r.data && r.data.alerts) || [];
+  const ch = (r.data && r.data.channels) || { push_devices: 0, sms: false, sms_numbers: 0 };
+  const sub = pushReady() ? await browserSub() : null;
+  const here = Boolean(sub && mine.ok && (mine.data.devices || []).some((d) => d.endpoint === sub.endpoint));
+  const device = !pushReady() ? "This browser cannot receive alerts."
+    : Notification.permission === "denied" ? "Notifications are blocked for this site. Allow them in the browser settings."
+    : here ? "Alerts are on for this device." : "Alerts are off for this device.";
+  const sent = (x) => `Push ${x.push.delivered}/${x.push.devices} · SMS ${ch.sms || x.sms.numbers ? `${x.sms.delivered}/${x.sms.numbers}` : "off"}`;
+  view("Alerts", `<h1>Alerts</h1><div id="flash"></div>
+    <p class="caption">Safety reports that must reach a coordinator at once: S1 or S2 during a meetup, and every "I am in danger now".
+    Each alert goes to every coordinator device with alerts on${ch.sms ? " and by SMS to the coordinators' numbers" : ""}.
+    If nobody acknowledges it within ${esc(r.data && r.data.escalate_after_minutes || 5)} minutes, it is sent again, once. The case itself is in Trust &amp; Safety.</p>
+    <section class="card stack"><h2>This device</h2><p id="dev-state">${esc(device)}</p>
+      ${pushReady() && Notification.permission !== "denied" ? `<div class="row">${here ? `<button class="btn btn-secondary" id="dev-off">Turn off alerts on this device</button>`
+        : `<button class="btn btn-primary" id="dev-on">Turn on alerts on this device</button>`}</div>` : ""}
+      <p class="caption">Alerts now reach ${ch.push_devices} coordinator ${ch.push_devices === 1 ? "device" : "devices"} · SMS: ${ch.sms ? `${ch.sms_numbers} ${ch.sms_numbers === 1 ? "number" : "numbers"}` : "not set up"}</p></section>
+    <div class="row">${[["open", "Open"], ["all", "All"]].map(([k, l]) =>
+      `<button class="btn ${alertFilter === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${alertFilter === k}">${l}</button>`).join("")}</div>
+    ${r.ok ? "" : msg(r)}
+    <div class="table-wrap"><table><thead><tr><th>Raised</th><th>Alert</th><th>Venue · table</th><th>Sent</th><th>Sent again</th><th>Acknowledged</th><th></th></tr></thead><tbody>
+    ${rows.map((x) => `<tr class="${x.acknowledged_at ? "" : "row-red"}"><td>${dt(x.created_at)}</td><td>${alertWhat(x)}</td><td>${alertWhere(x) || "—"}</td>
+      <td>${sent(x)}</td><td>${x.escalated_at ? `${dt(x.escalated_at)}<br><span class="caption">Push ${x.escalation.push_delivered} · SMS ${x.escalation.sms_delivered}</span>` : "—"}</td>
+      <td>${x.acknowledged_at ? `${esc(x.acknowledged_by || "")} · ${dt(x.acknowledged_at)}` : "Not yet"}</td>
+      <td>${x.acknowledged_at ? "" : `<button class="btn btn-primary" data-ack="${esc(x.id)}">Acknowledge</button>`}</td></tr>`).join("")
+      || `<tr><td colspan="7">${alertFilter === "open" ? "No open alerts." : "No alerts yet."}</td></tr>`}</tbody></table></div>`);
+  $$("[data-filter]").forEach((b) => (b.onclick = () => { alertFilter = b.dataset.filter; scrAlerts(); }));
+  $$("[data-ack]").forEach((b) => (b.onclick = () => ackAlert(b.dataset.ack, b)));
+  const on = $("#dev-on");
+  if (on) on.onclick = async () => {
+    on.disabled = true;
+    let res;
+    try { res = await alertsOnHere(); } catch (e) { res = { ok: false, data: { code: "ERROR", message: String(e && e.message || e) } }; }
+    flash(msg(res, "Alerts are on for this device"));
+    if (res.ok) setTimeout(scrAlerts, 600); else on.disabled = false;
+  };
+  const off = $("#dev-off");
+  if (off) off.onclick = async () => {
+    off.disabled = true;
+    const res = await api("POST", `${A}/push/subscriptions:delete`, { endpoint: sub.endpoint });
+    flash(msg(res, "Alerts are off for this device"));
+    if (res.ok) setTimeout(scrAlerts, 600); else off.disabled = false;
+  };
+}
+
 // ------------------------------------------------------------------ router
 const ROUTES = [
   [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
-  [/^#\/venue-requests$/, scrVenueRequests, true], [/^#\/call-requests$/, scrCallRequests, true],
+  [/^#\/venue-requests$/, scrVenueRequests, true], [/^#\/call-requests$/, scrCallRequests, true], [/^#\/alerts$/, scrAlerts, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

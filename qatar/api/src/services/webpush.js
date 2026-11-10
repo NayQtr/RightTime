@@ -1,5 +1,7 @@
 // Web Push (RFC 8030) with message encryption (RFC 8291, aes128gcm per RFC 8188) and VAPID (RFC 8292).
 // Built on WebCrypto only, which Node 18+ and Deno (Supabase Edge) both provide, so there is no dependency.
+import { loadOptionalKey } from "../lib/keys.js";
+
 const subtle = globalThis.crypto.subtle;
 const enc = new TextEncoder();
 
@@ -40,6 +42,14 @@ export async function vapidFromJwk(json) {
   return { privateKey, publicKey };
 }
 
+// The server's VAPID key pair (one for members and coordinators), loaded once per running copy.
+let vapidCache = null;
+export async function vapidKeys(sql, getEnv) {
+  if (!vapidCache) vapidCache = await vapidFromJwk(await loadOptionalKey(sql, getEnv, "VAPID_PRIVATE_JWK", generateVapidKey));
+  return vapidCache;
+}
+export function resetVapidCache() { vapidCache = null; }
+
 // Signed VAPID JWT for the push service's origin (ES256; WebCrypto signatures are already raw r||s).
 export async function vapidJwt(privateKey, endpoint, subject, now = Math.floor(Date.now() / 1000)) {
   const head = b64u(enc.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
@@ -68,13 +78,14 @@ export async function encryptPayload(plaintext, p256dh, auth) {
 }
 
 // Sends one message. Returns { ok, status, gone }: gone means the subscription no longer exists (404/410).
-export async function sendPush(sub, message, vapid, { subject, ttl = 86400, fetchImpl = fetch } = {}) {
+// urgency "high" (coordinator alerts) asks the push service to wake a sleeping phone at once.
+export async function sendPush(sub, message, vapid, { subject, ttl = 86400, urgency = "normal", fetchImpl = fetch } = {}) {
   const body = await encryptPayload(JSON.stringify(message), sub.p256dh, sub.auth);
   const jwt = await vapidJwt(vapid.privateKey, sub.endpoint, subject);
   let res;
   try {
     res = await fetchImpl(sub.endpoint, { method: "POST", body, headers: {
-      "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: String(ttl), Urgency: "normal",
+      "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: String(ttl), Urgency: urgency,
       Authorization: `vapid t=${jwt}, k=${vapid.publicKey}` } });
   } catch (e) {
     return { ok: false, status: 0, gone: false, error: String(e && e.message || e).slice(0, 200) };

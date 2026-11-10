@@ -22,5 +22,12 @@ blockquote { margin: 0; padding: var(--s-3); border-inline-start: 4px solid var(
 dialog { border: 1px solid var(--c-border); border-radius: var(--r-lg); background: var(--c-surface); color: var(--c-text); max-width: 420px; }
 dialog::backdrop { background: rgb(0 0 0 / 40%); }
 code { font-size: 12px; word-break: break-all; }
+/* coordinator alerts (019): open alerts above every screen, aligned with main */
+#alerts:empty { display: none; }
+#alerts { max-width: 1280px; margin: 0 auto; padding: var(--s-3) var(--s-5) 0; }
+.alert-strip { display: grid; gap: var(--s-2); }
+.alert-strip .banner { align-items: center; flex-wrap: wrap; background: var(--c-surface); }
+.alert-strip .banner .btn { flex: none; }
+.alert-strip .num { white-space: nowrap; }
 /* call requests: the note keeps its line breaks and does not stretch the table */
 .cr-note { white-space: pre-wrap; max-width: 30rem; overflow-wrap: anywhere; }

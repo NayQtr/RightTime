@@ -12,6 +12,7 @@ import { paymentRoutes } from "./routes/payments.js";
 import { adminRoutes } from "./routes/admin.js";
 import { pushRoutes } from "./routes/push.js";
 import { venueRoutes } from "./routes/venue.js";
+import { alertRoutes } from "./routes/alerts.js";
 
 // Endpoints a suspended / banned user may still call (v0.3 §3.1 ACCOUNT_SUSPENDED applies to the rest)
 const SUSPENDED_ALLOWED = new Set(["GET /api/v1/users/me", "POST /api/v1/auth/logout", "GET /api/v1/notifications",
@@ -32,7 +33,7 @@ function compile(routes) {
 }
 
 export function createApp({ sql, getEnv = () => undefined }) {
-  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes, ...venueRoutes]);
+  const routes = compile([...userRoutes, ...paymentRoutes, ...adminRoutes, ...pushRoutes, ...venueRoutes, ...alertRoutes]);
   const app = { sql, getEnv, handle: null, psp: null };
 
   async function context(req) {

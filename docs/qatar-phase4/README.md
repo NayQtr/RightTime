@@ -144,12 +144,14 @@ The seeded admins use `@example.test` addresses and are placeholders. Replace th
 
 | Key | Staging | Production |
 |---|---|---|
-| `OTP_DEV_MODE` | `true`: the OTP code is returned in the API response | **`false`**; needs an SMS provider (not built) |
+| `OTP_DEV_MODE` | `true`: the OTP code is returned in the API response (only while no SMS provider is set up) | **`false`**; needs an SMS provider (`SMS_PROVIDER`, below) |
 | `MOCK_PSP_ENABLED` | `true`: `/checkout/mock/{booking_id}` and `/api/mock-psp/*` | **`false`**; needs a real PSP adapter (O05) |
 | `WEB_BASE_URL` | `https://qatar-mvp-staging.vercel.app` (`http://localhost:8787` for local runs) | the hosted web app origin |
 | `CORS_ORIGINS` | `https://qatar-mvp-staging.vercel.app,https://qatar-mvp-staging-rightime.vercel.app` | the web app origin(s) only |
 | `SEAT_HOLD_MINUTES` / `REBOOK_CHOICE_HOURS` / `FEEDBACK_WINDOW_DAYS` | 10 / 48 / 7 | per policy |
 | `PACKING_MODE` | `min_leftovers` (`greedy_6` also available) | per v0.4 decision |
+
+**Providers and coordinator alerts (provisional, 10 Nov; migration 019).** Settings (`app.app_config`, env overrides): `SMS_PROVIDER` (`twilio`, empty = none), `EMAIL_PROVIDER` (`resend`, empty = none), `PHONE_ALLOWED_COUNTRY_CODES` (`974`), `OTP_COUNTRY_HOURLY_CAP` (`20`, visitor countries only), `COORDINATOR_ESCALATE_MINUTES` (`5`). Edge Function secrets (names only; values never in the repo or the database): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_FROM`; `RESEND_API_KEY`, `EMAIL_FROM`; `REVIEW_PHONE_E164`, `REVIEW_OTP_CODE` (app-store reviewers' fixed sign-in; off unless both are set and the code is 6 digits); `COORDINATOR_ALERT_PHONES` (comma-separated E.164). With a provider, the code goes by SMS or email and is never in the API answer, even with `OTP_DEV_MODE`. Coordinator alerts: an S1/S2 report during a meetup, or "I am in danger now", goes at once by Web Push to every owner/ops browser with alerts on (admin console, Alerts) and by SMS to `COORDINATOR_ALERT_PHONES`; Acknowledge records who and when; unacknowledged after the set minutes, it is sent again once (runs every minute with the push dispatcher, so `PUSH_DISPATCH_URL` must be set, and whenever the console checks its alerts).
 
 **Server keys (audit F6).** The five keys (`JWT_PRIVATE_PEM`, `DATA_KEY`, `PHONE_PEPPER`, `PSP_WEBHOOK_SECRET`, `SEAT_TOKEN_KEY`) can each be set as an Edge Function secret. A key that is not set is generated once and kept in `app.server_keys`.
 - With the Edge Function secret `SERVER_KEYS_KEK` set (any random text of 40+ characters, entered only in the Supabase dashboard), every row in `app.server_keys` is stored encrypted (AES-256-GCM, `enc:v1:` prefix). Existing plaintext rows are encrypted in place on first use, keeping their values, so encrypted phone numbers and admin TOTP secrets stay readable.
@@ -195,7 +197,7 @@ Nobody has to start again from zero.
 
 ## Not built yet / before real users
 
-- **SMS OTP provider.** OTP only works in dev mode today.
+- **SMS OTP provider.** Built for Twilio (provisional, migration 019), off until the owner sets `SMS_PROVIDER` and the Twilio secrets; until then OTP only works in dev mode (and for the reviewers' fixed number).
 - **Real PSP adapter (O05).** Only `test_psp` exists.
 - **Delivery for `notifications_outbox`.** Rows are written and shown in-app, but no push, SMS or email sender exists.
 - **Legal sign-off.** The 48 h full-refund window is a config default pending legal sign-off (O04).
