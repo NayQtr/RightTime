@@ -19,7 +19,7 @@ export const STRINGS = {
     q07Note: "سيتواصل معكِ فريقنا بشكل خاص قبل اللقاء. لا تكتبي أي تفاصيل هنا.",
     // SCR-04
     sessionsTitle: "اختاري موعدك", coffee: "قهوة", dinner: "عشاء", seatsLeft: "{n} مقاعد متبقية", full: "ممتلئ", joinWaitlist: "انضمي لقائمة الانتظار",
-    onWaitlist: "أنتِ في قائمة الانتظار (الترتيب {n}).", langAr: "طاولة بالعربية", langEn: "طاولة بالإنجليزية", groupSize: "4–6 سيدات",
+    onWaitlist: "أنتِ في قائمة الانتظار (الترتيب {n}).", waitlistOffer: "توفر مقعد في {date}! أكّدي خلال {window} للحجز والدفع.", langAr: "طاولة بالعربية", langEn: "طاولة بالإنجليزية", groupSize: "4–6 سيدات",
     alternatesLegend: "مواعيد أخرى أستطيع حضورها إن لزم الأمر (اختياري)", alternatesHelp: "نستخدمها فقط لعرض بديل إن لم تكتمل الطاولة؛ لا ننقلك تلقائيًا أبدًا.",
     priceStrip: "رسم التنظيم {fee} · الطعام يُدفع للمكان", continueToPay: "متابعة للدفع", noSessions: "لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.",
     editLanguages: "عدّلي لغاتك", alreadyBooked: "محجوز", languageMismatch: "بلغة لم تختاريها",
@@ -157,7 +157,7 @@ export const STRINGS = {
     q01Note: "We currently run Arabic and English tables only; we'll save your language and tell you if that changes.",
     q07Note: "Our team will contact you privately before the event. Please don't write any details here.",
     sessionsTitle: "Choose your session", coffee: "Coffee", dinner: "Dinner", seatsLeft: "{n} seats left", full: "Full", joinWaitlist: "Join the waitlist",
-    onWaitlist: "You're on the waitlist (position {n}).", langAr: "Arabic table", langEn: "English table", groupSize: "4–6 women",
+    onWaitlist: "You're on the waitlist (position {n}).", waitlistOffer: "A seat opened on {date}! Confirm within {window} to book and pay.", langAr: "Arabic table", langEn: "English table", groupSize: "4–6 women",
     alternatesLegend: "Other sessions I could attend if needed (optional)", alternatesHelp: "Used only to offer a rebooking if the table doesn't fill. We never move you automatically.",
     priceStrip: "Organising fee {fee} · food paid to the venue", continueToPay: "Continue to payment", noSessions: "There are no sessions in your languages right now. We run Arabic and English tables only.",
     editLanguages: "Edit your languages", alreadyBooked: "Booked", languageMismatch: "Not in your languages",
