@@ -28,7 +28,7 @@ test("motif: seats are drawn from real numbers only", () => {
 });
 
 test("no emoji in the user app's markup or strings", () => {
-  for (const f of ["../../web/app.js", "../../web/strings.js"]) {
+  for (const f of ["../../web/app.js", "../../web/strings.js", "../../web/dialogs.js"]) {
     const lines = readFileSync(new URL(f, import.meta.url), "utf8").split("\n");
     const hit = lines.findIndex((l) => EMOJI.test(l));
     assert.equal(hit, -1, `${f}:${hit + 1} contains an emoji: ${lines[hit]?.trim().slice(0, 80)}`);

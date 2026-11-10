@@ -1,6 +1,8 @@
 // Venue portal (016): sign in with the registered email and a one-time code, then HerZone's hosting requests (accept or
 // decline), the tables on the day, first names from 3 hours before, and arrivals. Arabic first, English on request.
 // Kept out of the HTML so the CSP can forbid inline scripts. The sign-in lasts 12 hours, in this tab only.
+import { announce, askConfirm } from "/dialogs.js";
+
 const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
 const api = (p) => CFG.apiBase + p + (CFG.apiRegion ? `${p.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const main = document.getElementById("main");
@@ -22,6 +24,9 @@ const TEXT = {
     lang: "English", error: "تعذّر الاتصال. حاول مرة أخرى.", wrongCode: "الرمز غير صحيح أو انتهت صلاحيته.",
     tooMany: "محاولات كثيرة. انتظر قليلًا ثم حاول مجددًا.", unavailable: "إرسال الرموز غير متاح الآن. تواصل مع منسق HerZone.",
     mentionCode: "يذكر الضيوف «HerZone» ورمز الطاولة عند الاستقبال.",
+    // provisional (plan A2 / 13d-3, 13d-4, 10 Nov): the in-page confirmation's keep button and what a screen reader says
+    keep: "إبقاء الطلب", saidAccepted: "تم قبول الحجز.", saidDeclined: "تم الاعتذار عن الحجز.",
+    saidArrived: (n) => (n ? `تم تأكيد وصول ${n}.` : "تم تأكيد الوصول."),
   },
   en: {
     signInTitle: "Partner venues", signInIntro: "Enter the email address registered with HerZone and we will send you a sign-in code.",
@@ -36,6 +41,8 @@ const TEXT = {
     lang: "العربية", error: "Could not connect. Please try again.", wrongCode: "The code is wrong or has expired.",
     tooMany: "Too many attempts. Please wait a little and try again.", unavailable: "Codes cannot be sent right now. Contact the HerZone coordinator.",
     mentionCode: "Guests say \"HerZone\" and their table code at the door.",
+    keep: "Keep the request", saidAccepted: "Booking accepted.", saidDeclined: "Booking declined.",
+    saidArrived: (n) => (n ? `${n} marked as arrived.` : "Arrival marked."),
   },
 };
 let lang = store.get("vp_lang") === "en" ? "en" : "ar";
@@ -145,23 +152,31 @@ async function renderRequests({ force = false, focus = null } = {}) {
   document.getElementById("vp-out").hidden = false;
   main.innerHTML = `<h1>${esc(T("requests"))}</h1>
     ${r.data.requests.length ? r.data.requests.map(requestCard).join("") : `<p class="caption">${esc(T("none"))}</p>`}`;
+  // after each answer the card is redrawn with the keyboard on it, and a screen reader hears the result (13d-4)
+  const answered = (r, said) => announce(r.ok ? said : T("error"));
   main.querySelectorAll("[data-accept]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
-    await call("POST", `/api/venue/v1/requests/${b.dataset.accept}:accept`);
-    renderRequests({ force: true, focus: `req-${b.dataset.accept}` });
+    const r = await call("POST", `/api/venue/v1/requests/${b.dataset.accept}:accept`);
+    await renderRequests({ force: true, focus: `req-${b.dataset.accept}` });
+    answered(r, T("saidAccepted"));
   }));
+  // declining asks first, in the page itself, with the optional reason in the same box (13d-3)
   main.querySelectorAll("[data-decline]").forEach((b) => (b.onclick = async () => {
-    if (!confirm(T("declineSure"))) return;
-    const reason = prompt(T("declineReason")) || "";
+    const yes = await askConfirm({ question: T("declineSure"), confirm: T("decline"), cancel: T("keep"),
+      field: { label: T("declineReason"), maxlength: 300 } });
+    if (!yes) return;
     b.disabled = true;
-    await call("POST", `/api/venue/v1/requests/${b.dataset.decline}:decline`, { reason });
-    renderRequests({ force: true, focus: `req-${b.dataset.decline}` });
+    const r = await call("POST", `/api/venue/v1/requests/${b.dataset.decline}:decline`, { reason: yes.value });
+    await renderRequests({ force: true, focus: `req-${b.dataset.decline}` });
+    answered(r, T("saidDeclined"));
   }));
   main.querySelectorAll("[data-arrive]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     const card = b.closest("article") && b.closest("article").id;
-    await call("POST", `/api/venue/v1/guests/${encodeURIComponent(b.dataset.arrive)}:arrived`);
-    renderRequests({ force: true, focus: card });
+    const name = (b.closest("li")?.querySelector("span")?.textContent || "").trim().replace(/^—$/, "");
+    const r = await call("POST", `/api/venue/v1/guests/${encodeURIComponent(b.dataset.arrive)}:arrived`);
+    await renderRequests({ force: true, focus: card });
+    answered(r, T("saidArrived", name));
   }));
   if (focus) { const el = document.getElementById(focus) || main.querySelector("h1"); if (el) { if (!el.hasAttribute("tabindex")) el.tabIndex = -1; el.focus({ preventScroll: true }); } }
   timer = setTimeout(renderRequests, 60000); // new requests and arrivals without reloading
