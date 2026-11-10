@@ -604,8 +604,8 @@ async function createPayment(tx, ctx, booking, attempt = 0) {
 }
 
 const OCCASIONS = ["birthday", "other"];
-// Reasons she can pick with a low rating (migration 023, provisional list). Their words are in web/strings.js (fbReason_*),
-// the app's .arb files and the admin console (English).
+// Reasons she can pick with a low rating (migration 023, provisional list). Their words are in web/strings.js (fbReason*,
+// venue, rOther), the app's .arb files (fbReason*, reasonOther) and the admin console (REASON_LABELS, English).
 export const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation", "no_shows", "other"];
 
 async function createBooking(ctx) {

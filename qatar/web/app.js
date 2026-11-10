@@ -857,7 +857,8 @@ function wireNotifyMe() {
   b.onclick = async () => {
     setBusy(b, true);
     const r = await api("POST", "/api/v1/session-alerts", {});
-    if (!r.ok) { setBusy(b, false); $("#nm").insertAdjacentHTML("beforeend", errorBanner(r.data)); return; }
+    // a failure keeps the button (one error under it, not one per try)
+    if (!r.ok) { $("#nm").innerHTML = notifyMeBox(false) + errorBanner(r.data); wireNotifyMe(); return; }
     $("#nm").innerHTML = notifyMeBox(true);
   };
 }
