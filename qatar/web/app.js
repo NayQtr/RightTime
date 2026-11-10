@@ -312,6 +312,7 @@ async function guard({ needQuestionnaire = true, offlineOk = false } = {}) {
 // ------------------------------------------------------------------ welcome (spec 2026-10-28 §3)
 function scrWelcome() {
   if (store.get("tokens")) { go("#/home"); return; }
+  funnel("signup_welcome");
   const saved = store.get(QUIZ_STORE_KEY);
   const resume = store.get("resume");
   const answered = saved ? Object.values(saved.answers || {}).filter((a) => a && a.length).length : 0;
@@ -337,6 +338,7 @@ function scrWelcome() {
 // ------------------------------------------------------------------ SCR-02a phone, 02b OTP, 02c registration
 function scrPhone() {
   if (!signedIn()) store.set("resume", "#/signin");
+  funnel("signup_phone");
   if (!state.phone && store.get("phone")) state.phone = store.get("phone");
   view(T("phoneTitle"), `
     <h1>${esc(T("phoneTitle"))}</h1>
@@ -370,6 +372,7 @@ function scrOtp() {
   const kept = tabStore.get("challenge");
   if (!state.challenge && kept && kept.until > Date.now()) { state.challenge = kept.ch; state.phone = kept.phone; }
   if (!state.challenge) { go("#/signin"); return; }
+  funnel("signup_code");
   const ch = state.challenge;
   view(T("otpTitle"), `
     <h1>${esc(T("otpTitle"))}</h1>
@@ -415,6 +418,7 @@ async function scrRegister() {
   loadingView();
   const [meR, legalR] = await Promise.all([api("GET", "/api/v1/users/me"), api("GET", "/api/v1/legal/current", undefined, { noAuth: true })]);
   if (meR.ok && meR.data.user.registration_status === "complete") { go("#/home"); return; }
+  funnel("signup_register");
   const L = legalR.data || {};
   const consent = (type, labelKey, req) => L[type] ? `
     <label class="check"><input type="checkbox" name="c" value="${type}" ${req ? "required" : ""}>
@@ -449,6 +453,7 @@ async function scrRegister() {
     const r = await api("POST", "/api/v1/users/me/registration", body);
     setBusy($("#go"), false);
     if (!r.ok) { $("#err").innerHTML = errorBanner(r.data); return; }
+    funnel("signup_done");
     state.me = r.data.user;
     store.del("quizName");
     if (store.get(QUIZ_STORE_KEY)) await finishQuiz();
@@ -527,6 +532,7 @@ async function scrQuiz(stepStr) {
   const i = Math.max(0, Math.min(Number(stepStr || 0), quiz.steps.length - 1));
   const step = quiz.steps[i];
   if (!signedIn()) store.set("resume", `#/quiz/${i}`);
+  if (!signedIn() && i === 0) funnel("signup_quiz");
   const back = i > 0 ? `#/quiz/${i - 1}` : (signedIn() ? "#/home" : "#/welcome");
   if (step.kind === "inter") { scrInter(step.id, i, back); return; }
   const qq = quiz.q.questions[step.index];
@@ -837,9 +843,15 @@ async function scrPlans() {
 }
 
 // ------------------------------------------------------------------ SCR-04 sessions
+// Waitlist offer (021): a seat kept for her for a while (h:mm left), and the offer text of v0.3 §4.3 in her language.
+const offerOf = (s) => (s.waitlist && s.waitlist.status === "offered" ? s.waitlist : null);
+const offerLeft = (o) => { const m = Math.max(0, Math.ceil((new Date(o.offer_expires_at) - Date.now()) / 60000)); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`; };
+const offerText = (s) => T("waitlistOffer", { date: fmtDate(s.starts_at), window: offerOf(s).window_text });
+
 async function scrSessions(preselect) {
   if (!(await guard())) return;
   loadingView();
+  funnel("booking_sessions");
   const r = await api("GET", "/api/v1/sessions");
   if (!r.ok) { view(T("sessionsTitle"), `<h1>${esc(T("sessionsTitle"))}</h1>${errorBanner(r.data)}`); return; }
   const pre = preselect && r.data.sessions.find((x) => x.id === preselect);
@@ -853,10 +865,12 @@ async function scrSessions(preselect) {
       <span class="tick" aria-hidden="true"></span>
       <span class="stack" data-u="flex1">
         <span class="row between"><strong>${esc(fmtDate(s.starts_at))}</strong>
-          ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
+          ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : offerOf(s) ? `<span class="badge badge-warning">${esc(T("holdTimer"))} <span class="num">${esc(offerLeft(offerOf(s)))}</span></span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
+        ${offerOf(s) ? `<span class="caption offer-note">${esc(offerText(s))}</span>` : ""}
       </span></label>
-    ${s.is_full && !s.my_booking_id ? `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>` : ""}`;
+    ${s.is_full && !s.my_booking_id ? (s.waitlist ? `<p class="caption">${esc(T("onWaitlist", { n: s.waitlist.position }))}</p>`
+      : `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>`) : ""}`;
   view(T("sessionsTitle"), `
     <h1>${esc(T("sessionsTitle"))}</h1>
     <div class="segmented" role="group" aria-label="${esc(T("experience"))}">
@@ -920,6 +934,7 @@ async function scrReview(id) {
   const b = bR.data, e = eR.data;
   if (b.status !== "payment_pending") { go(`#/booking/${id}`); return; }
   const expired = !b.hold_expires_at || new Date(b.hold_expires_at) <= new Date();
+  if (!expired) funnel("booking_review");
   const needAck = e.booking.cancellation.acknowledgement_required === "late_no_refund";
   view(T("reviewTitle"), `
     <h1>${esc(T("reviewTitle"))}</h1>
@@ -946,7 +961,9 @@ async function scrReview(id) {
     const tick = () => {
       if (!$("#clock")) return;
       const s = Math.max(0, Math.round((end - Date.now()) / 1000));
-      $("#clock").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+      // a seat kept from the waitlist (021) is held for up to hours: h:mm:ss then
+      $("#clock").textContent = s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+        : `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
       if (s === 120 || s === 30) $("#holdlive").textContent = `${T("holdTimer")} ${$("#clock").textContent}`;
       if (s === 0) { clearTimers(); scrReview(id); }
     };
@@ -961,6 +978,7 @@ async function scrReview(id) {
         if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#pay"), false); return; }
         url = c.data.checkout_url;
       }
+      funnel("booking_checkout", { keepalive: true }); // the page is about to be left for the payment page
       clearTimers();   // the hold clock must not tick into the replaced view while the browser navigates
       main.innerHTML = `<div class="center"><div class="spinner" aria-hidden="true"></div><h1>${esc(T("redirecting"))}</h1></div>`;
       location.assign(url);
@@ -970,13 +988,26 @@ async function scrReview(id) {
 }
 
 // Coordinator on duty (audit F10): real call / WhatsApp buttons when configured, loaded once per page load.
+// The same answer carries the public setting funnel_counter (021): whether to send step pings.
 async function loadContact() {
   if (state.contact !== undefined) return state.contact;
   const r = await api("GET", "/api/v1/support/contact", undefined, { noAuth: true });
   // the coordinator's number is public; keep the last one so "call" still works with no data connection
   if (r.ok) store.set("contact", r.data.coordinator);
   state.contact = r.ok ? r.data.coordinator : r.data && r.data.code === "OFFLINE" ? store.get("contact") : null;
+  state.funnelOn = Boolean(r.ok && r.data.funnel_counter === true);
   return state.contact;
+}
+
+// Step counter (021, item 44, provisional; off unless the server says it is on): one ping per sign-up or booking step per
+// page load, carrying only the step and "web". No sign-in token, cookie or device id is sent, and nothing is kept here.
+const funnelSent = new Set();
+async function funnel(step, opts = {}) {
+  if (funnelSent.has(step)) return;
+  funnelSent.add(step);
+  await loadContact();
+  if (!state.funnelOn) return;
+  api("POST", "/api/v1/funnel/steps", { step, platform: "web" }, { noAuth: true, keepalive: !!opts.keepalive }).catch(() => null);
 }
 function contactButtons(c, bookingId = "") {
   if (!c) return "";
@@ -1102,6 +1133,7 @@ async function scrPayReturn(id) {
   const started = Date.now();
   const draw = (phase, b) => {
     if (phase === "success") {
+      funnel("booking_paid");
       const it = b.item;
       view(T("allSetTitle"), `<div class="center all-set"><div class="success-check">${icon("check")}</div><h1>${esc(T("allSetTitle"))}</h1>
         <p class="lead">${esc(T("paidTitle"))}</p>
@@ -1177,7 +1209,7 @@ function weekRibbon(sessions) {
 
 function sessionCard(s) {
   const href = s.my_booking_id ? `#/booking/${s.my_booking_id}` : `#/sessions?s=${s.id}`;
-  const status = s.my_booking_id ? T("alreadyBooked") : s.is_full ? T("full") : T("seatsLeft", { n: s.seats_left });
+  const status = s.my_booking_id ? T("alreadyBooked") : offerOf(s) ? `${T("holdTimer")} ${offerLeft(offerOf(s))}` : s.is_full ? T("full") : T("seatsLeft", { n: s.seats_left });
   const lang = T(s.conversation_language === "ar" ? "langAr" : "langEn");
   return `<li><a class="event-card" href="${href}" data-session="${s.id}" data-day="${qatarDay(s.starts_at)}"
       aria-label="${esc(`${T(s.experience)} · ${fmtDate(s.starts_at)} · ${s.district} · ${status}`)}">
@@ -1202,6 +1234,7 @@ async function scrHome() {
   const onlyPrivacy = docs.length === 1 && docs[0].type === "privacy_notice";
   const DOC_NAME = { terms: "docTerms", conduct: "docConduct", privacy_notice: "privacyTitle" };
   const sessions = sR.ok ? sR.data.sessions.filter((x) => x.language_match !== false) : [];
+  const offers = sR.ok ? sR.data.sessions.filter(offerOf) : []; // seats kept for her from the waitlist (021)
   const bookings = bR.ok ? bR.data.bookings : [];
   const next = bookings.filter((b) => ACTIVE.includes(b.status)).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0];
   const choice = bookings.find((b) => b.status === "cancelled_by_organizer" && new Date(b.starts_at) > new Date(Date.now() - 2 * 86400000));
@@ -1214,6 +1247,7 @@ async function scrHome() {
     ${sessions[0] ? `<p class="home-sub">${esc(T("homeSub", { fee: sessions[0].price.display }))}</p>` : ""}
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
+    ${offers.map((s) => `<div class="banner banner-info"><div>${esc(offerText(s))} <a href="#/sessions?s=${esc(s.id)}">${esc(T("bookSeat"))}</a></div></div>`).join("")}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
     ${docs.length ? `<section class="banner banner-warning" id="consent-upd"><div class="stack"><p><strong>${esc(T(onlyPrivacy ? "privacyUpdTitle" : "docsUpdTitle"))}</strong></p>
       <p>${esc(T(onlyPrivacy ? "privacyUpdBody" : "docsUpdBody"))}</p>
@@ -1574,7 +1608,7 @@ async function scrInbox() {
   if (r.ok) { if (list.length) store.set("inboxSeen", list[0].created_at); inboxFetch = null; showInboxBadge(0); }
   view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
     <li class="card${isNew(n) ? " is-new" : ""}">${isNew(n) ? `<span class="badge badge-info new-tag">${esc(T("newTag"))}</span>` : ""}<p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
-    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
+    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : n.session_id ? `<a href="#/sessions?s=${esc(n.session_id)}">${esc(T("bookSeat"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
 }
 
 async function scrProfile() {

@@ -50,6 +50,7 @@ const NAV = [
   ["#/venues", "Venues", ["owner", "ops"]],
   ["#/venue-requests", "Venue requests", ["owner", "ops"]],
   ["#/call-requests", "Call requests", ["owner", "ops"]],
+  ["#/failed-notifications", "Failed notifications", ["owner", "ops"]],
   ["#/refunds", "Refunds & Payments", ["owner", "finance"]],
   ["#/cases", "Trust & Safety", ["trust_safety"]],
   ["#/identity", "Identity checks", ["owner", "trust_safety"]],
@@ -57,6 +58,7 @@ const NAV = [
   ["#/support", "Support requests", ["owner", "ops"]],
   ["#/promo-codes", "Promo codes", ["owner"]],
   ["#/audit", "Audit log", ["owner"]],
+  ["#/funnel", "Step counter", ["owner", "ops", "analyst"]],
 ];
 
 function renderNav() {
@@ -65,8 +67,8 @@ function renderNav() {
     <ul>${NAV.filter(([, , roles]) => roles.includes(a.role)).map(([h, l]) => `<li><a href="${h}" ${location.hash.startsWith(h) ? 'aria-current="page"' : ""}>${esc(l)}</a></li>`).join("")}</ul>
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
-  if (a && ["owner", "ops"].includes(a.role)) callBadge();
   alertStrip();
+  if (a && ["owner", "ops"].includes(a.role)) { callBadge(); failedBadge(); }
   const lo = document.getElementById("logout");
   // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
   if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
@@ -682,6 +684,67 @@ async function scrAlerts() {
   };
 }
 
+// ------------------------------------------------------------------ failed phone notifications (021, provisional)
+// Phone notifications no device accepted after every retry. The coordinator reaches the member another way (call or
+// WhatsApp; the message in her language can be copied), then marks it handled. Open count on the menu (a count only).
+async function failedBadge() {
+  const r = await api("GET", `${A}/notifications/failed?count=1`);
+  const link = nav.querySelector('a[href="#/failed-notifications"]');
+  if (link && r.ok && r.data.open_count) link.insertAdjacentHTML("beforeend", ` <span class="badge badge-danger"><span class="sr-only">open: </span>${r.data.open_count}</span>`);
+}
+let fnStatus = "open";
+async function scrFailedNotifications() {
+  const r = await api("GET", `${A}/notifications/failed${fnStatus === "handled" ? "?status=handled" : ""}`);
+  const rows = (r.data && r.data.notifications) || [];
+  view("Failed notifications", `<h1>Failed notifications</h1><div id="flash"></div>
+    <p class="caption">Phone notifications no device accepted, after 3 retries (2, 10 and 30 minutes later). The message is in the member's inbox,
+    but she may not have seen it: reach her another way (call or WhatsApp), then mark it handled. Reading the numbers is recorded in the audit log.</p>
+    <div class="row">${[["open", "Open"], ["handled", "Handled"]].map(([k, l]) =>
+      `<button class="btn ${fnStatus === k ? "btn-primary" : "btn-secondary"}" data-fn-filter="${k}" aria-pressed="${fnStatus === k}">${l}</button>`).join("")}</div>
+    ${r.ok ? "" : msg(r)}
+    <div class="table-wrap"><table><thead><tr><th>Queued</th><th>Name</th><th>Call on</th><th>Message</th><th>Meetup</th><th>Tries</th><th></th></tr></thead><tbody>
+    ${rows.map((x, i) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.name || "—")}${x.member_status !== "active" ? `<br><span class="caption">${esc(x.member_status)}</span>` : ""}</td>
+      <td>${x.phone ? `<a href="tel:${esc(x.phone)}" dir="ltr" class="num">${esc(x.phone)}</a>` : "—"}</td>
+      <td class="cr-note">${esc(x.text_en)}${x.locale !== "en" ? `<br><button class="btn btn-ghost" data-fn-copy="${i}">Copy in her language</button>` : ""}</td>
+      <td>${x.booking_ref ? `${esc(x.booking_ref)} · ` : ""}${x.starts_at ? dt(x.starts_at) : "—"}</td>
+      <td>${x.attempts}<br><span class="caption">last ${dt(x.last_try_at)}${x.last_error ? ` · ${esc(x.last_error)}` : ""}</span></td>
+      <td>${x.handled_at ? `${esc(x.handled_by || "")} · ${dt(x.handled_at)}` : `<button class="btn btn-primary" data-fn-done="${esc(x.id)}">Handled</button>`}</td></tr>`).join("")
+      || `<tr><td colspan="7">Nothing here.</td></tr>`}</tbody></table></div>`);
+  $$("[data-fn-filter]").forEach((b) => (b.onclick = () => { fnStatus = b.dataset.fnFilter; scrFailedNotifications(); }));
+  $$("[data-fn-copy]").forEach((b) => (b.onclick = async () => {
+    try { await navigator.clipboard.writeText(rows[Number(b.dataset.fnCopy)].text); b.textContent = "Copied"; } catch { b.textContent = "Copy failed"; }
+  }));
+  $$("[data-fn-done]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    const res = await api("POST", `${A}/notifications/${b.dataset.fnDone}:handled`, {});
+    flash(msg(res, "Marked as handled"));
+    if (res.ok) setTimeout(scrFailedNotifications, 600);
+  }));
+}
+
+// ------------------------------------------------------------------ step counter (021, item 44, provisional)
+// How many times each sign-up and booking step was reached, per day: counts only (no member, address or device).
+const FUNNEL_LABELS = { signup_welcome: "Welcome", signup_quiz: "Quiz", signup_phone: "Phone", signup_code: "Code", signup_register: "Register",
+  signup_done: "Signed up", booking_sessions: "Sessions", booking_review: "Review", booking_checkout: "Checkout", booking_paid: "Paid" };
+let funnelPlatform = "all";
+async function scrFunnel() {
+  const r = await api("GET", `${A}/funnel?days=30`);
+  if (!r.ok) { view("Step counter", `<h1>Step counter</h1>${msg(r)}`); return; }
+  const { enabled, steps, platforms, rows } = r.data;
+  const days = [...new Set(rows.map((x) => x.day))];
+  const count = (day, step) => rows.filter((x) => x.day === day && x.step === step && (funnelPlatform === "all" || x.platform === funnelPlatform))
+    .reduce((n, x) => n + x.count, 0);
+  view("Step counter", `<h1>Step counter</h1>
+    <p class="caption">How many times each sign-up and booking step was reached, per day (Qatar time), last 30 days. Counts only: no member, address or device is recorded.</p>
+    ${enabled ? "" : `<div class="banner banner-warning"><div>The counter is off (FUNNEL_COUNTER_ENABLED). Turn it on only after the privacy notice has a line for it.</div></div>`}
+    <div class="row">${[["all", "All"], ...platforms.map((p) => [p, p === "ios" ? "iOS" : p === "android" ? "Android" : "Web"])].map(([k, l]) =>
+      `<button class="btn ${funnelPlatform === k ? "btn-primary" : "btn-secondary"}" data-fp="${k}" aria-pressed="${funnelPlatform === k}">${l}</button>`).join("")}</div>
+    <div class="table-wrap"><table><thead><tr><th>Day</th>${steps.map((s) => `<th>${esc(FUNNEL_LABELS[s] || s)}</th>`).join("")}</tr></thead><tbody>
+    ${days.map((d) => `<tr><td class="num">${esc(d)}</td>${steps.map((s) => `<td class="num">${count(d, s) || "—"}</td>`).join("")}</tr>`).join("")
+      || `<tr><td colspan="${steps.length + 1}">No counts yet.</td></tr>`}</tbody></table></div>`);
+  $$("[data-fp]").forEach((b) => (b.onclick = () => { funnelPlatform = b.dataset.fp; scrFunnel(); }));
+}
+
 // ------------------------------------------------------------------ router
 const ROUTES = [
   [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
@@ -689,6 +752,7 @@ const ROUTES = [
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
   [/^#\/venue-requests$/, scrVenueRequests, true], [/^#\/call-requests$/, scrCallRequests, true], [/^#\/alerts$/, scrAlerts, true],
+  [/^#\/failed-notifications$/, scrFailedNotifications, true], [/^#\/funnel$/, scrFunnel, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

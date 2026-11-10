@@ -36,6 +36,9 @@ export async function loadConfig(sql, getEnv) {
     geminiBaseUrl: get("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").replace(/\/$/, ""),
     appStoreUrl: get("APP_STORE_URL", "").trim(),
     playStoreUrl: get("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=app.herzone").trim(),
+    // Step counter (021, item 44): provisional, OFF until the privacy notice has a line for it. When on, clients send one
+    // anonymous ping per sign-up and booking step; the server keeps only a count per day, step and platform.
+    funnelCounter: get("FUNNEL_COUNTER_ENABLED", "false") === "true",
     otpTtl: 300, otpResendAfter: 45, otpMaxAttempts: 5,
     // Provisional choices of 10 Nov (items 37, 38, 14c, 40); migration 019 lists them in app_config too. Provider keys,
     // the reviewer's number and code, and the coordinators' numbers are secrets read only from the environment

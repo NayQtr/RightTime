@@ -2,9 +2,9 @@
 // VAPID signatures, subscription rules (push services only, one row per device), and the dispatcher's outcomes.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTemplate, client, signUp, startTestEnv } from "./helpers.mjs";
+import { adminLogin, buildTemplate, client, signUp, startTestEnv } from "./helpers.mjs";
 import { b64u, encryptPayload, fromB64u, generateVapidKey, vapidFromJwk, vapidJwt } from "../src/services/webpush.js";
-import { dispatchPush, resetVapidCache, validEndpoint } from "../src/routes/push.js";
+import { PUSH_RETRY_MINUTES, dispatchPush, resetVapidCache, validEndpoint } from "../src/routes/push.js";
 
 const subtle = globalThis.crypto.subtle;
 let env, call, sql;
@@ -140,4 +140,91 @@ test("dispatch endpoint: refused without the database's token, runs with it", as
   const ok = await call("POST", "/api/internal/push:dispatch", { body: {}, headers: { "x-dispatch-token": token } });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   assert.equal(typeof ok.body.processed, "number");
+});
+
+// ------------------------------------------------------------------ retries and the coordinators' list (021, Notion fix 6)
+async function subscribed(name, endpoint) {
+  await sql`DELETE FROM app.otp_challenges`;
+  const u = await signUp(call, { name });
+  const b = await fakeBrowser();
+  assert.equal((await call("POST", "/api/v1/push/subscriptions", { token: u.token, body: { endpoint, keys: { p256dh: b.p256dh, auth: b.auth } } })).status, 201);
+  return { ...u, browser: b };
+}
+const queued = async (u, key, payload) => (await sql`INSERT INTO app.notifications_outbox (user_id, channel, template_key, locale, payload)
+  VALUES (${u.userId}, 'push', ${key}, 'ar', ${sql.json(payload)}) RETURNING id`)[0].id;
+const row = async (id) => (await sql`SELECT status, attempts, last_error, provider_ref,
+  round(extract(epoch FROM send_after - now()) / 60)::int AS wait_min FROM app.notifications_outbox WHERE id = ${id}`)[0];
+const due = (id) => sql`UPDATE app.notifications_outbox SET send_after = now() WHERE id = ${id}`;
+const pick = (o, ...k) => Object.fromEntries(k.map((x) => [x, o[x]]));
+
+test("retries: a delivery no device accepted is tried 3 more times with growing gaps, then listed for coordinators", async () => {
+  assert.deepEqual(PUSH_RETRY_MINUTES, [2, 10, 30]);
+  const u = await subscribed("Sara", "https://fcm.googleapis.com/fcm/send/flaky");
+  const id = await queued(u, "TABLE_LOCKED", { booking_id: "00000000-0000-0000-0000-000000000777", reveal_at: "2026-11-20T16:30:00Z" });
+  const failing = async () => new Response(null, { status: 503 });
+  const gaps = [];
+  for (let i = 1; i <= 3; i++) {
+    const r = await dispatchPush(sql, () => undefined, { fetchImpl: failing });
+    assert.equal(r.retrying, 1, JSON.stringify(r));
+    const x = await row(id);
+    assert.deepEqual(pick(x, "status", "attempts", "last_error", "provider_ref"), { status: "queued", attempts: i, last_error: "503", provider_ref: `push:retry:${i}` });
+    gaps.push(x.wait_min);
+    assert.equal((await dispatchPush(sql, () => undefined, { fetchImpl: failing })).processed, 0, "not before its time");
+    await due(id);
+  }
+  assert.deepEqual(gaps, [2, 10, 30], "growing gaps");
+  assert.equal((await dispatchPush(sql, () => undefined, { fetchImpl: failing })).failed, 1);
+  assert.deepEqual(pick(await row(id), "status", "attempts"), { status: "failed", attempts: 4 }, "the first try and 3 retries");
+
+  // coordinators (owner, ops) see it with her name, number and the message; reading it is recorded
+  const ops = await adminLogin(call, sql, "ops.oncall@example.test");
+  const fin = await adminLogin(call, sql, "finance@example.test");
+  assert.equal((await call("GET", "/api/admin/v1/notifications/failed", { token: fin.token })).status, 403);
+  assert.equal((await call("GET", "/api/admin/v1/notifications/failed", { token: u.token })).status, 401);
+  const count = await call("GET", "/api/admin/v1/notifications/failed?count=1", { token: ops.token });
+  assert.deepEqual(Object.keys(count.body), ["open_count"], "the count carries no numbers");
+  assert.ok(count.body.open_count >= 1);
+  const list = await call("GET", "/api/admin/v1/notifications/failed", { token: ops.token });
+  assert.equal(list.status, 200);
+  const mine = list.body.notifications.find((n) => n.id === id);
+  assert.deepEqual(pick(mine, "name", "phone", "attempts", "last_error", "locale"), { name: "Sara", phone: u.phone, attempts: 4, last_error: "503", locale: "ar" });
+  assert.match(mine.text_en, /^Your table is confirmed! We'll reveal the venue at /);
+  assert.match(mine.text, /^طاولتك مؤكدة!/);
+  const [a] = await sql`SELECT reason_code FROM app.audit_logs WHERE action = 'read_failed_notifications' ORDER BY at DESC LIMIT 1`;
+  assert.match(a.reason_code, /^open_\d+$/);
+  // she was reached another way: out of the open list, into the handled one
+  assert.equal((await call("POST", `/api/admin/v1/notifications/${id}:handled`, { token: ops.token })).status, 200);
+  assert.equal((await call("POST", `/api/admin/v1/notifications/${id}:handled`, { token: ops.token })).status, 409);
+  assert.ok(!(await call("GET", "/api/admin/v1/notifications/failed", { token: ops.token })).body.notifications.some((n) => n.id === id));
+  const done = (await call("GET", "/api/admin/v1/notifications/failed?status=handled", { token: ops.token })).body.notifications.find((n) => n.id === id);
+  assert.equal(done.handled_by, "Ops On-call");
+  assert.ok(done.handled_at);
+});
+
+test("retries: a device that answers on a later try gets the message; a device that no longer exists is not retried", async () => {
+  const u = await subscribed("Hind", "https://fcm.googleapis.com/fcm/send/recovers");
+  const id = await queued(u, "BOOKING_CANCELLED", { ref: "RT-AAA222" });
+  let calls = 0;
+  const flaky = async () => new Response(null, { status: ++calls === 1 ? 500 : 201 });
+  assert.equal((await dispatchPush(sql, () => undefined, { fetchImpl: flaky })).retrying, 1);
+  await due(id);
+  assert.equal((await dispatchPush(sql, () => undefined, { fetchImpl: flaky })).sent, 1);
+  assert.deepEqual(pick(await row(id), "status", "attempts", "last_error"), { status: "sent", attempts: 2, last_error: null });
+
+  const g = await subscribed("Mona", "https://web.push.apple.com/gone");
+  const gid = await queued(g, "BOOKING_CANCELLED", { ref: "RT-BBB333" });
+  const r = await dispatchPush(sql, () => undefined, { fetchImpl: async () => new Response(null, { status: 410 }) });
+  assert.deepEqual(pick(r, "failed", "retrying"), { failed: 1, retrying: 0 });
+  assert.deepEqual(pick(await row(gid), "status", "attempts"), { status: "failed", attempts: 1 });
+});
+
+test("a waitlist offer's phone notification opens the session list at that session", async () => {
+  const u = await subscribed("Reem", "https://fcm.googleapis.com/fcm/send/offer");
+  const session = "00000000-0000-0000-0000-000000000abc";
+  await queued(u, "WAITLIST_OFFER", { session_id: session, date: "2026-11-20T16:30:00Z", window: 120 });
+  const got = [];
+  await dispatchPush(sql, () => undefined, { fetchImpl: async (url, init) => { got.push({ url, init }); return new Response(null, { status: 201 }); } });
+  const msg = JSON.parse(await browserDecrypt(u.browser, got.find((x) => x.url.endsWith("/offer")).init.body));
+  assert.equal(msg.url, `/#/sessions?s=${session}`);
+  assert.equal(msg.body, "لديكِ تحديث جديد في HerZone. افتحي التطبيق لقراءته.", "the lock screen still shows only the generic line");
 });

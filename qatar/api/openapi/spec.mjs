@@ -1,9 +1,11 @@
 // OpenAPI 3.1 description of the HerZone member API (what the web app and the mobile app call). Written from the route
-// handlers in src/routes/user.js and src/routes/push.js; test/openapi.test.mjs fails when a member route is added to the
+// handlers in src/routes/user.js, src/routes/push.js and src/routes/funnel.js; test/openapi.test.mjs fails when a member route is added to the
 // server but not here, or described here but missing from the server.
 // Not described (not for app clients): /api/admin/v1/* (admin console), /api/v1/payments/webhooks/{psp} (payment
 // provider to server), /api/mock-psp/* (staging checkout), /api/internal/push:dispatch (scheduler).
 // Build openapi.json with: node openapi/build.mjs
+
+import { FUNNEL_PLATFORMS, FUNNEL_STEPS } from "../src/routes/funnel.js";
 
 const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
 const ok = (schema, description = "OK") => ({ description, content: { "application/json": { schema } } });
@@ -58,7 +60,11 @@ export const paths = {
     responses: { 200: ok(obj({ id: uuid, status: str({ enum: ["requested"] }), created_at: ts, already_requested: { type: "boolean" } }), "She already had an open request: it now carries her latest words"),
       201: ok(obj({ id: uuid, status: str({ enum: ["requested"] }), created_at: ts, already_requested: { type: "boolean" } }), "Request received"), ...errors(401, 403, 404, 422, 429) } } },
   "/api/v1/support/contact": { get: { tags: ["public"], summary: "Coordinator on duty (call and WhatsApp), or null when not configured",
-    responses: { 200: ok(obj({ coordinator: nullable(obj({ phone_e164: str(), phone_display: str(), tel_url: str(), whatsapp_url: nullable(str()) })) })) } } },
+    responses: { 200: ok(obj({ coordinator: nullable(obj({ phone_e164: str(), phone_display: str(), tel_url: str(), whatsapp_url: nullable(str()) })),
+      funnel_counter: { type: "boolean", description: "Public setting: when true, the client sends one POST /api/v1/funnel/steps per sign-up and booking step it reaches; when false it sends nothing" } })) } } },
+  "/api/v1/funnel/steps": { post: { tags: ["public"], summary: "Step counter (provisional, off by default): add 1 to today's count for a sign-up or booking step on a platform. No sign-in and no Idempotency-Key: nothing identifying is read or kept. While the counter is off, nothing is stored and the answer is the same 204",
+    requestBody: body(obj({ step: str({ enum: FUNNEL_STEPS }), platform: str({ enum: FUNNEL_PLATFORMS }) })),
+    responses: { 204: { description: "Counted (or the counter is off)" }, ...errors(400, 422) } } },
   "/api/v1/questionnaires/preview": { get: { tags: ["questionnaire"], summary: "Published questionnaire before sign-up (questions only, no user data)",
     responses: { 200: ok(obj({ questionnaire_version_id: uuid, code: str(), questions: { type: "array", items: ref("Question") } })), ...errors(404) } } },
 
@@ -92,7 +98,7 @@ export const paths = {
   "/api/v1/sessions": { get: { tags: ["bookings"], ...user, summary: "Dinners on sale, with the member's language match and any booking she holds",
     parameters: [{ name: "experience", in: "query", required: false, schema: str() }],
     responses: { 200: ok(obj({ profile_languages: { type: "array", items: str() }, sessions: { type: "array", items: ref("Session") } })), ...errors(401, 403) } } },
-  "/api/v1/sessions/{id}/waitlist": { post: { tags: ["bookings"], ...user, ...idem, summary: "Join the waitlist of a full dinner",
+  "/api/v1/sessions/{id}/waitlist": { post: { tags: ["bookings"], ...user, ...idem, summary: "Join the waitlist of a full dinner. When a seat frees up, the first member waiting gets it kept for her for a while (WAITLIST_OFFER notification); the session list then shows waitlist.status offered, and the session is bookable for her until offer_expires_at",
     parameters: [idParam("id", "Session id"), ...idem.parameters],
     responses: { 201: ok(obj({ session_id: uuid, position: { type: "integer" }, status: str({ enum: ["waiting"] }) }), "On the waitlist"), ...errors(401, 403, 404, 409) } } },
   "/api/v1/bookings": {
@@ -165,7 +171,8 @@ export const paths = {
 
   // ------------------------------------------------------------------ notifications and subscriptions
   "/api/v1/notifications": { get: { tags: ["notifications"], ...userAny, summary: "Inbox: the latest 50 notifications, in the request language",
-    responses: { 200: ok(obj({ notifications: { type: "array", items: obj({ id: uuid, template_key: str(), created_at: ts, booking_id: nullable(uuid), text: str() }) } })), ...errors(401) } } },
+    responses: { 200: ok(obj({ notifications: { type: "array", items: obj({ id: uuid, template_key: str(), created_at: ts, booking_id: nullable(uuid),
+      session_id: nullable({ ...uuid, description: "A waitlist offer: the session whose seat is kept for her (book it from the session list)" }), text: str() }) } })), ...errors(401) } } },
   "/api/v1/push/key": { get: { tags: ["notifications"], summary: "Web Push (VAPID) public key. The mobile app will use APNs and FCM instead (NMX-52).",
     responses: { 200: ok(obj({ public_key: str() })) } } },
   "/api/v1/push/subscriptions": { post: { tags: ["notifications"], ...userAny, summary: "Register this browser for Web Push",
@@ -229,7 +236,10 @@ export const spec = {
       Phase: str({ enum: PHASES }),
       Session: obj({ id: uuid, experience: str(), conversation_language: str(), language_match: nullable({ type: "boolean" }), starts_at: ts, ends_at: ts, district: str(),
         seats_left: { type: "integer" }, is_full: { type: "boolean" }, price: ref("Money"), group_size: str({ example: "4–6" }), full_refund_until: ts,
-        full_refund_until_hours: { type: "integer" }, booking_closes_at: ts, my_booking_id: nullable(uuid) }),
+        full_refund_until_hours: { type: "integer" }, booking_closes_at: ts, my_booking_id: nullable(uuid),
+        waitlist: nullable(obj({ status: str({ enum: ["waiting", "offered"] }), position: nullable({ type: "integer", description: "Her place among the members still waiting" }),
+          offer_expires_at: nullable(ts), window_text: nullable(str({ description: "Time left on the offer in the request language, e.g. ساعتين / 2 hours" })) },
+          ["status", "position", "offer_expires_at", "window_text"])) }),
       RefundTerms: obj({ full_refund_until: ts, full_refund_until_hours: { type: "integer" }, full_refund_window_open: { type: "boolean" },
         refund_if_cancelled_after_payment: str({ enum: ["full", "partial", "none"] }), late_cancel_refund_pct: { type: "integer" },
         acknowledgement_required: nullable(str({ enum: ["late_no_refund"] })) }),

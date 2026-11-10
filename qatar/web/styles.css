@@ -670,3 +670,5 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
 [data-u="gap0"] { gap: 0; }
 [data-u="flex1"] { flex: 1; }
 [data-u="bdanger"] { border-color: var(--c-danger); }
+/* a seat kept from the waitlist (021): the offer line sits under the session details */
+.option .offer-note { display: block; margin-block-start: var(--s-1); }
