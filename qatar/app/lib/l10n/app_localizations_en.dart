@@ -193,6 +193,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'There are no sessions in your languages right now. We run Arabic and English tables only.';
 
   @override
+  String get notifyMe => 'Notify me when a session opens';
+
+  @override
+  String get notifyMeOn =>
+      'We\'ll let you know when a session in your language opens.';
+
+  @override
+  String get filterDay => 'Day';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get noFilterMatch => 'No sessions match this choice.';
+
+  @override
   String get cityFull => 'Doha, Qatar';
 
   @override
@@ -299,6 +315,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String qOf(int i, int n) {
     return '$i of $n';
   }
+
+  @override
+  String timeLeft(int m) {
+    return 'About $m min left';
+  }
+
+  @override
+  String get timeLeftUnder => 'Less than a minute left';
 
   @override
   String chooseUpTo(int n) {
@@ -672,6 +696,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get venueRating => 'Venue rating (optional)';
+
+  @override
+  String get fbReasonsLegend => 'What didn\'t work for you? (optional)';
+
+  @override
+  String get fbReasonTable => 'Fit with my table';
+
+  @override
+  String get fbReasonVenue => 'Venue';
+
+  @override
+  String get fbReasonFood => 'Food or service';
+
+  @override
+  String get fbReasonOrg => 'Organisation and timing';
+
+  @override
+  String get fbReasonNoShows => 'Some guests didn\'t come';
 
   @override
   String get commentLabel => 'Private comment (optional)';

@@ -13,13 +13,22 @@ class MeetupsRepository {
   final TripStore _trips;
   static const _coordinatorKey = 'coordinator';
 
-  Future<List<SessionSummary>> sessions() async {
+  Future<List<SessionSummary>> sessions() async => (await sessionsList()).sessions;
+
+  /// The sessions in her languages, plus whether her "notify me" alert is open.
+  Future<SessionsList> sessionsList() async {
     final r = await _api.send('GET', '/api/v1/sessions');
-    return ((r!['sessions'] as List?) ?? const [])
-        .map((j) => SessionSummary.fromJson(j as Map<String, dynamic>))
-        .where((s) => s.languageMatch != false)
-        .toList();
+    return SessionsList(
+      sessions: ((r!['sessions'] as List?) ?? const [])
+          .map((j) => SessionSummary.fromJson(j as Map<String, dynamic>))
+          .where((s) => s.languageMatch != false)
+          .toList(),
+      notifyMeActive: (r['notify_me_active'] as bool?) ?? false,
+    );
   }
+
+  /// "Notify me when a session is available" (v0.3 E-LANG-1): she is told once when a session in her language opens.
+  Future<void> notifyMe() => _api.send('POST', '/api/v1/session-alerts', body: {});
 
   Future<List<BookingSummary>> bookings() async {
     final r = await _api.send('GET', '/api/v1/bookings');
@@ -125,14 +134,15 @@ class MeetupsRepository {
   /// "I'm here" at the venue on the day.
   Future<void> checkIn(String bookingId) => _api.send('POST', '/api/v1/bookings/$bookingId/check-in', body: {});
 
-  /// Private feedback after the meetup (once).
-  Future<void> feedback(String bookingId, {required int overall, required int comfort, int? venue, bool? again, String? comment}) =>
+  /// Private feedback after the meetup (once). [reasons]: what fell short, with a low overall rating (keys the API knows).
+  Future<void> feedback(String bookingId, {required int overall, required int comfort, int? venue, bool? again, String? comment, List<String> reasons = const []}) =>
       _api.send('POST', '/api/v1/bookings/$bookingId/feedback', body: {
         'overall_rating': overall,
         'comfort_rating': comfort,
         'venue_rating': ?venue,
         'would_book_again': ?again,
         if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+        if (reasons.isNotEmpty) 'low_rating_reasons': reasons,
       });
 
   /// After the organiser cancelled: move to another session (the fee carries over) or take the full refund.

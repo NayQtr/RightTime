@@ -31,6 +31,13 @@ class SessionSummary {
       );
 }
 
+/// GET /api/v1/sessions: the sessions in her languages, and whether she asked to be told when one opens (migration 023).
+class SessionsList {
+  const SessionsList({required this.sessions, required this.notifyMeActive});
+  final List<SessionSummary> sessions;
+  final bool notifyMeActive;
+}
+
 class BookingSummary {
   const BookingSummary({required this.id, required this.ref, required this.status, required this.phase, required this.experience, required this.startsAt, required this.district});
 

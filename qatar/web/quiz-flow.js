@@ -39,6 +39,15 @@ export function energyOf(byKey) {
   return ["introvert", "ambivert", "extrovert"].includes(level) ? level : "any";
 }
 
+// Time left in the questionnaire (U3, provisional 10 Nov: progress and time left only, no streaks, badges or points):
+// the questions still to answer, this one included, times an average number of seconds per question, in whole minutes;
+// 0 means less than a minute. The app uses the same figure (quiz_view_model.dart, secondsPerQuestion).
+export const SECONDS_PER_QUESTION = 10;
+export function minutesLeft(remaining, seconds = SECONDS_PER_QUESTION) {
+  const s = Math.max(0, remaining) * seconds;
+  return s < 60 ? 0 : Math.round(s / 60);
+}
+
 // {question_id: option_ids[]} -> API answers, answered questions only.
 export function toPayload(answers) {
   return Object.entries(answers || {}).filter(([, ids]) => ids && ids.length).map(([question_id, ids]) => ({ question_id, option_ids: [...ids] }));

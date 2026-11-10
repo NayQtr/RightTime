@@ -34,6 +34,12 @@ export async function loadConfig(sql, getEnv) {
     // Gemini second opinion on a mismatch (lib/ai.js); the key itself is read from GEMINI_API_KEY, never kept here.
     geminiModel: get("GEMINI_MODEL", "gemini-flash-lite-latest"),
     geminiBaseUrl: get("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").replace(/\/$/, ""),
+    // Member engagement (023, provisional 10 Nov): an overall rating at or below lowRatingReasonsMax keeps the reasons she
+    // picked (the website and the app show them at the same rating: LOW_RATING_REASONS_UP_TO in web/app.js and
+    // lowRatingReasonsUpTo in the app's feedback_screen.dart); at or below compensationMaxRating the admin console suggests
+    // a discount code, which a coordinator issues herself with the amount she chooses.
+    lowRatingReasonsMax: Number(get("LOW_RATING_REASONS_MAX", "3")),
+    compensationMaxRating: Number(get("COMPENSATION_MAX_RATING", "2")),
     appStoreUrl: get("APP_STORE_URL", "").trim(),
     playStoreUrl: get("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=app.herzone").trim(),
     // Step counter (021, item 44): provisional, OFF until the privacy notice has a line for it. When on, clients send one

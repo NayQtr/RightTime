@@ -12,6 +12,8 @@ export const hmacHex = (key, s) => createHmac("sha256", key).update(s).digest("h
 export const hmacB64 = (key, s) => createHmac("sha256", key).update(s).digest("base64");
 export const randomToken = (bytes = 32) => randomBytes(bytes).toString("base64url");
 export const randomDigits = (n) => Array.from({ length: n }, () => randomInt(0, 10)).join("");
+// n characters drawn uniformly from an alphabet (for codes a person reads and types, such as a discount code)
+export const randomChars = (n, alphabet) => Array.from({ length: n }, () => alphabet[randomInt(0, alphabet.length)]).join("");
 
 export function safeEqual(a, b) {
   const ab = Buffer.from(String(a)), bb = Buffer.from(String(b));

@@ -434,6 +434,36 @@ abstract class AppLocalizations {
   /// **'لا توجد حاليًا مواعيد بلغة تختارينها. نُنظّم طاولات بالعربية والإنجليزية فقط.'**
   String get noSessions;
 
+  /// No description provided for @notifyMe.
+  ///
+  /// In ar, this message translates to:
+  /// **'أعلميني عند توفر موعد'**
+  String get notifyMe;
+
+  /// No description provided for @notifyMeOn.
+  ///
+  /// In ar, this message translates to:
+  /// **'سنُعلمكِ عند توفر موعد بلغتك.'**
+  String get notifyMeOn;
+
+  /// No description provided for @filterDay.
+  ///
+  /// In ar, this message translates to:
+  /// **'اليوم'**
+  String get filterDay;
+
+  /// No description provided for @filterAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get filterAll;
+
+  /// No description provided for @noFilterMatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا مواعيد بهذا الاختيار.'**
+  String get noFilterMatch;
+
   /// No description provided for @cityFull.
   ///
   /// In ar, this message translates to:
@@ -625,6 +655,18 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'{i} من {n}'**
   String qOf(int i, int n);
+
+  /// No description provided for @timeLeft.
+  ///
+  /// In ar, this message translates to:
+  /// **'بقي نحو {m} دقيقة'**
+  String timeLeft(int m);
+
+  /// No description provided for @timeLeftUnder.
+  ///
+  /// In ar, this message translates to:
+  /// **'بقيت أقل من دقيقة'**
+  String get timeLeftUnder;
 
   /// No description provided for @chooseUpTo.
   ///
@@ -1315,6 +1357,42 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تقييم المكان (اختياري)'**
   String get venueRating;
+
+  /// No description provided for @fbReasonsLegend.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما الذي لم يعجبكِ؟ (اختياري)'**
+  String get fbReasonsLegend;
+
+  /// No description provided for @fbReasonTable.
+  ///
+  /// In ar, this message translates to:
+  /// **'الانسجام مع الطاولة'**
+  String get fbReasonTable;
+
+  /// No description provided for @fbReasonVenue.
+  ///
+  /// In ar, this message translates to:
+  /// **'المكان'**
+  String get fbReasonVenue;
+
+  /// No description provided for @fbReasonFood.
+  ///
+  /// In ar, this message translates to:
+  /// **'الطعام أو الخدمة'**
+  String get fbReasonFood;
+
+  /// No description provided for @fbReasonOrg.
+  ///
+  /// In ar, this message translates to:
+  /// **'التنظيم والمواعيد'**
+  String get fbReasonOrg;
+
+  /// No description provided for @fbReasonNoShows.
+  ///
+  /// In ar, this message translates to:
+  /// **'غياب بعض الحاضرات'**
+  String get fbReasonNoShows;
 
   /// No description provided for @commentLabel.
   ///

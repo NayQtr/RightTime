@@ -56,6 +56,7 @@ const NAV = [
   ["#/identity", "Identity checks", ["owner", "trust_safety"]],
   ["#/approvals", "Approvals", ["owner", "ops", "finance", "trust_safety", "analyst"]],
   ["#/support", "Support requests", ["owner", "ops"]],
+  ["#/feedback", "Feedback", ["owner", "ops"]],
   ["#/promo-codes", "Promo codes", ["owner"]],
   ["#/audit", "Audit log", ["owner"]],
   ["#/funnel", "Step counter", ["owner", "ops", "analyst"]],
@@ -505,10 +506,10 @@ async function scrPromoCodes() {
       <div class="field"><label class="label" for="max">Usage limit (optional)</label><input class="input" id="max" type="number" min="1" step="1"></div>
       <button class="btn btn-primary" type="submit">Create code</button></form>
     ${r.ok ? "" : msg(r)}
-    <table><thead><tr><th>Code</th><th>Discount</th><th>Expires</th><th>Uses</th><th>Status</th><th></th></tr></thead><tbody>
-    ${rows.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.percent_off}%</td><td>${dt(c.expires_at)}</td>
+    <table><thead><tr><th>Code</th><th>For</th><th>Discount</th><th>Expires</th><th>Uses</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.member_only ? "One member (compensation)" : "Everyone"}</td><td>${c.percent_off}%</td><td>${dt(c.expires_at)}</td>
       <td>${c.uses}${c.max_uses !== null ? ` / ${c.max_uses}` : ""}</td><td>${state(c)}</td>
-      <td>${c.is_active ? `<button class="btn btn-ghost" data-off="${esc(c.id)}">Deactivate</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="6" class="caption">No codes yet.</td></tr>`}</tbody></table>`);
+      <td>${c.is_active ? `<button class="btn btn-ghost" data-off="${esc(c.id)}">Deactivate</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="caption">No codes yet.</td></tr>`}</tbody></table>`);
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     const exp = $("#exp").value;
@@ -521,6 +522,46 @@ async function scrPromoCodes() {
     if (!confirm("Deactivate this code? Members will no longer be able to use it.")) return;
     const res = await api("POST", `${A}/promo-codes/${b.dataset.off}:deactivate`, {});
     if (res.ok) scrPromoCodes(); else flash(msg(res));
+  }));
+}
+
+// ------------------------------------------------------------------ ratings (023, provisional): reasons and compensation
+// Private ratings after a meetup. Low ones show the reasons the member picked; at the compensation threshold a discount
+// code for her next booking is suggested, and a coordinator issues it by typing the discount and approving (one click).
+const REASON_LABELS = { table_fit: "Fit with the table", venue: "Venue", food_service: "Food or service", organisation: "Organisation and timing",
+  no_shows: "Some guests didn't come", other: "Other reason" };
+let fbScope = "low";
+async function scrFeedback() {
+  const r = await api("GET", `${A}/feedback${fbScope === "all" ? "?scope=all" : ""}`);
+  const d = r.data || {};
+  const rows = d.feedback || [];
+  view("Feedback", `<h1>Feedback</h1><div id="flash"></div>
+    <p class="caption">Private ratings after a meetup (never shown to the table or the venue). Ratings of ${esc(d.low_rating_max ?? 3)} stars or less show the reasons she picked.
+    At ${esc(d.compensation_max_rating ?? 2)} stars or less a discount code for her next booking is suggested: type the discount and approve. The code works once, only for her,
+    and she is notified. Nothing is sent without you. Reading this list is recorded in the audit log.</p>
+    <div class="row">${[["low", "Low ratings"], ["all", "All ratings"]].map(([k, l]) =>
+      `<button class="btn ${fbScope === k ? "btn-primary" : "btn-secondary"}" data-scope="${k}" aria-pressed="${fbScope === k}">${l}</button>`).join("")}</div>
+    ${r.ok ? "" : msg(r)}
+    <div class="table-wrap"><table><thead><tr><th>Meetup</th><th>Booking</th><th>Member</th><th>Overall</th><th>Comfort</th><th>Venue</th><th>Book again</th><th>Reasons</th><th>Comment</th><th>Compensation</th></tr></thead><tbody>
+    ${rows.map((f) => `<tr class="${f.compensation_suggested ? "row-amber" : ""}"><td>${esc(f.experience)} · ${dt(f.starts_at)}</td><td class="num">${esc(f.booking_ref)}</td>
+      <td>${esc(f.member || "—")}</td><td><strong>${esc(f.overall_rating)}</strong>/5</td><td>${esc(f.comfort_rating)}/5</td><td>${f.venue_rating ? `${esc(f.venue_rating)}/5` : "—"}</td>
+      <td>${f.would_book_again === null ? "—" : f.would_book_again ? "Yes" : "No"}</td>
+      <td>${f.low_rating_reasons.map((k) => esc(REASON_LABELS[k] || k)).join(", ") || "—"}</td><td class="cr-note" dir="auto">${esc(f.comment || "—")}</td>
+      <td>${f.compensation ? `<code>${esc(f.compensation.code)}</code> · ${esc(f.compensation.percent_off)}%<br><span class="caption">${esc(f.compensation.issued_by || "")} · ${dt(f.compensation.issued_at)}</span>`
+        : f.compensation_suggested ? `<form class="row" data-comp="${esc(f.id)}"><span class="badge badge-warning">Suggested</span>
+            <label class="sr-only" for="pct-${esc(f.id)}">Discount for her next booking (%)</label>
+            <input class="input inline" id="pct-${esc(f.id)}" type="number" min="1" max="100" step="1" required placeholder="%">
+            <button class="btn btn-primary" type="submit">Approve and send code</button></form>` : "—"}</td></tr>`).join("")
+      || `<tr><td colspan="10">Nothing here.</td></tr>`}
+    </tbody></table></div>`);
+  $$("[data-scope]").forEach((b) => (b.onclick = () => { fbScope = b.dataset.scope; scrFeedback(); }));
+  $$("form[data-comp]").forEach((f) => (f.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $("button", f);
+    btn.disabled = true;
+    const res = await api("POST", `${A}/feedback/${f.dataset.comp}:compensate`, { percent_off: Number($("input", f).value) });
+    flash(msg(res, res.ok ? `Code ${res.data.code} (${res.data.percent_off}%) sent to the member` : ""));
+    if (res.ok) setTimeout(scrFeedback, 600); else btn.disabled = false;
   }));
 }
 
@@ -753,6 +794,7 @@ const ROUTES = [
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
   [/^#\/venue-requests$/, scrVenueRequests, true], [/^#\/call-requests$/, scrCallRequests, true], [/^#\/alerts$/, scrAlerts, true],
   [/^#\/failed-notifications$/, scrFailedNotifications, true], [/^#\/funnel$/, scrFunnel, true],
+  [/^#\/feedback$/, scrFeedback, true],
 ];
 async function route() {
   timers.forEach(clearInterval); timers = [];

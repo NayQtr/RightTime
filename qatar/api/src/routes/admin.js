@@ -1,12 +1,12 @@
 // Admin API (v0.3 §4; permission matrix §4.0.1; maker-checker via app.admin_approvals; P4 reads audited with a reason).
-import { decrypt, encrypt, newTotpSecret, randomToken, sha256hex, totpStep } from "../lib/crypto.js";
+import { decrypt, encrypt, newTotpSecret, randomChars, randomToken, sha256hex, totpStep } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { runMatching, MatchingError } from "../matching/engine.js";
 import { audit, capturedPayment, currentTable, notify } from "../services/common.js";
 import { dispatchRefund } from "../services/payments.js";
 import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
 import { isForCoordinator, venueMessage } from "../services/venue_messages.js";
-import { issueTokens } from "./user.js";
+import { LOW_RATING_REASONS, issueTokens, notifySessionAlerts } from "./user.js";
 
 const OWNER = ["owner"], OPS = ["owner", "ops"], FIN = ["owner", "finance"], TS = ["trust_safety"];
 const ANY = ["owner", "ops", "finance", "trust_safety", "analyst", "researcher", "developer"];
@@ -361,7 +361,9 @@ async function openSaleNow(tx, sessionId, actor) {
   const rows = await tx`UPDATE app.event_sessions SET status = 'on_sale' WHERE id = ${sessionId} AND status = 'draft' RETURNING id`;
   if (!rows.length) fail(409, "CONFLICT", [{ reason: "session is not a draft" }]);
   await audit(tx, actor, "session_open_sale", "event_sessions", sessionId, "published");
-  return { session_id: sessionId, status: "on_sale" };
+  // "notify me" (023): members waiting for a session in this language are told once, and their alert ends
+  const alerted = await notifySessionAlerts(tx, sessionId);
+  return { session_id: sessionId, status: "on_sale", members_alerted: alerted };
 }
 
 async function reveal(ctx) {
@@ -1051,7 +1053,7 @@ async function configView(ctx) {
 // Promo codes (migration 012): owner-managed. Subscriptions are display-only for now, so codes are only checked by
 // members, never redeemed; `uses` stays 0 until purchases exist.
 const promoOut = (r) => ({ id: r.id, code: r.code, percent_off: r.percent_off, expires_at: qa(r.expires_at), max_uses: r.max_uses,
-  uses: r.uses, is_active: r.is_active, created_at: qa(r.created_at) });
+  uses: r.uses, is_active: r.is_active, created_at: qa(r.created_at), member_only: Boolean(r.user_id) });
 
 async function listPromoCodes(ctx) {
   const rows = await ctx.sql`SELECT * FROM app.promo_codes ORDER BY created_at DESC LIMIT 200`;
@@ -1084,6 +1086,65 @@ async function deactivatePromoCode(ctx) {
   if (!rows.length) fail(404, "NOT_FOUND");
   await audit(ctx.sql, ctx.admin.id, "promo_code_deactivate", "promo_codes", ctx.params.id, null);
   return json(200, promoOut(rows[0]));
+}
+
+// ------------------------------------------------------------------ ratings (023, provisional): reasons and compensation
+// Coordinators read the ratings: by default the low ones (overall at or below LOW_RATING_REASONS_MAX), newest first, with the
+// reasons she picked and her private comment (ops only, v0.3 §2.24; the read is audited). At or below COMPENSATION_MAX_RATING
+// a discount code for her next booking is suggested; nothing is issued until a coordinator enters the discount and approves.
+const feedbackOut = (r, cfg) => ({ id: r.id, booking_ref: r.booking_ref, member: r.display_name, experience: r.experience,
+  starts_at: qa(r.starts_at), submitted_at: qa(r.submitted_at), overall_rating: r.overall_rating, comfort_rating: r.comfort_rating,
+  venue_rating: r.venue_rating, would_book_again: r.would_book_again, low_rating_reasons: r.low_rating_reasons || [], comment: r.comment_private,
+  compensation: r.code ? { code: r.code, percent_off: r.percent_off, issued_at: qa(r.issued_at), issued_by: r.issued_by } : null,
+  compensation_suggested: !r.code && r.overall_rating <= cfg.compensationMaxRating && r.member_status === "active" });
+
+async function listFeedback(ctx) {
+  const { sql, cfg, admin, url } = ctx;
+  const all = url.searchParams.get("scope") === "all";
+  const rows = await sql`
+    SELECT f.*, b.booking_ref, u.display_name, u.status AS member_status, s.experience, s.starts_at,
+           pc.code, pc.percent_off, pc.created_at AS issued_at, a.name AS issued_by
+      FROM app.event_feedback f JOIN app.bookings b ON b.id = f.booking_id JOIN app.users u ON u.id = f.user_id
+      JOIN app.event_sessions s ON s.id = b.session_id
+      LEFT JOIN app.promo_codes pc ON pc.feedback_id = f.id LEFT JOIN app.admin_users a ON a.id = pc.created_by
+     WHERE ${all} OR f.overall_rating <= ${cfg.lowRatingReasonsMax}
+     ORDER BY f.submitted_at DESC LIMIT 200`;
+  if (rows.length) await audit(sql, admin.id, "read_feedback", "event_feedback", null, `${all ? "all" : "low"}_${rows.length}`, ctx.ipTrunc);
+  return json(200, { scope: all ? "all" : "low", low_rating_max: cfg.lowRatingReasonsMax, compensation_max_rating: cfg.compensationMaxRating,
+    reasons: LOW_RATING_REASONS, feedback: rows.map((r) => feedbackOut(r, cfg)) });
+}
+
+// One click by a coordinator: a single-use code for this member only (promo codes, 012), the discount she typed (1-100 %,
+// no default), and a notification to the member. One code per rating.
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O or 1/I: she may read it from a notification and type it
+async function compensate(ctx) {
+  const { sql, params, body, admin, cfg } = ctx;
+  requireUuid(params.id, "feedback_id");
+  const pct = Number(body.percent_off);
+  if (body.percent_off === undefined || body.percent_off === null || body.percent_off === "" || !Number.isInteger(pct) || pct < 1 || pct > 100)
+    fail(422, "VALIDATION_FAILED", [{ field: "percent_off", code: "RANGE" }]);
+  const out = await sql.begin(async (tx) => {
+    const [f] = await tx`SELECT f.id, f.user_id, f.overall_rating, u.status FROM app.event_feedback f JOIN app.users u ON u.id = f.user_id
+                          WHERE f.id = ${params.id} FOR UPDATE OF f`;
+    if (!f) fail(404, "NOT_FOUND");
+    if (f.overall_rating > cfg.compensationMaxRating) fail(409, "CONFLICT", [{ reason: "rating above the compensation threshold" }]);
+    if (f.status !== "active") fail(409, "CONFLICT", [{ reason: "member account is not active" }]);
+    const [dup] = await tx`SELECT 1 FROM app.promo_codes WHERE feedback_id = ${f.id}`;
+    if (dup) fail(409, "CONFLICT", [{ reason: "a code was already issued for this rating" }]);
+    let code = null;
+    for (let i = 0; i < 5 && !code; i += 1) {
+      const c = "HZ" + randomChars(6, CODE_CHARS);
+      const [taken] = await tx`SELECT 1 FROM app.promo_codes WHERE code = ${c}`;
+      if (!taken) code = c;
+    }
+    if (!code) fail(409, "PROMO_CODE_EXISTS");
+    const [p] = await tx`INSERT INTO app.promo_codes (code, percent_off, max_uses, created_by, user_id, feedback_id)
+                         VALUES (${code}, ${pct}, 1, ${admin.id}, ${f.user_id}, ${f.id}) RETURNING *`;
+    await notify(tx, f.user_id, "COMPENSATION_CODE", { code, percent: pct });
+    await audit(tx, admin.id, "compensation_issued", "promo_codes", p.id, `${pct}pct`, ctx.ipTrunc);
+    return p;
+  });
+  return json(201, { feedback_id: params.id, code: out.code, percent_off: out.percent_off, issued_at: qa(out.created_at) });
 }
 
 const A = "/api/admin/v1";
@@ -1142,6 +1203,8 @@ export const adminRoutes = [
   { method: "GET", path: `${A}/promo-codes`, auth: "admin", roles: OWNER, handler: listPromoCodes },
   { method: "POST", path: `${A}/promo-codes`, auth: "admin", roles: OWNER, handler: createPromoCode },
   { method: "POST", path: `${A}/promo-codes/{id}:deactivate`, auth: "admin", roles: OWNER, handler: deactivatePromoCode },
+  { method: "GET", path: `${A}/feedback`, auth: "admin", roles: OPS, handler: listFeedback },
+  { method: "POST", path: `${A}/feedback/{id}:compensate`, auth: "admin", roles: OPS, handler: compensate },
   { method: "GET", path: `${A}/audit`, auth: "admin", roles: OWNER, handler: auditLog },
   { method: "GET", path: `${A}/config`, auth: "admin", roles: OWNER, handler: configView },
 ];

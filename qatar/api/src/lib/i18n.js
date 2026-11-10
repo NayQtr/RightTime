@@ -90,6 +90,9 @@ export const TEMPLATES = {
   CONTACT_REQUEST: ["{name} ترغب بالتواصل معكِ بعد لقائكما. يمكنكِ القبول أو الاعتذار من تفاصيل اللقاء خلال 7 أيام من انتهائه.", "{name} would like to stay in touch after your meetup. You can accept or decline in the meetup details within 7 days of its end."],
   CONTACT_ACCEPTED: ["{name} وافقت على التواصل. تجدين زر واتساب في تفاصيل اللقاء.", "{name} agreed to stay in touch. You'll find a WhatsApp button in the meetup details."],
   PRIVATE_CONTACT: ["سيتواصل معك فريقنا بشكل خاص قبل اللقاء.", "Our team will contact you privately before the event."],
+  // 023, provisional texts (owner's wording pending): "notify me" answered, and a coordinator's compensation code
+  SESSION_AVAILABLE: ["توفر موعد جديد بلغتك. احجزي مقعدك من «الرئيسية».", "A new session in your language is open. Book your seat from Home."],
+  COMPENSATION_CODE: ["نأسف لأن لقاءكِ لم يكن كما تمنّيتِ. هذا رمز خصم {percent}% لحجزكِ القادم: {code}", "We're sorry your meetup wasn't what you hoped for. Here is a {percent}% discount code for your next booking: {code}"],
 };
 
 // A length of time for {window} (021, provisional wording): whole hours, else minutes. Arabic number agreement:

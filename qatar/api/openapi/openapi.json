@@ -856,7 +856,7 @@
           }
         ],
         "x-registration-required": false,
-        "summary": "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings, reports I made. Other members' data is never included",
+        "summary": "A copy of my data (right of access): account, consents, latest answers, bookings, payments, refunds, ratings (with low-rating reasons), reports I made, \"notify me\" alerts, discount codes issued to me. Other members' data is never included",
         "responses": {
           "200": {
             "description": "OK",
@@ -873,7 +873,9 @@
                     "payments",
                     "refunds",
                     "ratings",
-                    "reports_made"
+                    "reports_made",
+                    "session_alerts",
+                    "discount_codes"
                   ]
                 }
               }
@@ -1307,6 +1309,10 @@
                         "type": "string"
                       }
                     },
+                    "notify_me_active": {
+                      "type": "boolean",
+                      "description": "She asked to be told when a session in her language opens (POST /api/v1/session-alerts) and has not been told yet"
+                    },
                     "sessions": {
                       "type": "array",
                       "items": {
@@ -1316,6 +1322,7 @@
                   },
                   "required": [
                     "profile_languages",
+                    "notify_me_active",
                     "sessions"
                   ]
                 }
@@ -1330,6 +1337,59 @@
           }
         },
         "operationId": "getSessions"
+      }
+    },
+    "/api/v1/session-alerts": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "\"Notify me when a session is available\" (v0.3 E-LANG-1). Independent of marketing consent. When a session in one of her questionnaire languages (Q01) goes on sale she gets one notification (inbox, and Web Push if enabled), then the alert ends. One open alert per member: asking again returns it.",
+        "responses": {
+          "200": {
+            "description": "She already had an open alert",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionAlert"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Alert created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionAlert"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postSessionAlerts"
       }
     },
     "/api/v1/sessions/{id}/waitlist": {
@@ -2243,6 +2303,22 @@
                   "comment": {
                     "type": "string",
                     "maxLength": 500
+                  },
+                  "low_rating_reasons": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "table_fit",
+                        "venue",
+                        "food_service",
+                        "organisation",
+                        "no_shows",
+                        "other"
+                      ]
+                    },
+                    "description": "What fell short, picked with an overall rating of 3 or less (server setting LOW_RATING_REASONS_MAX); ignored above it. Coordinators see them."
                   }
                 },
                 "required": [
@@ -3175,7 +3251,7 @@
             "bearer": []
           }
         ],
-        "summary": "Check a promo code (plans are display-only; nothing is redeemed). At most 10 checks per hour.",
+        "summary": "Check a promo code (plans are display-only; nothing is redeemed). A compensation code issued to one member is valid only for her. At most 10 checks per hour.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4619,6 +4695,31 @@
           "venue",
           "payment",
           "actions"
+        ]
+      },
+      "SessionAlert": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "const": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 in Asia/Qatar (+03:00)"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Her current Q01 languages; the alert follows them if she edits her answers"
+          }
+        },
+        "required": [
+          "active",
+          "created_at",
+          "languages"
         ]
       },
       "ContactDecision": {
