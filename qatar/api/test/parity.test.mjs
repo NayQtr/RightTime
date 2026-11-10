@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { runMatching } from "../src/matching/engine.js";
+import { MATCHING_RULES, PRIORITY_REASON, runMatching } from "../src/matching/engine.js";
 import { QUESTIONNAIRE, randomAnswers } from "./personality-fixtures.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -21,20 +21,28 @@ function withCelebration(r, answers) {
 
 function makeJob(seed) {
   const r = rng(seed);
-  const n = 1 + Math.floor(r() * 30);
+  r();                                  // the first draw follows the seed closely (seeds 1..400 gave 9..15 women only)
+  const n = 1 + Math.floor(r() * 36);   // up to 36, so both small (< 24) and regular sessions are covered
+  const user = (i) => `u${String(i).padStart(3, "0")}`;
   const bookings = [];
   for (let i = 0; i < n; i++) {
     const k = Math.floor(r() * 4);
     const t = new Set(); for (let j = 0; j < k; j++) t.add(TOPICS[Math.floor(r() * TOPICS.length)]);
     bookings.push({
-      booking_id: `b${String(i).padStart(3, "0")}-${seed}`, user_id: `u${String(i).padStart(3, "0")}`, session_id: "S",
+      booking_id: `b${String(i).padStart(3, "0")}-${seed}`, user_id: user(i), session_id: "S",
       status: r() < 0.93 ? "paid_awaiting_group" : "payment_pending",
       conversation_language: r() < 0.7 ? "ar" : "en", budget_tier_rank: 1 + Math.floor(r() * 3),
       q05_topics: t.size ? [...t] : null, consents_current: r() < 0.97, age_attested: true, account_active: true,
-      answers: withCelebration(r, randomAnswers(r)),
+      answers: withCelebration(r, randomAnswers(r)),   // Q11 (age band) is random too: the age-gap rule is covered
       occasion: r() < 0.15 ? (r() < 0.7 ? "birthday" : "other") : null,
+      // left without a table that many days ago (priority within 28 days), or never
+      unseated_days_ago: r() < 0.25 ? Math.floor(r() * 40) : null,
     });
   }
+  // shared tables in other sessions (migration 020): days apart 0..59 covers block, penalty and expired; some mutual
+  const history = [];
+  for (let i = 0; i < Math.floor(r() * n * 1.5); i++)
+    history.push([user(Math.floor(r() * n)), user(Math.floor(r() * n)), Math.floor(r() * 60), r() < 0.2]);
   const blocks = [];
   for (let i = 0; i < Math.floor(r() * 6); i++) blocks.push([`u${String(Math.floor(r() * n)).padStart(3, "0")}`, `u${String(Math.floor(r() * n)).padStart(3, "0")}`]);
   const venues = r() < 0.5 ? null : [
@@ -46,7 +54,7 @@ function makeJob(seed) {
     session_id: "S", mode: r() < 0.5 ? "dry_run" : "published",
     rule_version: ["r1-baseline", "r1-interest", "r2-personality", "r2-personality"][Math.floor(r() * 4)],
     questionnaire: QUESTIONNAIRE,
-    seed: Math.floor(r() * 1e9), bookings, blocks, venues, venue_capacity: 4 + Math.floor(r() * 3),
+    seed: Math.floor(r() * 1e9), bookings, blocks, history, venues, venue_capacity: 4 + Math.floor(r() * 3),
     packing_mode: r() < 0.6 ? "min_leftovers" : "greedy_6", max_tables: r() < 0.5 ? null : Math.floor(r() * 5),
   };
 }
@@ -54,7 +62,7 @@ function makeJob(seed) {
 function runJs(job) {
   const res = runMatching({ sessionId: job.session_id, mode: job.mode, ruleVersion: job.rule_version, seed: job.seed,
     bookings: job.bookings, blockRows: job.blocks, venueCapacity: job.venue_capacity, venues: job.venues,
-    packingMode: job.packing_mode, maxTables: job.max_tables, questionnaire: job.questionnaire });
+    packingMode: job.packing_mode, maxTables: job.max_tables, questionnaire: job.questionnaire, history: job.history });
   return {
     tables: res.tables.map((t) => ({ code: t.table_code, language: t.language, tier: t.tier_rank, venue_id: t.venue_id, members: t.members.map((m) => m.booking_id), themes: t.themes })),
     leftovers: res.leftovers.map((lo) => [lo.booking.booking_id, lo.reason]),
@@ -77,6 +85,7 @@ print(json.dumps(out))
 `], { input: JSON.stringify(jobs), maxBuffer: 64 * 1024 * 1024 }).toString();
   const pyResults = JSON.parse(py);
   let compared = 0;
+  const seen = { regular: 0, penalised: 0, low: 0, priorityGain: 0, gaveSeat: 0 };
   jobs.forEach((job, i) => {
     let js;
     try { js = runJs(job); } catch (e) { js = { error: e.message }; }
@@ -86,7 +95,20 @@ print(json.dumps(out))
     }
     assert.deepEqual(js, pyResults[i], `job ${i + 1} differs`);
     compared++;
+    const ex = js.explanations;
+    if (!ex.rules.small_session) seen.regular++;
+    if (ex.tables.some((t) => t.repeat_penalty > 0)) seen.penalised++;
+    if (ex.tables.some((t) => t.low_match)) seen.low++;
+    if (ex.tables.some((t) => t.priority_boost > 0)) seen.priorityGain++;
+    if (ex.leftovers.some((l) => l.reason === PRIORITY_REASON)) seen.gaveSeat++;
   });
   assert.ok(compared > 330, `only ${compared} jobs compared`);
   assert.ok(jobs.filter((j) => j.rule_version === "r2-personality").length > 150);
+  // the new inputs are really exercised: regular-size sessions, repeat penalties, low-match flags, priority seating
+  assert.ok(seen.regular > 30 && seen.penalised > 30 && seen.low > 10 && seen.priorityGain > 100 && seen.gaveSeat > 0, JSON.stringify(seen));
+});
+
+test("both engines use the same matching rules", () => {
+  const py = JSON.parse(execFileSync("python3", ["parity_driver.py", "--rules"], { cwd: MATCHING_DIR }).toString());
+  assert.deepEqual(py, JSON.parse(JSON.stringify(MATCHING_RULES)));
 });
