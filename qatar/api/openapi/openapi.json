@@ -356,11 +356,23 @@
                     },
                     "key_source": {
                       "type": "string"
+                    },
+                    "test_paths_open": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "otp_dev_mode",
+                          "mock_payments"
+                        ]
+                      },
+                      "description": "Staging-only test paths that are switched on. Always empty in production."
                     }
                   },
                   "required": [
                     "status",
-                    "key_source"
+                    "key_source",
+                    "test_paths_open"
                   ]
                 }
               }

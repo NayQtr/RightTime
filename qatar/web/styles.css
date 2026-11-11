@@ -509,7 +509,7 @@ a.option { text-decoration: none; color: inherit; }
 .tabbar a .ti { width: 24px; height: 24px; }
 .tabbar .ti-wrap { position: relative; display: inline-grid; }
 .tab-badge { position: absolute; inset-block-start: -6px; inset-inline-end: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--r-pill);
-  background: var(--c-primary); color: var(--c-onPrimary, #fff); font-size: 12px; font-weight: 700; line-height: 18px; text-align: center;
+  background: var(--c-primary); color: var(--c-onPrimary); font-size: 12px; font-weight: 700; line-height: 18px; text-align: center;
   font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--c-surface); }
 .tab-badge[hidden] { display: none; }
 .new-tag { margin-block-end: var(--s-1); }

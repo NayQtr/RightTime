@@ -2,7 +2,9 @@
 // If any check fails, the build stops: the site is not published and the API is not deployed.
 //   1. Syntax check of every web and API JavaScript file (a file that fails to parse breaks the app for everyone).
 //   2. The automated tests that need no database or browser (public page, design, error reporting, API description, matching, quiz flow, Flutter tokens).
-//   3. Known vulnerabilities in the API's runtime libraries (npm audit, high or critical).
+//   3. No server secret in the shipped web files, and no hand-written colour (colours.test.mjs, plan D7).
+//   4. Size limits: the shipped JavaScript all together and each image (ops/size-limits.mjs, plan Q1).
+//   5. Known vulnerabilities in the API's runtime libraries (npm audit, high or critical).
 // The database and browser tests (e2e, ui, push, promo, ...) need Postgres and Chromium, which the Vercel build machine
 // does not have; they run before every push with `npm run check` in qatar/api (see qatar/ops/check-all.sh).
 import { execFileSync } from "node:child_process";
@@ -10,10 +12,11 @@ import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { SIZE_LIMITS, checkSizes, measure } from "./size-limits.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API = path.join(ROOT, "api");
-const PURE_TESTS = ["about-page", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
+const PURE_TESTS = ["about-page", "colours", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "size-limits", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -76,6 +79,15 @@ step("no server secret in the shipped web files", () => {
   const hits = webFiles(path.join(ROOT, "web")).filter((f) => { const src = readFileSync(f, "utf8"); return SECRET_FORMS.some((re) => re.test(src)); });
   if (hits.length) { console.error(hits.map((f) => `[gate]      secret-like text in ${path.relative(ROOT, f)}`).join("\n")); throw new Error("secret-like text in web files"); }
   console.log(`[gate]      ${webFiles(path.join(ROOT, "web")).length} web files scanned`);
+});
+
+// Plan Q1: the JavaScript all together and each image stay under the limits in ops/size-limits.mjs (provisional values).
+step("shipped JavaScript and images within the size limits", () => {
+  const m = measure(path.join(ROOT, "web"));
+  const problems = checkSizes(m);
+  const biggest = m.images[0];
+  console.log(`[gate]      JavaScript ${m.totalJsBytes} of ${SIZE_LIMITS.totalJsBytes} bytes (${m.jsFiles} files); largest image ${biggest ? `${biggest.file} ${biggest.bytes}` : "none"} of ${SIZE_LIMITS.imageBytes} bytes`);
+  if (problems.length) { console.error(problems.map((p) => `[gate]      too large: ${p}`).join("\n")); throw new Error("size limit"); }
 });
 
 step("runtime libraries have no high or critical advisories", () => {

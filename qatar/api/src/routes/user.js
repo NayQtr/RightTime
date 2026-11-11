@@ -1196,7 +1196,11 @@ async function notifications(ctx) {
 }
 
 // Health probe: confirms the API, database and server keys load; reports where the keys come from (audit F6).
-const health = async (ctx) => json(200, { status: "ok", key_source: ctx.keys.source });
+// test_paths_open (Notion fix 4) names the staging-only test paths that are switched on: "otp_dev_mode" (sign-in code in
+// the answer) and "mock_payments" (mock checkout). Production must answer []: ops/smoke.mjs checks it before and after
+// every production release and every 30 minutes (.github/workflows/uptime.yml).
+export const openTestPaths = (cfg) => [...(cfg.otpDevMode ? ["otp_dev_mode"] : []), ...(cfg.mockPspEnabled ? ["mock_payments"] : [])];
+const health = async (ctx) => json(200, { status: "ok", key_source: ctx.keys.source, test_paths_open: openTestPaths(ctx.cfg) });
 
 // Coordinator on duty (audit F10): a real channel the app can show as call / WhatsApp buttons. Empty when not configured.
 // It is also where the clients read public settings: funnel_counter (021) tells them whether to send step pings.
