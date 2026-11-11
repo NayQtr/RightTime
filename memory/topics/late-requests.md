@@ -11,6 +11,17 @@ The register of every provisional choice, how to change it, the blocked items, o
 `qatar/docs/decisions/provisional-2026-11-10.md` (Arabic). Items listed there as built are provisional, not final: the owner reviews them.
 Still open from it: section 3 (blocked) and section 4 (owner actions), plus the two text questions at the end of section 5.
 
+## Staging publish blocked [2026-11-11]
+
+Migrations 018, 019, 020, 021, 023 and questionnaire QA-2026-05 are applied to the staging database
+(fvodcnqmxskgzziwuwmz), verified against the files (function bodies hash-identical).
+The staging web + API deploy FAILED: the Vercel project qatar-mvp-staging has an invalid
+SUPABASE_ACCESS_TOKEN (Production) — the build ends with `unexpected deploy status 401: Invalid access token`.
+Owner action: create a new Supabase access token and replace SUPABASE_ACCESS_TOKEN in
+Vercel > qatar-mvp-staging > Settings > Environment Variables (Production). Then the deploy can be re-run.
+Until then staging serves the previous build and the previous API (health has no `test_paths_open`),
+while its database already carries the new migrations.
+
 ## The list [2026-11-05]
 
 Waiting on the owner (actions):
