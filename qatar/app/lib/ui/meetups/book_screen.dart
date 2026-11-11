@@ -18,6 +18,7 @@ import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/sound_on_show.dart';
 
 /// Booking: hold the seat, review (fee, refund terms, and the no-refund acknowledgement close to the date), pay on the
 /// payment provider's page in the browser, then come back: the app checks the booking and shows the result.
@@ -128,7 +129,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
       ]);
     } else if (bk.paid) {
       children.addAll([
-        TestId('paid', child: Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success))),
+        SoundOnShow(child: TestId('paid', child: Text(t.paidTitle, key: const Key('paid'), style: tt.titleLarge?.copyWith(color: c.success)))),
         Text('${t.bookingRef} ${bk.ref}'),
         const SizedBox(height: HzSpace.s4),
         Press(child: FilledButton(onPressed: () => context.go('/events'), child: Text(t.viewDetails))),

@@ -130,7 +130,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // "keep my account" sends nothing
-    await tester.ensureVisible(find.byKey(const Key('deleteAccount'))); // the last item on a longer profile
+    await tester.scrollUntilVisible(find.byKey(const Key('deleteAccount')), 200); // the last item on a longer profile (built only once scrolled near)
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('deleteAccount')));
     await tester.pumpAndSettle();
@@ -140,7 +140,7 @@ void main() {
     expect(log, isNot(contains('DELETE /api/v1/users/me')));
     expect(store.token, 'rt_1');
 
-    await tester.ensureVisible(find.byKey(const Key('deleteAccount'))); // the last item on a longer profile
+    await tester.scrollUntilVisible(find.byKey(const Key('deleteAccount')), 200); // the last item on a longer profile (built only once scrolled near)
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('deleteAccount')));
     await tester.pumpAndSettle();

@@ -164,6 +164,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get themeToLight => 'الوضع العادي';
 
   @override
+  String get sounds => 'الأصوات';
+
+  @override
   String get dinner => 'عشاء';
 
   @override

@@ -10,6 +10,8 @@ import '../auth/widgets.dart';
 import '../theme.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/sound_on_show.dart';
+import '../../core/sounds.dart';
 import '../common/test_id.dart';
 
 /// Reasons she can pick when the overall rating is this or lower (Notion fix 10, provisional). The server keeps them up to
@@ -98,7 +100,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: sent
             ? [
-                Text(t.fbThanks, key: const Key('fb-thanks'), style: tt.titleLarge),
+                SoundOnShow(child: Text(t.fbThanks, key: const Key('fb-thanks'), style: tt.titleLarge)),
                 const SizedBox(height: HzSpace.s6),
                 Press(child: FilledButton(onPressed: () => context.go('/events'), child: Text(t.tabEvents))),
               ]
@@ -121,7 +123,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 _stars('comfort', comfort, (v) => setState(() => comfort = v)),
                 Text(t.venueRating, style: tt.titleMedium),
                 _stars('venue', venue, (v) => setState(() => venue = v)),
-                SwitchListTile(key: const Key('again'), contentPadding: EdgeInsets.zero, value: again, onChanged: (v) => setState(() => again = v), title: Text(t.wouldBookAgain)),
+                SwitchListTile(key: const Key('again'), contentPadding: EdgeInsets.zero, value: again, onChanged: (v) {
+                  Sounds.instance.play(v ? UiSound.toggleOn : UiSound.toggleOff);
+                  setState(() => again = v);
+                }, title: Text(t.wouldBookAgain)),
                 TextField(key: const Key('comment'), controller: _comment, maxLength: 500, maxLines: 3, decoration: InputDecoration(labelText: t.commentLabel, helperText: t.commentHelp)),
                 if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
                 const SizedBox(height: HzSpace.s4),

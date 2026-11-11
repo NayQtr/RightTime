@@ -24,6 +24,8 @@ import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/motion.dart' show Pulse;
 import '../common/press.dart';
+import '../common/sound_on_show.dart';
+import '../../core/sounds.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
 /// what it gets. Offline, it shows the copy saved on the device, read-only, with when it was saved.
@@ -301,6 +303,7 @@ Future<void> showContactSheet(BuildContext context, Coordinator c, {String? book
   }
   Animation<double> eased(Animation<double> a) =>
       CurvedAnimation(parent: a, curve: HzMotion.easing, reverseCurve: Interval(0.2, 1, curve: HzMotion.easingIn.flipped));
+  Sounds.instance.play(UiSound.sheetOpen);
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -340,7 +343,7 @@ Future<void> showContactSheet(BuildContext context, Coordinator c, {String? book
         ),
       );
     },
-  );
+  ).whenComplete(() => Sounds.instance.play(UiSound.sheetClose));
 }
 
 enum _Level { top, phone, form, sent }
@@ -518,7 +521,7 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
             child: Container(
               padding: const EdgeInsets.all(HzSpace.s4),
               decoration: BoxDecoration(color: hz.surface, borderRadius: BorderRadius.circular(HzRadius.md)),
-              child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge),
+              child: SoundOnShow(child: Text(t.callRequested, key: const Key('call-requested'), style: Theme.of(context).textTheme.bodyLarge)),
             ),
           ),
           gap,

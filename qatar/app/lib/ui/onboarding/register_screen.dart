@@ -14,6 +14,7 @@ import 'quiz_view_model.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../../core/sounds.dart';
 
 /// Finishing sign-up: optional first name, women-only and age confirmation, the documents to accept. Then the answers
 /// given before sign-up are sent with the new account.
@@ -80,7 +81,9 @@ class _RegisterFormState extends State<_RegisterForm> {
         _ => t.marketingLabel,
       };
 
-  void _read(LegalDoc d) => showModalBottomSheet<void>(
+  void _read(LegalDoc d) {
+    Sounds.instance.play(UiSound.sheetOpen);
+    showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         builder: (context) => DraggableScrollableSheet(
@@ -92,7 +95,8 @@ class _RegisterFormState extends State<_RegisterForm> {
             Press(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(AppLocalizations.of(context).close))),
           ]),
         ),
-      );
+      ).whenComplete(() => Sounds.instance.play(UiSound.sheetClose));
+  }
 
   @override
   Widget build(BuildContext context) {

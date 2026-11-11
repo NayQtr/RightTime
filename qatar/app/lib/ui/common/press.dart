@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/sounds.dart';
 import '../../design/herzone_tokens.dart';
 
 /// Press feedback for a button: on touch-down it shrinks to 0.97 at once (like a physical key), and on release it eases
 /// back over 220 ms. Same as the website's `.btn:active`. Disabled buttons and reduced motion stay still. Only listens
-/// to the pointer, so taps, long presses, focus and semantics belong to the button as before.
+/// to the pointer, so taps, long presses, focus and semantics belong to the button as before. Releasing an enabled
+/// button also plays the tap sound (when her Sounds switch is on).
 class Press extends StatefulWidget {
   const Press({super.key, required this.child});
 
@@ -34,7 +36,10 @@ class _PressState extends State<Press> {
     final pressed = _down && _enabled && !still;
     return Listener(
       onPointerDown: (_) => _set(true),
-      onPointerUp: (_) => _set(false),
+      onPointerUp: (_) {
+        if (_down && _enabled) Sounds.instance.play(UiSound.tap);
+        _set(false);
+      },
       onPointerCancel: (_) => _set(false),
       child: AnimatedScale(
         scale: pressed ? 0.97 : 1,

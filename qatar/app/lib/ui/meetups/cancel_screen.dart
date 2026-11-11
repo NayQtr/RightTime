@@ -13,6 +13,7 @@ import '../format.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
 import '../common/press.dart';
+import '../../core/sounds.dart';
 
 /// Cancelling: the refund outcome is stated before she confirms (full refund, none after the deadline, or nothing paid).
 class CancelScreen extends StatelessWidget {
@@ -60,6 +61,7 @@ class _CancelFormState extends State<_CancelForm> {
     try {
       await context.read<MeetupsRepository>().cancel(widget.bookingId, reason);
       if (!mounted) return;
+      Sounds.instance.play(UiSound.success);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.cancelled)));
       context.go('/events');
     } on ApiError catch (e) {

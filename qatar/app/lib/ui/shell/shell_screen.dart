@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_error.dart';
+import '../../core/sounds.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
@@ -23,7 +24,10 @@ class ShellScreen extends StatelessWidget {
       body: shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        onDestinationSelected: (i) {
+          Sounds.instance.play(UiSound.tap);
+          shell.goBranch(i, initialLocation: i == shell.currentIndex);
+        },
         destinations: [
           NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: t.tabHome),
           NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), selectedIcon: const Icon(Icons.calendar_month), label: t.tabEvents),
@@ -57,7 +61,16 @@ class AccountTab extends StatelessWidget {
           onPressed: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
           child: Text(Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark),
         )),
-        const SizedBox(height: HzSpace.s3),
+        const SizedBox(height: HzSpace.s1),
+        // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent
+        SwitchListTile(
+          key: const Key('sounds'),
+          contentPadding: EdgeInsets.zero,
+          value: context.watch<Sounds>().enabled,
+          onChanged: context.read<Sounds>().setEnabled,
+          title: Text(t.sounds),
+        ),
+        const SizedBox(height: HzSpace.s1),
         Press(child: OutlinedButton(key: const Key('documents'), onPressed: () => context.push('/documents'), child: Text(t.docsTitle))),
         const SizedBox(height: HzSpace.s3),
         Press(child: OutlinedButton(key: const Key('cases'), onPressed: () => context.push('/cases'), child: Text(t.casesTitle))),
