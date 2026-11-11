@@ -18,12 +18,14 @@ class Fake {
   final bool late;
   final bool? occasionAllowed; // null: a server that does not say (the question is offered)
   final bool refuseOccasion; // the server answers 422 NOTICE_TOO_SHORT to an occasion
+  /// Item 41: the server says the organising fee is announced as free for a limited period.
+  bool launchFree = false;
   bool paid = false;
   final sent = <String, Map<String, dynamic>>{};
 
   Map<String, dynamic> booking() => {
         'booking_id': 'b1', 'id': 'b1', 'ref': 'RT-NEW1', 'status': paid ? 'paid_awaiting_group' : 'payment_pending',
-        'hold_expires_at': '2026-11-05T20:10:00+03:00', 'amount': {'display': '59 ر.ق'},
+        'hold_expires_at': '2026-11-05T20:10:00+03:00', 'amount': {'display': '59 ر.ق'}, 'launch_free': launchFree,
         'checkout_url': late ? null : 'https://herzone.app/checkout/mock/b1?pi=pi_1',
         'payment': {'status': paid ? 'succeeded' : 'created'},
         'cancellation': {'full_refund_until': '2026-11-10T19:30:00+03:00', 'full_refund_window_open': !late, 'acknowledgement_required': late ? 'late_no_refund' : null},
@@ -149,5 +151,30 @@ void main() {
     f.paid = true;
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+  });
+
+  // Item 41, the owner's wording of 11 Nov: at this last step the amount stays visible, struck through, beside
+  // "مجاني لفترة محدودة", with the line that explains it is taken and refunded. Earlier steps say nothing about money.
+  testWidgets('the launch offer: the amount is struck through, never hidden, and the explanation is there', (tester) async {
+    final f = Fake()..launchFree = true;
+    await start(tester, f);
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('amount')), findsOneWidget, reason: 'the amount is still shown');
+    final struck = tester.widget<Text>(find.byKey(const Key('amount')));
+    expect(struck.style?.decoration, TextDecoration.lineThrough);
+    expect(find.text('مجاني لفترة محدودة'), findsOneWidget);
+    expect(find.text('يُخصم المبلغ للتحقق من البطاقة ويُرد إليكِ كاملًا.'), findsOneWidget);
+  });
+
+  testWidgets('with the offer off the fee row reads as before', (tester) async {
+    final f = Fake();
+    await start(tester, f);
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    final plain = tester.widget<Text>(find.byKey(const Key('amount')));
+    expect(plain.style?.decoration, isNot(TextDecoration.lineThrough));
+    expect(find.text('مجاني لفترة محدودة'), findsNothing);
+    expect(find.byKey(const Key('launch-note')), findsNothing);
   });
 }

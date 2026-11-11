@@ -802,12 +802,15 @@ async function scrWhatYouGet() {
     const r = await api("GET", "/api/v1/sessions");
     s = r.ok ? r.data.sessions[0] || null : null;
   }
-  const plan = { kind: "per_seat", fee: s ? s.price.display : null, hours: s ? s.full_refund_until_hours : null };
+  // Item 41 (owner, 11 Nov): nothing about money is said before the last step, so while the launch offer is on this
+  // page carries no fee at all. The amount still exists and is shown, with the offer, on the booking review.
+  const launchFree = Boolean(s && s.launch_free);
+  const plan = { kind: "per_seat", fee: s && !launchFree ? s.price.display : null, hours: s ? s.full_refund_until_hours : null };
   const benefits = [["users", "wyg1t", "wyg1b"], ["map-pin", "wyg2t", "wyg2b"], ["message-circle", "wyg3t", "wyg3b"], ["shield-check", "wyg4t", "wyg4b"], ["hand-heart", "wyg5t", "wyg5b"]];
   view(T("wygTitle"), `
     <h1 class="display-title">${esc(T("wygTitle"))}</h1>
     <section class="card stack" id="plan" data-kind="${plan.kind}">
-      <p class="label">${esc(plan.fee ? T("wygPrice", { fee: plan.fee }) : T("wygPriceNoFee"))}</p>
+      ${launchFree ? "" : `<p class="label">${esc(plan.fee ? T("wygPrice", { fee: plan.fee }) : T("wygPriceNoFee"))}</p>`}
       <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi">${icon(ic)}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
     </section>
     <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
@@ -958,7 +961,7 @@ async function scrSessions(preselect) {
       <div id="err" role="alert"></div>
     </form>
     <div class="sticky-bar"><div>
-      <span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>
+      ${(ok[0] || all[0] || {}).launch_free ? "" : `<span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>`}
       <button class="btn btn-primary btn-block" id="go" disabled>${esc(T("continueToPay"))}</button></div></div>`);
   $$("[data-exp]").forEach((b) => (b.onclick = () => { store.set("exp", b.dataset.exp); scrSessions(); }));
   wireNotifyMe();
@@ -1043,7 +1046,10 @@ async function scrReview(id) {
       <dt>${esc(T("tableLanguage"))}</dt><dd>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</dd>
       <dt>${esc(T("groupSizeLabel"))}</dt><dd>${esc(T("groupSize"))}</dd></dl></section>
     <section class="card">
-      <div class="kv"><span>${esc(T("feeNow"))}</span><strong>${esc(b.amount.display)}</strong></div>
+      <div class="kv"><span>${esc(T("feeNow"))}</span>${b.launch_free
+        ? `<span class="fee-offer"><s class="num">${esc(b.amount.display)}</s> <strong>${esc(T("feeLaunchFree"))}</strong></span>`
+        : `<strong>${esc(b.amount.display)}</strong>`}</div>
+      ${b.launch_free ? `<p class="caption" id="launch-note">${esc(T("feeLaunchNote"))}</p>` : ""}
       <div class="kv"><span>${esc(T("foodAtVenue"))}</span><span class="muted">${esc(T("foodBand", { band: e.session.food_price_band.display }))}</span></div>
     </section>
     ${policyHtml(e.booking.cancellation, b.amount.display)}

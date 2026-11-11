@@ -35,6 +35,8 @@ export const STRINGS = {
     payFailedNext: "يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.", noCases: "لا توجد قرارات تخصّك.",
     reviewTitle: "راجعي حجزك", experience: "التجربة", dateTime: "الموعد", district: "المنطقة", tableLanguage: "لغة الطاولة", groupSizeLabel: "حجم المجموعة",
     feeNow: "رسم التنظيم (يُدفع الآن)", foodAtVenue: "الطعام والمشروبات (تُدفع للمكان)", foodBand: "ضمن ميزانيتك: {band}",
+    // Item 41, the owner's wording of 11 Nov: said at the last step only, never earlier in the sign-up.
+    feeLaunchFree: "مجاني لفترة محدودة", feeLaunchNote: "يُخصم المبلغ للتحقق من البطاقة ويُرد إليكِ كاملًا.",
     policyBox: "يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
     lateTitle: "يبدأ هذا الموعد خلال أقل من {hours} ساعة", lateNone: "إذا ألغيتِ بعد الدفع فلن يُسترد رسم التنظيم ({fee}).",
     latePartial: "إذا ألغيتِ بعد الدفع فسيُسترد {pct}% فقط من رسم التنظيم ({fee}).", lateQuorum: "إذا لم تكتمل الطاولة نُلغيها نحن ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
@@ -180,6 +182,8 @@ export const STRINGS = {
     payFailedNext: "You can try again while the seat is held.", noCases: "There are no decisions about you.",
     reviewTitle: "Review your booking", experience: "Experience", dateTime: "Date & time", district: "Area", tableLanguage: "Table language", groupSizeLabel: "Group size",
     feeNow: "Organising fee (paid now)", foodAtVenue: "Food & drinks (paid to the venue)", foodBand: "Within your budget: {band}",
+    // PROVISIONAL English for the owner's Arabic above
+    feeLaunchFree: "Free for a limited period", feeLaunchNote: "The amount is taken to verify your card and refunded to you in full.",
     policyBox: "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",
     lateTitle: "This session starts in less than {hours} hours", lateNone: "If you cancel after paying, the organising fee ({fee}) isn't refunded.",
     latePartial: "If you cancel after paying, only {pct}% of the organising fee ({fee}) is refunded.", lateQuorum: "If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",

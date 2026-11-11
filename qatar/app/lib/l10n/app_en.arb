@@ -240,6 +240,8 @@
   "policyBox": "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",
   "lateWarning": "This meetup is soon: if you cancel after paying, the organising fee isn't refunded.",
   "serviceFee": "Organising fee",
+  "feeLaunchFree": "Free for a limited period",
+  "feeLaunchNote": "The amount is taken to verify your card and refunded to you in full.",
   "holdUntil": "Your seat is held for you until {time}.",
   "waitingPayment": "Finish paying on the page that opened, then come back here.",
   "checkPayment": "Check payment",

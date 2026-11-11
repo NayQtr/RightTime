@@ -611,6 +611,8 @@ async function listSessions(ctx) {
         my_booking_id: s.my_booking_id,
         // item 32: the occasion question is offered only when the session is far enough away
         occasion_allowed: occasionAllowed(s.starts_at, cfg), occasion_notice_hours: cfg.celebrationNoticeHours,
+        // item 41: during the launch period the fee is announced as free for a limited time, and said only at the last step
+        launch_free: cfg.launchFree,
         waitlist: w && {
           status: w.status, position: offered ? null : w.place,
           offer_expires_at: offered ? qa(w.offer_expires_at) : null,
@@ -760,7 +762,7 @@ async function createBooking(ctx) {
   const terms = await refundTerms(sql, b, s);
   return json(201, { booking_id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
     checkout_url: terms.ackRequired ? null : ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id), amount: money(b.price_minor, locale),
-    cancellation: termsView(terms) });
+    launch_free: cfg.launchFree, cancellation: termsView(terms) });
 }
 
 async function listBookings(ctx) {
@@ -783,7 +785,7 @@ async function listBookings(ctx) {
 }
 
 async function getBooking(ctx) {
-  const { sql, locale } = ctx;
+  const { sql, locale, cfg } = ctx;
   const b = await ownedBooking(sql, ctx, ctx.params.id);
   const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
   const holdValid = b.status === "payment_pending" && b.hold_expires_at && new Date(b.hold_expires_at) > new Date();
@@ -792,7 +794,7 @@ async function getBooking(ctx) {
     amount: money(b.price_minor, locale),
     payment: p ? { status: p.status, failure_code: p.failure_code } : null,
     checkout_url: holdValid && !terms.ackRequired && p && p.status === "created" ? ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id) : null,
-    cancellation: termsView(terms) });
+    launch_free: cfg.launchFree, cancellation: termsView(terms) });
 }
 
 async function newCheckout(ctx) {

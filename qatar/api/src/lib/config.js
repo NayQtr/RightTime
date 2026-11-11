@@ -64,6 +64,11 @@ export async function loadConfig(sql, getEnv) {
     // more before the session starts, so the coordinator can prepare. 0 = no minimum. The site and the app read it from
     // GET /api/v1/sessions (occasion_allowed, occasion_notice_hours).
     celebrationNoticeHours: whole(get("CELEBRATION_NOTICE_HOURS", "72"), 72, 0, 720),
+    // Item 41, the owner's option (ج) of 11 Nov: during the launch period the organising fee is announced as free for
+    // a limited time. The amount is still taken and refunded, so the card-name check — the real women-only gate — keeps
+    // working; only what she is told changes. Nothing about money is said before the last step (owner, 11 Nov). The
+    // site and the app read it from GET /api/v1/sessions and from the booking reply (launch_free).
+    launchFree: String(get("PRICING_LAUNCH_FREE", "false")).trim().toLowerCase() === "true",
   };
   loadedAt = Date.now();
   return cache;

@@ -670,6 +670,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serviceFee => 'Organising fee';
 
   @override
+  String get feeLaunchFree => 'Free for a limited period';
+
+  @override
+  String get feeLaunchNote =>
+      'The amount is taken to verify your card and refunded to you in full.';
+
+  @override
   String holdUntil(String time) {
     return 'Your seat is held for you until $time.';
   }

@@ -156,7 +156,20 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     } else {
       children.addAll([
         Text(t.reviewTitle, style: tt.titleLarge),
-        ListTile(contentPadding: EdgeInsets.zero, title: Text(t.serviceFee), trailing: Text(bk.amount, key: const Key('amount'), style: const TextStyle(fontWeight: FontWeight.w700))),
+        // Item 41 (owner, 11 Nov): during the launch period the amount stays visible, struck through, beside the
+        // owner's words, and a line explains that it is taken and refunded. Nothing about money is said before this step.
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(t.serviceFee),
+          trailing: bk.launchFree
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(bk.amount, key: const Key('amount'), style: TextStyle(color: c.textMuted, decoration: TextDecoration.lineThrough)),
+                  const SizedBox(width: HzSpace.s2),
+                  Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
+                ])
+              : Text(bk.amount, key: const Key('amount'), style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        if (bk.launchFree) Text(t.feeLaunchNote, key: const Key('launch-note'), style: tt.bodySmall?.copyWith(color: c.textMuted)),
         Text(t.foodNote, style: tt.bodySmall),
         const SizedBox(height: HzSpace.s3),
         if (bk.holdExpiresAt != null) Text(t.holdUntil(fmtTime(bk.holdExpiresAt!, lang)), style: tt.bodySmall),

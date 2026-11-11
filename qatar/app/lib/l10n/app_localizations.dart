@@ -1310,6 +1310,18 @@ abstract class AppLocalizations {
   /// **'رسم التنظيم'**
   String get serviceFee;
 
+  /// No description provided for @feeLaunchFree.
+  ///
+  /// In ar, this message translates to:
+  /// **'مجاني لفترة محدودة'**
+  String get feeLaunchFree;
+
+  /// No description provided for @feeLaunchNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'يُخصم المبلغ للتحقق من البطاقة ويُرد إليكِ كاملًا.'**
+  String get feeLaunchNote;
+
   /// No description provided for @holdUntil.
   ///
   /// In ar, this message translates to:

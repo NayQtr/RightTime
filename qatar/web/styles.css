@@ -353,8 +353,17 @@ body:has(.tabbar:not([hidden])) .toast { bottom: calc(84px + env(safe-area-inset
 body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: calc(100px + env(safe-area-inset-bottom)); }
 .kv { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3); padding: var(--s-3) 0; border-block-end: 1px solid var(--c-border); }
 .kv:last-child { border-block-end: 0; }
+/* The launch offer (item 41): the amount stays visible, struck through, beside the words the owner chose. Neither part
+   may break in two — a struck "59" above "ر.ق" reads as a mistake — so each stays on one line and the row itself
+   stacks under its label on a narrow phone. */
+.fee-offer { display: inline-flex; align-items: baseline; gap: var(--s-3); flex-wrap: wrap; justify-content: flex-start; }
+.fee-offer s { color: var(--c-textMuted); text-decoration-thickness: 1.5px; white-space: nowrap; }
+.fee-offer strong { color: var(--c-primary); white-space: nowrap; }
+#launch-note { margin: 0; color: var(--c-textMuted); }
 /* narrow phones: a long label and its value sit one above the other instead of both wrapping side by side */
 @media (max-width: 400px) { .kv:has(> .muted) { flex-direction: column; align-items: flex-start; gap: var(--s-1); } }
+/* the fee row always stacks: at any width the struck amount and the offer then sit together on one line under the label */
+.kv:has(> .fee-offer) { flex-direction: column; align-items: flex-start; gap: var(--s-1); }
 /* the seat-hold countdown sits as a small pill just above the pay button */
 #hold:not(:empty) { width: fit-content; margin: var(--s-4) auto var(--s-2); padding: 6px 14px; border-radius: var(--r-pill);
   background: var(--c-primarySubtle); color: var(--c-primary); }

@@ -32,38 +32,48 @@ class WelcomeScreen extends StatelessWidget {
           ]));
     return Scaffold(
       body: SafeArea(
-        // scrolls when the text is enlarged or the screen is short, and fills the screen otherwise
         child: LayoutBuilder(
-          builder: (context, box) => SingleChildScrollView(
-            padding: const EdgeInsets.all(HzSpace.gutter),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: box.maxHeight - 2 * HzSpace.gutter),
-              child: IntrinsicHeight(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Press(child: TextButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
+          builder: (context, box) {
+            // The screen read too long on a tall phone (owner, 11 Nov): two free-growing gaps left a hole above and
+            // below the table. Now the gaps are small and fixed, and the whole block is centred in whatever height the
+            // phone gives it, so the spare height becomes an even margin instead of a hole. On a short phone, or with
+            // enlarged text, the block keeps its natural height and the page scrolls.
+            final avail = box.maxHeight - 2 * HzSpace.gutter;
+            final gap = (avail * 0.045).clamp(HzSpace.s4, HzSpace.s8);
+            final art = (avail * 0.22).clamp(140.0, 220.0);
+            return Stack(children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(HzSpace.gutter, HzSpace.s12, HzSpace.gutter, HzSpace.gutter),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: avail - HzSpace.s12),
+                  child: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary)),
+                      const SizedBox(height: HzSpace.s3),
+                      heroText,
+                      const SizedBox(height: HzSpace.s3),
+                      Text(t.welcomeSub, style: tt.bodyLarge?.copyWith(color: c.textMuted)),
+                      SizedBox(height: gap),
+                      Center(child: TableArt(size: art)),
+                      SizedBox(height: gap),
+                      Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
+                      const SizedBox(height: HzSpace.s2),
+                      Text(t.quizLength, textAlign: TextAlign.center, style: tt.bodySmall),
+                      const SizedBox(height: HzSpace.s5),
+                      Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
+                      const SizedBox(height: HzSpace.s3),
+                      Text(t.deviceNote, textAlign: TextAlign.center, style: tt.bodySmall?.copyWith(color: c.textMuted)),
+                    ]),
                   ),
-                  const SizedBox(height: HzSpace.s4),
-                  Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary)),
-                  const SizedBox(height: HzSpace.s3),
-                  heroText,
-                  const SizedBox(height: HzSpace.s3),
-                  Text(t.welcomeSub, style: tt.bodyLarge?.copyWith(color: c.textMuted)),
-                  const Spacer(),
-                  const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: HzSpace.s3), child: TableArt(size: 150))),
-                  const Spacer(),
-                  Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
-                  const SizedBox(height: HzSpace.s2),
-                  Text(t.quizLength, textAlign: TextAlign.center, style: tt.bodySmall),
-                  const SizedBox(height: HzSpace.s5),
-                  Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
-                  const SizedBox(height: HzSpace.s3),
-                  Text(t.deviceNote, textAlign: TextAlign.center, style: tt.bodySmall?.copyWith(color: c.textMuted)),
-                ]),
+                ),
               ),
-            ),
-          ),
+              PositionedDirectional(
+                top: 0,
+                end: HzSpace.s2,
+                child: Press(child: TextButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
+              ),
+            ]);
+          },
         ),
       ),
     );

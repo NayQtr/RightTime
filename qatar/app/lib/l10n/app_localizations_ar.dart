@@ -661,6 +661,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get serviceFee => 'رسم التنظيم';
 
   @override
+  String get feeLaunchFree => 'مجاني لفترة محدودة';
+
+  @override
+  String get feeLaunchNote =>
+      'يُخصم المبلغ للتحقق من البطاقة ويُرد إليكِ كاملًا.';
+
+  @override
   String holdUntil(String time) {
     return 'مقعدك محجوز لكِ حتى $time.';
   }

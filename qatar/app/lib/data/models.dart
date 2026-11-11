@@ -225,11 +225,13 @@ class Coordinator {
 /// A held seat (POST /bookings, GET /bookings/{id}): what the review and payment screens need.
 class BookingStart {
   const BookingStart({required this.id, required this.ref, required this.status, required this.amount, this.holdExpiresAt, this.checkoutUrl,
-      required this.ackRequired, this.fullRefundUntil, required this.refundWindowOpen, this.paymentStatus});
+      required this.ackRequired, this.fullRefundUntil, required this.refundWindowOpen, this.paymentStatus, this.launchFree = false});
 
   final String id, ref, status, amount;
   final String? holdExpiresAt, checkoutUrl, fullRefundUntil, paymentStatus;
   final bool ackRequired, refundWindowOpen;
+  /// Item 41: the organising fee is announced as free for a limited period, and only at this last step.
+  final bool launchFree;
 
   bool get paid => const ['paid_awaiting_group', 'group_locked', 'revealed', 'checked_in', 'completed'].contains(status);
   bool get expired => const ['expired', 'payment_failed', 'cancelled_by_user', 'cancelled_by_organizer'].contains(status);
@@ -248,6 +250,7 @@ class BookingStart {
       fullRefundUntil: c['full_refund_until'] as String?,
       refundWindowOpen: (c['full_refund_window_open'] as bool?) ?? true,
       paymentStatus: (j['payment'] as Map<String, dynamic>?)?['status'] as String?,
+      launchFree: (j['launch_free'] as bool?) ?? false,
     );
   }
 }
