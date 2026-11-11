@@ -23,6 +23,24 @@ Production is untouched and still needs the owner's approval.
 
 Owner wording approved 11 Nov: the time left in the questionnaire (one minute / two minutes / a few minutes).
 
+## Production release done [2026-11-11]
+
+Owner approved. Released 5c46b68 (the 8 provisional units, the review fixes, the time-left wording).
+Baseline checks recorded in qatar/docs/security/baseline-checks.md. CI green (one browser test flaked once;
+it passed on re-run and 4 of 4 locally). Migrations 018-021 and 023 applied to the production database
+(pwxxulqgdydrkowmtkia), all five new tables with deny-all RLS, 51 tables with RLS and none client-readable.
+Pushed rightime-app to release, deployed herzone-production, smoke checks all pass (API 200, member and admin
+401 without sign-in, TEST PATHS NOW REPORT NONE OPEN, mock checkout 404). Sentry: no issues in the hour after.
+
+NOT done in this release, and production cannot serve a member until the owner settles them:
+- Production has NO admin user (0 rows), so nobody can sign in to the admin console there.
+- The questionnaire on production is still QA-2026-04 in DRAFT. The v5 seed signs off with the seeded owner
+  admin id, which does not exist on production, so it was not run; no approver was invented.
+- No published legal document (terms, conduct, privacy), so a member cannot complete sign-up.
+- No venue and no session, so there is nothing to book.
+- herzone.app still serves staging (item 14b); production is reachable only at herzone-production.vercel.app,
+  behind Vercel SSO except on a custom domain.
+
 ## The list [2026-11-05]
 
 Waiting on the owner (actions):
