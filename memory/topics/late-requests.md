@@ -3,6 +3,14 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Provisional decisions [2026-11-11]
+
+Owner (10 Nov): handle every item, including those needing a decision, provisionally and set aside for review; skip what blocks.
+Done: all 8 units built and merged into `rightime-app` (migrations 019, 020, 021, 023; nothing applied to production).
+The register of every provisional choice, how to change it, the blocked items, owner actions and provisional texts:
+`qatar/docs/decisions/provisional-2026-11-10.md` (Arabic). Items listed there as built are provisional, not final: the owner reviews them.
+Still open from it: section 3 (blocked) and section 4 (owner actions), plus the two text questions at the end of section 5.
+
 ## The list [2026-11-05]
 
 Waiting on the owner (actions):
