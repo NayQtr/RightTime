@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../common/press.dart';
+import '../common/sound_on_show.dart';
 
 /// Notifications in full (the lock screen only ever shows a generic line, NMX-21).
 class InboxTab extends StatelessWidget {
@@ -39,7 +40,7 @@ class InboxTab extends StatelessWidget {
       child: Loader<List<Notice>>(
         key: ValueKey(lang),
         load: repo.notifications,
-        builder: (context, list, _) => ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+        builder: (context, list, _) => NewNoticeSound(newest: _newest(list), child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
           Text(t.tabInbox, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: HzSpace.s4),
           if (list.isEmpty) ...[Text(t.noNotifications, style: Theme.of(context).textTheme.titleLarge), Text(t.inboxEmptyBody)],
@@ -50,8 +51,17 @@ class InboxTab extends StatelessWidget {
               subtitle: Text(fmtWhen(n.createdAt, lang)),
               onTap: n.bookingId == null ? null : () => context.push('/booking/${n.bookingId}'),
             ),
-        ]),
+        ])),
       ),
     );
+  }
+
+  static String? _newest(List<Notice> list) {
+    String? best;
+    for (final n in list) {
+      final at = DateTime.tryParse(n.createdAt);
+      if (at != null && (best == null || at.isAfter(DateTime.parse(best)))) best = n.createdAt;
+    }
+    return best;
   }
 }

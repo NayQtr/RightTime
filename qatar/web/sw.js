@@ -20,7 +20,8 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/admin")) return;
+  // the public page (/about) is not part of the app: kept out of the device copy, so it never replaces the app's "/"
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/admin") || url.pathname.startsWith("/about")) return;
   e.respondWith((async () => {
     try {
       const res = await fetch(req);

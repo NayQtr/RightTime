@@ -56,6 +56,8 @@
   "language": "English",
   "themeToDark": "الوضع الداكن",
   "themeToLight": "الوضع العادي",
+  "sounds": "الأصوات",
+  "@sounds": {"description": "PROVISIONAL (10 Nov, item 26): the switch for interface sounds in the account tab"},
   "dinner": "عشاء",
   "coffee": "قهوة",
   "seatsLeft": "{n} مقاعد متبقية",

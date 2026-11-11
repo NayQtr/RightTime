@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/sound_on_show.dart';
 
 const _categories = ['harassment', 'threat_violence', 'photo_without_consent', 'stalking_unwanted_contact', 'fraud', 'disruptive'];
 
@@ -118,7 +119,7 @@ class _ReportFormState extends State<_ReportForm> {
     final tt = Theme.of(context).textTheme;
     if (caseRef != null) {
       return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
-        TestId('report-sent', child: Text(t.reportSent(caseRef!), key: const Key('report-sent'), style: tt.titleLarge)),
+        SoundOnShow(child: TestId('report-sent', child: Text(t.reportSent(caseRef!), key: const Key('report-sent'), style: tt.titleLarge))),
         const SizedBox(height: HzSpace.s6),
         Press(child: FilledButton(onPressed: () => context.go('/home'), child: Text(t.backHome))),
       ]);

@@ -43,6 +43,7 @@ dependencies:
   url_launcher: ^6.3.3
   local_auth: ^3.0.2
   shared_preferences: ^2.5.6
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -97,6 +98,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # interface sounds approved by the owner (design phase 7, item 26), see lib/core/sounds.dart
+  assets:
+    - assets/sounds/
 
   # HerZone fonts (SIL Open Font License, see assets/fonts/OFL-*.txt), converted from the web fonts
   fonts:

@@ -386,6 +386,12 @@ abstract class AppLocalizations {
   /// **'الوضع العادي'**
   String get themeToLight;
 
+  /// PROVISIONAL (10 Nov, item 26): the switch for interface sounds in the account tab
+  ///
+  /// In ar, this message translates to:
+  /// **'الأصوات'**
+  String get sounds;
+
   /// No description provided for @dinner.
   ///
   /// In ar, this message translates to:

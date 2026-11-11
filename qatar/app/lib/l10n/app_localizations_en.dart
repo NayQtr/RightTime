@@ -166,6 +166,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeToLight => 'Light mode';
 
   @override
+  String get sounds => 'Sounds';
+
+  @override
   String get dinner => 'Dinner';
 
   @override

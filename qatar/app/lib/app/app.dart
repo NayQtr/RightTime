@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,6 +10,7 @@ import '../core/api_client.dart';
 import '../core/config.dart';
 import '../core/device_unlock.dart';
 import '../core/link_opener.dart';
+import '../core/sounds.dart';
 import '../core/token_store.dart';
 import '../design/herzone_tokens.dart';
 import '../data/auth_repository.dart';
@@ -29,7 +32,7 @@ import 'router.dart';
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
-  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.deviceUnlock, this.linkOpener = const LinkOpener(), this.httpClientFactory});
+  const HerZoneApp({super.key, required this.config, required this.tokens, required this.trips, required this.quizStore, this.deviceUnlock, this.linkOpener = const LinkOpener(), this.httpClientFactory, this.sounds});
 
   final AppConfig config;
   final TokenStore tokens;
@@ -41,6 +44,9 @@ class HerZoneApp extends StatefulWidget {
   final LinkOpener linkOpener;
   final dynamic Function()? httpClientFactory;
 
+  /// Interface sounds; tests pass one with a recording output (the default is silent in widget tests).
+  final Sounds? sounds;
+
   @override
   State<HerZoneApp> createState() => _HerZoneAppState();
 }
@@ -48,6 +54,7 @@ class HerZoneApp extends StatefulWidget {
 class _HerZoneAppState extends State<HerZoneApp> {
   final locale = LocaleController();
   final theme = ThemeController()..load();
+  late final Sounds sounds = widget.sounds ?? Sounds();
   final updateGate = UpdateGate();
   late final PrivacyLock privacyLock = PrivacyLock(widget.deviceUnlock ?? LocalDeviceUnlock());
   late final ApiClient api;
@@ -62,6 +69,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
   @override
   void initState() {
     super.initState();
+    Sounds.instance = sounds..load();
     api = ApiClient(
       baseUrl: widget.config.apiBase,
       tokens: widget.tokens,
@@ -78,6 +86,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
     session = Session(api, auth, clearDevice: () async {
       await meetups.forgetDevice();
       await widget.quizStore.clear();
+      unawaited(sounds.forgetDevice()); // never holds up the sign-out
     }, onboarding: onboarding)..restore();
     router = buildRouter(session);
     quiz = QuizViewModel(onboarding, widget.quizStore, session);
@@ -108,6 +117,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
       providers: [
         ChangeNotifierProvider.value(value: locale),
         ChangeNotifierProvider.value(value: theme),
+        ChangeNotifierProvider.value(value: sounds),
         ChangeNotifierProvider.value(value: updateGate),
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: privacyLock),
