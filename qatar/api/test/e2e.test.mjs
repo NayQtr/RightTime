@@ -555,7 +555,7 @@ test("F10 + F6 probes: coordinator contact from config, health reports the key s
     whatsapp_url: "https://wa.me/97460053006" });
   await sql`UPDATE app.app_config SET value = 'false' WHERE key = 'COORDINATOR_WHATSAPP'`;
   const h = await call("GET", "/api/v1/health");
-  assert.deepEqual(h.body, { status: "ok", key_source: "db-fallback" });
+  assert.deepEqual(h.body, { status: "ok", key_source: "db-fallback", test_paths_open: ["otp_dev_mode", "mock_payments"] });
 });
 
 test("NMX-63: a refund choice sent while a rebook of the same booking is in progress is refused (no meetup plus refund)", async () => {

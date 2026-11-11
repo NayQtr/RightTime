@@ -39,3 +39,34 @@ test("the Flutter app uses exactly the generated tokens file", () => {
   const app = readFileSync(new URL("../../app/lib/design/herzone_tokens.dart", import.meta.url), "utf8");
   assert.equal(app, dart, "run python3 qatar/design/build_tokens_dart.py");
 });
+
+// Motion (plan M1): the app's HzMotion durations and curves, and the website's --m-* variables, equal tokens.json.
+const ms = (v) => Number(String(v).replace("ms", ""));
+const durations = Object.entries(tokens.motion).filter(([, v]) => v.$type === "duration");
+const curves = Object.entries(tokens.motion).filter(([, v]) => v.$type === "cubicBezier");
+
+test("HzMotion durations and curves match tokens.json", () => {
+  const start = dart.indexOf("abstract final class HzMotion");
+  assert.ok(start >= 0, "HzMotion");
+  const block = dart.slice(start, dart.indexOf("\n}", start));
+  assert.ok(durations.length >= 4 && curves.length >= 3, "motion tokens");
+  for (const [k, v] of durations) {
+    assert.ok(block.includes(`static const Duration ${k} = Duration(milliseconds: ${ms(v.$value)});`), `motion.${k} = ${v.$value}`);
+  }
+  for (const [k, v] of curves) {
+    assert.ok(block.includes(`static const Curve ${k} = Cubic(${v.$value.map(num).join(", ")});`), `motion.${k} = ${v.$value}`);
+  }
+  // nothing in HzMotion that the design source does not define
+  const declared = [...block.matchAll(/static const (?:Duration|Curve) (\w+) =/g)].map((m) => m[1]).sort();
+  assert.deepEqual(declared, [...durations, ...curves].map(([k]) => k).sort());
+});
+
+test("the website's motion variables match tokens.json", () => {
+  const css = readFileSync(new URL("../../web/tokens.css", import.meta.url), "utf8");
+  const cssName = { fast: "fast", base: "base", slow: "slow", stagger: "stagger", easing: "ease", easingIn: "ease-in", easingInOut: "ease-in-out" };
+  for (const [k, v] of [...durations, ...curves]) {
+    assert.ok(cssName[k], `motion.${k} has a CSS name`);
+    const want = v.$type === "duration" ? v.$value : `cubic-bezier(${v.$value.join(", ")})`;
+    assert.ok(css.includes(`--m-${cssName[k]}: ${want};`), `--m-${cssName[k]}: ${want}`);
+  }
+});

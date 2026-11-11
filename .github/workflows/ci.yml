@@ -66,6 +66,42 @@ jobs:
           path: /tmp/rightime-ui-shots
           if-no-files-found: ignore
 
+  # Lighthouse mobile run of the website (plan Q1). REPORT ONLY for now: the scores go to the run summary and an artifact,
+  # and this job never fails CI (provisional, 10 Nov 2026; the owner decides later which scores should block).
+  # Lighthouse is pinned; the version is printed in the summary. The page is served locally from qatar/web (no API).
+  lighthouse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      LIGHTHOUSE_VERSION: 12.6.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Serve the website locally
+        run: |
+          (cd qatar/web && nohup python3 -m http.server 4173 >/tmp/http.log 2>&1 &)
+          for i in 1 2 3 4 5 6 7 8 9 10; do curl -sf -o /dev/null http://localhost:4173/ && break; sleep 1; done
+      - name: Lighthouse ${{ env.LIGHTHOUSE_VERSION }} (mobile, report only)
+        run: |
+          mkdir -p lighthouse
+          npx --yes "lighthouse@${LIGHTHOUSE_VERSION}" http://localhost:4173/ --form-factor=mobile \
+            --only-categories=performance,accessibility,best-practices,seo --chrome-flags="--headless=new --no-sandbox" \
+            --output=json --output=html --output-path=lighthouse/mobile --quiet
+          node -e '
+            const r = require("./lighthouse/mobile.report.json");
+            const rows = Object.values(r.categories).map((c) => `| ${c.title} | ${Math.round(c.score * 100)} |`).join("\n");
+            console.log(`## Lighthouse mobile (report only)\n\nLighthouse ${r.lighthouseVersion}, ${r.configSettings.formFactor}, ${r.finalDisplayedUrl}\n\n| Category | Score |\n|---|---|\n${rows}\n`);
+          ' | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-mobile
+          path: lighthouse/
+          if-no-files-found: ignore
+
   # Mobile app (qatar/app, Flutter): static analysis, unit and widget tests, screenshot comparison. The SDK is the
   # pinned stable release, downloaded from Google and checked against its published SHA-256.
   app:

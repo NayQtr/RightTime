@@ -49,7 +49,9 @@ export const paths = {
 
   // ------------------------------------------------------------------ public
   "/api/v1/health": { get: { tags: ["public"], summary: "Liveness of the API, database and server keys",
-    responses: { 200: ok(obj({ status: str({ enum: ["ok"] }), key_source: str() })) } } },
+    responses: { 200: ok(obj({ status: str({ enum: ["ok"] }), key_source: str(),
+      test_paths_open: { type: "array", items: str({ enum: ["otp_dev_mode", "mock_payments"] }),
+        description: "Staging-only test paths that are switched on. Always empty in production." } })) } } },
   "/api/v1/legal/current": { get: { tags: ["public"], summary: "Current legal documents in the request language, with the versions to consent to",
     responses: { 200: ok({ type: "object", description: "Keys: terms, conduct, privacy_notice, marketing (each LegalDoc) and cancellation",
       properties: Object.fromEntries([...CONSENT_TYPES.map((t) => [t, ref("LegalDoc")]), ["cancellation", obj({ document_version: str(), text: str() })]]) }) } } },

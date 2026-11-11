@@ -31,7 +31,7 @@ test("existing plaintext keys are encrypted in place with the KEK and keep their
     await env.sql`INSERT INTO app.server_keys (name, value) VALUES (${name}, ${value}) ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value`;
   }
   const h = await healthOf((k) => (k === "SERVER_KEYS_KEK" ? KEK : undefined));
-  assert.deepEqual(h, { status: 200, body: { status: "ok", key_source: "db-encrypted" } });
+  assert.deepEqual(h, { status: 200, body: { status: "ok", key_source: "db-encrypted", test_paths_open: ["otp_dev_mode", "mock_payments"] } });
   const rows = await env.sql`SELECT name, value FROM app.server_keys ORDER BY name`;
   assert.equal(rows.length, 5);
   for (const r of rows) assert.ok(r.value.startsWith("enc:v1:"), `${r.name} encrypted at rest`);

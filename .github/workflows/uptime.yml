@@ -1,0 +1,41 @@
+# Smoke checks every 30 minutes (plan T10, provisional 10 Nov 2026): staging and production pages answer 200, the API
+# answers 401 without a sign-in, and production's test paths (OTP dev mode, mock payments) are closed. Read-only GET
+# requests, no secrets. A failed check fails this run (red in Actions, an error line per failed check in the summary, and
+# GitHub's failed-run email). Script: qatar/ops/smoke.mjs.
+# GitHub runs scheduled workflows only from the default branch, so this starts once the branch that holds it is the
+# default (item 13g). Until then it can be started by hand (Run workflow).
+# Addresses: repository variables SMOKE_STAGING_WEB, SMOKE_STAGING_API, SMOKE_PRODUCTION_WEB, SMOKE_PRODUCTION_API
+# (Settings > Secrets and variables > Actions > Variables); without them the defaults in smoke.mjs are used, and the
+# production pages are skipped with a warning until SMOKE_PRODUCTION_WEB is set.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SMOKE_STAGING_WEB: ${{ vars.SMOKE_STAGING_WEB }}
+      SMOKE_STAGING_API: ${{ vars.SMOKE_STAGING_API }}
+      SMOKE_PRODUCTION_WEB: ${{ vars.SMOKE_PRODUCTION_WEB }}
+      SMOKE_PRODUCTION_API: ${{ vars.SMOKE_PRODUCTION_API }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: qatar/ops
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Smoke checks (staging and production)
+        run: node qatar/ops/smoke.mjs staging production
