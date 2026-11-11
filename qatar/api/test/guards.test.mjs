@@ -1,6 +1,8 @@
 // Guards that stop silent mistakes (development plan, 10 Nov 2026, items T2 and T7):
 // - every text exists in both Arabic and English, with the same {placeholders}, on the website and in the app;
-// - every file the website loads at start is in the service worker's offline list (sw.js CORE).
+// - every file the website loads at start is in the service worker's offline list (sw.js CORE);
+// - no text anywhere says we take Qatar numbers only (the owner's order of 11 Nov: delete it, and write nothing
+//   similar in any language). Numbers are open to every country except Israel, so such a line would be untrue.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -72,4 +74,23 @@ test("notification tap: an open window is reused only when it is on the same pag
   assert.deepEqual(await tap("/#/inbox", ["/venue/"]), ["open /#/inbox"]);
   assert.deepEqual(await tap("/admin/#/alerts", ["/#/home", "/admin/#/live"]), ["focus /admin/#/live", "navigate /admin/#/live -> /admin/#/alerts"]);
   assert.deepEqual(await tap("/#/inbox", ["/index.html#/home"]), ["focus /index.html#/home", "navigate /index.html#/home -> /#/inbox"]);
+});
+
+// The owner's order of 11 Nov 2026 (item 38): «لا تكتب هذه ولا تكتب يعني شيء مشابه». This reads every text the
+// member can be shown — the website's strings, both .arb files and the server's own messages — so the line cannot
+// come back by hand or by a careless merge, in either language.
+test("no text says we take Qatar numbers only, in any language", () => {
+  const files = ["../../web/strings.js", "../../app/lib/l10n/app_ar.arb", "../../app/lib/l10n/app_en.arb",
+    "../src/lib/i18n.js"].map((f) => new URL(f, import.meta.url));
+  // the Arabic says it in several orders, so match the idea, not one sentence
+  const banned = [/قطر\s*فقط/, /فقط\s*(?:في\s*)?قطر/, /Qatar\s+numbers\s+only/i, /only\s+Qatar\s+numbers/i,
+    /accept[^.]{0,30}Qatar\s+only/i];
+  const found = [];
+  for (const f of files) {
+    const text = readFileSync(f, "utf8");
+    for (const line of text.split("\n")) {
+      if (banned.some((re) => re.test(line))) found.push(`${f.pathname.split("/").slice(-1)[0]}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(found, [], "the owner deleted this line on 11 Nov: numbers are open to every country except Israel");
 });

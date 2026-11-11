@@ -122,7 +122,7 @@ Celebration meetups:
 36. Publish to the test site: apply migration 018 and seed_questionnaire_v5.sql to the staging database and deploy the API (CI green on 11851dc). Production only with the owner's approval afterwards.
 Development plan (10 Nov, qatar/docs/plans/2026-11-10-development-blueprint.md, section 14 has the full questions):
 37. SMS provider for sign-in codes (T3, launch condition): production returns 503 today (api/src/routes/user.js line 108, no provider). International, Qatar-local, or WhatsApp with SMS fallback? Paid; the owner decides and adds the key as a Supabase secret.
-38. Visitors' phone numbers (T12): the server accepts +974 only (user.js lines 95-96). Keep Qatar only, add the Gulf, or all countries? Decide before choosing the SMS provider.
+38. Visitors' phone numbers (T12): ANSWERED 11 Nov — every country except Israel. Built, shipped to staging and production. The restricting sentence is deleted in both languages with no replacement, and guards.test.mjs now fails if it comes back in the website strings, either .arb file or the server's messages. Only the SMS-provider consequence is still open (a local provider may not reach foreign numbers).
 39. Payment gateway (T4, launch condition), and whether it accepts cards from outside Qatar.
 40. Coordinator alert for an S1/S2 report during a meetup (T13, launch condition): today it writes an audit row only (user.js line 1020), nothing is sent. Who is on duty each night, which channel (push, SMS, or both as spec v0.3 says), and after how many minutes it escalates, to whom.
 41. Pricing: organising fee per booking, subscriptions (plans.js shows 51.99 / 119.99 / 223.99 QAR, display only), or both.
