@@ -226,7 +226,7 @@ function setTheme(t) {
   const apply = () => {
     store.set("theme", t);
     root.setAttribute("data-theme", t);
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#3A2C39" : "#F2D9ED"); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#241620" : "#F7EDE3"); });
     renderTopbar();
     const sw = document.getElementById("theme");
     sw.classList.add("icon-swap");

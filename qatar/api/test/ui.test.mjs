@@ -12,6 +12,10 @@ import { sha256hex, totpAt } from "../src/lib/crypto.js";
 
 // Screenshots go to a temp dir so a test run never dirties the repo; UI_SHOTS=docs refreshes docs/qatar-phase4/screens.
 const DOC_SHOTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/qatar-phase4/screens");
+// The theme backgrounds come from the design source, so a palette change never leaves this test asserting an old colour.
+const TOKENS = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../design/tokens.json"), "utf8"));
+const BG_LIGHT = TOKENS.color.light.bg.$value;
+const BG_DARK = TOKENS.color.dark.bg.$value;
 const SHOTS = process.env.UI_SHOTS === "docs" ? DOC_SHOTS : process.env.UI_SHOTS || path.join(os.tmpdir(), "rightime-ui-shots");
 const CHROME = process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 let env, browser;
@@ -155,21 +159,21 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.screenshot({ path: `${SHOTS}/01-welcome-ar.png` });
   // light or dark by choice: one tap switches, the choice survives a reload, the next tap switches back
   const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--c-bg").trim());
-  assert.equal(await bg(), "#F2D9ED", "light by default");
+  assert.equal(await bg(), BG_LIGHT, "light by default");
   assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع الداكن");
   await page.click("#theme");
   await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark"); // revealed through a growing circle
   assert.equal(await page.getAttribute("html", "data-theme"), "dark");
-  assert.equal(await bg(), "#3A2C39");
+  assert.equal(await bg(), BG_DARK);
   assert.equal(await page.getAttribute("#theme", "aria-label"), "الوضع العادي");
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "theme", "focus stays on the switch");
   await page.reload();
   await page.waitForSelector(".hero-welcome h1");
-  assert.equal(await bg(), "#3A2C39", "the choice is remembered");
-  assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), "#3A2C39", "browser bar follows");
+  assert.equal(await bg(), BG_DARK, "the choice is remembered");
+  assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), BG_DARK, "browser bar follows");
   await page.click("#theme");
   await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light");
-  assert.equal(await bg(), "#F2D9ED");
+  assert.equal(await bg(), BG_LIGHT);
   assert.equal(await page.getAttribute("html", "data-theme"), "light");
   await page.click("#start");
   await page.waitForSelector(".hero-welcome", { state: "detached" }); // the quiz has replaced the welcome screen

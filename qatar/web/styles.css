@@ -72,8 +72,8 @@ button, a, input, label { -webkit-tap-highlight-color: transparent; touch-action
 .brand { display: inline-flex; align-items: center; gap: var(--s-2); text-decoration: none; color: var(--c-text);
   font-family: var(--font-display); font-weight: 700; font-size: min(calc(var(--u) * 1.1250), 22px); letter-spacing: 0; min-height: 44px; }
 .brand .mark { width: 48px; height: 48px; flex: none; }
-.mark .ring { fill: none; stroke: var(--c-primary); stroke-width: 2; }
-.mark circle:not(.ring) { fill: var(--c-primary); }
+.mark .ring { fill: none; stroke: var(--c-brand); stroke-width: 2; }
+.mark circle:not(.ring) { fill: var(--c-brand); }
 .brand-mark { display: none; }
 .topbar .spacer { flex: 1; }
 .brand { flex: none; }
@@ -572,7 +572,7 @@ a.option { text-decoration: none; color: inherit; }
 /* "next meetup" (home and My events): the one filled card on its screen, in the brand colour with the on-colour text */
 .next-card, .card.hero { background: var(--c-primary); color: var(--c-onPrimary); box-shadow: none; }
 :is(.next-card, .card.hero) :is(.caption, .row, .muted) { color: color-mix(in oklch, var(--c-onPrimary) 88%, transparent); }
-:is(.next-card, .card.hero) .badge { background: color-mix(in oklch, var(--c-onPrimary) 20%, transparent); color: var(--c-onPrimary); }
+:is(.next-card, .card.hero) .badge { background: color-mix(in oklch, var(--c-onPrimary) 14%, transparent); color: var(--c-onPrimary); }
 :is(.next-card, .card.hero) .stepper li { color: color-mix(in oklch, var(--c-onPrimary) 80%, transparent); }
 :is(.next-card, .card.hero) .stepper li.done, :is(.next-card, .card.hero) .stepper li.current { color: var(--c-onPrimary); }
 :is(.next-card, .card.hero) .stepper .dot { background: color-mix(in oklch, var(--c-onPrimary) 38%, transparent); }

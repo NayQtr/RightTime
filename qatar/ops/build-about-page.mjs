@@ -54,8 +54,8 @@ export function aboutPage(lang) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F2D9ED" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#3A2C39" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F7EDE3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#241620" media="(prefers-color-scheme: dark)">
   <title>${esc(title)}</title>
   <meta name="description" content="${esc(T("welcomeSub"))}">
   <link rel="canonical" href="${url}">
