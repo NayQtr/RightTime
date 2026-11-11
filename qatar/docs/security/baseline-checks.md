@@ -1,7 +1,8 @@
 # Baseline checks (HerZone)
 
 The owner's standing rule of 5 Nov 2026: these checks are basic standards, run regularly.
-When: before every production release, and once a month. Record each run at the bottom (date, result, fixes).
+When: before every production release, and once a month (cadence provisional, item 13b, 10 Nov 2026; the owner may
+change it). Record each run at the bottom (date, result, fixes).
 
 Each check says how to run it and what passes. Checks are passive: no active scans of staging or production.
 
@@ -17,6 +18,25 @@ Each check says how to run it and what passes. Checks are passive: no active sca
    Pass: only the API address and the Sentry DSN (public by design).
 4. **Keys restricted and rotated.** Gemini key restricted to the Generative Language API; old keys deleted;
    Gemini and Supabase tokens rotated about every 3 months.
+
+## Test paths closed in production (fixed check before every production deploy)
+
+Notion fix 4. Staging keeps test paths open on purpose; production must have none:
+
+| Test path | Switch | In production |
+|---|---|---|
+| Sign-in code shown in the answer (member sign-in and venue page) | `OTP_DEV_MODE` | `false` |
+| Mock payments: mock checkout `/api/mock-psp/*`, test refunds | `MOCK_PSP_ENABLED` | `false`; `/api/mock-psp/checkout/{id}` answers 404 `MOCK_PSP_DISABLED` |
+
+How: `node qatar/ops/smoke.mjs production` (read-only GET requests). It fails when `GET /api/v1/health` lists any
+open test path in `test_paths_open`, or when the mock checkout does not answer 404 `MOCK_PSP_DISABLED`; it also checks
+pages 200 and member and admin routes 401 without a sign-in. Run it before creating the production deployment and
+again in the smoke checks after it; GitHub Actions also runs it every 30 minutes (`.github/workflows/uptime.yml`).
+Pass: no failed line. Until the API that reports `test_paths_open` is deployed to production, the health line is a
+warning: then also read both switches in production's `app.app_config` (read-only query) and the Edge Function
+secrets list (an environment variable of the same name overrides the table).
+Not a test path: the store reviewers' sign-in (`REVIEW_PHONE_E164`, `REVIEW_OTP_CODE`) is meant for production. The
+static mock checkout page (`/checkout/mock/...`) is still shipped, but without the API's mock routes it cannot pay.
 
 ## Launch checklist (12 points)
 
