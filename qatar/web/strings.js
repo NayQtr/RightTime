@@ -87,7 +87,7 @@ export const STRINGS = {
     // quiz-first experience (spec 2026-10-28)
     welcomeHero: "تعرّفي على ناس.. {em}", welcomeHeroEm: "تفهمك", welcomeHeroPlain: "تعرّفي على ناس.. تفهمك", welcomeSub: "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.", getStarted: "ابدئي", haveAccount: "لديّ حساب", quizLength: "أسئلة قصيرة تأخذ دقائق قليلة.",
     skipQ: "تخطَّي", qOf: "{i} من {n}",
-    timeLeft: "بقي نحو {m} دقيقة", timeLeftUnder: "بقيت أقل من دقيقة", // provisional (U3)
+    timeLeftOne: "بقي نحو دقيقة واحدة", timeLeftTwo: "بقي نحو دقيقتين", timeLeftFew: "بقي نحو بضعة دقائق", timeLeftUnder: "بقيت أقل من دقيقة", // owner's wording, 11 Nov
     dohaTitle: "نبدأ في الدوحة", dohaBody: "HerZone متاح حاليًا في الدوحة فقط. سنخبركِ عند افتتاح مدن أخرى.",
     communityTitle: "أهلًا بكِ في HerZone", communityBody: "نصنع مساحة نسائية للقاءات حقيقية وآمنة وجهًا لوجه، تحوّل الغريبات إلى صديقات. أجيبي عن أسئلة قصيرة لنعرفكِ أكثر.",
     howTitle: "كيف يعمل HerZone", how1: "تجيبين عن أسئلة قصيرة", how2: "تختارين موعدًا وتدفعين رسم التنظيم", how3: "نكوّن طاولة من 4 إلى 6 سيدات بلغة مشتركة وضمن ميزانيتك", how4: "نكشف لكِ المكان قبل اللقاء بيوم",
@@ -223,7 +223,7 @@ export const STRINGS = {
     suspended: "Your account is currently suspended.",
     welcomeHero: "Meet people who {em}.", welcomeHeroEm: "get you", welcomeHeroPlain: "Meet people who get you.", welcomeSub: "A table of 4 to 6 women, in your language and within your budget, in Doha.", getStarted: "Get started", haveAccount: "I already have an account", quizLength: "Short questions that take a few minutes.",
     skipQ: "Skip", qOf: "{i} of {n}",
-    timeLeft: "About {m} min left", timeLeftUnder: "Less than a minute left",
+    timeLeftOne: "About a minute left", timeLeftTwo: "About 2 minutes left", timeLeftFew: "A few minutes left", timeLeftUnder: "Less than a minute left",
     dohaTitle: "We're starting in Doha", dohaBody: "HerZone is available in Doha only for now. We'll let you know when other cities open.",
     communityTitle: "Welcome to HerZone", communityBody: "We create a women-only space for real, safe, face-to-face moments that turn strangers into friends. Answer a few short questions so we get to know you.",
     howTitle: "How HerZone works", how1: "You answer a few short questions", how2: "You pick a time and pay the organising fee", how3: "We form a table of 4 to 6 women with a shared language, within your budget", how4: "We reveal the venue the day before",

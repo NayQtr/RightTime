@@ -524,9 +524,11 @@ function stepOfKey(key) {
 }
 
 // "About 3 min left" for the questions still to answer, this one included (U3, provisional).
+// The owner's wording (11 Nov): one minute, two minutes, then "a few minutes". The longest questionnaire is about
+// four minutes, so no larger number is reached. The app says the same (quiz_screen.dart).
 function timeLeftText(remaining) {
   const m = minutesLeft(remaining);
-  return m ? T("timeLeft", { m }) : T("timeLeftUnder");
+  return T(m === 0 ? "timeLeftUnder" : m === 1 ? "timeLeftOne" : m === 2 ? "timeLeftTwo" : "timeLeftFew");
 }
 
 function quizHead(back, section, progress) {

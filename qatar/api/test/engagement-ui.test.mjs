@@ -149,8 +149,10 @@ test("questionnaire: the time left beside the step count, and the table with eve
   const n = q.questions.length;
   const { page, errors } = await memberPage(u, `#/quiz/${first}`);
   await page.waitForSelector(".quiz-q .time-left");
+  // the owner's wording (11 Nov): one minute, two minutes, then "a few minutes" (web/app.js timeLeftText)
   const mins = Math.round((n * 10) / 60);
-  assert.equal((await page.locator(".quiz-q .step-k").innerText()).trim(), `السؤال 1 من ${n} · بقي نحو ${mins} دقيقة`);
+  const left = mins === 1 ? "بقي نحو دقيقة واحدة" : mins === 2 ? "بقي نحو دقيقتين" : "بقي نحو بضعة دقائق";
+  assert.equal((await page.locator(".quiz-q .step-k").innerText()).trim(), `السؤال 1 من ${n} · ${left}`);
   await tidy(page);
   await page.goto(`${env.base}/#/quiz/${last}`);
   await page.waitForFunction((t) => document.querySelector(".quiz-q .step-k")?.textContent.includes(t), `${n} من ${n}`);

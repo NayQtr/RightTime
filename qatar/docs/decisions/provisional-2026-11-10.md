@@ -157,7 +157,7 @@
 | بعد الضغط (notifyMeOn) | سنُعلمكِ عند توفر موعد بلغتك. | We'll let you know when a session in your language opens. |
 | إشعار توفر موعد (SESSION_AVAILABLE) | توفر موعد جديد بلغتك. احجزي مقعدك من «الرئيسية». | A new session in your language is open. Book your seat from Home. |
 | المرشحات (filterDay، filterAll، noFilterMatch) | اليوم / الكل / لا مواعيد بهذا الاختيار. | Day / All / No sessions match this choice. |
-| الوقت المتبقي (timeLeft، timeLeftUnder) | بقي نحو {m} دقيقة / بقيت أقل من دقيقة | About {m} min left / Less than a minute left |
+| ~~الوقت المتبقي~~ **معتمد منك 11 نوفمبر** (timeLeftOne/Two/Few/Under) | بقي نحو دقيقة واحدة / بقي نحو دقيقتين / بقي نحو بضعة دقائق / بقيت أقل من دقيقة | About a minute left / About 2 minutes left / A few minutes left / Less than a minute left |
 | أسباب التقييم (fbReasonsLegend وما بعده) | ما الذي لم يعجبكِ؟ (اختياري) / الانسجام مع الطاولة / الطعام أو الخدمة / التنظيم والمواعيد / غياب بعض الحاضرات | What didn't work for you? (optional) / Fit with my table / Food or service / Organisation and timing / Some guests didn't come |
 | إشعار رمز الخصم (COMPENSATION_CODE) | نأسف لأن لقاءكِ لم يكن كما تمنّيتِ. هذا رمز خصم {percent}% لحجزكِ القادم: {code} | We're sorry your meetup wasn't what you hoped for. Here is a {percent}% discount code for your next booking: {code} |
 | مهلة الاحتفال (occasionNotice) | الاحتفال بمناسبة يحتاج إلى حجز قبل {days} أيام على الأقل. | Celebrations need at least {days} days' notice. |
@@ -171,4 +171,5 @@
 
 أسئلة صغيرة على النصوص:
 - «أعلميني عند توفر موعد»: المواصفة v0.3 تقول «أعلمني»، فأُنِّثت. تحتاج تأكيدك.
+- «بضعة دقائق»: استُعملت كما وردت في رسالتك. الصيغة الفصحى «بضع دقائق»، ويمكن تغييرها متى أردت. (أطول استبيان نحو 4 دقائق، فلا يظهر رقم أكبر.)
 - «لا توجد قرارات تخصّك.»: نُسخت من التطبيق كما هي دون كسرة على الكاف. أيهما يُعتمد: «تخصّك» أم «تخصّكِ»؟

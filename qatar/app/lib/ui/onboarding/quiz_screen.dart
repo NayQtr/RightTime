@@ -13,6 +13,15 @@ import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
 
+/// The owner's wording (11 Nov): one minute, two minutes, then "a few minutes". The longest questionnaire is about
+/// four minutes, so no larger number is reached. The website says the same (timeLeftText in web/app.js).
+String timeLeftText(AppLocalizations t, int minutes) => switch (minutes) {
+      <= 0 => t.timeLeftUnder,
+      1 => t.timeLeftOne,
+      2 => t.timeLeftTwo,
+      _ => t.timeLeftFew,
+    };
+
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
 
@@ -71,7 +80,7 @@ class _QuizScreenState extends State<QuizScreen> {
         // the step count, then the time left in a quieter colour
         Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
           Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
-          Text(' · ${vm.minutesToGo > 0 ? t.timeLeft(vm.minutesToGo) : t.timeLeftUnder}', key: const Key('time-left'),
+          Text(' · ${timeLeftText(t, vm.minutesToGo)}', key: const Key('time-left'),
               style: tt.bodySmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
         ]),
         if (q.section != null) Text(q.section!, style: tt.bodySmall),

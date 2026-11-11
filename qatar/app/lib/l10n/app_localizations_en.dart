@@ -320,9 +320,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String timeLeft(int m) {
-    return 'About $m min left';
-  }
+  String get timeLeftOne => 'About a minute left';
+
+  @override
+  String get timeLeftTwo => 'About 2 minutes left';
+
+  @override
+  String get timeLeftFew => 'A few minutes left';
 
   @override
   String get timeLeftUnder => 'Less than a minute left';

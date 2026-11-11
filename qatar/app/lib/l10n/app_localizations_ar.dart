@@ -316,9 +316,13 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String timeLeft(int m) {
-    return 'بقي نحو $m دقيقة';
-  }
+  String get timeLeftOne => 'بقي نحو دقيقة واحدة';
+
+  @override
+  String get timeLeftTwo => 'بقي نحو دقيقتين';
+
+  @override
+  String get timeLeftFew => 'بقي نحو بضعة دقائق';
 
   @override
   String get timeLeftUnder => 'بقيت أقل من دقيقة';

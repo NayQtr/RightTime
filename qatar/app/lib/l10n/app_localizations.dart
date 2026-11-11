@@ -662,11 +662,23 @@ abstract class AppLocalizations {
   /// **'{i} من {n}'**
   String qOf(int i, int n);
 
-  /// No description provided for @timeLeft.
+  /// No description provided for @timeLeftOne.
   ///
   /// In ar, this message translates to:
-  /// **'بقي نحو {m} دقيقة'**
-  String timeLeft(int m);
+  /// **'بقي نحو دقيقة واحدة'**
+  String get timeLeftOne;
+
+  /// No description provided for @timeLeftTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'بقي نحو دقيقتين'**
+  String get timeLeftTwo;
+
+  /// No description provided for @timeLeftFew.
+  ///
+  /// In ar, this message translates to:
+  /// **'بقي نحو بضعة دقائق'**
+  String get timeLeftFew;
 
   /// No description provided for @timeLeftUnder.
   ///
