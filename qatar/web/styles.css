@@ -396,6 +396,17 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 @media (prefers-reduced-motion: reduce) { .contact-sheet[open], .contact-sheet[open]::backdrop, .contact-sheet.level-in > * { animation: none; } }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .contact-sheet::backdrop { background: color-mix(in oklch, var(--c-bg) 94%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 
+/* in-page confirmation (dialogs.js): venue page and admin console, instead of the browser's confirm() and prompt() */
+.confirm-dialog { border: 1px solid var(--c-border); border-radius: var(--r-lg); background: var(--c-surface); color: var(--c-text);
+  width: min(420px, calc(100% - 2 * var(--s-4))); max-width: none; padding: var(--s-5); }
+.confirm-dialog::backdrop { background: color-mix(in oklch, var(--c-bg) 78%, transparent); }
+.confirm-dialog h2 { font-size: calc(var(--u) * 1.125); line-height: 1.45; margin: 0; }
+.confirm-dialog textarea { resize: vertical; }
+.confirm-dialog .cd-actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.confirm-dialog .cd-actions .btn { flex: 1 1 9rem; }
+.confirm-dialog[open] { animation: sheet-in 160ms var(--m-ease); }
+@media (prefers-reduced-motion: reduce) { .confirm-dialog[open] { animation: none; } }
+
 /* ---------- table motif */
 .table .top { fill: var(--c-surfaceSunken); stroke: var(--c-border); stroke-width: 1.5; }
 .table .seat.on { fill: var(--c-seat); }

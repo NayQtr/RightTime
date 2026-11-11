@@ -1,4 +1,6 @@
 // HerZone admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
+import { askConfirm } from "/dialogs.js";
+
 const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
 const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
@@ -33,15 +35,53 @@ async function api(method, path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
+// A screen opened from the menu puts the keyboard on its heading. A redraw after an action, a filter or a timed refresh
+// (quietly) leaves it where it is, so the 30-second refresh never pulls the page back to the top on a phone.
+let quietDraw = false;
+async function quietly(draw) { quietDraw = true; try { await draw(); } finally { quietDraw = false; } }
 function view(title, html) {
   main.innerHTML = html;
   document.title = `${title} · HerZone Admin`;
   const h = main.querySelector("h1");
-  if (h) { h.tabIndex = -1; h.focus(); }
+  if (h && !quietDraw) { h.tabIndex = -1; h.focus(); }
 }
 const msg = (r, okText) => r.ok ? `<div class="banner banner-success" role="status"><div>${esc(okText || "Done")}${r.status === 202 ? " — sent for approval (maker-checker)." : ""}</div></div>`
   : `<div class="banner banner-danger" role="alert"><div><strong>${esc(r.data.code || "Error")}</strong> ${esc(r.data.message || "")}${r.data.retry_after ? ` Try again in ${Math.ceil(r.data.retry_after / 60)} min.` : ""} ${r.data.details ? `<code>${esc(JSON.stringify(r.data.details))}</code>` : ""}</div></div>`;
 function flash(html) { const el = document.getElementById("flash"); el.innerHTML = html; el.scrollIntoView({ block: "nearest" }); }
+// After an action on a list (plan A1): the list is redrawn at once, then the result shows above it and takes the keyboard
+// focus (the button that was pressed may be gone from the new list). A failed action leaves the list as it was.
+async function actThen(res, okText, redraw) {
+  if (res.ok) await quietly(redraw);
+  flash(msg(res, okText));
+  const el = document.getElementById("flash");
+  if (el) { el.tabIndex = -1; el.focus({ preventScroll: true }); }
+}
+
+// Saved filters (plan A1, provisional 10 Nov): one row of buttons above a list; the choice is remembered in this
+// browser (localStorage), per list. The first filter of each list is its default. Change the lists here.
+const FILTERS = {
+  sessions: [["all", "All"], ["today", "Today"]],
+  "venue-requests": [["all", "All"], ["pending", "Pending"]],
+  "call-requests": [["requested", "Open"], ["called", "Called"], ["closed", "Closed"]],
+  support: [["all", "All"], ["open", "Open"], ["celebrations", "Celebrations"]],
+  alerts: [["open", "Open"], ["all", "All"]],
+};
+const saved = {
+  get: (k) => { try { return localStorage.getItem("qa_filter_" + k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem("qa_filter_" + k, v); } catch { /* storage blocked: the filter still works on this screen */ } },
+};
+const filterOf = (list) => { const v = saved.get(list); return FILTERS[list].some(([k]) => k === v) ? v : FILTERS[list][0][0]; };
+const filterBar = (list) => `<div class="row filters" role="group" aria-label="Filter">${FILTERS[list].map(([k, l]) =>
+  `<button class="btn ${filterOf(list) === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${filterOf(list) === k}">${esc(l)}</button>`).join("")}</div>`;
+function bindFilters(list, redraw) {
+  $$("[data-filter]").forEach((b) => (b.onclick = async () => {
+    const k = b.dataset.filter;
+    saved.set(list, k);
+    await quietly(redraw);
+    $(`[data-filter="${k}"]`)?.focus();
+  }));
+}
+const qatarDay = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Qatar", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 
 const NAV = [
   ["#/sessions", "Sessions & Matching", ["owner", "ops", "analyst", "finance"]],
@@ -66,14 +106,60 @@ function renderNav() {
   const a = ss.get("admin");
   nav.innerHTML = a ? `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>
     <ul>${NAV.filter(([, , roles]) => roles.includes(a.role)).map(([h, l]) => `<li><a href="${h}" ${location.hash.startsWith(h) ? 'aria-current="page"' : ""}>${esc(l)}</a></li>`).join("")}</ul>
-    <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span><button class="btn btn-ghost" id="logout">Sign out</button>`
+    <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span>
+    <button class="btn btn-ghost kb-btn" id="kb" aria-haspopup="dialog">Shortcuts</button><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
   alertStrip();
   if (a && ["owner", "ops"].includes(a.role)) { callBadge(); failedBadge(); }
+  const kb = document.getElementById("kb");
+  if (kb) kb.onclick = shortcutHelp;
   const lo = document.getElementById("logout");
   // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
   if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
 }
+
+// ------------------------------------------------------------------ keyboard shortcuts (plan A1, provisional 10 Nov)
+// "g" then a letter opens a section (only the sections her role has); "?" lists them. They can be turned off in that
+// list, remembered in this browser (WCAG 2.1.4: single-character shortcuts must be switchable off); the "Shortcuts"
+// button in the menu opens the list either way. Never while typing in a field or while a dialog is open.
+const SHORTCUTS = [["s", "#/sessions"], ["t", "#/live"], ["a", "#/alerts"], ["v", "#/venue-requests"], ["c", "#/call-requests"],
+  ["u", "#/support"], ["p", "#/approvals"], ["i", "#/identity"], ["r", "#/refunds"], ["k", "#/cases"]];
+const shortcutsOn = () => { try { return localStorage.getItem("qa_shortcuts") !== "off"; } catch { return true; } };
+const myShortcuts = () => {
+  const a = ss.get("admin");
+  return a ? SHORTCUTS.map(([k, h]) => [k, NAV.find(([nh]) => nh === h)]).filter(([, n]) => n && n[2].includes(a.role)) : [];
+};
+function shortcutHelp() {
+  if (!ss.get("admin") || document.querySelector("dialog[open]")) return;
+  const opener = document.activeElement;
+  const d = document.createElement("dialog");
+  d.className = "confirm-dialog kb-help";
+  d.setAttribute("aria-labelledby", "kb-h");
+  d.innerHTML = `<form method="dialog" class="stack"><h2 id="kb-h">Keyboard shortcuts</h2>
+    <dl class="facts kb-list"><dt><kbd>?</kbd></dt><dd>Show this list</dd>
+      ${myShortcuts().map(([k, n]) => `<dt><kbd>g</kbd> <kbd>${k}</kbd></dt><dd>${esc(n[1])}</dd>`).join("")}</dl>
+    <label class="check"><input type="checkbox" id="kb-on"${shortcutsOn() ? " checked" : ""}>Keyboard shortcuts on</label>
+    <div class="cd-actions"><button class="btn btn-primary" value="close">Close</button></div></form>`;
+  document.body.appendChild(d);
+  d.querySelector("#kb-on").onchange = (e) => { try { localStorage.setItem("qa_shortcuts", e.target.checked ? "on" : "off"); } catch { /* storage blocked */ } };
+  d.addEventListener("close", () => { d.remove(); if (opener && opener.isConnected && opener.focus) opener.focus(); }, { once: true });
+  d.showModal();
+  d.querySelector("button").focus();
+}
+let gPressedAt = 0;
+document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || !ss.get("token") || !ss.get("admin")) return;
+  const t = e.target;
+  if (t instanceof Element && (t.closest("input, textarea, select, [contenteditable]") || t.isContentEditable)) return;
+  if (document.querySelector("dialog[open]") || !shortcutsOn()) return;
+  if (e.key === "?") { e.preventDefault(); shortcutHelp(); return; }
+  if (e.key === "g" && !gPressedAt) { gPressedAt = Date.now(); return; }
+  const within = gPressedAt && Date.now() - gPressedAt < 1500;
+  gPressedAt = 0;
+  if (!within) return;
+  const hit = myShortcuts().find(([k]) => k === e.key.toLowerCase());
+  if (hit) { e.preventDefault(); go(hit[1][0]); }
+});
 
 // ------------------------------------------------------------------ auth
 function scrLogin() {
@@ -113,6 +199,8 @@ async function scrSessions() {
   const r = await api("GET", `${A}/sessions`);
   const role = ss.get("admin").role;
   const canEdit = ["owner", "ops"].includes(role);
+  const today = qatarDay(new Date());
+  const sessions = (r.data.sessions || []).filter((s) => filterOf("sessions") !== "today" || qatarDay(s.starts_at) === today);
   view("Sessions", `<h1>Sessions & Matching</h1><div id="flash"></div>
     ${canEdit ? `<details class="card"><summary class="label">Create a session (draft)</summary><form id="f" class="grid-form">
       <label>Experience<select class="input" name="experience"><option>dinner</option><option>coffee</option></select></label>
@@ -123,12 +211,15 @@ async function scrSessions() {
       <label>District (ar)<input class="input" name="district_hint_ar" required></label>
       <label>District (en)<input class="input" name="district_hint_en" required></label>
       <button class="btn btn-primary" type="submit">Create draft</button></form></details>` : ""}
+    ${filterBar("sessions")}
     <div class="table-wrap"><table><thead><tr><th>Starts</th><th>Exp.</th><th>Lang</th><th>Area</th><th>Status</th><th>Sold</th><th>Paid, unseated</th><th>Tables</th><th></th></tr></thead><tbody>
-    ${(r.data.sessions || []).map((s) => `<tr><td>${dt(s.starts_at)}</td><td>${esc(s.experience)}</td><td>${esc(s.language)}</td><td>${esc(s.district)}</td>
+    ${sessions.map((s) => `<tr><td>${dt(s.starts_at)}</td><td>${esc(s.experience)}</td><td>${esc(s.language)}</td><td>${esc(s.district)}</td>
       <td><span class="badge badge-${s.status === "on_sale" ? "success" : s.status === "draft" ? "warning" : "muted"}">${esc(s.status)}</span></td>
       <td>${s.seats_sold}/${s.max_seats}</td><td>${s.paid_waiting}</td><td>${s.tables} (${s.locked_tables} locked)</td>
-      <td><a href="#/sessions/${s.id}">Open</a>${canEdit && s.status === "draft" ? ` · <button class="link-btn" data-open="${s.id}">Open sale</button>` : ""}</td></tr>`).join("")}
+      <td><a href="#/sessions/${s.id}">Open</a>${canEdit && s.status === "draft" ? ` · <button class="link-btn" data-open="${s.id}">Open sale</button>` : ""}</td></tr>`).join("")
+      || `<tr><td colspan="9">Nothing here.</td></tr>`}
     </tbody></table></div>`);
+  bindFilters("sessions", scrSessions);
   const f = $("#f");
   if (f) f.onsubmit = async (e) => {
     e.preventDefault();
@@ -136,10 +227,13 @@ async function scrSessions() {
     fd.starts_at = new Date(fd.starts_at + ":00+03:00").toISOString();
     fd.duration_minutes = Number(fd.duration_minutes); fd.max_seats = Number(fd.max_seats);
     const c = await api("POST", `${A}/sessions`, fd);
-    flash(msg(c, "Draft session created"));
-    if (c.ok) setTimeout(scrSessions, 600);
+    await actThen(c, "Draft session created", scrSessions);
   };
-  $$("[data-open]").forEach((b) => (b.onclick = async () => { const c = await api("POST", `${A}/sessions/${b.dataset.open}:open-sale`); flash(msg(c, "Session is on sale")); if (c.ok && c.status === 200) setTimeout(scrSessions, 600); }));
+  $$("[data-open]").forEach((b) => (b.onclick = async () => {
+    const c = await api("POST", `${A}/sessions/${b.dataset.open}:open-sale`);
+    // 202: sent for approval, nothing changes in the list yet
+    if (c.ok && c.status === 200) await actThen(c, "Session is on sale", scrSessions); else flash(msg(c, "Session is on sale"));
+  }));
 }
 
 async function scrSession(id) {
@@ -206,7 +300,9 @@ async function scrSession(id) {
   if (pub) pub.onclick = async () => { const res = await api("POST", `${A}/sessions/${id}/matching:publish`, body()); showRun(res); if (res.ok) setTimeout(() => scrSession(id), 1200); };
   const act = async (path, ok) => { const res = await api("POST", path); flash(msg(res, ok)); if (res.ok) setTimeout(() => scrSession(id), 900); };
   $$("[data-lock]").forEach((b) => (b.onclick = () => act(`${A}/tables/${b.dataset.lock}:lock`, "Table locked; members notified")));
-  $$("[data-cq]").forEach((b) => (b.onclick = () => { if (confirm("Cancel this table for quorum? Members get QUORUM_FAIL_CHOICE.")) act(`${A}/tables/${b.dataset.cq}:cancel-quorum`, "Table cancelled"); }));
+  $$("[data-cq]").forEach((b) => (b.onclick = async () => {
+    if (await askConfirm({ question: "Cancel this table for quorum? Members get QUORUM_FAIL_CHOICE.", confirm: "Cancel table", cancel: "Keep table" })) act(`${A}/tables/${b.dataset.cq}:cancel-quorum`, "Table cancelled");
+  }));
   $$("[data-vc]").forEach((b) => (b.onclick = () => act(`${A}/tables/${b.dataset.vc}:venue-confirmed`, "Venue confirmation recorded")));
   $$("[data-move]").forEach((sel) => (sel.onchange = async () => {
     if (!sel.value) return;
@@ -221,19 +317,32 @@ async function scrSession(id) {
 }
 
 // ------------------------------------------------------------------ tonight live board
+// Below 640 px (plan A3) each table is a card instead of an eight-column row, red alerts first, then amber; the same
+// data and the same 30-second refresh. The wide table and the cards are both drawn; admin.css shows one of them.
+const liveLevel = (t) => (t.alerts.some((a) => a.level === "red") ? 0 : t.alerts.length ? 1 : 2);
 async function scrLive() {
   const draw = async () => {
     const r = await api("GET", `${A}/live/tonight`);
     if (!location.hash.startsWith("#/live")) return;
+    const tables = (r.data && r.data.tables) || [];
+    const incidents = (t) => (t.incidents.open_s1_s2 ? `<span class="badge badge-danger">S1/S2 · ${esc(t.incidents.categories.join(", "))}</span>` : "—");
+    const alerts = (t) => t.alerts.map((a) => `<span class="badge badge-${a.level === "red" ? "danger" : "warning"}">${esc(a.code)}</span>`).join(" ") || "✓";
+    const cards = tables.map((t, i) => [t, i]).sort(([a, i], [b, j]) => liveLevel(a) - liveLevel(b) || i - j).map(([t]) => t);
     view("Tonight", `<h1>Tonight board</h1><p class="caption">Auto-refresh every 30 s · generated ${dt(r.data && r.data.generated_at)} · ops sees incident category only, never the narrative.</p>
-      <table><thead><tr><th>Start</th><th>Area</th><th>Venue · table</th><th>Confirmed</th><th>Checked in</th><th>Late cancels</th><th>Incidents</th><th>Alerts</th></tr></thead><tbody>
-      ${(r.data.tables || []).map((t) => `<tr class="${t.alerts.some((a) => a.level === "red") ? "row-red" : t.alerts.length ? "row-amber" : ""}"><td>${dt(t.starts_at)}</td><td>${esc(t.district)}</td><td>${esc(t.venue)} · ${esc(t.table_code)}</td>
-        <td>${t.confirmed}</td><td>${t.checked_in}</td><td>${t.late_cancellations}</td><td>${t.incidents.open_s1_s2 ? `<span class="badge badge-danger">S1/S2 · ${esc(t.incidents.categories.join(", "))}</span>` : "—"}</td>
-        <td>${t.alerts.map((a) => `<span class="badge badge-${a.level === "red" ? "danger" : "warning"}">${esc(a.code)}</span>`).join(" ") || "✓"}</td></tr>`).join("") || `<tr><td colspan="8">No locked tables in the next 30 hours.</td></tr>`}
-      </tbody></table>`);
+      <div class="live-wide"><table><thead><tr><th>Start</th><th>Area</th><th>Venue · table</th><th>Confirmed</th><th>Checked in</th><th>Late cancels</th><th>Incidents</th><th>Alerts</th></tr></thead><tbody>
+      ${tables.map((t) => `<tr class="${["row-red", "row-amber", ""][liveLevel(t)]}"><td>${dt(t.starts_at)}</td><td>${esc(t.district)}</td><td>${esc(t.venue)} · ${esc(t.table_code)}</td>
+        <td>${t.confirmed}</td><td>${t.checked_in}</td><td>${t.late_cancellations}</td><td>${incidents(t)}</td>
+        <td>${alerts(t)}</td></tr>`).join("") || `<tr><td colspan="8">No locked tables in the next 30 hours.</td></tr>`}
+      </tbody></table></div>
+      <ul class="live-cards plain">${cards.map((t) => `<li class="card live-card ${["live-red", "live-amber", ""][liveLevel(t)]}">
+        <div class="row between"><h2>${esc(t.venue)} · ${esc(t.table_code)}</h2><span class="num">${dt(t.starts_at)}</span></div>
+        <div class="live-alerts">${alerts(t)}</div>
+        <dl class="facts"><dt>Area</dt><dd>${esc(t.district)}</dd><dt>Confirmed</dt><dd>${t.confirmed}</dd><dt>Checked in</dt><dd>${t.checked_in}</dd>
+          <dt>Late cancels</dt><dd>${t.late_cancellations}</dd><dt>Incidents</dt><dd>${incidents(t)}</dd></dl></li>`).join("")
+        || `<li class="caption">No locked tables in the next 30 hours.</li>`}</ul>`);
   };
   await draw();
-  timers.push(setInterval(draw, 30000));
+  timers.push(setInterval(() => quietly(draw), 30000));
 }
 
 // ------------------------------------------------------------------ venue portal (016): hosting requests per session
@@ -265,7 +374,7 @@ async function sessionVenues(id) {
     flash(msg(res, "Venue planned")); if (res.ok) await sessionVenues(id);
   };
   $$("[data-svw]", box).forEach((b) => (b.onclick = async () => {
-    if (!confirm("Withdraw this venue from the session? Its request is cancelled.")) return;
+    if (!(await askConfirm({ question: "Withdraw this venue from the session? Its request is cancelled.", confirm: "Withdraw venue", cancel: "Keep venue" }))) return;
     const res = await api("DELETE", `${A}/sessions/${id}/venues/${b.dataset.svw}`);
     flash(msg(res, "Venue withdrawn")); if (res.ok) await sessionVenues(id);
   }));
@@ -273,7 +382,7 @@ async function sessionVenues(id) {
 
 async function scrVenueRequests() {
   const [r, o] = await Promise.all([api("GET", `${A}/venue-requests`), api("GET", `${A}/venue-outbox`)]);
-  const reqs = (r.data && r.data.requests) || [];
+  const reqs = ((r.data && r.data.requests) || []).filter((x) => filterOf("venue-requests") !== "pending" || x.status === "pending");
   const out = (o.data && o.data.messages) || [];
   view("Venue requests", `<h1>Venue requests</h1><div id="flash"></div>
     <h2>Messages to send (${out.length})</h2>
@@ -284,10 +393,13 @@ async function scrVenueRequests() {
       <p dir="rtl" lang="ar">${esc(m.text)}</p>
       <div class="row"><button class="btn btn-secondary" data-copy="${esc(m.id)}">Copy</button><button class="btn btn-primary" data-sent="${esc(m.id)}">Mark sent</button></div></section>`).join("") || `<p class="caption">Nothing to send.</p>`}</div>
     <h2>Requests</h2>${r.ok ? "" : msg(r)}
+    ${filterBar("venue-requests")}
     <table><thead><tr><th>Meetup</th><th>Venue</th><th>Women expected</th><th>Status</th><th>Request</th><th>Answer</th><th></th></tr></thead><tbody>
     ${reqs.map((x) => `<tr class="${x.needs_attention ? "row-red" : ""}"><td>${dt(x.starts_at)}</td><td>${esc(x.venue)}</td><td>${x.planned_guests}</td><td>${svState(x)}</td><td>${svSent(x)}</td>
-      <td>${x.decided_at ? dt(x.decided_at) : "—"}${x.decline_reason ? ` · ${esc(x.decline_reason)}` : ""}</td><td><a href="#/sessions/${esc(x.session_id)}">Session</a></td></tr>`).join("") || `<tr><td colspan="7" class="caption">No requests. Plan venues from a session's page.</td></tr>`}
+      <td>${x.decided_at ? dt(x.decided_at) : "—"}${x.decline_reason ? ` · ${esc(x.decline_reason)}` : ""}</td><td><a href="#/sessions/${esc(x.session_id)}">Session</a></td></tr>`).join("")
+      || `<tr><td colspan="7" class="caption">${filterOf("venue-requests") === "pending" ? "Nothing here." : "No requests. Plan venues from a session's page."}</td></tr>`}
     </tbody></table>`);
+  bindFilters("venue-requests", scrVenueRequests);
   const texts = Object.fromEntries(out.map((m) => [m.id, m.text]));
   $$("[data-copy]").forEach((b) => (b.onclick = async () => {
     try { await navigator.clipboard.writeText(texts[b.dataset.copy]); b.textContent = "Copied"; }
@@ -296,7 +408,8 @@ async function scrVenueRequests() {
   $$("[data-sent]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     const res = await api("POST", `${A}/venue-outbox/${b.dataset.sent}:sent`);
-    flash(msg(res, "Marked sent")); if (res.ok) setTimeout(scrVenueRequests, 600);
+    await actThen(res, "Marked sent", scrVenueRequests);
+    if (!res.ok) b.disabled = false;
   }));
 }
 
@@ -325,7 +438,7 @@ async function scrVenues() {
       flash(msg(res, "Email added")); if (res.ok) await portal(vid, name);
     };
     $$("[data-pud]").forEach((b) => (b.onclick = async () => {
-      if (!confirm("Disable this email? Its open sign-ins end now.")) return;
+      if (!(await askConfirm({ question: "Disable this email? Its open sign-ins end now.", confirm: "Disable email", cancel: "Keep email" }))) return;
       const res = await api("POST", `${A}/venue-portal-users/${b.dataset.pud}:disable`);
       flash(msg(res, "Disabled")); if (res.ok) await portal(vid, name);
     }));
@@ -387,17 +500,18 @@ async function scrIdentity() {
   $$("[data-ok]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     const res = await api("POST", `${A}/identity-reviews/${b.dataset.ok}:decide`, { decision: "approve" });
-    flash(msg(res, "Approved: the venue now shows for her"));
-    if (res.ok) setTimeout(route, 800);
+    await actThen(res, "Approved: the venue now shows for her", scrIdentity);
+    if (!res.ok) b.disabled = false;
   }));
+  // one in-page box: the question as before, the reason in the same box (it used to be a second browser prompt)
   $$("[data-no]").forEach((b) => (b.onclick = async () => {
-    const why = prompt("Reason for rejecting (kept encrypted, shown in the case):");
-    if (why === null) return;
-    if (!confirm("Cancel this booking WITHOUT a refund and suspend the account for 30 days?")) return;
+    const yes = await askConfirm({ question: "Cancel this booking WITHOUT a refund and suspend the account for 30 days?",
+      field: { label: "Reason for rejecting (kept encrypted, shown in the case):" }, confirm: "Reject booking", cancel: "Keep booking" });
+    if (!yes) return;
     b.disabled = true;
-    const res = await api("POST", `${A}/identity-reviews/${b.dataset.no}:decide`, { decision: "reject", rationale: why });
-    flash(msg(res, "Rejected: booking cancelled without refund, account suspended"));
-    if (res.ok) setTimeout(route, 800);
+    const res = await api("POST", `${A}/identity-reviews/${b.dataset.no}:decide`, { decision: "reject", rationale: yes.value });
+    await actThen(res, "Rejected: booking cancelled without refund, account suspended", scrIdentity);
+    if (!res.ok) b.disabled = false;
   }));
 }
 
@@ -465,21 +579,26 @@ async function scrApprovals() {
     <table><thead><tr><th>Action</th><th>Payload</th><th>Proposed by</th><th>When</th><th></th></tr></thead><tbody>
     ${(r.data.approvals || []).map((a) => `<tr><td>${esc(a.action)}</td><td><code>${esc(JSON.stringify(a.payload))}</code></td><td>${esc(a.proposed_by.name)} (${esc(a.proposed_by.role)})</td><td>${dt(a.created_at)}</td>
       <td>${a.can_approve ? `<button class="btn btn-primary" data-ap="${a.id}">Approve</button> <button class="btn btn-ghost" data-rj="${a.id}">Reject</button>` : `<span class="caption">Another role must approve</span>`}</td></tr>`).join("") || `<tr><td colspan="5">Nothing pending.</td></tr>`}</tbody></table>`);
-  $$("[data-ap]").forEach((b) => (b.onclick = async () => { const res = await api("POST", `${A}/approvals/${b.dataset.ap}:approve`); flash(msg(res, "Approved and executed")); if (res.ok) setTimeout(scrApprovals, 900); }));
-  $$("[data-rj]").forEach((b) => (b.onclick = async () => { const res = await api("POST", `${A}/approvals/${b.dataset.rj}:reject`); flash(msg(res, "Rejected")); if (res.ok) setTimeout(scrApprovals, 900); }));
+  $$("[data-ap]").forEach((b) => (b.onclick = async () => actThen(await api("POST", `${A}/approvals/${b.dataset.ap}:approve`), "Approved and executed", scrApprovals)));
+  $$("[data-rj]").forEach((b) => (b.onclick = async () => actThen(await api("POST", `${A}/approvals/${b.dataset.rj}:reject`), "Rejected", scrApprovals)));
 }
 
 const CASE_TYPES = { practical_arrangement_Q07: "Q07 private contact", occasion_celebration: "Celebration", payment: "Payment", refund: "Refund", general: "General" };
 const OCCASION_LABELS = { birthday: "birthday", other: "other occasion" };
 
+// "Open": not yet resolved or closed. "Celebrations": the occasion requests (018), whatever their status.
+const SUPPORT_FILTER = { all: () => true, open: (c) => !["resolved", "closed"].includes(c.status), celebrations: (c) => c.type === "occasion_celebration" };
 async function scrSupport() {
   const r = await api("GET", `${A}/support-cases`);
+  const cases = (r.data.cases || []).filter(SUPPORT_FILTER[filterOf("support")]);
   view("Support requests", `<h1>Support requests</h1><p class="caption">Q07 private contact: only the request is stored — never the reason (Article 16 Option A). Call the person, offer direct contact with the venue, and record only the outcome.<br>Celebration: she celebrates an occasion at this booking. Arrange the small preparations with the venue before the date.</p><div id="flash"></div>
+    ${filterBar("support")}
     <table><thead><tr><th>Created</th><th>Request</th><th>Name</th><th>Lang</th><th>Booking</th><th>Status</th><th></th></tr></thead><tbody>
-    ${(r.data.cases || []).map((c) => `<tr><td>${dt(c.created_at)}</td><td>${esc(CASE_TYPES[c.type] || c.type)}${c.occasion ? ` · ${esc(OCCASION_LABELS[c.occasion] || c.occasion)}` : ""}</td><td>${esc(c.display_name || "—")}</td><td>${esc(c.locale)}</td>
+    ${cases.map((c) => `<tr><td>${dt(c.created_at)}</td><td>${esc(CASE_TYPES[c.type] || c.type)}${c.occasion ? ` · ${esc(OCCASION_LABELS[c.occasion] || c.occasion)}` : ""}</td><td>${esc(c.display_name || "—")}</td><td>${esc(c.locale)}</td>
       <td>${c.booking_ref ? `<span class="num">${esc(c.booking_ref)}</span> · ${esc(c.experience || "")} ${c.starts_at ? dt(c.starts_at) : ""}` : "—"}</td><td>${esc(c.status)}</td>
-      <td><select class="input inline" data-sc="${c.id}"><option value="">set status…</option><option>in_progress</option><option>waiting_user</option><option>resolved</option><option>closed</option></select></td></tr>`).join("")}</tbody></table>`);
-  $$("[data-sc]").forEach((s) => (s.onchange = async () => { if (!s.value) return; const res = await api("PATCH", `${A}/support-cases/${s.dataset.sc}`, { status: s.value }); flash(msg(res, "Updated")); }));
+      <td><select class="input inline" data-sc="${c.id}"><option value="">set status…</option><option>in_progress</option><option>waiting_user</option><option>resolved</option><option>closed</option></select></td></tr>`).join("") || `<tr><td colspan="7">Nothing here.</td></tr>`}</tbody></table>`);
+  bindFilters("support", scrSupport);
+  $$("[data-sc]").forEach((s) => (s.onchange = async () => { if (!s.value) return; actThen(await api("PATCH", `${A}/support-cases/${s.dataset.sc}`, { status: s.value }), "Updated", scrSupport); }));
 }
 
 async function scrAudit() {
@@ -519,7 +638,7 @@ async function scrPromoCodes() {
     if (res.ok) scrPromoCodes(); else flash(msg(res));
   };
   $$("[data-off]").forEach((b) => (b.onclick = async () => {
-    if (!confirm("Deactivate this code? Members will no longer be able to use it.")) return;
+    if (!(await askConfirm({ question: "Deactivate this code? Members will no longer be able to use it.", confirm: "Deactivate code", cancel: "Keep code" }))) return;
     const res = await api("POST", `${A}/promo-codes/${b.dataset.off}:deactivate`, {});
     if (res.ok) scrPromoCodes(); else flash(msg(res));
   }));
@@ -574,15 +693,14 @@ async function callBadge() {
   return r.ok ? r.data.open_count : null;
 }
 const CR_WHEN = { now: "Now", "10min": "In 10 minutes", "1h": "In an hour", tomorrow: "Tomorrow" };
-let crStatus = "requested";
 async function scrCallRequests() {
+  const crStatus = filterOf("call-requests");
   const r = await api("GET", `${A}/call-requests?status=${crStatus}`);
   const rows = (r.data && r.data.requests) || [];
   view("Call requests", `<h1>Call requests</h1><div id="flash"></div>
     <p class="caption">Members who asked to be called: what the problem or request is, the number to call and when. Call her, then mark it.
     Reading the notes and numbers is recorded in the audit log. Rows shaded amber are due now.</p>
-    <div class="row">${[["requested", "Open"], ["called", "Called"], ["closed", "Closed"]].map(([k, l]) =>
-      `<button class="btn ${crStatus === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${crStatus === k}">${l}</button>`).join("")}</div>
+    ${filterBar("call-requests")}
     ${r.ok ? "" : msg(r)}
     <table><thead><tr><th>When to call</th><th>Name</th><th>Call on</th><th>Note</th><th>Meetup</th><th>Handled</th><th></th></tr></thead><tbody>
     ${rows.map((x) => { const to = x.contact_phone || x.phone; const due = x.due_at && x.status === "requested" && new Date(x.due_at) <= new Date();
@@ -594,21 +712,24 @@ async function scrCallRequests() {
       <td>${x.handled_at ? `${esc(x.handled_by || "")} · ${dt(x.handled_at)}` : ""}</td>
       <td class="row">${x.status === "requested" ? `<button class="btn btn-primary" data-called="${esc(x.id)}">Called</button><button class="btn btn-secondary" data-closed="${esc(x.id)}">Close</button>` : ""}</td></tr>`; }).join("")
       || `<tr><td colspan="7">Nothing here.</td></tr>`}</tbody></table>`);
-  $$("[data-filter]").forEach((b) => (b.onclick = () => { crStatus = b.dataset.filter; scrCallRequests(); }));
-  const mark = async (id, status) => {
+  bindFilters("call-requests", scrCallRequests);
+  const mark = async (b, id, status) => {
+    b.disabled = true;
     const res = await api("POST", `${A}/call-requests/${id}:handle`, { status });
-    flash(msg(res, status === "called" ? "Marked as called" : "Closed"));
-    if (res.ok) setTimeout(scrCallRequests, 600);
+    await actThen(res, status === "called" ? "Marked as called" : "Closed", scrCallRequests);
+    if (!res.ok) b.disabled = false;
   };
-  $$("[data-called]").forEach((b) => (b.onclick = () => { b.disabled = true; mark(b.dataset.called, "called"); }));
-  $$("[data-closed]").forEach((b) => (b.onclick = () => { b.disabled = true; mark(b.dataset.closed, "closed"); }));
-  // a new request shows up without reloading: every 30 s the open count is compared (a count, so nothing is audited)
+  $$("[data-called]").forEach((b) => (b.onclick = () => mark(b, b.dataset.called, "called")));
+  $$("[data-closed]").forEach((b) => (b.onclick = () => mark(b, b.dataset.closed, "closed")));
+  // a new request shows up without reloading: every 30 s the open count is compared (a count, so nothing is audited).
+  // One timer per screen: a redraw (filter, action) clears the previous one first.
+  timers.forEach(clearInterval); timers = [];
   if (crStatus === "requested" && r.ok) {
     const shown = r.data.open_count;
     timers.push(setInterval(async () => {
-      if (location.hash !== "#/call-requests" || crStatus !== "requested") return;
+      if (location.hash !== "#/call-requests" || filterOf("call-requests") !== "requested") return;
       const now = await api("GET", `${A}/call-requests?count=1`);
-      if (now.ok && now.data.open_count !== shown) scrCallRequests();
+      if (now.ok && now.data.open_count !== shown) quietly(scrCallRequests);
     }, 30000));
   }
 }
@@ -678,8 +799,8 @@ async function alertsOnHere() {
   return api("POST", `${A}/push/subscriptions`, { endpoint: j.endpoint, keys: j.keys });
 }
 
-let alertFilter = "open";
 async function scrAlerts() {
+  const alertFilter = filterOf("alerts");
   const [r, mine] = await Promise.all([api("GET", `${A}/coordinator-alerts?status=${alertFilter}`), api("GET", `${A}/push/subscriptions`)]);
   const rows = (r.data && r.data.alerts) || [];
   const ch = (r.data && r.data.channels) || { push_devices: 0, sms: false, sms_numbers: 0 };
@@ -697,8 +818,7 @@ async function scrAlerts() {
       ${pushReady() && Notification.permission !== "denied" ? `<div class="row">${here ? `<button class="btn btn-secondary" id="dev-off">Turn off alerts on this device</button>`
         : `<button class="btn btn-primary" id="dev-on">Turn on alerts on this device</button>`}</div>` : ""}
       <p class="caption">Alerts now reach ${ch.push_devices} coordinator ${ch.push_devices === 1 ? "device" : "devices"} · SMS: ${ch.sms ? `${ch.sms_numbers} ${ch.sms_numbers === 1 ? "number" : "numbers"}` : "not set up"}</p></section>
-    <div class="row">${[["open", "Open"], ["all", "All"]].map(([k, l]) =>
-      `<button class="btn ${alertFilter === k ? "btn-primary" : "btn-secondary"}" data-filter="${k}" aria-pressed="${alertFilter === k}">${l}</button>`).join("")}</div>
+    ${filterBar("alerts")}
     ${r.ok ? "" : msg(r)}
     <div class="table-wrap"><table><thead><tr><th>Raised</th><th>Alert</th><th>Venue · table</th><th>Sent</th><th>Sent again</th><th>Acknowledged</th><th></th></tr></thead><tbody>
     ${rows.map((x) => `<tr class="${x.acknowledged_at ? "" : "row-red"}"><td>${dt(x.created_at)}</td><td>${alertWhat(x)}</td><td>${alertWhere(x) || "—"}</td>
@@ -706,7 +826,7 @@ async function scrAlerts() {
       <td>${x.acknowledged_at ? `${esc(x.acknowledged_by || "")} · ${dt(x.acknowledged_at)}` : "Not yet"}</td>
       <td>${x.acknowledged_at ? "" : `<button class="btn btn-primary" data-ack="${esc(x.id)}">Acknowledge</button>`}</td></tr>`).join("")
       || `<tr><td colspan="7">${alertFilter === "open" ? "No open alerts." : "No alerts yet."}</td></tr>`}</tbody></table></div>`);
-  $$("[data-filter]").forEach((b) => (b.onclick = () => { alertFilter = b.dataset.filter; scrAlerts(); }));
+  bindFilters("alerts", scrAlerts);
   $$("[data-ack]").forEach((b) => (b.onclick = () => ackAlert(b.dataset.ack, b)));
   const on = $("#dev-on");
   if (on) on.onclick = async () => {

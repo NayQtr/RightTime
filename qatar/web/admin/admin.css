@@ -31,3 +31,22 @@ code { font-size: 12px; word-break: break-all; }
 .alert-strip .num { white-space: nowrap; }
 /* call requests: the note keeps its line breaks and does not stretch the table */
 .cr-note { white-space: pre-wrap; max-width: 30rem; overflow-wrap: anywhere; }
+/* Tonight (plan A3): a card per table below 640 px, the wide table above it; red cards first (admin.js) */
+.live-cards { display: none; }
+.live-card { display: grid; gap: var(--s-2); min-width: 0; }
+.live-card .badge { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+.live-card dl.facts dd { min-width: 0; overflow-wrap: anywhere; }
+.live-card h2 { font-size: var(--t-body-size); line-height: var(--t-body-lh); margin: 0; overflow-wrap: anywhere; }
+.live-card .live-alerts { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.live-card dl.facts { font-size: var(--t-caption-size); }
+.live-red { background: color-mix(in srgb, var(--c-danger) 10%, var(--c-surfaceSunken)); box-shadow: inset 4px 0 0 var(--c-danger); }
+.live-amber { background: color-mix(in srgb, var(--c-warning) 10%, var(--c-surfaceSunken)); box-shadow: inset 4px 0 0 var(--c-warning); }
+@media (max-width: 639.98px) {
+  .live-wide { display: none; }
+  .live-cards { display: grid; gap: var(--s-3); }
+}
+/* saved filters and keyboard shortcuts (plan A1) */
+.filters { margin-block: var(--s-3); }
+kbd { font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; padding: 1px 6px; border: 1px solid var(--c-borderStrong); border-radius: var(--r-sm); background: var(--c-surfaceSunken); }
+.kb-list dt { white-space: nowrap; }
+@media (max-width: 639.98px) { .kb-btn { display: none; } }
