@@ -10,7 +10,7 @@
 .about-hero-text { display: grid; gap: var(--s-4); justify-items: start; }
 .about-hero h1 { font-weight: 600; font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.3; margin: 0; }
 :root[lang="en"] .about-hero h1 { line-height: 1.15; }
-.about-hero h1 em { font-style: normal; color: var(--c-primary); }
+/* the emphasised word's yellow highlight lives in styles.css, shared with the welcome screen */
 @media (min-width: 340px) { :root[lang="ar"] .about-hero h1 .lead-in { white-space: nowrap; } }
 .about-hero p { color: var(--c-textMuted); margin: 0; max-width: 36ch; }
 

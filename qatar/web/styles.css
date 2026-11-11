@@ -479,7 +479,10 @@ a.option { text-decoration: none; color: inherit; }
 .hero-welcome { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-2); }
 .hero-welcome h1 { font-family: var(--font-display); font-weight: 600; font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.3; margin: 0; }
 :root[lang="en"] .hero-welcome h1 { font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.15; }
-.hero-welcome h1 em { font-style: normal; color: var(--c-onAccent); background: var(--c-accent);
+/* The emphasised word in the welcome heading sits on the owner's yellow with dark ink (owner, 11 Nov). It is the one
+   place yellow is used, and only ever as a fill: as text on a light field it measures 1.34:1. Defined here, not in
+   about.css, so the welcome line reads the same on the app shell and on the public page. */
+.hero-welcome h1 em, .about-hero h1 em { font-style: normal; color: var(--c-onAccent); background: var(--c-accent);
   padding: .06em .3em; border-radius: .22em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .hero-welcome > p { color: var(--c-textMuted); margin: 0; max-width: 32ch; }
 .welcome-table { width: min(240px, 66%); justify-self: center; margin-block: var(--s-4); }
