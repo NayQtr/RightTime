@@ -16,7 +16,7 @@ import { SIZE_LIMITS, checkSizes, measure } from "./size-limits.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API = path.join(ROOT, "api");
-const PURE_TESTS = ["about-page", "colours", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "size-limits", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
+const PURE_TESTS = ["about-page", "colours", "countries", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "size-limits", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {

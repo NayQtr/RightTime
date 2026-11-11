@@ -40,11 +40,15 @@ class AuthRepository {
 
   final ApiClient _api;
   static final _qatar = RegExp(r'^[3-7][0-9]{7}$');
+  static final _international = RegExp(r'^[0-9]{4,15}$');
 
-  /// The 8 local digits (spaces allowed) as +974 E.164, or null if it is not a Qatar mobile number the API accepts.
-  static String? toE164(String local) {
+  /// The local digits (spaces and dashes allowed) as an E.164 number for the country whose calling code is [dial], or
+  /// null when they cannot be one. Qatar keeps its strict 8-digit pattern; any other country takes a plausible
+  /// international number and the server has the last word (422 UNSUPPORTED_COUNTRY, 400 INVALID_PHONE).
+  static String? toE164(String local, {String dial = '974'}) {
     final digits = local.replaceAll(RegExp(r'[\s-]'), '');
-    return _qatar.hasMatch(digits) ? '+974$digits' : null;
+    final ok = dial == '974' ? _qatar.hasMatch(digits) : _international.hasMatch(digits) && '$dial$digits'.length <= 15;
+    return ok ? '+$dial$digits' : null;
   }
 
   Future<Challenge> requestCode(String phoneE164, String locale) async {

@@ -98,11 +98,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get phoneTitle => 'Your mobile number';
 
   @override
-  String get phoneHelp =>
-      'We\'ll send you a 6-digit code. We currently accept Qatar numbers only.';
+  String get phoneHelp => 'We\'ll send you a 6-digit code.';
 
   @override
   String get phoneLabel => 'Mobile number';
+
+  @override
+  String get countryLabel => 'Country code';
+
+  @override
+  String get countrySearch => 'Search for a country';
+
+  @override
+  String get countryNone => 'No country matches that.';
 
   @override
   String get phoneInvalid =>
@@ -647,9 +655,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errGenericNext => 'If it happens again, contact us.';
-
-  @override
-  String get qatarOnly => 'We currently accept Qatar numbers only.';
 
   @override
   String get reviewTitle => 'Review your booking';

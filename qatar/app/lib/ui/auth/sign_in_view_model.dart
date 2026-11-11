@@ -32,8 +32,9 @@ class SignInViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> sendCode(String local) async {
-    final phone = AuthRepository.toE164(local);
+  /// [dial] is the calling code of the country she picked (Qatar by default).
+  Future<bool> sendCode(String local, {String dial = '974'}) async {
+    final phone = AuthRepository.toE164(local, dial: dial);
     phoneInvalid = phone == null;
     error = null;
     if (phone == null) {

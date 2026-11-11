@@ -32,8 +32,8 @@ const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation"
 export const paths = {
   // ------------------------------------------------------------------ auth
   "/api/v1/auth/otp:request": { post: { tags: ["auth"], ...idem,
-    summary: "Send a sign-in code by SMS (in the request's locale) to a mobile number of an allowed country (Qatar only by default). 422 UNSUPPORTED_COUNTRY for other countries; 429 also when the hourly cap for a visitor country is reached; 503 when no SMS provider is set up or the provider refused the message (nothing is kept, ask again)",
-    requestBody: body(obj({ phone_e164: str({ example: "+97455501234", description: "+974 followed by 8 digits starting 3-7; another allowed country (server setting PHONE_ALLOWED_COUNTRY_CODES): any valid E.164 number" }),
+    summary: "Send a sign-in code by SMS (in the request's locale) to a mobile number of any country except Israel. 422 UNSUPPORTED_COUNTRY for a blocked or unknown calling code; 429 also when the hourly cap for a country outside Qatar is reached; 503 when no SMS provider is set up or the provider refused the message (nothing is kept, ask again)",
+    requestBody: body(obj({ phone_e164: str({ example: "+97455501234", description: "+974 followed by 8 digits starting 3-7; any other country: any valid E.164 number. Israel (+972) is refused with UNSUPPORTED_COUNTRY" }),
       locale: str({ enum: ["ar", "en"], description: "Language of the SMS; without it, the Accept-Language of the request" }) }, ["phone_e164"])),
     responses: { 202: ok(obj({ challenge_id: uuid, expires_in: { type: "integer", example: 300 }, resend_after: { type: "integer", example: 45 }, code_length: { type: "integer", example: 6 },
       dev_code: str({ description: "Staging only (OTP_DEV_MODE with no SMS provider). Never present in production." }) }, ["challenge_id", "expires_in", "resend_after", "code_length"]), "Code sent"),

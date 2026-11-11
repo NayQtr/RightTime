@@ -97,11 +97,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get phoneTitle => 'رقم جوالك';
 
   @override
-  String get phoneHelp =>
-      'نرسل لكِ رمزًا من 6 أرقام. نقبل أرقام قطر فقط حاليًا.';
+  String get phoneHelp => 'نرسل لكِ رمزًا من 6 أرقام.';
 
   @override
   String get phoneLabel => 'رقم الجوال';
+
+  @override
+  String get countryLabel => 'رمز الدولة';
+
+  @override
+  String get countrySearch => 'ابحثي عن دولة';
+
+  @override
+  String get countryNone => 'لا توجد دولة بهذا الاسم.';
 
   @override
   String get phoneInvalid => 'أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.';
@@ -638,9 +646,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get errGenericNext => 'إن تكرّر الخطأ، تواصلي معنا.';
-
-  @override
-  String get qatarOnly => 'نقبل أرقام قطر فقط حاليًا.';
 
   @override
   String get reviewTitle => 'راجعي حجزك';

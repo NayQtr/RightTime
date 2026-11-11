@@ -1,6 +1,6 @@
-// Provisional items of 10 Nov in the app: the Qatar-only note before the questionnaire (T12), the nameless celebration
-// line for the other women at a revealed table (33), the meetup time without "Asia/Qatar" (28), and the next step after
-// the generic error (13d-2). The website has the same (qatar/api/test/booking-ui.test.mjs).
+// Provisional items of 10 Nov in the app: the nameless celebration line for the other women at a revealed table (33),
+// the meetup time without "Asia/Qatar" (28), and the next step after the generic error (13d-2). The welcome screen says
+// nothing about one country any more (owner, 11 Nov 2026). The website has the same (qatar/api/test/booking-ui.test.mjs).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
@@ -40,15 +40,15 @@ Future<void> openDetails(WidgetTester tester, MockClient client) async {
 }
 
 void main() {
-  testWidgets('welcome: "Qatar numbers only" is said before the questionnaire, under Start', (tester) async {
+  testWidgets('welcome: nothing is said about one country any more', (tester) async {
     tallScreen(tester);
     await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi([])));
     await tester.pumpAndSettle();
-    final note = find.byKey(const Key('qatar-only'));
-    expect(tester.widget<Text>(note).data, 'نقبل أرقام قطر فقط حاليًا.');
-    final y = tester.getTopLeft(note).dy;
+    expect(find.byKey(const Key('qatar-only')), findsNothing);
+    expect(find.textContaining('قطر فقط'), findsNothing);
+    final y = tester.getTopLeft(find.text('أسئلة قصيرة تأخذ دقائق قليلة.')).dy;
     expect(tester.getTopLeft(find.byKey(const Key('start'))).dy < y && y < tester.getTopLeft(find.byKey(const Key('have-account'))).dy, true,
-        reason: 'between Start and I have an account');
+        reason: 'the length hint still sits between Start and I have an account');
   });
 
   testWidgets('revealed table: a birthday at the table reads as a nameless line with the cake icon; the time has no "Asia/Qatar"', (tester) async {

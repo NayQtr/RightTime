@@ -1,6 +1,7 @@
-// Website, member booking and meetup screens (provisional items of 10 Nov): the Qatar-only note before the
-// questionnaire (T12), 3 days' notice for a celebration (32), the nameless celebration line for tablemates (33), the
-// next-step lines after a failed payment, a generic error and a failed refund (13d-2), and the empty decisions screen.
+// Website, member booking and meetup screens: the country picker on the phone screen (owner's decision of 11 Nov 2026:
+// every country except Israel), 3 days' notice for a celebration (32), the nameless celebration line for tablemates
+// (33), the next-step lines after a failed payment, a generic error and a failed refund (13d-2), and the empty
+// decisions screen.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -44,14 +45,66 @@ async function newPage(u, locale = "ar") {
   return { page, errors };
 }
 
-test("welcome: 'Qatar numbers only' is said before the questionnaire, under the start button, in both languages", async () => {
-  for (const [locale, text] of [["ar", "نقبل أرقام قطر فقط حاليًا."], ["en", "We currently accept Qatar numbers only."]]) {
+test("welcome: nothing is said about one country any more", async () => {
+  for (const locale of ["ar", "en"]) {
     const { page, errors } = await newPage(null, locale);
     await page.reload();
-    await page.waitForSelector(".hero-welcome #qatar-only");
-    assert.equal((await page.locator("#qatar-only").innerText()).trim(), text);
-    const [start, note, have] = await Promise.all(["#start", "#qatar-only", "a[href='#/signin']"].map((s) => page.locator(s).boundingBox()));
-    assert.ok(start.y < note.y && note.y < have.y, "between Start and I have an account");
+    await page.waitForSelector(".hero-welcome #start");
+    const text = await page.locator("main").innerText();
+    assert.ok(!/قطر فقط|Qatar numbers only/.test(text), text);
+    const [start, len, have] = await Promise.all(["#start", ".quiz-length", "a[href='#/signin']"].map((s) => page.locator(s).boundingBox()));
+    assert.ok(start.y < len.y && len.y < have.y, "the length hint still sits between Start and I have an account");
+    assert.deepEqual(errors, []);
+    await page.context().close();
+  }
+});
+
+// Owner's decision (11 Nov 2026): the calling code is its own clickable box, it opens the list of every country except
+// Israel, Qatar is the choice it starts on, and the number box beside it sends the full E.164 number.
+test("phone: the calling code opens a searchable country list (no Israel), Qatar first, and the full number is sent", async () => {
+  for (const [locale, name, number] of [["ar", "المملكة المتحدة", "7700900151"], ["en", "United Kingdom", "7700900152"]]) {
+    const { page, errors } = await newPage(null, locale);
+    await page.goto(`${env.base}/#/signin`);
+    await page.waitForSelector("#cc");
+    assert.equal((await page.locator("#cc").innerText()).trim(), "+974", "starts on Qatar");
+    assert.equal(await page.locator("#phone").getAttribute("pattern"), "[3-7][0-9]{7}", "Qatar keeps its strict pattern");
+    assert.equal(await page.locator("#cc-pop").isHidden(), true);
+
+    await page.click("#cc");
+    assert.equal(await page.locator("#cc-pop").isVisible(), true);
+    assert.equal(await page.locator("#cc").getAttribute("aria-expanded"), "true");
+    assert.ok((await page.locator("#cc-list li").count()) > 200, "every country");
+    assert.equal(await page.locator("#cc-IL").count(), 0, "Israel is not offered");
+    assert.equal(await page.locator("#cc-list li[data-find*='972']").count(), 0, "no +972 anywhere in the list");
+    assert.equal(await page.locator("#cc-QA").getAttribute("aria-selected"), "true");
+
+    // Escape closes it and puts focus back on the box
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#cc-pop").isHidden(), true);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "cc");
+
+    // type a name to filter, then nonsense: the "no country" line
+    await page.click("#cc");
+    await page.fill("#cc-q", name);
+    assert.equal(await page.locator("#cc-list li:not([hidden])").count(), 1, name);
+    await page.fill("#cc-q", "zzzz");
+    assert.equal(await page.locator("#cc-list li:not([hidden])").count(), 0);
+    assert.equal(await page.locator("#cc-none").isVisible(), true);
+
+    // type a code instead, then choose with the keyboard
+    await page.fill("#cc-q", "+44");
+    assert.equal(await page.locator("#cc-GB").isVisible(), true);
+    await page.fill("#cc-q", name);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("#cc-pop").isHidden(), true);
+    assert.equal((await page.locator("#cc").innerText()).trim(), "+44");
+    assert.equal(await page.locator("#phone").getAttribute("pattern"), "[0-9]{4,15}", "another country takes any plausible number");
+
+    await page.fill("#phone", number);
+    await page.click("#send");
+    await page.waitForSelector("#code");
+    assert.ok((await page.locator("main").innerText()).includes(`+44${number}`), "the full E.164 number was sent");
     assert.deepEqual(errors, []);
     await page.context().close();
   }

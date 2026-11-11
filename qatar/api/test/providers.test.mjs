@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { maskPhone, safeBase, sendSms, smsSettings } from "../src/lib/sms.js";
 import { emailSettings, sendEmail } from "../src/lib/email.js";
-import { countryCodes } from "../src/lib/config.js";
+import { ALL_COUNTRIES, blockedCountryCodes, countryCodes } from "../src/lib/config.js";
 import { outboundText } from "../src/lib/i18n.js";
 import { countryOf, reviewLogin } from "../src/routes/user.js";
 import { alertKind, alertPhones, alertText, smsText } from "../src/services/coordinator_alerts.js";
@@ -98,14 +98,34 @@ test("texts: the sign-in SMS in her language, the venue email as the venue page 
   assert.ok(outboundText("SMS_SIGN_IN_CODE", "ar", { code: "123456", minutes: 5 }).length <= 70, "one Arabic SMS segment");
 });
 
-test("countries: Qatar only by default; a bad setting never opens the door wider; codes are matched as prefixes", () => {
+test("countries: every country by default; a list narrows it; the longest calling code wins", () => {
+  assert.equal(countryCodes("*"), ALL_COUNTRIES);
+  assert.equal(countryCodes(""), ALL_COUNTRIES, "no setting = the product default, every country");
+  assert.equal(countryCodes("all"), ALL_COUNTRIES, "an unreadable setting keeps the default; narrowing must be deliberate");
   assert.deepEqual(countryCodes("974"), ["974"]);
   assert.deepEqual(countryCodes(" +974, 966,44 ,44"), ["974", "966", "44"]);
-  assert.deepEqual(countryCodes("all"), ["974"]);
-  assert.deepEqual(countryCodes(""), ["974"]);
+  // ALL_COUNTRIES: the built-in table (lib/countries.js) decides, longest code first
+  assert.equal(countryOf("+97455501234", ALL_COUNTRIES), "974");
+  assert.equal(countryOf("+447700900123", ALL_COUNTRIES), "44");
+  assert.equal(countryOf("+966501234567", ALL_COUNTRIES), "966");
+  assert.equal(countryOf("+12125550123", ALL_COUNTRIES), "1");
+  assert.equal(countryOf("+99912345678", ALL_COUNTRIES), null, "no such calling code");
+  // an explicit list
   assert.equal(countryOf("+97455501234", ["974", "44"]), "974");
-  assert.equal(countryOf("+447700900123", ["974", "44"]), "44");
   assert.equal(countryOf("+966501234567", ["974", "44"]), null);
+  assert.equal(countryOf("+12125550123", ["1", "974"]), "1");
+});
+
+test("Israel (+972) is always blocked, whatever the settings say (owner, 11 Nov 2026)", () => {
+  assert.deepEqual(blockedCountryCodes(""), ["972"]);
+  assert.deepEqual(blockedCountryCodes("972"), ["972"], "naming it again changes nothing");
+  assert.deepEqual(blockedCountryCodes(" +1 , 44"), ["972", "1", "44"]);
+  for (const setting of ["", "all", "*", "974", "972,xx"]) {
+    assert.equal(countryOf("+972501234567", countryCodes(setting), blockedCountryCodes(setting)), null, `setting ${JSON.stringify(setting)}`);
+  }
+  // listing +972 as allowed does not help either
+  assert.equal(countryOf("+972501234567", ["972", "974"], blockedCountryCodes("")), null);
+  assert.equal(countryOf("+97455501234", countryCodes("*"), blockedCountryCodes("")), "974", "Qatar is unaffected");
 });
 
 test("reviewer sign-in: on only with a valid number and a 6-digit code", () => {

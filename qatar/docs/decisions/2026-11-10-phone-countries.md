@@ -1,6 +1,7 @@
 # Visitors' numbers: Qatar only, by configuration (item 38)
 
-**Date:** 10 Nov 2026. **Status:** provisional; built.
+**Date:** 10 Nov 2026. **Status:** REPLACED on 11 Nov 2026 by [2026-11-11-phone-countries.md](2026-11-11-phone-countries.md)
+(the owner opened numbers to every country except Israel). Kept for the record.
 
 **Context.** Sign-in accepted +974 numbers only, written into the code. Visitors from the Gulf or elsewhere could not
 sign up. The choice also decides where SMS must reach (item 37).

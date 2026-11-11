@@ -233,6 +233,26 @@ textarea.input { min-height: 120px; resize: vertical; padding-block: var(--s-3);
 .phone .prefix { display: grid; place-items: center; padding: 0 var(--s-4); border-start-start-radius: var(--r-sm); border-end-start-radius: var(--r-sm);
   background: var(--c-surfaceSunken); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--c-textMuted); }
 .phone .input { border-start-start-radius: 0; border-end-start-radius: 0; font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+/* SCR-02a: the calling code is a button that opens the country list (owner's decision, 11 Nov 2026) */
+.cc-wrap { position: relative; }
+.phone button.prefix { display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1); border: 0; min-height: 52px; min-width: 76px;
+  cursor: pointer; font: inherit; font-weight: 600; color: var(--c-text); }
+.phone button.prefix::after { content: ""; width: 7px; height: 7px; border-inline-end: 1.5px solid currentColor; border-block-end: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); opacity: 0.7; }
+.phone button.prefix:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.cc-pop { position: absolute; inset-inline: 0; top: calc(100% + var(--s-2)); z-index: 30; display: grid; gap: var(--s-2);
+  padding: var(--s-3); border-radius: var(--r-md); background: var(--c-surface); box-shadow: inset 0 0 0 1.5px var(--c-border), var(--e-2); }
+.cc-pop[hidden] { display: none; }
+.cc-q { min-height: 48px; }
+.cc-list { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.cc-list li { display: flex; gap: var(--s-3); align-items: center; justify-content: space-between; min-height: 48px;
+  padding: var(--s-2) var(--s-3); border-radius: var(--r-sm); cursor: pointer; }
+.cc-list li[hidden] { display: none; }
+.cc-list li .cc-name { min-width: 0; overflow-wrap: anywhere; }
+.cc-list li .cc-dial { flex: none; color: var(--c-textMuted); font-variant-numeric: tabular-nums; }
+.cc-list li.is-active, .cc-list li:hover { background: var(--c-surfaceSunken); }
+.cc-list li[aria-selected="true"] { box-shadow: inset 0 0 0 1.5px var(--c-primary); font-weight: 600; }
+.cc-none { margin: 0; padding: var(--s-2) var(--s-3); color: var(--c-textMuted); }
+.cc-none[hidden] { display: none; }
 .otp { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.7500); letter-spacing: 0.4em; text-align: center; direction: ltr; font-variant-numeric: tabular-nums; }
 .error-text { color: var(--c-danger); font-size: var(--t-caption-size); }
 .error-text:empty { display: none; }
@@ -634,9 +654,7 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
 .shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }
 .shared-themes .lucide, .shared-themes svg { flex: none; width: 20px; height: 20px; color: var(--c-primary); margin-block-start: 2px; }
 .hero-welcome .quiz-length { margin: 0; text-align: center; color: var(--c-textMuted); }
-/* T12: "Qatar numbers only" said before the questionnaire, as a quiet line under the length hint */
-.hero-welcome .stack > .qatar-only { margin: var(--s-1) 0 0; text-align: center; color: var(--c-textMuted); }
-.hero-welcome .qatar-only + .btn { margin-block-start: var(--s-5); }
+.hero-welcome .quiz-length + .btn { margin-block-start: var(--s-5); }
 .occ-note { margin: 0; color: var(--c-textMuted); }
 /* "You're all set" after payment: the booked meetup as a card, then what happens next. */
 .all-set { gap: var(--s-4); }

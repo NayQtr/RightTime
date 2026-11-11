@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/countries.dart';
 import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
 import 'sign_in_view_model.dart';
 import 'widgets.dart';
+import '../../core/sounds.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
@@ -21,6 +23,10 @@ class PhoneScreen extends StatefulWidget {
 class _PhoneScreenState extends State<PhoneScreen> {
   final _phone = TextEditingController();
 
+  /// The country the number belongs to. Qatar to begin with (owner's decision, 11 Nov 2026: every country except
+  /// Israel, which is not in the list at all).
+  Country _country = countryByIso(kDefaultCountry);
+
   @override
   void dispose() {
     _phone.dispose();
@@ -28,13 +34,27 @@ class _PhoneScreenState extends State<PhoneScreen> {
   }
 
   Future<void> _submit(SignInViewModel vm) async {
-    if (await vm.sendCode(_phone.text) && mounted) context.go('/sign-in/code');
+    if (await vm.sendCode(_phone.text, dial: _country.dial) && mounted) context.go('/sign-in/code');
+  }
+
+  Future<void> _pickCountry() async {
+    Sounds.instance.play(UiSound.sheetOpen);
+    final chosen = await showModalBottomSheet<Country>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _CountrySheet(),
+    );
+    Sounds.instance.play(UiSound.sheetClose);
+    if (chosen != null && mounted) setState(() => _country = chosen);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final vm = context.watch<SignInViewModel>();
+    final lang = Localizations.localeOf(context).languageCode;
+    final qatar = _country.dial == '974';
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -45,20 +65,33 @@ class _PhoneScreenState extends State<PhoneScreen> {
             const SizedBox(height: HzSpace.s2),
             Text(t.phoneHelp),
             const SizedBox(height: HzSpace.s6),
-            Ltr(TestId('phone', child: TextField(
-              key: const Key('phone'),
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              autofillHints: const [AutofillHints.telephoneNumberNational],
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')), LengthLimitingTextInputFormatter(9)],
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _submit(vm),
-              decoration: InputDecoration(
-                labelText: t.phoneLabel,
-                prefixText: '+974 ',
-                errorText: vm.phoneInvalid ? t.phoneInvalid : null,
-              ),
-            ))),
+            // The calling code is its own box and opens the country list; the number goes in the box beside it. Left to
+            // right in both languages, as a phone number is read.
+            Ltr(Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(height: 56, child: IntrinsicWidth(child: TestId('country', child: Press(child: OutlinedButton(
+                key: const Key('country'),
+                onPressed: _pickCountry,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Semantics(label: '${t.countryLabel}: ${_country.name(lang)}', child: Text('+${_country.dial}')),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ]),
+              ))))),
+              const SizedBox(width: HzSpace.s2),
+              Expanded(child: TestId('phone', child: TextField(
+                key: const Key('phone'),
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumberNational],
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')), LengthLimitingTextInputFormatter(qatar ? 9 : 17)],
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submit(vm),
+                decoration: InputDecoration(
+                  labelText: t.phoneLabel,
+                  // Qatar keeps its 8-digit rule; for any other country the server has the last word.
+                  errorText: vm.phoneInvalid ? (qatar ? t.phoneInvalid : t.csPhoneBad) : null,
+                ),
+              ))),
+            ])),
             if (vm.error != null) ...[const SizedBox(height: HzSpace.s4), ErrorBanner(vm.error!)],
             const SizedBox(height: HzSpace.s6),
             Press(child: FilledButton(
@@ -68,6 +101,66 @@ class _PhoneScreenState extends State<PhoneScreen> {
             )),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Every country we accept, filtered as she types by name (Arabic or English) or by calling code.
+class _CountrySheet extends StatefulWidget {
+  const _CountrySheet();
+
+  @override
+  State<_CountrySheet> createState() => _CountrySheetState();
+}
+
+class _CountrySheetState extends State<_CountrySheet> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final lang = Localizations.localeOf(context).languageCode;
+    final needle = _query.text.trim().toLowerCase().replaceFirst('+', '');
+    final all = [...kCountries]..sort((a, b) => a.name(lang).compareTo(b.name(lang)));
+    final shown = needle.isEmpty
+        ? all
+        : all.where((c) => c.en.toLowerCase().contains(needle) || c.ar.contains(needle) || c.dial.contains(needle)).toList();
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.8,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(HzSpace.gutter),
+            child: TestId('country-search', child: TextField(
+              key: const Key('country-search'),
+              controller: _query,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(labelText: t.countrySearch, prefixIcon: const Icon(Icons.search)),
+            )),
+          ),
+          if (shown.isEmpty)
+            Padding(padding: const EdgeInsets.all(HzSpace.gutter), child: Text(t.countryNone, key: const Key('country-none')))
+          else
+            Expanded(child: ListView.builder(
+              itemCount: shown.length,
+              itemBuilder: (context, i) => ListTile(
+                key: Key('country-${shown[i].iso}'),
+                title: Text(shown[i].name(lang)),
+                trailing: Ltr(Text('+${shown[i].dial}')),
+                onTap: () => Navigator.of(context).pop(shown[i]),
+              ),
+            )),
+        ]),
       ),
     );
   }

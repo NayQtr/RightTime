@@ -12,8 +12,9 @@ The full list of provisional choices of that day, in Arabic, is `provisional-202
 | 2026-11-06 | [Backups: encrypted dump now, Supabase Pro at launch](2026-11-06-backups.md) | Owner agreed | 13a |
 | 2026-11-10 | [Biometric lock not extended to meetup details](2026-11-10-biometric-lock.md) | Provisional | 9 |
 | 2026-11-10 | [SMS provider: Twilio](2026-11-10-sms-provider.md) | Provisional | 37 |
-| 2026-11-10 | [Visitors' numbers: Qatar only, by configuration](2026-11-10-phone-countries.md) | Provisional | 38 |
+| 2026-11-10 | [Visitors' numbers: Qatar only, by configuration](2026-11-10-phone-countries.md) | Replaced on 11 Nov | 38 |
 | 2026-11-10 | [Coordinator alerts: push and SMS](2026-11-10-coordinator-alerts.md) | Provisional | 40 |
 | 2026-11-10 | [Real-font layout check kept](2026-11-10-real-font-check.md) | Provisional | 47 |
+| 2026-11-11 | [Phone numbers: every country except Israel, with a country picker](2026-11-11-phone-countries.md) | Owner's decision | 38 |
 
 New page: copy one of these, name it `YYYY-MM-DD-topic.md`, and add a row here.

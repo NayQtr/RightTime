@@ -3,6 +3,31 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Country picker: every country except Israel [2026-11-11]
+
+Owner's decision (11 Nov), built on `rightime-app`: sign-in takes numbers from EVERY country except Israel (+972).
+The phone field is now two boxes — a clickable calling-code box starting on +974 that opens a searchable list of every
+country, and the number box beside it — on the website and in the app. Qatar keeps its strict 8-digit pattern; any
+other country takes any valid international number and the server decides. "Qatar numbers only" is gone everywhere
+(`qatarOnly` deleted from web/strings.js and both .arb files and from both welcome screens; `phoneHelp` is now the
+first sentence alone; the server's UNSUPPORTED_COUNTRY message no longer names Qatar). Decision page:
+`qatar/docs/decisions/2026-11-11-phone-countries.md`.
+
+OPEN FOR THE OWNER:
+1. **Migration `024_phone_countries.sql` must be pasted into BOTH Supabase projects** (staging and production) before
+   this reaches either; without it the stored `PHONE_ALLOWED_COUNTRY_CODES` row still says `974` and only Qatar is
+   accepted. (+972 is refused by the code itself, whatever the row says.)
+2. **Three new texts are Claude's wording and need the owner's own** (they are the only new member-facing copy):
+   `countryLabel` «رمز الدولة» / "Country code", `countrySearch` «ابحثي عن دولة» / "Search for a country",
+   `countryNone` «لا توجد دولة بهذا الاسم.» / "No country matches that."
+3. **The server's UNSUPPORTED_COUNTRY message** was rewritten to be accurate: «لا نقبل الأرقام من هذه الدولة.» /
+   "We don't accept numbers from this country." Owner's wording awaited.
+4. The app shows the already-approved «رقم الهاتف غير صحيح.» / "That phone number isn't valid." (the `csPhoneBad`
+   text, same as the server's INVALID_PHONE) when a non-Qatar number is clearly not a number. Confirm that reuse.
+5. Country names in the list are factual data written by Claude (ISO 3166 short names, Arabic and English). One
+   source: `qatar/api/src/lib/countries.js`; `node qatar/ops/build-countries.mjs` regenerates the website's and the
+   app's copies. Tell us if any Arabic country name should read differently.
+
 ## Provisional decisions [2026-11-11]
 
 Owner (10 Nov): handle every item, including those needing a decision, provisionally and set aside for review; skip what blocks.

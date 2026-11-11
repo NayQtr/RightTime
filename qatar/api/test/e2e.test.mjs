@@ -50,8 +50,14 @@ async function moveSession(id, field, deltaMs) {
 
 // ===================================================================== auth & registration
 test("OTP: phone validation, dev code, wrong code, rate limit, verify", async () => {
-  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+447700900123", locale: "en" } })).body.code, "UNSUPPORTED_COUNTRY");
+  // every country except Israel (owner, 11 Nov 2026): a blocked or unknown calling code is refused, any other is taken
+  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+972501234567", locale: "en" } })).body.code, "UNSUPPORTED_COUNTRY");
+  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+99912345678", locale: "en" } })).body.code, "UNSUPPORTED_COUNTRY");
+  const abroad = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+447700900123", locale: "en" } });
+  assert.equal(abroad.status, 202, JSON.stringify(abroad.body));
+  assert.equal((await sql`SELECT country_code FROM app.otp_challenges WHERE id = ${abroad.body.challenge_id}`)[0].country_code, "44", "counted against +44");
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97412", locale: "ar" } })).body.code, "INVALID_PHONE");
+  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97412345678", locale: "ar" } })).body.code, "INVALID_PHONE", "Qatar keeps its strict 8-digit pattern");
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501234" }, idem: false })).body.code, "IDEMPOTENCY_KEY_REQUIRED");
   const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501234", locale: "ar", purpose: "login" } });
   assert.equal(r1.status, 202);

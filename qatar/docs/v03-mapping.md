@@ -16,7 +16,7 @@ app has no booking screen for that step.
 | ID | Screen | Status | Web | App | Notes |
 |---|---|---|---|---|---|
 | SCR-01 | Onboarding | built, differs | `#/welcome` `scrWelcome` | `ui/onboarding/welcome_screen.dart` | One welcome screen with the table drawing instead of a 3-card carousel; the owner's welcome phrase and headings. Quiz comes before sign-in (owner's flow). |
-| SCR-02a | Phone | built | `#/signin` `scrPhone` | `ui/auth/phone_screen.dart` | +974 fixed prefix; other countries by setting (`PHONE_ALLOWED_COUNTRY_CODES`, item 38). `autocomplete="tel-national"`, numeric keypad. |
+| SCR-02a | Phone | built | `#/signin` `scrPhone` | `ui/auth/phone_screen.dart` | Country picker starting on +974 beside the number box: every country except Israel (owner, 11 Nov 2026; item 38). `autocomplete="tel-national"`, numeric keypad. |
 | SCR-02b | OTP | built | `#/otp` `scrOtp` | `ui/auth/otp_screen.dart` | One 6-digit field, `one-time-code`, paste, resend countdown from `resend_after`, attempts left shown. |
 | SCR-02c | Eligibility & consents | built, differs | `#/register` `scrRegister` (+ `#/name`) | `ui/onboarding/register_screen.dart` | Adds the women-only confirmation; consents stored with document versions; marketing off by default. |
 | SCR-03 | Questionnaire | built, differs | `#/quiz/{n}` `scrQuiz`, `quiz-flow.js` | `ui/onboarding/quiz_screen.dart` | Questionnaire v5 (QA-2026-05, 25 questions incl. personality and Q25) instead of the 6 profile cards; purpose line on every question; «لا تفضيل» exclusive; time left shown. |

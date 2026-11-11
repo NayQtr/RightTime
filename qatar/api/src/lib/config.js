@@ -1,4 +1,6 @@
 // Runtime configuration: app.app_config rows, overridable by environment variables of the same name.
+import { BLOCKED_CALLING_CODES } from "./countries.js";
+
 let cache = null;
 let loadedAt = 0;
 const TTL_MS = 30_000;
@@ -51,7 +53,11 @@ export async function loadConfig(sql, getEnv) {
     // (lib/sms.js, lib/email.js, routes/user.js, services/coordinator_alerts.js), never from here.
     smsProvider: get("SMS_PROVIDER", "").trim().toLowerCase(),          // "twilio"; empty = no SMS
     emailProvider: get("EMAIL_PROVIDER", "").trim().toLowerCase(),      // "resend"; empty = no email
-    phoneCountryCodes: countryCodes(get("PHONE_ALLOWED_COUNTRY_CODES", "974")),
+    // Owner's decision (11 Nov 2026): every country except Israel. ALL_COUNTRIES by default; a list of calling codes
+    // narrows it deliberately. PHONE_BLOCKED_COUNTRY_CODES adds to the codes that are never accepted; +972 is in that
+    // list whatever the settings say.
+    phoneCountryCodes: countryCodes(get("PHONE_ALLOWED_COUNTRY_CODES", "*")),
+    phoneBlockedCountryCodes: blockedCountryCodes(get("PHONE_BLOCKED_COUNTRY_CODES", "")),
     otpCountryHourlyCap: whole(get("OTP_COUNTRY_HOURLY_CAP", "20"), 20, 0, 10000),
     coordinatorEscalateMinutes: whole(get("COORDINATOR_ESCALATE_MINUTES", "5"), 5, 1, 1440),
     // Provisional (10 Nov, item 32): a celebration (birthday or another occasion) can be booked only this many hours or
@@ -72,9 +78,22 @@ function whole(v, d, min, max) {
   return Number.isInteger(n) && n >= min && n <= max ? n : d;
 }
 
-// "974, 966,44" -> ["974", "966", "44"]. Calling codes are 1 to 3 digits; anything else is ignored, and an empty result
-// falls back to Qatar only.
+// Every country (the product default) rather than a list of calling codes.
+export const ALL_COUNTRIES = "*";
+
+// "974, 966,44" -> ["974", "966", "44"]; "*", empty or unreadable -> ALL_COUNTRIES. Calling codes are 1 to 3 digits;
+// anything else is ignored. Narrowing the world down to a list has to be deliberate, so a setting with no readable code
+// in it (a typo such as "all") keeps every country — the blocked list below is what a mistake must never widen.
 export function countryCodes(v) {
-  const codes = [...new Set(String(v || "").split(",").map((s) => s.trim().replace(/^\+/, "")).filter((s) => /^[1-9][0-9]{0,2}$/.test(s)))];
-  return codes.length ? codes : ["974"];
+  const raw = String(v ?? "").trim();
+  if (raw === ALL_COUNTRIES) return ALL_COUNTRIES;
+  const codes = [...new Set(raw.split(",").map((s) => s.trim().replace(/^\+/, "")).filter((s) => /^[1-9][0-9]{0,2}$/.test(s)))];
+  return codes.length ? codes : ALL_COUNTRIES;
+}
+
+// Calling codes that are never accepted: Israel (+972, the owner's decision of 11 Nov 2026) and any the setting adds.
+// Nothing a setting says can take +972 off this list.
+export function blockedCountryCodes(v) {
+  const extra = String(v ?? "").split(",").map((s) => s.trim().replace(/^\+/, "")).filter((s) => /^[1-9][0-9]{0,2}$/.test(s));
+  return [...new Set([...BLOCKED_CALLING_CODES, ...extra])];
 }

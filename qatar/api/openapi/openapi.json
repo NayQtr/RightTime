@@ -60,7 +60,7 @@
             "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
-        "summary": "Send a sign-in code by SMS (in the request's locale) to a mobile number of an allowed country (Qatar only by default). 422 UNSUPPORTED_COUNTRY for other countries; 429 also when the hourly cap for a visitor country is reached; 503 when no SMS provider is set up or the provider refused the message (nothing is kept, ask again)",
+        "summary": "Send a sign-in code by SMS (in the request's locale) to a mobile number of any country except Israel. 422 UNSUPPORTED_COUNTRY for a blocked or unknown calling code; 429 also when the hourly cap for a country outside Qatar is reached; 503 when no SMS provider is set up or the provider refused the message (nothing is kept, ask again)",
         "requestBody": {
           "required": true,
           "content": {
@@ -71,7 +71,7 @@
                   "phone_e164": {
                     "type": "string",
                     "example": "+97455501234",
-                    "description": "+974 followed by 8 digits starting 3-7; another allowed country (server setting PHONE_ALLOWED_COUNTRY_CODES): any valid E.164 number"
+                    "description": "+974 followed by 8 digits starting 3-7; any other country: any valid E.164 number. Israel (+972) is refused with UNSUPPORTED_COUNTRY"
                   },
                   "locale": {
                     "type": "string",

@@ -6,7 +6,8 @@ export const STRINGS = {
     
     
     // SCR-02
-    phoneTitle: "رقم جوالك", phoneHelp: "نرسل لكِ رمزًا من 6 أرقام. نقبل أرقام قطر فقط حاليًا.", phoneLabel: "رقم الجوال", sendCode: "أرسلي الرمز",
+    phoneTitle: "رقم جوالك", phoneHelp: "نرسل لكِ رمزًا من 6 أرقام.", phoneLabel: "رقم الجوال", sendCode: "أرسلي الرمز",
+    countryLabel: "رمز الدولة", countrySearch: "ابحثي عن دولة", countryNone: "لا توجد دولة بهذا الاسم.",
     otpTitle: "أدخلي الرمز", otpHelp: "أرسلنا رمزًا إلى", otpLabel: "رمز التحقق", verify: "تحقّقي", resend: "إعادة الإرسال", resendIn: "إعادة الإرسال بعد {s} ث",
     devCode: "بيئة تجريبية: الرمز هو", attemptsLeft: "محاولات متبقية: {n}",
     regTitle: "قبل أن نبدأ", nameLabel: "اسمك الأول كما في بطاقة الدفع", nameHelp: "يظهر لزميلات الطاولة يوم اللقاء. ونطابقه مع الاسم على بطاقة الدفع لحماية اللقاءات.", nameRequired: "اكتبي اسمك الأول.", cIdentity: "اسم بطاقة الدفع لا يطابق اسم الحساب", idCheckPending: "نراجع بيانات الدفع لحجزك. سنكشف لكِ المكان ورمز الطاولة بعد المراجعة.",
@@ -31,8 +32,8 @@ export const STRINGS = {
     occasionNotice: "الاحتفال بمناسبة يحتاج إلى حجز قبل {days} أيام على الأقل.",
     celebrationBirthday: "إحدى الضيفات تحتفل بعيد ميلادها", celebrationOther: "إحدى الضيفات تحتفل بمناسبة خاصة",
     errGenericNext: "إن تكرّر الخطأ، تواصلي معنا.", rfFailedNext: "سيتواصل معكِ فريقنا خلال يوم عمل.",
-    // the app's approved texts (payFailed's second sentence, noCases) and the phone hint's second sentence
-    payFailedNext: "يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.", noCases: "لا توجد قرارات تخصّك.", qatarOnly: "نقبل أرقام قطر فقط حاليًا.",
+    // the app's approved texts (payFailed's second sentence, noCases)
+    payFailedNext: "يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.", noCases: "لا توجد قرارات تخصّك.",
     reviewTitle: "راجعي حجزك", experience: "التجربة", dateTime: "الموعد", district: "المنطقة", tableLanguage: "لغة الطاولة", groupSizeLabel: "حجم المجموعة",
     feeNow: "رسم التنظيم (يُدفع الآن)", foodAtVenue: "الطعام والمشروبات (تُدفع للمكان)", foodBand: "ضمن ميزانيتك: {band}",
     policyBox: "يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
@@ -157,7 +158,8 @@ export const STRINGS = {
     loading: "Loading…", retry: "Try again", close: "Close", signOut: "Sign out",
     
     
-    phoneTitle: "Your mobile number", phoneHelp: "We'll send you a 6-digit code. We currently accept Qatar numbers only.", phoneLabel: "Mobile number", sendCode: "Send code",
+    phoneTitle: "Your mobile number", phoneHelp: "We'll send you a 6-digit code.", phoneLabel: "Mobile number", sendCode: "Send code",
+    countryLabel: "Country code", countrySearch: "Search for a country", countryNone: "No country matches that.",
     otpTitle: "Enter the code", otpHelp: "We sent a code to", otpLabel: "Verification code", verify: "Verify", resend: "Resend code", resendIn: "Resend in {s}s",
     devCode: "Staging: the code is", attemptsLeft: "Attempts left: {n}",
     regTitle: "Before we start", nameLabel: "Your first name, as on your payment card", nameHelp: "Shown to your tablemates on the day of the event. We also match it with the name on your payment card, to keep meetups safe.", nameRequired: "Enter your first name.", cIdentity: "The name on the payment card does not match the account", idCheckPending: "We are reviewing the payment details of your booking. We will show you the venue and table code after the review.",
@@ -177,7 +179,7 @@ export const STRINGS = {
     occasionNotice: "Celebrations need at least {days} days' notice.",
     celebrationBirthday: "One of the guests is celebrating her birthday", celebrationOther: "One of the guests is celebrating a special occasion",
     errGenericNext: "If it happens again, contact us.", rfFailedNext: "Our team will contact you within one business day.",
-    payFailedNext: "You can try again while the seat is held.", noCases: "There are no decisions about you.", qatarOnly: "We currently accept Qatar numbers only.",
+    payFailedNext: "You can try again while the seat is held.", noCases: "There are no decisions about you.",
     reviewTitle: "Review your booking", experience: "Experience", dateTime: "Date & time", district: "Area", tableLanguage: "Table language", groupSizeLabel: "Group size",
     feeNow: "Organising fee (paid now)", foodAtVenue: "Food & drinks (paid to the venue)", foodBand: "Within your budget: {band}",
     policyBox: "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",

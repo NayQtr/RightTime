@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
 import 'package:herzone/core/config.dart';
 import 'package:herzone/core/token_store.dart';
+import 'package:herzone/data/auth_repository.dart';
+import 'package:herzone/data/countries.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
 import 'package:herzone/main.dart' show scrub, scrubEvent;
@@ -117,6 +119,70 @@ void main() {
     expect(find.text('Meet people who get you.'), findsOneWidget, reason: 'back to the welcome screen, in English');
     // the resend countdown timer must not outlive the test
     await tester.pump(const Duration(seconds: 60));
+  });
+
+  // Owner's decision (11 Nov 2026): every country except Israel, Qatar to start on, the calling code its own tappable
+  // box with a searchable list, and the full E.164 number sent to the server.
+  testWidgets('phone: the country box opens a searchable list (no Israel), Qatar first, and the full number is sent', (tester) async {
+    final log = <String>[];
+    final bodies = <String>[];
+    await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(),
+        httpClientFactory: () => MockClient((r) async {
+          bodies.add(r.body);
+          return fakeHandler(log)(r);
+        })));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('have-account')));
+    await tester.pumpAndSettle();
+
+    // Israel is nowhere in the list the app ships
+    expect(kCountries.where((c) => c.dial == '972'), isEmpty);
+    expect(kCountries.length, greaterThan(200));
+    expect(countryByIso('QA').dial, '974');
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+974')), findsOneWidget, reason: 'starts on Qatar');
+
+    // Qatar keeps its 8-digit rule
+    await tester.enterText(find.byKey(const Key('phone')), '1234');
+    await tester.tap(find.byKey(const Key('send')));
+    await tester.pumpAndSettle();
+    expect(find.text('أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.'), findsOneWidget);
+    expect(log, isEmpty);
+
+    // the box opens the list; typing filters it by name or by code
+    await tester.tap(find.byKey(const Key('country')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('country-search')), findsOneWidget);
+    expect(find.byKey(const Key('country-IL')), findsNothing);
+    await tester.enterText(find.byKey(const Key('country-search')), 'المملكة المتحدة');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('country-GB')), findsOneWidget);
+    expect(find.byKey(const Key('country-QA')), findsNothing);
+    await tester.enterText(find.byKey(const Key('country-search')), 'zzzz');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('country-none')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('country-search')), '+44');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('country-GB')));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+44')), findsOneWidget);
+
+    // another country takes a longer number, and the server gets the full E.164 form
+    await tester.enterText(find.byKey(const Key('phone')), '7700 900123');
+    await tester.tap(find.byKey(const Key('send')));
+    await tester.pumpAndSettle();
+    expect(find.text('أدخلي الرمز'), findsOneWidget);
+    expect(bodies.any((b) => b.contains('"phone_e164":"+447700900123"')), true, reason: bodies.join(' | '));
+    await tester.pump(const Duration(seconds: 60));
+  });
+
+  test('toE164: Qatar is strict, another country takes a plausible international number, never longer than E.164', () {
+    expect(AuthRepository.toE164('5550 1234'), '+97455501234');
+    expect(AuthRepository.toE164('1234'), isNull);
+    expect(AuthRepository.toE164('12345678', dial: '974'), isNull, reason: 'Qatar mobiles start 3-7');
+    expect(AuthRepository.toE164('7700 900123', dial: '44'), '+447700900123');
+    expect(AuthRepository.toE164('12345678', dial: '1'), '+112345678');
+    expect(AuthRepository.toE164('123', dial: '44'), isNull, reason: 'too short to be a number');
+    expect(AuthRepository.toE164('1234567890123456', dial: '44'), isNull, reason: 'longer than E.164 allows');
   });
 
   testWidgets('account deletion from inside the app (store rule): confirm first, server first, then the device is wiped', (tester) async {

@@ -15,7 +15,7 @@ export const ERRORS = {
   INTERNAL: ["حدث خطأ. حاولي مرة أخرى.", "Something went wrong. Please try again."],
   UNAVAILABLE: ["الخدمة غير متاحة مؤقتًا.", "The service is temporarily unavailable."],
   INVALID_PHONE: ["رقم الهاتف غير صحيح.", "That phone number isn't valid."],
-  UNSUPPORTED_COUNTRY: ["نقبل حاليًا أرقام قطر فقط.", "We currently accept Qatar numbers only."],
+  UNSUPPORTED_COUNTRY: ["لا نقبل الأرقام من هذه الدولة.", "We don't accept numbers from this country."],
   OTP_RATE_LIMITED: ["طلبتِ رموزًا كثيرة. انتظري قليلًا.", "Too many codes requested. Please wait a moment."],
   OTP_INVALID: ["الرمز غير صحيح.", "That code isn't correct."],
   CHALLENGE_NOT_FOUND: ["اطلبي رمزًا جديدًا.", "Please request a new code."],

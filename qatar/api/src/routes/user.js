@@ -1,6 +1,8 @@
 // User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
 import { decrypt, encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
+import { ALL_COUNTRIES } from "../lib/config.js";
+import { callingCodeOf } from "../lib/countries.js";
 import { decisionLabel, durationText, outboundText, renderTemplate } from "../lib/i18n.js";
 import { sendSms, smsSettings } from "../lib/sms.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
@@ -99,8 +101,15 @@ export function reviewLogin(getEnv) {
   return /^\+[1-9][0-9]{6,14}$/.test(phone) && /^[0-9]{6}$/.test(code) ? { phone, code } : null;
 }
 
-// The allowed calling code a number starts with, or null (calling codes are prefix-free, so at most one matches).
-export const countryOf = (phone, codes) => codes.find((c) => phone.startsWith(`+${c}`)) || null;
+// The calling code a number belongs to, or null when the server does not accept it. `allowed` is ALL_COUNTRIES (every
+// country in the built-in table, lib/countries.js) or an explicit list of calling codes; `blocked` always holds +972
+// (owner's decision, 11 Nov 2026). The longest code wins, so a 3-digit code is never read as a 1-digit one.
+export const countryOf = (phone, allowed, blocked = []) => {
+  const code = allowed === ALL_COUNTRIES
+    ? callingCodeOf(phone)
+    : [...allowed].sort((a, b) => b.length - a.length).find((c) => phone.startsWith(`+${c}`)) || null;
+  return code && !blocked.includes(code) ? code : null;
+};
 
 async function otpRequest(ctx) {
   const { sql, cfg, keys, body } = ctx;
@@ -108,9 +117,10 @@ async function otpRequest(ctx) {
   if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
   const review = reviewLogin(ctx.getEnv);
   const isReview = Boolean(review && review.phone === phone);
-  // Item 38 (provisional: Qatar only at launch; PHONE_ALLOWED_COUNTRY_CODES widens it). A Qatar number keeps its strict
-  // pattern; another allowed country takes any valid international number. The reviewer's number is taken as set.
-  const country = countryOf(phone, cfg.phoneCountryCodes);
+  // Item 38 (owner's decision, 11 Nov 2026): every country except Israel (+972), which is refused whatever the settings
+  // say. A Qatar number keeps its strict pattern; any other country takes any valid international number. The
+  // reviewer's number is taken as set.
+  const country = countryOf(phone, cfg.phoneCountryCodes, cfg.phoneBlockedCountryCodes);
   if (!country && !isReview) fail(422, "UNSUPPORTED_COUNTRY", [{ field: "phone_e164", code: "UNSUPPORTED_COUNTRY" }]);
   if (country === "974" && !isReview && !/^\+974[3-7][0-9]{7}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
   const lookup = hmacHex(keys.phonePepper, phone);

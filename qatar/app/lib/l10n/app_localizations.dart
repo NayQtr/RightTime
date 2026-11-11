@@ -263,7 +263,7 @@ abstract class AppLocalizations {
   /// No description provided for @phoneHelp.
   ///
   /// In ar, this message translates to:
-  /// **'نرسل لكِ رمزًا من 6 أرقام. نقبل أرقام قطر فقط حاليًا.'**
+  /// **'نرسل لكِ رمزًا من 6 أرقام.'**
   String get phoneHelp;
 
   /// No description provided for @phoneLabel.
@@ -271,6 +271,24 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'رقم الجوال'**
   String get phoneLabel;
+
+  /// No description provided for @countryLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز الدولة'**
+  String get countryLabel;
+
+  /// No description provided for @countrySearch.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحثي عن دولة'**
+  String get countrySearch;
+
+  /// No description provided for @countryNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد دولة بهذا الاسم.'**
+  String get countryNone;
 
   /// No description provided for @phoneInvalid.
   ///
@@ -1273,12 +1291,6 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'إن تكرّر الخطأ، تواصلي معنا.'**
   String get errGenericNext;
-
-  /// No description provided for @qatarOnly.
-  ///
-  /// In ar, this message translates to:
-  /// **'نقبل أرقام قطر فقط حاليًا.'**
-  String get qatarOnly;
 
   /// No description provided for @reviewTitle.
   ///

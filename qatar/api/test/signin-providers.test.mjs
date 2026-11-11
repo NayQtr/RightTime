@@ -1,6 +1,7 @@
 // Sign-in with providers on, as in production (OTP_DEV_MODE false): the member's code goes by SMS (Twilio, item 37), the
-// venue's by email (Resend, item 14c), visitors' countries are configurable with an hourly cap (item 38), and the app
-// reviewers' fixed number and code work without any SMS (item 11). The providers are fake local servers.
+// venue's by email (Resend, item 14c), the allowed countries are configurable with an hourly cap and Israel is refused
+// even when the setting lists it (item 38), and the app reviewers' fixed number and code work without any SMS
+// (item 11). The providers are fake local servers.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -34,7 +35,7 @@ before(async () => {
   buildTemplate();
   env = await startTestEnv({ OTP_DEV_MODE: "false",
     SMS_PROVIDER: "twilio", TWILIO_ACCOUNT_SID: SID, TWILIO_AUTH_TOKEN: "test-twilio-token", TWILIO_FROM: "HerZone", TWILIO_BASE_URL: base,
-    PHONE_ALLOWED_COUNTRY_CODES: "974,44", OTP_COUNTRY_HOURLY_CAP: "2",
+    PHONE_ALLOWED_COUNTRY_CODES: "974,44,972", OTP_COUNTRY_HOURLY_CAP: "2",
     REVIEW_PHONE_E164: REVIEW.phone, REVIEW_OTP_CODE: REVIEW.code,
     EMAIL_PROVIDER: "resend", RESEND_API_KEY: "re_test_key", EMAIL_FROM: "HerZone <venues@herzone.test>", RESEND_BASE_URL: base });
   call = client(env.base);
@@ -84,8 +85,10 @@ test("SMS provider refuses: 503, the challenge can no longer be used but still c
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501236" } })).status, 202);
 });
 
-test("countries: an allowed visitor country takes any valid number, with an hourly cap per country; others stay refused", async () => {
+test("countries: an allowed country takes any valid number, with an hourly cap per country; others stay refused", async () => {
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+966501234567" } })).body.code, "UNSUPPORTED_COUNTRY");
+  // this server's setting even lists +972; Israel is refused all the same (owner's decision, 11 Nov 2026)
+  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+972501234567" } })).body.code, "UNSUPPORTED_COUNTRY");
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97412345678" } })).body.code, "INVALID_PHONE", "Qatar keeps its strict pattern");
   const n = sms.length;
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+447700900111" } })).status, 202);
