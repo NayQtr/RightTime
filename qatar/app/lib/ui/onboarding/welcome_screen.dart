@@ -17,7 +17,9 @@ class WelcomeScreen extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     final tt = Theme.of(context).textTheme;
-    // the last words of the headline in the brand colour, as on herzone.app ("تعرّفي على ناس.. تفهمك")
+    // The last words of the headline sit on the owner's yellow with dark ink, as on herzone.app (owner, 11 Nov):
+    // yellow is a fill here and nowhere else. The text itself is left exactly as the translation gives it, so what a
+    // screen reader reads and what the tests look for stay the headline.
     final hero = t.welcomeHero;
     final em = t.welcomeHeroEm;
     final at = hero.lastIndexOf(em);
@@ -25,7 +27,7 @@ class WelcomeScreen extends StatelessWidget {
         ? Text(hero, style: tt.displaySmall)
         : Text.rich(TextSpan(style: tt.displaySmall, children: [
             TextSpan(text: hero.substring(0, at)),
-            TextSpan(text: em, style: TextStyle(color: c.primary)),
+            TextSpan(text: em, style: TextStyle(color: c.onAccent, backgroundColor: c.accent)),
             TextSpan(text: hero.substring(at + em.length)),
           ]));
     return Scaffold(

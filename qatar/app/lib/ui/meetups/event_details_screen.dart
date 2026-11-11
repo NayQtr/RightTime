@@ -95,7 +95,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               _Fact(icon: Icons.place_outlined, label: t.district, value: d.district),
               _Fact(icon: Icons.translate, label: t.tableLanguage, value: d.language == 'ar' ? t.langAr : t.langEn),
               if (d.foodBand != null) _Fact(icon: Icons.account_balance_wallet_outlined, label: t.foodBandLabel, value: d.foodBand!),
-              _Fact(icon: Icons.schedule, label: t.dateTime, value: fmtTime(d.startsAt, lang)),
+              // The time zone is named the owner's way (11 Nov): "GMT+3", not the IANA id "Asia/Qatar".
+              _Fact(icon: Icons.schedule, label: t.dateTime, value: '${fmtTime(d.startsAt, lang)} · GMT+3'),
               if (d.confirmedCount != null) ...[
                 const SizedBox(height: HzSpace.s4),
                 Text(t.yourTable, style: tt.titleLarge),

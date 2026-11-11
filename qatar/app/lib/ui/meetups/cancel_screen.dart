@@ -88,7 +88,8 @@ class _CancelFormState extends State<_CancelForm> {
       TestId('refund-outcome', child: Container(
         key: const Key('refund-outcome'),
         padding: const EdgeInsets.all(HzSpace.s3),
-        decoration: BoxDecoration(color: (full ? c.info : c.warning).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
+        // same as the booking review: a full refund reads on the sunken surface, a partial one keeps the warning tint
+        decoration: BoxDecoration(color: full ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(outcome),
       )),
       const SizedBox(height: HzSpace.s4),

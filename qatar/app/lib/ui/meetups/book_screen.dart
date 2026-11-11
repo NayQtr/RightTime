@@ -163,7 +163,9 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         const SizedBox(height: HzSpace.s3),
         Container(
           padding: const EdgeInsets.all(HzSpace.s3),
-          decoration: BoxDecoration(color: (bk.refundWindowOpen ? c.info : c.warning).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
+          // The ordinary refund note sits on the sunken surface, as the same note does on the website; only the late
+          // warning is tinted. "info" is a steel blue and washed out grey over the warm background of identity v0.5.
+          decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
           child: Text(bk.refundWindowOpen && bk.fullRefundUntil != null ? t.policyBox(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
         ),
         if (bk.ackRequired)
