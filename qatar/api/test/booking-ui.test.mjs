@@ -59,46 +59,24 @@ test("welcome: nothing is said about one country any more", async () => {
   }
 });
 
-// Owner's decision (11 Nov 2026): the calling code is its own clickable box, it opens the list of every country except
-// Israel, Qatar is the choice it starts on, and the number box beside it sends the full E.164 number.
-test("phone: the calling code opens a searchable country list (no Israel), Qatar first, and the full number is sent", async () => {
+// Owner's decision (11 Nov 2026): the calling code is one plain dropdown with no label of its own, it lists every
+// country except Israel, Qatar is what it starts on, and the number box beside it sends the full E.164 number.
+test("phone: the calling code is a dropdown of every country (no Israel), Qatar first, and the full number is sent", async () => {
   for (const [locale, name, number] of [["ar", "المملكة المتحدة", "7700900151"], ["en", "United Kingdom", "7700900152"]]) {
     const { page, errors } = await newPage(null, locale);
     await page.goto(`${env.base}/#/signin`);
     await page.waitForSelector("#cc");
-    assert.equal((await page.locator("#cc").innerText()).trim(), "+974", "starts on Qatar");
+    assert.equal(await page.evaluate(() => document.querySelector("#cc").tagName), "SELECT", "one plain dropdown");
+    assert.equal(await page.locator("#cc").inputValue(), "QA", "starts on Qatar");
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[3-7][0-9]{7}", "Qatar keeps its strict pattern");
-    assert.equal(await page.locator("#cc-pop").isHidden(), true);
+    assert.ok((await page.locator("#cc option").count()) > 200, "every country");
+    assert.equal(await page.locator('#cc option[value="IL"]').count(), 0, "Israel is not offered");
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll("#cc option")].filter((o) => o.textContent.includes("+972")).length), 0, "no +972 anywhere");
+    // no visible label and no search box: the owner asked for the dropdown alone
+    assert.equal(await page.locator("#cc-q, #cc-pop, #cc-none").count(), 0);
+    assert.ok((await page.locator("#cc").getAttribute("aria-label")).length > 0, "still named for screen readers");
 
-    await page.click("#cc");
-    assert.equal(await page.locator("#cc-pop").isVisible(), true);
-    assert.equal(await page.locator("#cc").getAttribute("aria-expanded"), "true");
-    assert.ok((await page.locator("#cc-list li").count()) > 200, "every country");
-    assert.equal(await page.locator("#cc-IL").count(), 0, "Israel is not offered");
-    assert.equal(await page.locator("#cc-list li[data-find*='972']").count(), 0, "no +972 anywhere in the list");
-    assert.equal(await page.locator("#cc-QA").getAttribute("aria-selected"), "true");
-
-    // Escape closes it and puts focus back on the box
-    await page.keyboard.press("Escape");
-    assert.equal(await page.locator("#cc-pop").isHidden(), true);
-    assert.equal(await page.evaluate(() => document.activeElement.id), "cc");
-
-    // type a name to filter, then nonsense: the "no country" line
-    await page.click("#cc");
-    await page.fill("#cc-q", name);
-    assert.equal(await page.locator("#cc-list li:not([hidden])").count(), 1, name);
-    await page.fill("#cc-q", "zzzz");
-    assert.equal(await page.locator("#cc-list li:not([hidden])").count(), 0);
-    assert.equal(await page.locator("#cc-none").isVisible(), true);
-
-    // type a code instead, then choose with the keyboard
-    await page.fill("#cc-q", "+44");
-    assert.equal(await page.locator("#cc-GB").isVisible(), true);
-    await page.fill("#cc-q", name);
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Enter");
-    assert.equal(await page.locator("#cc-pop").isHidden(), true);
-    assert.equal((await page.locator("#cc").innerText()).trim(), "+44");
+    await page.selectOption("#cc", "GB");
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[0-9]{4,15}", "another country takes any plausible number");
 
     await page.fill("#phone", number);

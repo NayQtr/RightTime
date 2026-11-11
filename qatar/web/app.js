@@ -353,89 +353,36 @@ function scrPhone() {
   let country = countryByIso(state.country);
   // the number kept on this device belongs to the country kept beside it
   const kept = state.phone && state.phone.startsWith(`+${country.dial}`) ? state.phone.slice(country.dial.length + 1) : "";
-  const ccLabel = (c) => `${T("countryLabel")}: ${countryName(c)} +${c.dial}`;
   view(T("phoneTitle"), `
     <h1>${esc(T("phoneTitle"))}</h1>
     <p class="muted">${esc(T("phoneHelp"))}</p>
     <form id="f" class="stack" novalidate>
       <div class="field">
         <label class="label" for="phone">${esc(T("phoneLabel"))}</label>
-        <div class="cc-wrap">
-          <div class="phone">
-            <button class="prefix" type="button" id="cc" aria-haspopup="listbox" aria-expanded="false" aria-label="${esc(ccLabel(country))}">+${esc(country.dial)}</button>
-            <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
-                   pattern="${localPattern(country.dial)}" required aria-describedby="perr" value="${esc(kept)}"></div>
-          <div class="cc-pop" id="cc-pop" hidden>
-            <input class="input cc-q" id="cc-q" type="text" role="combobox" aria-expanded="true" aria-controls="cc-list" aria-autocomplete="list"
-                   autocomplete="off" spellcheck="false" aria-label="${esc(T("countrySearch"))}" placeholder="${esc(T("countrySearch"))}">
-            <ul class="cc-list" id="cc-list" role="listbox" aria-label="${esc(T("countryLabel"))}">
-              ${byName().map((c) => `<li id="cc-${esc(c.iso)}" role="option" data-iso="${esc(c.iso)}" aria-selected="${c.iso === country.iso}"
-                data-find="${esc(`${c.en.toLowerCase()} ${c.ar} ${c.dial}`)}"><span class="cc-name">${esc(countryName(c))}</span><bdi class="cc-dial num">+${esc(c.dial)}</bdi></li>`).join("")}
-            </ul>
-            <p class="caption cc-none" id="cc-none" hidden>${esc(T("countryNone"))}</p>
-          </div>
-        </div>
+        <div class="phone">
+          <select class="prefix" id="cc" aria-label="${esc(T("countryLabel"))}">
+            ${byName().map((c) => `<option value="${esc(c.iso)}" ${c.iso === country.iso ? "selected" : ""}>+${esc(c.dial)} ${esc(countryName(c))}</option>`).join("")}
+          </select>
+          <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
+                 pattern="${localPattern(country.dial)}" required aria-describedby="perr" value="${esc(kept)}"></div>
         <div id="perr" class="error-text" role="alert"></div>
       </div>
       <button class="btn btn-primary btn-block" id="send" type="submit">${esc(T("sendCode"))}</button>
     </form>`);
-  const btn = $("#cc"), pop = $("#cc-pop"), q = $("#cc-q"), list = $("#cc-list"), none = $("#cc-none"), input = $("#phone");
-  const items = $$("li", list);
-  let active = -1;
-  const shown = () => items.filter((li) => !li.hidden);
-  const setActive = (i) => {
-    const vis = shown();
-    items.forEach((li) => li.classList.remove("is-active"));
-    active = vis.length ? Math.max(0, Math.min(i, vis.length - 1)) : -1;
-    if (active < 0) { q.removeAttribute("aria-activedescendant"); return; }
-    vis[active].classList.add("is-active");
-    q.setAttribute("aria-activedescendant", vis[active].id);
-    vis[active].scrollIntoView({ block: "nearest" });
-  };
-  const filter = () => {
-    const needle = q.value.trim().toLowerCase().replace(/^\+/, "");
-    items.forEach((li) => { li.hidden = Boolean(needle) && !li.dataset.find.includes(needle); });
-    none.hidden = shown().length > 0;
-    setActive(0);
-  };
-  const outside = (e) => { if (!pop.contains(e.target) && e.target !== btn) open(false, false); };
-  function open(yes, focus = true) {
-    pop.hidden = !yes;
-    btn.setAttribute("aria-expanded", String(yes));
-    if (yes) { q.value = ""; filter(); q.focus(); document.addEventListener("pointerdown", outside); return; }
-    document.removeEventListener("pointerdown", outside);
-    if (focus) btn.focus();
-  }
-  const choose = (li) => {
-    if (!li) return;
-    country = countryByIso(li.dataset.iso);
+  const sel = $("#cc"), input = $("#phone");
+  // one dropdown, Qatar by default (owner, 11 Nov): no label text, no search box
+  sel.onchange = () => {
+    country = countryByIso(sel.value);
     state.country = country.iso;
     if (store.get("country")) store.set("country", country.iso);
-    btn.textContent = `+${country.dial}`;
-    btn.setAttribute("aria-label", ccLabel(country));
-    items.forEach((x) => x.setAttribute("aria-selected", String(x.dataset.iso === country.iso)));
     input.maxLength = country.dial === "974" ? 8 : 15;
     input.pattern = localPattern(country.dial);
     input.removeAttribute("aria-invalid");
     $("#perr").textContent = "";
-    open(false, false);
     input.focus();
   };
-  btn.onclick = () => open(pop.hidden);
-  btn.onkeydown = (e) => { if (e.key === "ArrowDown") { e.preventDefault(); open(true); } };
-  q.oninput = filter;
-  q.onkeydown = (e) => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
-    else if (e.key === "Home") { e.preventDefault(); setActive(0); }
-    else if (e.key === "End") { e.preventDefault(); setActive(items.length); }
-    else if (e.key === "Enter") { e.preventDefault(); choose(shown()[active]); }
-    else if (e.key === "Escape") { e.preventDefault(); open(false); }
-  };
-  list.onclick = (e) => choose(e.target.closest("li"));
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
-    if (!pop.hidden) { open(false); return; }
     const digits = input.value.replace(/\D/g, "");
     const phone = `+${country.dial}${digits}`;
     const send = $("#send");

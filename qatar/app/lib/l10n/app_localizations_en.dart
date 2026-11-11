@@ -107,12 +107,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get countryLabel => 'Country code';
 
   @override
-  String get countrySearch => 'Search for a country';
-
-  @override
-  String get countryNone => 'No country matches that.';
-
-  @override
   String get phoneInvalid =>
       'Enter 8 digits starting with a digit from 3 to 7.';
 

@@ -278,18 +278,6 @@ abstract class AppLocalizations {
   /// **'رمز الدولة'**
   String get countryLabel;
 
-  /// No description provided for @countrySearch.
-  ///
-  /// In ar, this message translates to:
-  /// **'ابحثي عن دولة'**
-  String get countrySearch;
-
-  /// No description provided for @countryNone.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد دولة بهذا الاسم.'**
-  String get countryNone;
-
   /// No description provided for @phoneInvalid.
   ///
   /// In ar, this message translates to:

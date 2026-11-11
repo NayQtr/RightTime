@@ -30,8 +30,6 @@
   "phoneHelp": "We'll send you a 6-digit code.",
   "phoneLabel": "Mobile number",
   "countryLabel": "Country code",
-  "countrySearch": "Search for a country",
-  "countryNone": "No country matches that.",
   "phoneInvalid": "Enter 8 digits starting with a digit from 3 to 7.",
   "sendCode": "Send code",
   "otpTitle": "Enter the code",

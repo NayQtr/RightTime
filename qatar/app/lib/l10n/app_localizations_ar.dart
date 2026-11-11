@@ -106,12 +106,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get countryLabel => 'رمز الدولة';
 
   @override
-  String get countrySearch => 'ابحثي عن دولة';
-
-  @override
-  String get countryNone => 'لا توجد دولة بهذا الاسم.';
-
-  @override
   String get phoneInvalid => 'أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.';
 
   @override

@@ -43,7 +43,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const _CountrySheet(),
+      builder: (_) => _CountrySheet(selected: _country),
     );
     Sounds.instance.play(UiSound.sheetClose);
     if (chosen != null && mounted) setState(() => _country = chosen);
@@ -106,61 +106,28 @@ class _PhoneScreenState extends State<PhoneScreen> {
   }
 }
 
-/// Every country we accept, filtered as she types by name (Arabic or English) or by calling code.
-class _CountrySheet extends StatefulWidget {
-  const _CountrySheet();
+/// Every country we accept, as one plain list. Qatar is the default (owner, 11 Nov).
+class _CountrySheet extends StatelessWidget {
+  const _CountrySheet({required this.selected});
 
-  @override
-  State<_CountrySheet> createState() => _CountrySheetState();
-}
-
-class _CountrySheetState extends State<_CountrySheet> {
-  final _query = TextEditingController();
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
+  final Country selected;
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
     final lang = Localizations.localeOf(context).languageCode;
-    final needle = _query.text.trim().toLowerCase().replaceFirst('+', '');
     final all = [...kCountries]..sort((a, b) => a.name(lang).compareTo(b.name(lang)));
-    final shown = needle.isEmpty
-        ? all
-        : all.where((c) => c.en.toLowerCase().contains(needle) || c.ar.contains(needle) || c.dial.contains(needle)).toList();
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.8,
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.all(HzSpace.gutter),
-            child: TestId('country-search', child: TextField(
-              key: const Key('country-search'),
-              controller: _query,
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(labelText: t.countrySearch, prefixIcon: const Icon(Icons.search)),
-            )),
-          ),
-          if (shown.isEmpty)
-            Padding(padding: const EdgeInsets.all(HzSpace.gutter), child: Text(t.countryNone, key: const Key('country-none')))
-          else
-            Expanded(child: ListView.builder(
-              itemCount: shown.length,
-              itemBuilder: (context, i) => ListTile(
-                key: Key('country-${shown[i].iso}'),
-                title: Text(shown[i].name(lang)),
-                trailing: Ltr(Text('+${shown[i].dial}')),
-                onTap: () => Navigator.of(context).pop(shown[i]),
-              ),
-            )),
-        ]),
+    // One plain list, Qatar selected by default (owner, 11 Nov): no label, no search field.
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.8,
+      child: ListView.builder(
+        itemCount: all.length,
+        itemBuilder: (context, i) => ListTile(
+          key: Key('country-${all[i].iso}'),
+          selected: all[i].iso == selected.iso,
+          title: Text(all[i].name(lang)),
+          trailing: Ltr(Text('+${all[i].dial}')),
+          onTap: () => Navigator.of(context).pop(all[i]),
+        ),
       ),
     );
   }

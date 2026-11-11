@@ -122,8 +122,8 @@ void main() {
   });
 
   // Owner's decision (11 Nov 2026): every country except Israel, Qatar to start on, the calling code its own tappable
-  // box with a searchable list, and the full E.164 number sent to the server.
-  testWidgets('phone: the country box opens a searchable list (no Israel), Qatar first, and the full number is sent', (tester) async {
+  // box with a plain list, and the full E.164 number sent to the server.
+  testWidgets('phone: the country box opens a plain list (no Israel), Qatar first, and the full number is sent', (tester) async {
     final log = <String>[];
     final bodies = <String>[];
     await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(),
@@ -148,20 +148,12 @@ void main() {
     expect(find.text('أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.'), findsOneWidget);
     expect(log, isEmpty);
 
-    // the box opens the list; typing filters it by name or by code
+    // the box opens one plain list: no search field, and Israel is not in it (owner, 11 Nov)
     await tester.tap(find.byKey(const Key('country')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('country-search')), findsOneWidget);
+    expect(find.byKey(const Key('country-search')), findsNothing, reason: 'no search box');
     expect(find.byKey(const Key('country-IL')), findsNothing);
-    await tester.enterText(find.byKey(const Key('country-search')), 'المملكة المتحدة');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('country-GB')), findsOneWidget);
-    expect(find.byKey(const Key('country-QA')), findsNothing);
-    await tester.enterText(find.byKey(const Key('country-search')), 'zzzz');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('country-none')), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('country-search')), '+44');
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('country-GB')), 300, scrollable: find.byType(Scrollable).last);
     await tester.tap(find.byKey(const Key('country-GB')));
     await tester.pumpAndSettle();
     expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+44')), findsOneWidget);
