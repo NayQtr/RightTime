@@ -83,7 +83,7 @@ const termsView = (t) => ({ full_refund_until: qa(t.fullUntil), full_refund_unti
 
 async function tableMembers(sql, tableId) {
   return sql`
-    SELECT b.id AS booking_id, b.user_id, u.display_name FROM app.table_assignments a
+    SELECT b.id AS booking_id, b.user_id, b.occasion, u.display_name FROM app.table_assignments a
       JOIN app.bookings b ON b.id = a.booking_id JOIN app.users u ON u.id = b.user_id
      WHERE a.table_id = ${tableId} AND a.is_current AND b.status IN ('paid_awaiting_group','group_locked','revealed','checked_in','completed')
      ORDER BY b.created_at`;
@@ -561,7 +561,7 @@ async function submitQuestionnaire(ctx) {
 
 // ------------------------------------------------------------------ sessions
 async function listSessions(ctx) {
-  const { sql, user, locale, url } = ctx;
+  const { sql, user, locale, url, cfg } = ctx;
   await sql`SELECT app.release_expired_holds()`;
   const resp = await submittedResponse(sql, user.id);
   const prof = resp ? await profileOf(sql, resp.id) : null;
@@ -592,6 +592,8 @@ async function listSessions(ctx) {
         price: money(s.service_fee_minor, locale), group_size: "4–6",
         full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), full_refund_until_hours: s.full_refund_until_hours, booking_closes_at: qa(s.booking_closes_at),
         my_booking_id: s.my_booking_id,
+        // item 32: the occasion question is offered only when the session is far enough away
+        occasion_allowed: occasionAllowed(s.starts_at, cfg), occasion_notice_hours: cfg.celebrationNoticeHours,
         waitlist: w && {
           status: w.status, position: offered ? null : w.place,
           offer_expires_at: offered ? qa(w.offer_expires_at) : null,
@@ -671,6 +673,8 @@ const OCCASIONS = ["birthday", "other"];
 // Reasons she can pick with a low rating (migration 023, provisional list). Their words are in web/strings.js (fbReason*,
 // venue, rOther), the app's .arb files (fbReason*, reasonOther) and the admin console (REASON_LABELS, English).
 export const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation", "no_shows", "other"];
+// Item 32 (provisional): an occasion needs cfg.celebrationNoticeHours of notice (CELEBRATION_NOTICE_HOURS, default 72).
+const occasionAllowed = (startsAt, cfg) => new Date(startsAt).getTime() - Date.now() >= cfg.celebrationNoticeHours * 3600 * 1000;
 
 async function createBooking(ctx) {
   const { sql, body, user, cfg, locale } = ctx;
@@ -688,6 +692,8 @@ async function createBooking(ctx) {
   if (!prof.tier) fail(422, "QUESTIONNAIRE_INCOMPLETE", [{ question_key: "Q04", code: "REQUIRED_MISSING" }]);
   const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${body.session_id}`;
   if (!s) fail(404, "SESSION_NOT_FOUND");
+  if (occasion && !occasionAllowed(s.starts_at, cfg))
+    fail(422, "VALIDATION_FAILED", [{ field: "occasion", code: "NOTICE_TOO_SHORT", min_notice_hours: cfg.celebrationNoticeHours }]);
   const lang = s.conversation_language.trim();
   if (!prof.languages.includes(lang)) fail(422, "LANGUAGE_CONFLICT", [{ field: "session_id", session_language: lang }]);
   const [venueOk] = await sql`
@@ -848,6 +854,12 @@ async function eventDetails(ctx) {
     if (phase !== "locked" && !restricted) {
       out.table.code = t.table_code;
       out.table.shared_themes = (t.match_themes || []).map((th) => (locale === "en" ? th.en : th.ar));
+    }
+    // Item 33 (provisional): once the venue is revealed, the other women at the table see that one guest celebrates,
+    // never who; only the kind leaves the server (birthday first when there are both). Her own occasion is not shown.
+    if (["revealed", "day_of"].includes(phase) && !restricted) {
+      const kinds = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id && m.occasion).map((m) => m.occasion);
+      out.table.celebration = kinds.includes("birthday") ? "birthday" : kinds.length ? "other" : null;
     }
     if (["day_of", "completed"].includes(phase) && !restricted) {
       const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);

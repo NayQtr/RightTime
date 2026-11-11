@@ -54,6 +54,10 @@ export async function loadConfig(sql, getEnv) {
     phoneCountryCodes: countryCodes(get("PHONE_ALLOWED_COUNTRY_CODES", "974")),
     otpCountryHourlyCap: whole(get("OTP_COUNTRY_HOURLY_CAP", "20"), 20, 0, 10000),
     coordinatorEscalateMinutes: whole(get("COORDINATOR_ESCALATE_MINUTES", "5"), 5, 1, 1440),
+    // Provisional (10 Nov, item 32): a celebration (birthday or another occasion) can be booked only this many hours or
+    // more before the session starts, so the coordinator can prepare. 0 = no minimum. The site and the app read it from
+    // GET /api/v1/sessions (occasion_allowed, occasion_notice_hours).
+    celebrationNoticeHours: whole(get("CELEBRATION_NOTICE_HOURS", "72"), 72, 0, 720),
   };
   loadedAt = Date.now();
   return cache;

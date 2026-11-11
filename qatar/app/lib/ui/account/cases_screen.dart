@@ -7,6 +7,7 @@ import '../../data/models.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../auth/widgets.dart' show errorText;
 import '../common/loader.dart';
 import '../format.dart';
 import '../meetups/report_screen.dart' show categoryLabel;
@@ -88,7 +89,7 @@ class _CaseCardState extends State<_CaseCard> {
           if (sent) ...[const SizedBox(height: HzSpace.s3), Text(t.appealSent, key: const Key('appeal-sent'))],
           if (error != null) ...[
             const SizedBox(height: HzSpace.s3),
-            Text(error!.isOffline ? t.offline : (error!.message.isNotEmpty ? error!.message : t.errGeneric), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(errorText(t, error!), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
         ]),
       ),

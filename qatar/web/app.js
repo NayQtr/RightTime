@@ -98,8 +98,10 @@ function view(title, html) {
   window.scrollTo(0, 0);
 }
 
+// The generic error (ours or the server's INTERNAL, same words) gets a next step (provisional, 13d-2).
+const withNext = (msg) => (msg === T("errGeneric") ? `${msg} ${T("errGenericNext")}` : msg);
 function errorBanner(err) {
-  const msg = (err && err.message) || T("errGeneric");
+  const msg = withNext((err && err.message) || T("errGeneric"));
   return `<div class="banner banner-danger" role="alert"><span class="icon">${icon("triangle-alert")}</span><div>${esc(msg)}</div></div>`;
 }
 
@@ -327,7 +329,8 @@ function scrWelcome() {
         <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
       <div class="stack">
         ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>
-        <p class="caption quiz-length">${esc(T("quizLength"))}</p>`}
+        <p class="caption quiz-length">${esc(T("quizLength"))}</p>
+        <p class="caption qatar-only" id="qatar-only">${esc(T("qatarOnly"))}</p>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
       <p class="caption device-note">${esc(T("deviceNote"))}</p>
@@ -359,7 +362,7 @@ function scrPhone() {
     setBusy(btn, true);
     const r = await api("POST", "/api/v1/auth/otp:request", { phone_e164: "+974" + digits, locale, purpose: "login" }, { noAuth: true });
     setBusy(btn, false);
-    if (!r.ok) { $("#phone").setAttribute("aria-invalid", "true"); $("#perr").textContent = r.data.message || T("errGeneric"); return; }
+    if (!r.ok) { $("#phone").setAttribute("aria-invalid", "true"); $("#perr").textContent = withNext(r.data.message || T("errGeneric")); return; }
     state.phone = "+974" + digits;
     state.challenge = r.data;
     if (store.get(QUIZ_STORE_KEY) || store.get("quizName")) store.set("phone", state.phone);
@@ -400,7 +403,7 @@ function scrOtp() {
     if (!r.ok) {
       const d = r.data.details && r.data.details[0];
       $("#code").setAttribute("aria-invalid", "true");
-      $("#oerr").textContent = (r.data.message || T("errGeneric")) + (d && d.attempts_remaining != null ? ` · ${T("attemptsLeft", { n: d.attempts_remaining })}` : "");
+      $("#oerr").textContent = withNext(r.data.message || T("errGeneric")) + (d && d.attempts_remaining != null ? ` · ${T("attemptsLeft", { n: d.attempts_remaining })}` : "");
       return;
     }
     session.save(r.data);
@@ -678,7 +681,7 @@ async function finishQuiz() {
   if (!r.ok) {
     const miss = (r.data.details || []).find((d) => d.question_key);
     const idx = miss ? quiz.steps.findIndex((st) => st.kind === "q" && st.key === miss.question_key) : -1;
-    toast(r.data.message || T("errGeneric"));
+    toast(withNext(r.data.message || T("errGeneric")));
     go(`#/quiz/${idx >= 0 ? idx : 0}`);
     return;
   }
@@ -756,7 +759,7 @@ async function scrNotify(next) {
     try { r = await enablePush(); } catch { r = "error"; }
     if (r === "granted") { toast(T("pushOnDone")); done(); return; }
     setBusy($("#push-go"), false);
-    $("#push-msg").innerHTML = `<div class="banner banner-info"><div>${esc(T(r === "denied" ? "pushDenied" : r === "default" ? "pushLater" : "errGeneric"))}</div></div>`;
+    $("#push-msg").innerHTML = `<div class="banner banner-info"><div>${esc(withNext(T(r === "denied" ? "pushDenied" : r === "default" ? "pushLater" : "errGeneric")))}</div></div>`;
   };
 }
 
@@ -922,6 +925,7 @@ async function scrSessions(preselect) {
       <fieldset id="occ" hidden><legend class="label">${esc(T("occasionLegend"))}</legend><div class="options">
         ${[["birthday", "occasionBirthday"], ["other", "occasionOther"], ["", "occasionNo"]].map(([v, k]) => `<label class="option radio"><input type="radio" name="occasion" value="${v}" ${v ? "" : "checked"}><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span>${v === "birthday" ? icon("cake") : ""}</label>`).join("")}
       </div></fieldset>
+      <p class="caption occ-note" id="occ-note" hidden></p>
       <div id="err" role="alert"></div>
     </form>
     <div class="sticky-bar"><div>
@@ -945,14 +949,24 @@ async function scrSessions(preselect) {
   }));
   $$("[data-wait]").forEach((b) => (b.onclick = async () => {
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
-    toast(w.ok ? T("onWaitlist", { n: w.data.position }) : (w.data.message || T("errGeneric")));
+    toast(w.ok ? T("onWaitlist", { n: w.data.position }) : withNext(w.data.message || T("errGeneric")));
   }));
   const radios = $$("input[name=s]");
+  // Item 32 (provisional): a celebration needs notice (server: CELEBRATION_NOTICE_HOURS); for a sooner session the
+  // question is hidden, the answer goes back to "No" and a short note says why.
+  const occasionFor = (allowed, hours) => {
+    $("#occ").hidden = !allowed;
+    $("#occ-note").hidden = allowed;
+    if (allowed) return;
+    $$("input[name=occasion]").forEach((o) => { o.checked = !o.value; });
+    $("#occ-note").textContent = T("occasionNotice", { days: Math.ceil(hours / 24) });
+  };
   radios.forEach((x) => (x.onchange = () => {
     setBusy($("#go"), false);
     const others = ok.filter((s) => s.id !== x.value && !s.my_booking_id);
     $("#alts").hidden = !others.length;
-    $("#occ").hidden = false;
+    const picked = ok.find((s) => s.id === x.value) || {};
+    occasionFor(picked.occasion_allowed !== false, picked.occasion_notice_hours);
     $("#altlist").innerHTML = others.slice(0, 6).map((s) => `<label class="option"><input type="checkbox" name="alt" value="${s.id}"><span class="tick" aria-hidden="true"></span><span>${esc(fmtDate(s.starts_at))} · ${esc(s.district)}</span></label>`).join("");
     $$("input[name=alt]").forEach((a) => (a.onchange = () => {
       const n = $$("input[name=alt]:checked").length;
@@ -965,9 +979,11 @@ async function scrSessions(preselect) {
     const chosen = radios.find((x) => x.checked);
     if (!chosen) return;
     setBusy($("#go"), true);
-    const occasion = ($$("input[name=occasion]").find((o) => o.checked) || {}).value || null;
+    const occasion = $("#occ").hidden ? null : ($$("input[name=occasion]").find((o) => o.checked) || {}).value || null;
     const r2 = await api("POST", "/api/v1/bookings", { session_id: chosen.value, alternate_session_ids: $$("input[name=alt]:checked").map((a) => a.value), occasion });
     setBusy($("#go"), false);
+    const late = !r2.ok && (r2.data.details || []).find((d) => d.field === "occasion" && d.code === "NOTICE_TOO_SHORT");
+    if (late) { $("#err").innerHTML = ""; occasionFor(false, late.min_notice_hours); return; }   // the date came closer while she chose
     if (!r2.ok) {
       $("#err").innerHTML = errorBanner(r2.data) + (r2.data.waitlist_href ? `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>` : "");
       const wl = $("#wl");
@@ -1002,7 +1018,7 @@ async function scrReview(id) {
       <div class="kv"><span>${esc(T("foodAtVenue"))}</span><span class="muted">${esc(T("foodBand", { band: e.session.food_price_band.display }))}</span></div>
     </section>
     ${policyHtml(e.booking.cancellation, b.amount.display)}
-    ${b.payment && b.payment.status === "failed" ? `<div class="banner banner-warning" role="alert"><div>${esc(T("paymentFailed"))} ${esc(T("noDoubleCharge"))}</div></div>` : ""}
+    ${b.payment && b.payment.status === "failed" ? `<div class="banner banner-warning" role="alert"><div>${esc(T("paymentFailed"))} ${esc(T("payFailedNext"))} ${esc(T("noDoubleCharge"))}</div></div>` : ""}
     <p class="label" id="hold">${expired ? "" : `${esc(T("holdTimer"))} <span class="num" id="clock"></span>`}</p>
     <p class="sr-only" aria-live="polite" id="holdlive"></p>
     <div id="err" role="alert">${expired ? errorBanner({ message: T("holdExpired") }) : ""}</div>
@@ -1195,7 +1211,7 @@ async function scrPayReturn(id) {
         <ol class="next-steps">${["allSet1", "allSet2", "allSet3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ol>
         <p class="caption">${esc(T("bookingRef"))} ${num(b.ref)}</p><a class="btn btn-primary btn-block" href="#/home">${esc(T("goDashboard"))}</a></div>`);
     } else if (phase === "failed") {
-      view(T("paymentFailed"), `<div class="center"><h1>${esc(T("paymentFailed"))}</h1><p class="muted">${esc(T("noDoubleCharge"))}</p>
+      view(T("paymentFailed"), `<div class="center"><h1>${esc(T("paymentFailed"))}</h1><p class="muted" id="pay-next">${esc(T("payFailedNext"))} ${esc(T("noDoubleCharge"))}</p>
         <a class="btn btn-primary" href="#/booking/${id}/review">${esc(T("payNow"))}</a></div>`);
     } else if (phase === "slow") {
       view(T("confirming"), `<div class="center"><div class="illustration">${icon("hourglass")}</div><h1>${esc(T("slowConfirm"))}</h1><a class="btn btn-secondary" href="#/home">${esc(T("backHome"))}</a></div>`);
@@ -1435,6 +1451,7 @@ async function scrDetails(id) {
         label: T("tableSeats", { n: e.table.confirmed_count, cap: e.table.capacity }) })}
       <div><h2>${esc(T("yourTable"))}</h2><p class="label">${esc(T("confirmedCount", { n: e.table.confirmed_count }))}</p></div></div>
       ${e.table.shared_themes && e.table.shared_themes.length ? `<p class="shared-themes">${icon("sparkle")}<span>${esc(T("sharedThemes", { list: e.table.shared_themes.join(T("listSep")) }))}</span></p>` : ""}
+      ${e.table.celebration ? `<p class="shared-themes" id="celebration">${icon(e.table.celebration === "birthday" ? "cake" : "sparkle")}<span>${esc(T(e.table.celebration === "birthday" ? "celebrationBirthday" : "celebrationOther"))}</span></p>` : ""}
       <p class="caption">${esc(T("introTip"))}</p>
       ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.map((m) => m.display_name || T("unnamed")).join("، "))}</p>` : ""}</section>`
       : ph === "forming" ? `<section class="card"><div class="table-figure">${tableSvg({ seats: 6 })}<p class="label">${esc(T("tableForming"))}</p></div></section>` : ""}
@@ -1450,7 +1467,7 @@ async function scrDetails(id) {
     ${act("feedback") ? `<a class="btn btn-primary btn-block" href="#/booking/${id}/feedback">${esc(T("rateIt"))}</a>` : ""}
     ${ph === "completed" ? `<section class="card stack" id="contacts" aria-labelledby="contacts-h"><h2 id="contacts-h">${esc(T("contactLegend"))}</h2>
       <p class="caption">${esc(T("contactHelp"))}</p><div id="contacts-list" aria-live="polite"></div></section>` : ""}
-    ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div></section>` : ""}
+    ${e.refund ? `<section class="card"><div class="kv"><span>${esc(T("refundLabel"))}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[e.refund.status]))}${e.refund.amount ? ` · ${esc(e.refund.amount.display)}` : ""}</strong></div>${e.refund.status === "failed" ? `<p class="caption" id="rf-next">${esc(T("rfFailedNext"))}</p>` : ""}</section>` : ""}
     ${e.rebooked_into ? `<div class="banner banner-success"><div>${esc(T("rebookedInto", { ref: e.rebooked_into.ref }))} <a href="#/booking/${e.rebooked_into.booking_id}">${esc(T("viewDetails"))}</a></div></div>` : ""}
     <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact, id)}
       ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-ghost btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
@@ -1527,7 +1544,7 @@ async function scrCancel(id) {
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#go"), false); return; }
     const rf = c.data.refund;
     view(T("cancelled"), `<div class="center"><h1>${esc(T("cancelled"))}</h1>
-      ${rf.eligible ? `<section class="card"><div class="kv"><span>${esc(rf.amount.display)}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[rf.status]))}</strong></div></section>` : ""}
+      ${rf.eligible ? `<section class="card"><div class="kv"><span>${esc(rf.amount.display)}</span><strong>${esc(T({ requested: "rfRequested", processing: "rfProcessing", refunded: "rfRefunded", failed: "rfFailed", none: "rfNone" }[rf.status]))}</strong></div>${rf.status === "failed" ? `<p class="caption" id="rf-next">${esc(T("rfFailedNext"))}</p>` : ""}</section>` : ""}
       <a class="btn btn-primary" href="#/home">${esc(T("backHome"))}</a></div>`);
   };
 }
@@ -1711,7 +1728,7 @@ async function scrProfile() {
   // a copy of her data (right of access, NMX-38): saved as a JSON file on the device, nothing kept in the page
   $("#mydata").onclick = async () => {
     const r = await api("GET", "/api/v1/users/me/export");
-    if (!r.ok) return toast((r.data && r.data.message) || T("errGeneric"));
+    if (!r.ok) return toast(withNext((r.data && r.data.message) || T("errGeneric")));
     const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
     document.body.append(a); a.click(); a.remove();
@@ -1735,7 +1752,7 @@ async function scrCases() {
     <li class="card stack"><div class="row between"><strong>${num(c.case_ref)}</strong><span class="badge badge-warning">${esc(c.decision_label || c.decision)}</span></div>
     <p class="caption">${esc(fmtDate(c.event_date))} · ${esc(T(c.category === "identity_mismatch" ? "cIdentity" : REPORT_CATS[c.category] || "cDisruptive"))}</p>
     ${c.can_appeal ? `<p class="caption">${esc(T("appealUntil", { date: fmtDate(c.appeal_until) }))}</p><button class="btn btn-secondary" data-ref="${esc(c.case_ref)}">${esc(T("appeal"))}</button>` : ""}</li>`).join("")}</ul>`
-    : `<p class="muted">—</p>`}<div id="msg" role="status"></div>`);
+    : `<p class="muted" id="no-cases">${esc(T("noCases"))}</p>`}<div id="msg" role="status"></div>`);
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     const a = await api("POST", `/api/v1/cases/${encodeURIComponent(b.dataset.ref)}/appeal`);

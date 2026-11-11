@@ -619,6 +619,23 @@ class AppLocalizationsAr extends AppLocalizations {
   String get occasionNo => 'لا';
 
   @override
+  String occasionNotice(int days) {
+    return 'الاحتفال بمناسبة يحتاج إلى حجز قبل $days أيام على الأقل.';
+  }
+
+  @override
+  String get celebrationBirthday => 'إحدى الضيفات تحتفل بعيد ميلادها';
+
+  @override
+  String get celebrationOther => 'إحدى الضيفات تحتفل بمناسبة خاصة';
+
+  @override
+  String get errGenericNext => 'إن تكرّر الخطأ، تواصلي معنا.';
+
+  @override
+  String get qatarOnly => 'نقبل أرقام قطر فقط حاليًا.';
+
+  @override
   String get reviewTitle => 'راجعي حجزك';
 
   @override

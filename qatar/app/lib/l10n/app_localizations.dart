@@ -1232,6 +1232,36 @@ abstract class AppLocalizations {
   /// **'لا'**
   String get occasionNo;
 
+  /// Provisional (10 Nov, item 32): shown instead of the occasion question when the session is too close
+  ///
+  /// In ar, this message translates to:
+  /// **'الاحتفال بمناسبة يحتاج إلى حجز قبل {days} أيام على الأقل.'**
+  String occasionNotice(int days);
+
+  /// No description provided for @celebrationBirthday.
+  ///
+  /// In ar, this message translates to:
+  /// **'إحدى الضيفات تحتفل بعيد ميلادها'**
+  String get celebrationBirthday;
+
+  /// No description provided for @celebrationOther.
+  ///
+  /// In ar, this message translates to:
+  /// **'إحدى الضيفات تحتفل بمناسبة خاصة'**
+  String get celebrationOther;
+
+  /// No description provided for @errGenericNext.
+  ///
+  /// In ar, this message translates to:
+  /// **'إن تكرّر الخطأ، تواصلي معنا.'**
+  String get errGenericNext;
+
+  /// No description provided for @qatarOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'نقبل أرقام قطر فقط حاليًا.'**
+  String get qatarOnly;
+
   /// No description provided for @reviewTitle.
   ///
   /// In ar, this message translates to:

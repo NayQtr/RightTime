@@ -27,6 +27,12 @@ export const STRINGS = {
     notifyMe: "أعلميني عند توفر موعد", notifyMeOn: "سنُعلمكِ عند توفر موعد بلغتك.", filterDay: "اليوم", filterAll: "الكل", noFilterMatch: "لا مواعيد بهذا الاختيار.",
     // SCR-05
     occasionLegend: "هل تحتفلين بمناسبة في هذا الموعد؟", occasionBirthday: "عيد ميلادي", occasionOther: "مناسبة أخرى", occasionNo: "لا",
+    // provisional (10 Nov, items 32, 33, 13d-2): awaiting the owner's wording
+    occasionNotice: "الاحتفال بمناسبة يحتاج إلى حجز قبل {days} أيام على الأقل.",
+    celebrationBirthday: "إحدى الضيفات تحتفل بعيد ميلادها", celebrationOther: "إحدى الضيفات تحتفل بمناسبة خاصة",
+    errGenericNext: "إن تكرّر الخطأ، تواصلي معنا.", rfFailedNext: "سيتواصل معكِ فريقنا خلال يوم عمل.",
+    // the app's approved texts (payFailed's second sentence, noCases) and the phone hint's second sentence
+    payFailedNext: "يمكنكِ المحاولة مرة أخرى ما دام المقعد محجوزًا.", noCases: "لا توجد قرارات تخصّك.", qatarOnly: "نقبل أرقام قطر فقط حاليًا.",
     reviewTitle: "راجعي حجزك", experience: "التجربة", dateTime: "الموعد", district: "المنطقة", tableLanguage: "لغة الطاولة", groupSizeLabel: "حجم المجموعة",
     feeNow: "رسم التنظيم (يُدفع الآن)", foodAtVenue: "الطعام والمشروبات (تُدفع للمكان)", foodBand: "ضمن ميزانيتك: {band}",
     policyBox: "يمكنك الإلغاء مع استرداد كامل حتى {deadline}. إذا لم تكتمل الطاولة نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.",
@@ -168,6 +174,10 @@ export const STRINGS = {
     editLanguages: "Edit your languages", alreadyBooked: "Booked", languageMismatch: "Not in your languages",
     notifyMe: "Notify me when a session opens", notifyMeOn: "We'll let you know when a session in your language opens.", filterDay: "Day", filterAll: "All", noFilterMatch: "No sessions match this choice.",
     occasionLegend: "Are you celebrating an occasion on this date?", occasionBirthday: "My birthday", occasionOther: "Another occasion", occasionNo: "No",
+    occasionNotice: "Celebrations need at least {days} days' notice.",
+    celebrationBirthday: "One of the guests is celebrating her birthday", celebrationOther: "One of the guests is celebrating a special occasion",
+    errGenericNext: "If it happens again, contact us.", rfFailedNext: "Our team will contact you within one business day.",
+    payFailedNext: "You can try again while the seat is held.", noCases: "There are no decisions about you.", qatarOnly: "We currently accept Qatar numbers only.",
     reviewTitle: "Review your booking", experience: "Experience", dateTime: "Date & time", district: "Area", tableLanguage: "Table language", groupSizeLabel: "Group size",
     feeNow: "Organising fee (paid now)", foodAtVenue: "Food & drinks (paid to the venue)", foodBand: "Within your budget: {band}",
     policyBox: "You can cancel with a full refund until {deadline}. If the table doesn't fill, we cancel it and refund you in full or move you to another session — your choice.",

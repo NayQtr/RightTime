@@ -4,7 +4,14 @@ import '../../core/api_error.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme.dart';
 
-/// A problem shown under a form: the server's own (localised) message, or offline / generic text.
+/// The words for a problem: offline, the server's own (localised) message, or the generic text. The generic text (ours,
+/// or the server's INTERNAL message, which is the same words) gets a next step (provisional, 13d-2), as on the website.
+String errorText(AppLocalizations t, ApiError error) {
+  final text = error.isOffline ? t.offline : (error.message.isNotEmpty ? error.message : t.errGeneric);
+  return text == t.errGeneric ? '$text ${t.errGenericNext}' : text;
+}
+
+/// A problem shown under a form.
 class ErrorBanner extends StatelessWidget {
   const ErrorBanner(this.error, {super.key});
 
@@ -14,7 +21,7 @@ class ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
-    final text = error.isOffline ? t.offline : (error.message.isNotEmpty ? error.message : t.errGeneric);
+    final text = errorText(t, error);
     return Semantics(
       liveRegion: true,
       child: Container(

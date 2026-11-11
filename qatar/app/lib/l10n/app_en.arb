@@ -221,6 +221,18 @@
   "occasionBirthday": "My birthday",
   "occasionOther": "Another occasion",
   "occasionNo": "No",
+  "occasionNotice": "Celebrations need at least {days} days' notice.",
+  "@occasionNotice": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "celebrationBirthday": "One of the guests is celebrating her birthday",
+  "celebrationOther": "One of the guests is celebrating a special occasion",
+  "errGenericNext": "If it happens again, contact us.",
+  "qatarOnly": "We currently accept Qatar numbers only.",
   "reviewTitle": "Review your booking",
   "payNow": "Pay now",
   "lateAck": "I understand and agree that the organising fee isn't refunded if I cancel this booking.",
