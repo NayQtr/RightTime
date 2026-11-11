@@ -77,6 +77,10 @@ Claude's open questions (waiting for the owner's answer):
 13a. Backups (6 Nov, Claude's recommendation, owner said do it): daily age-encrypted pg_dump by GitHub Actions now (.github/workflows/db-backup.yml, qatar/ops/db-backup.sh, steps in qatar/docs/ops/backup-restore.md; round trip tested locally), Supabase Pro at launch. Owner: make age key, add secrets SUPABASE_DB_URL (session pooler) + BACKUP_AGE_RECIPIENT, run once, test restore on staging.
 13i. (7 Nov) Fixes agenda: 19 items in the Notion database «إصلاحات هيرزون» (https://app.notion.com/p/b020674ff9434e2a98ae8de7ab7b1d4e); the owner marks decisions there, then Claude implements the approved ones in priority order.
 13j. (7 Nov) Design phases (Figma -> Higgsfield -> Adobe -> Canva -> code). Phase 1 done in Figma file https://www.figma.com/design/qCSzd7AhxvqSqYYl2TV5M2 (variables Light/Dark as two collections, 12 text styles, Button/Chip/Icons/Logo/Top bar/Tab bar/Session card/Contact sheet). Figma Starter MCP limit (20 calls/month, View seat) reached on 7 Nov: Figma phases 2-3 wait for the monthly reset or a plan change (owner's decision; no purchase). State ledger: scratchpad figma-ds-state.json (copy below in this note if lost: fileKey qCSzd7AhxvqSqYYl2TV5M2, pages Cover 0:1 / Foundations 2:14 / Components 2:15).
+13k. (11 Nov, review fixes) Arabic plural in the questionnaire's time left: «بقي نحو {m} دقيقة» is wrong for 2 to 10 minutes
+     (web/strings.js timeLeft, app_ar.arb timeLeft). Proposed, not changed until the owner gives the wording:
+     1 «بقي نحو دقيقة واحدة», 2 «بقي نحو دقيقتين», 3-10 «بقي نحو {m} دقائق», 11 and more «بقي نحو {m} دقيقة»
+     (in the .arb as an ICU plural: =1, =2, few, other).
 13g. GitHub default branch is the stale `add-rea-mcp-permissions`: scheduled/manual workflows (db-backup, Maestro app-e2e) only run from the default branch (dispatch returned 404). Owner: set default branch to `rightime-app`.
 13h. (done 6 Nov, 2ee806b) Light/dark switch in the Flutter app (profile), remembered on the device.
 13b. Cadence of the baseline checks: proposed before every production release + monthly; confirm or change.

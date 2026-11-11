@@ -20,9 +20,28 @@ export const FUNNEL_STEPS = [
 ];
 export const FUNNEL_PLATFORMS = ["web", "ios", "android"];
 
+// Against a flood of pings (anyone can call this route): at most FUNNEL_PINGS_PER_WINDOW per address prefix (ipBucket)
+// in 10 minutes, then 429. Counted in this running copy's memory only, never stored, and only while the counter is on.
+export const FUNNEL_PINGS_PER_WINDOW = 60;
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_KEYS = 10000;
+const recent = new Map(); // ipBucket -> { start, n }
+function overLimit(key, now = Date.now()) {
+  let e = recent.get(key);
+  if (!e || now - e.start >= WINDOW_MS) {
+    if (recent.size >= MAX_KEYS) for (const [k, v] of recent) if (now - v.start >= WINDOW_MS) recent.delete(k);
+    if (recent.size >= MAX_KEYS) recent.clear();
+    e = { start: now, n: 0 };
+    recent.set(key, e);
+  }
+  e.n += 1;
+  return e.n > FUNNEL_PINGS_PER_WINDOW;
+}
+
 async function countStep(ctx) {
   const { sql, cfg, body } = ctx;
   if (!cfg.funnelCounter) return json(204, null);
+  if (overLimit(ctx.ipBucket)) fail(429, "RATE_LIMITED", null, { retry_after: WINDOW_MS / 1000 });
   const details = [];
   if (!FUNNEL_STEPS.includes(body.step)) details.push({ field: "step", code: "INVALID" });
   if (!FUNNEL_PLATFORMS.includes(body.platform)) details.push({ field: "platform", code: "INVALID" });

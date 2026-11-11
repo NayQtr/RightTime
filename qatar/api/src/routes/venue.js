@@ -37,15 +37,17 @@ async function requestCode(ctx) {
   const [c] = await sql`
     INSERT INTO app.venue_login_codes (venue_user_id, email_hash, expires_at, ip_trunc)
     VALUES (${u ? u.id : null}, ${eh}, now() + make_interval(mins => ${CODE_TTL_MIN}), ${ctx.ipBucket}::inet) RETURNING id`;
-  if (u) await sql`UPDATE app.venue_login_codes SET code_hash = ${hmacB64(keys.phonePepper, `${c.id}:${code}`)} WHERE id = ${c.id}`;
+  // the same queries for every address (a row without a venue user never signs in, whatever its code)
+  await sql`UPDATE app.venue_login_codes SET code_hash = ${hmacB64(keys.phonePepper, `${c.id}:${code}`)} WHERE id = ${c.id}`;
   if (u && mail) {
-    // in the page's language (Accept-Language): Arabic, or English when the venue switched to it
-    const sent = await sendEmail({ to: email, subject: outboundText("VENUE_CODE_SUBJECT", ctx.locale),
-      text: outboundText("VENUE_CODE_BODY", ctx.locale, { code, minutes: CODE_TTL_MIN }) }, mail);
-    if (!sent.ok) {
-      await sql`DELETE FROM app.venue_login_codes WHERE id = ${c.id}`;
-      fail(503, "UNAVAILABLE", [{ reason: "email not sent" }]);
-    }
+    // in the page's language (Accept-Language): Arabic, or English when the venue switched to it. Sent after the answer,
+    // so a registered address answers like any other; an email that fails only makes this code unusable (it still counts
+    // toward the limits above)
+    const sending = sendEmail({ to: email, subject: outboundText("VENUE_CODE_SUBJECT", ctx.locale),
+      text: outboundText("VENUE_CODE_BODY", ctx.locale, { code, minutes: CODE_TTL_MIN }) }, mail)
+      .then(async (sent) => { if (!sent.ok) await sql`UPDATE app.venue_login_codes SET expires_at = now() WHERE id = ${c.id}`; })
+      .catch((e) => console.error("venue code: email not sent:", e && e.message));
+    globalThis.EdgeRuntime?.waitUntil?.(sending);
   }
   return json(202, { sent: true, expires_in: CODE_TTL_MIN * 60, ...(cfg.otpDevMode && !mail && u ? { dev_code: code } : {}) });
 }

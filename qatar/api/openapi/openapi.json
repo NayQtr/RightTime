@@ -706,6 +706,9 @@
           },
           "422": {
             "$ref": "#/components/responses/E422"
+          },
+          "429": {
+            "$ref": "#/components/responses/E429"
           }
         },
         "operationId": "postFunnelSteps",

@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { STRINGS } from "../../web/strings.js";
 
 const WEB = new URL("../../web/", import.meta.url);
@@ -50,4 +51,25 @@ test("offline: every file index.html loads, and every module app.js imports, is 
   }
   assert.ok(loaded.size >= 8, `found only ${[...loaded]}`);
   assert.deepEqual([...loaded].filter((u) => !core.has(u)).sort(), [], "loaded at start but missing from sw.js CORE (would not work offline)");
+});
+
+test("notification tap: an open window is reused only when it is on the same page (app, admin console, venue page)", async () => {
+  const src = readFileSync(new URL("sw.js", WEB), "utf8");
+  const O = "https://herzone.example";
+  async function tap(target, open) {
+    const handlers = {}, log = [];
+    const wins = open.map((u) => ({ url: O + u, focus: async () => log.push(`focus ${u}`), navigate: async (to) => log.push(`navigate ${u} -> ${new URL(to).pathname}${new URL(to).hash}`) }));
+    const self = { location: new URL(O + "/sw.js"), addEventListener: (k, f) => (handlers[k] = f),
+      clients: { matchAll: async () => wins, openWindow: async (to) => log.push(`open ${new URL(to).pathname}${new URL(to).hash}`) } };
+    vm.runInNewContext(src, { self, URL, caches: {}, fetch: () => {} });
+    let done;
+    handlers.notificationclick({ notification: { data: { url: target }, close() {} }, waitUntil: (p) => (done = p) });
+    await done;
+    return log;
+  }
+  assert.deepEqual(await tap("/admin/#/alerts", ["/#/inbox"]), ["open /admin/#/alerts"], "the member app is not turned into the console");
+  assert.deepEqual(await tap("/#/inbox", ["/admin/#/live"]), ["open /#/inbox"], "the console is not turned into the member app");
+  assert.deepEqual(await tap("/#/inbox", ["/venue/"]), ["open /#/inbox"]);
+  assert.deepEqual(await tap("/admin/#/alerts", ["/#/home", "/admin/#/live"]), ["focus /admin/#/live", "navigate /admin/#/live -> /admin/#/alerts"]);
+  assert.deepEqual(await tap("/#/inbox", ["/index.html#/home"]), ["focus /index.html#/home", "navigate /index.html#/home -> /#/inbox"]);
 });

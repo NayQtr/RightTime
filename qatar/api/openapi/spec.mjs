@@ -67,7 +67,7 @@ export const paths = {
       funnel_counter: { type: "boolean", description: "Public setting: when true, the client sends one POST /api/v1/funnel/steps per sign-up and booking step it reaches; when false it sends nothing" } })) } } },
   "/api/v1/funnel/steps": { post: { tags: ["public"], summary: "Step counter (provisional, off by default): add 1 to today's count for a sign-up or booking step on a platform. No sign-in and no Idempotency-Key: nothing identifying is read or kept. While the counter is off, nothing is stored and the answer is the same 204",
     requestBody: body(obj({ step: str({ enum: FUNNEL_STEPS }), platform: str({ enum: FUNNEL_PLATFORMS }) })),
-    responses: { 204: { description: "Counted (or the counter is off)" }, ...errors(400, 422) } } },
+    responses: { 204: { description: "Counted (or the counter is off)" }, ...errors(400, 422, 429) } } },
   "/api/v1/questionnaires/preview": { get: { tags: ["questionnaire"], summary: "Published questionnaire before sign-up (questions only, no user data)",
     responses: { 200: ok(obj({ questionnaire_version_id: uuid, code: str(), questions: { type: "array", items: ref("Question") } })), ...errors(404) } } },
 

@@ -103,6 +103,8 @@ test("filters: none on a short list; day and area chips on a list of more than 8
   await page.waitForSelector("#filters");
   assert.equal(await page.locator("input[name=s]").count(), 9);
   await page.waitForSelector("#filters");
+  // the website's filter block is a grid of chip rows (styles.css #filters; the admin console's .filters is a row)
+  assert.equal(await page.locator("#filters").evaluate((el) => getComputedStyle(el).display), "grid");
   const dayChips = await page.locator("#filters input[name=fday]").count();
   assert.ok(dayChips >= 8, `a chip per day plus All (${dayChips})`);
   const areaChips = await page.locator("#filters fieldset").nth(1).locator(".chip span").allInnerTexts();

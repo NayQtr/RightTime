@@ -321,3 +321,61 @@ test("admin: keyboard shortcuts (g then a letter, ? for the list), never while t
   assert.deepEqual(errors, []);
   await page.context().close();
 });
+
+test("admin: the filter buttons sit in one row (wrapping only when narrow), at 360 and 1200 px", async () => {
+  for (const width of [360, 1200]) {
+    const { page, errors } = await adminPage(ops, { width, height: 800 });
+    await page.goto(`${env.base}/admin/#/sessions`);
+    await page.waitForSelector("[data-filter=all]");
+    const bar = page.locator(".row.filters");
+    assert.equal(await bar.evaluate((el) => getComputedStyle(el).display), "flex", `${width} px`);
+    const tops = await page.locator(".row.filters [data-filter]").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().top)));
+    assert.equal(tops.length, 2);
+    assert.equal(new Set(tops).size, 1, `${width} px: side by side (${tops})`);
+    assert.deepEqual(errors, []);
+    await page.context().close();
+  }
+});
+
+test("admin failed notifications: a Handled that fails can be pressed again", async () => {
+  const { page, errors } = await adminPage(ops);
+  const row = { id: "n1", created_at: new Date().toISOString(), name: "Reem", member_status: "active", phone: "+97455501234", text_en: "Your table is ready",
+    text: "Your table is ready", locale: "en", booking_ref: "HZ-1", starts_at: new Date().toISOString(), attempts: 3, last_try_at: new Date().toISOString(), last_error: "410", handled_at: null };
+  await page.route(/\/api\/admin\/v1\/notifications\/failed/, (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ notifications: [row] }) }));
+  let tries = 0;
+  await page.route(/\/api\/admin\/v1\/notifications\/n1:handled/, (r) => { tries++; r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL", message: "try again" }) }); });
+  await page.goto(`${env.base}/admin/#/failed-notifications`);
+  const done = page.locator("[data-fn-done=n1]");
+  await done.click();
+  await page.waitForSelector("#flash .banner-danger");
+  assert.equal(await done.isEnabled(), true, "enabled again after the failure");
+  await done.click();
+  await page.waitForFunction(() => document.querySelectorAll("#flash .banner-danger").length === 1);
+  assert.equal(tries, 2);
+  assert.deepEqual(errors.filter((e) => !/status of 500/.test(e)), [], "only the 500s this test asked for");
+  await page.context().close();
+});
+
+test("admin: a 30-second refresh still in flight never keeps the focus off the heading of a screen opened from the menu", async () => {
+  const { page, errors } = await adminPage(ops);
+  await page.clock.install();
+  let hold = null;
+  const answer = (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ generated_at: new Date().toISOString(), tables: [] }) });
+  await page.route(/\/api\/admin\/v1\/live\/tonight/, (r) => { if (hold) hold.push(r); else answer(r); });
+  await page.goto(`${env.base}/admin/#/live`);
+  await page.waitForSelector("h1:text('Tonight board')");
+  hold = [];
+  await page.clock.fastForward(30000); // the refresh starts and its answer is held
+  await page.waitForFunction(() => true);
+  for (let i = 0; i < 50 && !hold.length; i++) await page.waitForTimeout(20);
+  assert.equal(hold.length, 1, "the refresh is in flight");
+  await page.click("nav a[href='#/sessions']");
+  await page.waitForSelector("h1:text('Sessions & Matching')");
+  await page.waitForFunction(() => document.activeElement && document.activeElement.tagName === "H1");
+  assert.equal(await active(page), "Sessions & Matching");
+  hold.forEach(answer);
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("h1").innerText(), "Sessions & Matching", "the late refresh does not draw over the new screen");
+  assert.deepEqual(errors, []);
+  await page.context().close();
+});

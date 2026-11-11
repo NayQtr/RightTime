@@ -53,17 +53,15 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || "/#/inbox", self.location.origin).href;
   e.waitUntil((async () => {
-    // a window already on the same page first (the admin console for an alert, the app for a member's update); the list
-    // from matchAll is frozen, so a copy is sorted
-    const path = (u) => new URL(u).pathname.replace(/(.)\/$/, "$1");
-    const same = (w) => Number(path(w.url) === path(url));
-    const wins = [...await self.clients.matchAll({ type: "window", includeUncontrolled: true })].sort((a, b) => same(b) - same(a));
-    for (const w of wins) {
-      if (new URL(w.url).origin === self.location.origin) {
-        await w.focus();
-        if ("navigate" in w) await w.navigate(url);
-        return;
-      }
+    // only a window already on the same page is reused (the admin console for an alert, the app for a member's update);
+    // the member app at "/", the admin console at "/admin/" and the venue page at "/venue/" never replace each other
+    const path = (u) => new URL(u).pathname.replace(/\/index\.html$/, "/").replace(/(.)\/$/, "$1");
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const w = wins.find((c) => new URL(c.url).origin === self.location.origin && path(c.url) === path(url));
+    if (w) {
+      await w.focus();
+      if ("navigate" in w) await w.navigate(url);
+      return;
     }
     await self.clients.openWindow(url);
   })());

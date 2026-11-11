@@ -43,6 +43,7 @@ before(async () => {
 after(async () => { await env.stop(); fake.close(); });
 
 const codeIn = (text) => /\b(\d{6})\b/.exec(text)[1];
+const until = async (f) => { for (let i = 0; i < 250 && !(await f()); i += 1) await new Promise((ok) => setTimeout(ok, 20)); };
 const challenges = async () => (await sql`SELECT count(*)::int AS n FROM app.otp_challenges`)[0].n;
 
 test("SMS: the code reaches her phone in her language, never the API answer; it signs her in", async () => {
@@ -62,7 +63,7 @@ test("SMS: the code reaches her phone in her language, never the API answer; it 
   assert.match(sms.at(-1).body, /^Your HerZone sign-in code: \d{6}\nIt is valid for 5 minutes\./);
 });
 
-test("SMS provider refuses: 503, the challenge is removed, nothing about the number or code is logged", async () => {
+test("SMS provider refuses: 503, the challenge can no longer be used but still counts, nothing about the number or code is logged", async () => {
   failSmsTo.add("+97455501236");
   const before = await challenges();
   const lines = [];
@@ -72,10 +73,12 @@ test("SMS provider refuses: 503, the challenge is removed, nothing about the num
   try { r = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501236", locale: "ar" } }); } finally { console.error = orig; }
   assert.equal(r.status, 503, JSON.stringify(r.body));
   assert.equal(r.body.code, "UNAVAILABLE");
-  assert.equal(await challenges(), before, "no challenge left behind");
+  assert.equal(await challenges(), before + 1, "the challenge stays, so it counts toward the limits");
+  const [failed] = await sql`SELECT id FROM app.otp_challenges ORDER BY created_at DESC LIMIT 1`;
   const code = codeIn(sms.at(-1).body);
   assert.ok(lines.some((l) => l.includes("400")), lines.join("\n"));
   assert.ok(!lines.join("\n").includes("55501236") && !lines.join("\n").includes(code), "no full number or code in the log");
+  assert.equal((await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: failed.id, code } })).status, 410, "the code that was not sent cannot be used");
   // the failed attempt does not hold her back: she can ask again at once
   failSmsTo.delete("+97455501236");
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501236" } })).status, 202);
@@ -95,6 +98,18 @@ test("countries: an allowed visitor country takes any valid number, with an hour
   const [row] = await sql`SELECT country_code FROM app.otp_challenges WHERE country_code = '44' LIMIT 1`;
   assert.equal(row.country_code, "44");
   assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97455501237" } })).status, 202, "Qatar has no country cap");
+});
+
+test("country cap: parallel requests never pass it, and a refused SMS still counts toward it", async () => {
+  // a fresh hour for every limit (the rows stay valid: created and expiry move together)
+  await sql`UPDATE app.otp_challenges SET created_at = created_at - interval '2 hours', expires_at = expires_at - interval '2 hours'`;
+  failSmsTo.add("+447700900400");
+  assert.equal((await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+447700900400" } })).status, 503);
+  failSmsTo.delete("+447700900400");
+  const n = sms.length;
+  const all = await Promise.all([1, 2, 3, 4, 5].map((i) => call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: `+44770090041${i}` } })));
+  assert.deepEqual(all.map((r) => r.status).sort(), [202, 429, 429, 429, 429], "OTP_COUNTRY_HOURLY_CAP = 2, one taken by the refused SMS");
+  assert.equal(sms.length, n + 1, "no SMS paid for over the cap");
 });
 
 test("reviewer: the fixed number gets no SMS and signs in with the fixed code; attempts and audit stay", async () => {
@@ -120,13 +135,14 @@ test("reviewer: the fixed number gets no SMS and signs in with the fixed code; a
   assert.equal((await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: other.body.challenge_id, code: REVIEW.code } })).status, 400);
 });
 
-test("venue email: the code goes to a registered address only, never on screen; a refused email answers 503", async () => {
+test("venue email: the code goes to a registered address only, never on screen; the same answer when the email fails", async () => {
   const ops = await adminLogin(call, sql, "ops.oncall@example.test");
   const [v] = await sql`SELECT id FROM app.venues WHERE is_active LIMIT 1`;
   assert.equal((await call("POST", `/api/admin/v1/venues/${v.id}/portal-users`, { token: ops.token, body: { email: "host@venue.test" } })).status, 201);
   const r = await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "Host@Venue.test" }, idem: false, locale: "ar" });
   assert.equal(r.status, 202, JSON.stringify(r.body));
   assert.equal(r.body.dev_code, undefined, "never shown on screen");
+  await until(() => mails.length === 1); // sent after the answer
   assert.equal(mails.length, 1);
   const m = mails[0];
   assert.equal(m.auth, "Bearer re_test_key");
@@ -138,15 +154,21 @@ test("venue email: the code goes to a registered address only, never on screen; 
   // an unknown address: the same answer, and nothing is sent
   const unknown = await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "nobody@venue.test" }, idem: false });
   assert.deepEqual([unknown.status, unknown.body.sent], [202, true]);
-  assert.equal(mails.length, 1);
   // English when the page is in English
   await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "host@venue.test" }, idem: false, locale: "en" });
+  await until(() => mails.length === 2);
+  assert.equal(mails.length, 2, "nothing was sent to the unknown address");
   assert.equal(mails.at(-1).subject, "Your HerZone partner venues sign-in code");
-  // the provider refuses: 503, and that code is gone
+  // the provider refuses: the same 202 as for any address (never 503, which would tell a registered one apart); that
+  // code cannot be used, and its row stays, so it counts toward the hourly limits
   failMail = true;
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.venue_login_codes`;
   const bad = await call("POST", "/api/venue/v1/auth/code:request", { body: { email: "host@venue.test" }, idem: false });
+  assert.deepEqual([bad.status, bad.body.sent, bad.body.dev_code], [202, true, undefined]);
+  await until(() => mails.length === 3);
+  const code = codeIn(mails.at(-1).text);
+  await until(async () => (await sql`SELECT count(*)::int AS n FROM app.venue_login_codes WHERE expires_at <= now()`)[0].n > 0);
   failMail = false;
-  assert.equal(bad.status, 503);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM app.venue_login_codes`)[0].n, n);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.venue_login_codes`)[0].n, n + 1);
+  assert.equal((await call("POST", "/api/venue/v1/auth/code:verify", { body: { email: "host@venue.test", code }, idem: false })).status, 400);
 });

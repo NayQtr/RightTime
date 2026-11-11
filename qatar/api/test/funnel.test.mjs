@@ -5,7 +5,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { adminLogin, buildTemplate, client, startTestEnv } from "./helpers.mjs";
 import { resetConfigCache } from "../src/lib/config.js";
-import { FUNNEL_STEPS } from "../src/routes/funnel.js";
+import { FUNNEL_PINGS_PER_WINDOW, FUNNEL_STEPS } from "../src/routes/funnel.js";
 
 let off, on;
 before(async () => {
@@ -67,4 +67,17 @@ test("on: counts per day, step and platform only; unknown steps refused; the adm
   assert.deepEqual(t.body.rows.find((r) => r.step === "signup_phone" && r.platform === "web"), { day: today, step: "signup_phone", platform: "web", count: 3 });
   const fin = await adminLogin(on.call, on.sql, "finance@example.test");
   assert.equal((await on.call("GET", "/api/admin/v1/funnel", { token: fin.token })).status, 403);
+});
+
+test("on: a flood of pings from one address is cut off with 429 (counted in memory only); other addresses still count", async () => {
+  const from = (ip) => ({ "x-real-ip": ip });
+  const [{ n: before }] = await on.sql`SELECT coalesce(sum(count), 0)::int AS n FROM app.funnel_daily WHERE step = 'booking_review'`;
+  for (let i = 0; i < FUNNEL_PINGS_PER_WINDOW; i++) assert.equal((await ping(on, { step: "booking_review", platform: "web" }, from("198.51.100.20"))).status, 204);
+  const over = await ping(on, { step: "booking_review", platform: "web" }, from("198.51.100.99")); // same /24 prefix
+  assert.equal(over.status, 429);
+  assert.equal(over.body.code, "RATE_LIMITED");
+  assert.equal((await ping(on, { step: "booking_review", platform: "web" }, from("192.0.2.5"))).status, 204, "another address is not held back");
+  const [{ n }] = await on.sql`SELECT coalesce(sum(count), 0)::int AS n FROM app.funnel_daily WHERE step = 'booking_review'`;
+  assert.equal(n - before, FUNNEL_PINGS_PER_WINDOW + 1, "the refused ping was not counted");
+  assert.equal((await on.sql`SELECT count(*)::int AS n FROM app.idempotency_keys`)[0].n, 0, "nothing about the address is stored");
 });

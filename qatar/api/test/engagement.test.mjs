@@ -112,6 +112,32 @@ test("notify me: a suspended member is skipped; an ops proposal approved by the 
   await sql`UPDATE app.users SET status = 'active' WHERE id = ${U.sama.userId}`;
 });
 
+test("notify me: told only for a session she can still book (booking open, a venue within her budget); otherwise still waiting", async () => {
+  U.maha = await signUp(call, { name: "مها", languages: ["lang_ar"], tier: "tier_1" });
+  assert.equal((await call("POST", "/api/v1/session-alerts", { token: U.maha.token })).status, 201);
+  const open = async () => (await sql`SELECT notified_at FROM app.session_alerts WHERE user_id = ${U.maha.userId} AND notified_at IS NULL`).length === 1;
+  // booking for this one has already closed
+  const closed = await newSession("ar", 9);
+  await sql`UPDATE app.event_sessions SET booking_opens_at = now() - interval '2 hours', booking_closes_at = now() - interval '1 minute' WHERE id = ${closed}`;
+  assert.equal((await openSale(closed)).body.result.members_alerted, 0, "nobody is told about a session she cannot book");
+  assert.ok(await open(), "booking closed: not told, still open");
+  // no venue within her budget (the only tier-1 venue is closed for now): createBooking would answer BUDGET_CONFLICT
+  const [cheap] = await sql`UPDATE app.venues v SET is_active = false FROM app.budget_tiers bt
+                             WHERE bt.id = v.budget_tier_id AND bt.rank = 1 AND v.is_active RETURNING v.id`;
+  assert.ok(cheap, "the test data has a tier-1 venue");
+  const pricey = await newSession("ar", 10);
+  assert.equal((await openSale(pricey)).status, 200);
+  assert.ok(await open(), "over her budget: not told, still open");
+  assert.deepEqual(await notes(U.maha, "SESSION_AVAILABLE"), []);
+  assert.equal((await call("POST", "/api/v1/bookings", { token: U.maha.token, body: { session_id: pricey } })).body.code, "BUDGET_CONFLICT");
+  await sql`UPDATE app.venues SET is_active = true WHERE id = ${cheap.id}`;
+  // a session she can book: told, and the alert ends
+  const fits = await newSession("ar", 11);
+  assert.equal((await openSale(fits)).status, 200);
+  assert.equal(await open(), false);
+  assert.equal((await notes(U.maha, "SESSION_AVAILABLE")).length, 1);
+});
+
 test("notify me needs her answers first", async () => {
   const r1 = await call("POST", "/api/v1/auth/otp:request", { body: { phone_e164: "+97433123456", locale: "ar", purpose: "login" } });
   const r2 = await call("POST", "/api/v1/auth/otp:verify", { body: { challenge_id: r1.body.challenge_id, code: r1.body.dev_code } });

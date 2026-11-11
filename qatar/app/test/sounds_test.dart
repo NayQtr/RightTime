@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:herzone/app/app.dart';
@@ -95,6 +96,20 @@ void main() {
     ])));
     await tester.tap(find.byKey(const Key('on')));
     await tester.tap(find.byKey(const Key('off')), warnIfMissed: false);
+    expect(rec.played, [UiSound.tap]);
+
+    // a scroll or drag that started on a button is not a tap: silent on release
+    rec.played.clear();
+    final g = await tester.startGesture(tester.getCenter(find.byKey(const Key('on'))));
+    await g.moveBy(const Offset(0, kTouchSlop + 20));
+    await g.up();
+    await tester.pump();
+    expect(rec.played, isEmpty);
+    // a small wobble within the touch slop is still a tap
+    final w = await tester.startGesture(tester.getCenter(find.byKey(const Key('on'))));
+    await w.moveBy(const Offset(0, kTouchSlop / 2));
+    await w.up();
+    await tester.pump();
     expect(rec.played, [UiSound.tap]);
 
     rec.played.clear();

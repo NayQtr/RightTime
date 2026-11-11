@@ -61,27 +61,30 @@ async function deliver(sql, id, round, { getEnv, cfg, fetchImpl = fetch }) {
   const devices = await sql`
     SELECT s.* FROM app.admin_push_subscriptions s JOIN app.admin_users u ON u.id = s.admin_id
      WHERE u.status = 'active' AND u.role::text IN ${sql(COORDINATOR_ROLES)}`;
-  let pushOk = 0;
-  if (devices.length) {
+  const sms = smsSettings(getEnv, cfg.smsProvider);
+  const phones = sms ? alertPhones(getEnv) : [];
+  // push and SMS go out side by side: a slow push service never holds back the SMS
+  const pushAll = async () => {
+    if (!devices.length) return 0;
+    let ok = 0;
     const vapid = await vapidKeys(sql, getEnv);
     const message = { title: PUSH_TITLE, body: text, tag: `alert-${a.id}`, lang: "en", dir: "ltr", url: ALERT_PATH, urgent: true };
     const timed = (url, init) => fetchImpl(url, { ...init, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
     const results = await Promise.all(devices.map((d) => sendPush(d, message, vapid, { subject: SUBJECT, ttl: 3600, urgency: "high", fetchImpl: timed })));
     for (const [i, r] of results.entries()) {
       const d = devices[i];
-      if (r.ok) { pushOk += 1; await sql`UPDATE app.admin_push_subscriptions SET failures = 0, last_success_at = now(), last_error = NULL WHERE id = ${d.id}`; }
+      if (r.ok) { ok += 1; await sql`UPDATE app.admin_push_subscriptions SET failures = 0, last_success_at = now(), last_error = NULL WHERE id = ${d.id}`; }
       else if (r.gone) await sql`DELETE FROM app.admin_push_subscriptions WHERE id = ${d.id}`;
       else await sql`UPDATE app.admin_push_subscriptions SET failures = failures + 1, last_error = ${`${r.status} ${r.error || ""}`.trim().slice(0, 200)} WHERE id = ${d.id}`;
     }
-  }
-
-  const sms = smsSettings(getEnv, cfg.smsProvider);
-  const phones = sms ? alertPhones(getEnv) : [];
-  let smsOk = 0;
-  if (phones.length) {
+    return ok;
+  };
+  const smsAll = async () => {
+    if (!phones.length) return 0;
     const body = smsText(text, cfg.webBaseUrl);
-    smsOk = (await Promise.all(phones.map((to) => sendSms({ to, body }, sms, { fetchImpl })))).filter((r) => r.ok).length;
-  }
+    return (await Promise.all(phones.map((to) => sendSms({ to, body }, sms, { fetchImpl })))).filter((r) => r.ok).length;
+  };
+  const [pushOk, smsOk] = await Promise.all([pushAll(), smsAll()]);
 
   if (round === "first") {
     await sql`UPDATE app.coordinator_alerts SET push_devices = ${devices.length}, push_delivered = ${pushOk},
@@ -103,6 +106,19 @@ export async function pageCoordinators(sql, alertId, opts) {
     console.error("coordinator alert: paging failed:", e && e.message);
     return null;
   }
+}
+
+// The report answers within this, whatever the push services and the SMS provider do (the app gives up after 15 s). A
+// page still going on carries on after the answer (kept alive on Supabase Edge); the every-minute run below is the
+// backstop for an alert whose page never started.
+export const PAGE_WAIT_MS = 5000;
+/** After the report is saved: starts the first page and waits for it at most PAGE_WAIT_MS. Never throws. */
+export async function pageWithin(sql, alertId, opts, ms = PAGE_WAIT_MS) {
+  const paging = pageCoordinators(sql, alertId, opts);
+  globalThis.EdgeRuntime?.waitUntil?.(paging);
+  let timer;
+  await Promise.race([paging, new Promise((r) => { timer = setTimeout(r, ms); })]);
+  clearTimeout(timer);
 }
 
 /**

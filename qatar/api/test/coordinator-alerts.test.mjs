@@ -9,6 +9,7 @@ import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, 
 import { b64u } from "../src/services/webpush.js";
 import { resetVapidCache } from "../src/routes/push.js";
 import { resetConfigCache } from "../src/lib/config.js";
+import { PAGE_WAIT_MS } from "../src/services/coordinator_alerts.js";
 
 const subtle = globalThis.crypto.subtle;
 const te = new TextEncoder();
@@ -16,6 +17,7 @@ const SID = "AC" + "0".repeat(32);
 let env, call, sql, fake, base, owner, ops, ts, member, bookingId;
 const pushes = [], sms = [];
 const browsers = {};
+const held = []; // push requests to a device whose push service does not answer (last test)
 
 // A browser-side push subscription and RFC 8291 decryption, independent of the sender code (as in push.test.mjs).
 async function fakeBrowser() {
@@ -49,6 +51,7 @@ before(async () => {
         res.writeHead(201, { "content-type": "application/json" }); res.end(JSON.stringify({ sid: `SM${sms.length}`, status: "queued" }));
         return;
       }
+      if (req.url.includes("slow")) { held.push(res); return; }
       pushes.push({ device: req.url.split("/").pop(), urgency: req.headers.urgency, ttl: req.headers.ttl, body: new Uint8Array(body) });
       res.writeHead(req.url.includes("gone") ? 410 : 201); res.end();
     });
@@ -205,4 +208,28 @@ test("this device: coordinators turn alerts on and off for a browser (real push 
   assert.equal((await sql`SELECT count(*)::int AS n FROM app.admin_push_subscriptions WHERE endpoint = ${sub.endpoint}`)[0].n, 0);
   const acts = (await sql`SELECT action FROM app.audit_logs WHERE action LIKE 'coordinator_alerts_device_%' ORDER BY at`).map((x) => x.action);
   assert.deepEqual(acts, ["coordinator_alerts_device_on", "coordinator_alerts_device_off"]);
+});
+
+test("a push service that does not answer never holds up her report: 201 within seconds, the SMS goes at once, the page completes after", async () => {
+  const slow = await fakeBrowser();
+  await sql`INSERT INTO app.admin_push_subscriptions (admin_id, endpoint, p256dh, auth) VALUES (${ops.admin.id}, ${`${base}/push/slow`}, ${slow.p256dh}, ${slow.auth})`;
+  const n = sms.length;
+  const t0 = Date.now();
+  const r = await report({ category: "threat_violence", timing: "during" });
+  const took = Date.now() - t0;
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.ok(took < PAGE_WAIT_MS + 2000, `answered in ${took} ms (the app gives up after 15 s)`);
+  assert.equal(sms.length - n, 2, "the SMS did not wait for the push service");
+  // the page carries on after the answer: once the silent device times out (8 s), the alert and the audit row record it
+  const a0 = await alertOf(r.body.case_ref);
+  let log;
+  for (let i = 0; i < 150 && !log; i++) {
+    [log] = await sql`SELECT reason_code FROM app.audit_logs WHERE action = 'coordinator_paged' AND entity_id = ${a0.report_id}`;
+    if (!log) await new Promise((ok) => setTimeout(ok, 100));
+  }
+  assert.equal(log && log.reason_code, "push_2/3_sms_2/2");
+  const a = await alertOf(r.body.case_ref);
+  assert.deepEqual([Boolean(a.paged_at), a.push_devices, a.push_delivered, a.sms_delivered], [true, 3, 2, 2]);
+  held.forEach((res) => res.destroy());
+  await sql`DELETE FROM app.admin_push_subscriptions WHERE endpoint LIKE '%/push/slow'`;
 });

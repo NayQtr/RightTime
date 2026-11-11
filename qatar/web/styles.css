@@ -681,7 +681,7 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
 /* session picker: a session and its waitlist button are one row, so the day and area chips (long lists only) hide both */
 .sess { display: grid; gap: var(--s-2); }
 .sess[hidden] { display: none; }
-.filters { display: grid; gap: var(--s-3); margin-block: var(--s-4) var(--s-2); }
+#filters { display: grid; gap: var(--s-3); margin-block: var(--s-4) var(--s-2); }
 /* one row per group that scrolls sideways, so the first session stays in view on a phone (the page never scrolls sideways) */
 .filters .chips { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 calc(-1 * var(--s-1)); padding: var(--s-1); }
 .filters .chips::-webkit-scrollbar { display: none; }

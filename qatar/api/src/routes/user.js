@@ -4,7 +4,7 @@ import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { decisionLabel, durationText, outboundText, renderTemplate } from "../lib/i18n.js";
 import { sendSms, smsSettings } from "../lib/sms.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
-import { alertKind, pageCoordinators, raiseAlert } from "../services/coordinator_alerts.js";
+import { alertKind, pageWithin, raiseAlert } from "../services/coordinator_alerts.js";
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
 
@@ -115,7 +115,9 @@ async function otpRequest(ctx) {
   if (country === "974" && !isReview && !/^\+974[3-7][0-9]{7}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
   const lookup = hmacHex(keys.phonePepper, phone);
   await sql`SELECT app.purge_otp_challenges()`;
-  const [last] = await sql`SELECT created_at FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} ORDER BY created_at DESC LIMIT 1`;
+  // a code that never reached her (SMS refused, below) does not make her wait to ask again; it still counts in the limits
+  const [last] = await sql`SELECT created_at FROM app.otp_challenges WHERE phone_lookup_hash = ${lookup} AND expires_at > now()
+                             ORDER BY created_at DESC LIMIT 1`;
   if (last) {
     const age = (Date.now() - new Date(last.created_at).getTime()) / 1000;
     if (age < cfg.otpResendAfter) fail(429, "OTP_RATE_LIMITED", null, { retry_after: Math.ceil(cfg.otpResendAfter - age) });
@@ -124,29 +126,34 @@ async function otpRequest(ctx) {
   if (n_phone >= 5) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
   const [{ n_ip }] = await sql`SELECT count(*)::int AS n_ip FROM app.otp_challenges WHERE request_ip_trunc = ${ctx.ipBucket}::inet AND created_at > now() - interval '1 hour'`;
   if (n_ip >= 20) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  // Paid SMS outside Qatar: at most OTP_COUNTRY_HOURLY_CAP codes an hour per country, against abuse.
-  if (country && country !== "974" && !isReview) {
-    const [{ n_cc }] = await sql`SELECT count(*)::int AS n_cc FROM app.otp_challenges WHERE country_code = ${country} AND created_at > now() - interval '1 hour'`;
-    if (n_cc >= cfg.otpCountryHourlyCap) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
-  }
   // Item 37: the code goes by SMS when a provider is set up (SMS_PROVIDER and its secrets). Without one, only staging's
   // OTP_DEV_MODE (code in the answer) or the reviewer's number can sign in; production answers 503 as before.
   const sms = isReview ? null : smsSettings(ctx.getEnv, cfg.smsProvider);
   if (!isReview && !sms && !cfg.otpDevMode) fail(503, "UNAVAILABLE", [{ reason: "no SMS provider configured" }]);
   const id = randomUUID();
   const code = isReview ? review.code : randomDigits(6);
-  await sql`
-    INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc, country_code)
-    VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
-            now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet, ${country})`;
+  await sql.begin(async (tx) => {
+    // Paid SMS outside Qatar: at most OTP_COUNTRY_HOURLY_CAP codes an hour per country, against abuse. Counted and
+    // taken under one lock per country, so parallel requests (even across function copies) never pass the cap.
+    if (country && country !== "974" && !isReview) {
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${`otp-country:${country}`}))`;
+      const [{ n_cc }] = await tx`SELECT count(*)::int AS n_cc FROM app.otp_challenges WHERE country_code = ${country} AND created_at > now() - interval '1 hour'`;
+      if (n_cc >= cfg.otpCountryHourlyCap) fail(429, "OTP_RATE_LIMITED", null, { retry_after: 3600 });
+    }
+    await tx`
+      INSERT INTO app.otp_challenges (id, phone_lookup_hash, phone_e164_enc, code_hash, expires_at, request_ip_trunc, country_code)
+      VALUES (${id}, ${lookup}, ${encrypt(keys.dataKey, phone)}, ${hmacB64(keys.phonePepper, `${id}:${code}`)},
+              now() + make_interval(secs => ${cfg.otpTtl}), ${ctx.ipBucket}::inet, ${country})`;
+  });
   if (isReview) await audit(sql, null, "review_login_code", "otp_challenges", id, "no_sms", ctx.ipTrunc);
   if (sms) {
     // in her language: the one she chose in the app, else the request's
     const locale = ["ar", "en"].includes(body.locale) ? body.locale : ctx.locale;
     const sent = await sendSms({ to: phone, body: outboundText("SMS_SIGN_IN_CODE", locale, { code, minutes: Math.round(cfg.otpTtl / 60) }) }, sms);
     if (!sent.ok) {
-      // no code reached her: the challenge goes, so it neither counts against her nor can be guessed
-      await sql`DELETE FROM app.otp_challenges WHERE id = ${id}`;
+      // no code reached her: the challenge can no longer be used (nor guessed), but it stays, so it still counts toward
+      // the per-number, per-address and per-country limits (a refused send may still be paid for)
+      await sql`UPDATE app.otp_challenges SET expires_at = now() WHERE id = ${id}`;
       fail(503, "UNAVAILABLE", [{ reason: "SMS not sent" }]);
     }
   }
@@ -645,15 +652,23 @@ async function requestSessionAlert(ctx) {
 
 // A session went on sale: every open alert of an active member whose current Q01 languages include the session's language
 // is closed and answered with one notification (inbox, and her phone if she turned notifications on). Returns how many.
+// Only while she can still book it: before booking closes, and with a venue within her Q04 budget (as createBooking's
+// BUDGET_CONFLICT); otherwise her alert stays open for the next session.
 export async function notifySessionAlerts(tx, sessionId) {
   const due = await tx`
     UPDATE app.session_alerts a SET notified_at = now(), session_id = ${sessionId}
       FROM app.event_sessions s
-     WHERE s.id = ${sessionId} AND a.notified_at IS NULL
+     WHERE s.id = ${sessionId} AND a.notified_at IS NULL AND now() < s.booking_closes_at
        AND EXISTS (SELECT 1 FROM app.users u WHERE u.id = a.user_id AND u.status = 'active')
        AND EXISTS (SELECT 1 FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
                      JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q01' JOIN app.question_options o ON o.id = x.option_id
                     WHERE r.user_id = a.user_id AND r.status = 'submitted' AND o.maps_to->>'language' = trim(s.conversation_language))
+       AND EXISTS (SELECT 1 FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
+                     JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q04' JOIN app.question_options o ON o.id = x.option_id
+                     JOIN app.budget_tiers mine ON mine.id = (o.maps_to->>'budget_tier_id')::uuid
+                     JOIN app.venues v ON v.city_id = s.city_id AND v.is_active AND s.experience = ANY (v.supported_experiences)
+                     JOIN app.budget_tiers bt ON bt.id = v.budget_tier_id AND bt.rank <= mine.rank
+                    WHERE r.user_id = a.user_id AND r.status = 'submitted')
     RETURNING a.user_id`;
   for (const d of due) await notify(tx, d.user_id, "SESSION_AVAILABLE", { session_id: sessionId });
   return due.length;
@@ -1146,8 +1161,9 @@ async function createReport(ctx) {
     await notify(tx, user.id, "REPORT_RECEIVED", { case: r.case_ref });
     return r;
   });
-  // push to coordinators' devices and SMS to their numbers; the audit row "coordinator_paged" records what was sent
-  if (alertId) await pageCoordinators(sql, alertId, { getEnv: ctx.getEnv, cfg: ctx.cfg });
+  // push to coordinators' devices and SMS to their numbers; the audit row "coordinator_paged" records what was sent.
+  // Her saved report never waits on a slow push service or SMS provider for more than a few seconds.
+  if (alertId) await pageWithin(sql, alertId, { getEnv: ctx.getEnv, cfg: ctx.cfg });
   return json(201, { case_ref: report.case_ref, severity: report.severity, status: report.status,
     emergency: { show: danger, number: "999" } });
 }
