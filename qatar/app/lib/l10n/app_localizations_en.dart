@@ -602,6 +602,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get occasionNo => 'No';
 
   @override
+  String occasionNotice(int days) {
+    return 'Celebrations need at least $days days\' notice.';
+  }
+
+  @override
+  String get celebrationBirthday =>
+      'One of the guests is celebrating her birthday';
+
+  @override
+  String get celebrationOther =>
+      'One of the guests is celebrating a special occasion';
+
+  @override
+  String get errGenericNext => 'If it happens again, contact us.';
+
+  @override
+  String get qatarOnly => 'We currently accept Qatar numbers only.';
+
+  @override
   String get reviewTitle => 'Review your booking';
 
   @override

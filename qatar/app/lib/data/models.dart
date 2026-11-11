@@ -6,7 +6,8 @@ class Money {
 }
 
 class SessionSummary {
-  const SessionSummary({required this.id, required this.experience, required this.language, required this.startsAt, required this.district, required this.seatsLeft, required this.isFull, this.myBookingId, this.languageMatch});
+  const SessionSummary({required this.id, required this.experience, required this.language, required this.startsAt, required this.district, required this.seatsLeft, required this.isFull, this.myBookingId, this.languageMatch,
+      this.occasionAllowed = true, this.occasionNoticeHours = 72});
 
   final String id;
   final String experience;
@@ -18,6 +19,10 @@ class SessionSummary {
   final String? myBookingId;
   final bool? languageMatch;
 
+  /// Item 32 (provisional): the occasion question is offered only this far ahead (server: CELEBRATION_NOTICE_HOURS).
+  final bool occasionAllowed;
+  final int occasionNoticeHours;
+
   factory SessionSummary.fromJson(Map<String, dynamic> j) => SessionSummary(
         id: j['id'] as String,
         experience: j['experience'] as String,
@@ -28,6 +33,8 @@ class SessionSummary {
         isFull: j['is_full'] as bool,
         myBookingId: j['my_booking_id'] as String?,
         languageMatch: j['language_match'] as bool?,
+        occasionAllowed: (j['occasion_allowed'] as bool?) ?? true,
+        occasionNoticeHours: (j['occasion_notice_hours'] as num?)?.toInt() ?? 72,
       );
 }
 
@@ -88,6 +95,9 @@ class EventDetails {
   int? get capacity => (_t?['capacity'] as num?)?.toInt();
   String? get tableCode => _t?['code'] as String?;
   List<String> get tablemates => ((_t?['members'] as List?) ?? const []).map((m) => ((m as Map)['display_name'] as String?) ?? '').where((n) => n.isNotEmpty).toList();
+
+  /// After the reveal: 'birthday' or 'other' when another woman at the table celebrates (never who); null otherwise.
+  String? get celebration => _t?['celebration'] as String?;
   Venue? get venue => _v == null
       ? null
       : Venue(

@@ -54,6 +54,9 @@ class WelcomeScreen extends StatelessWidget {
                   Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
                   const SizedBox(height: HzSpace.s2),
                   Text(t.quizLength, textAlign: TextAlign.center, style: tt.bodySmall),
+                  // T12: Qatar numbers only, said before the questionnaire (the phone hint's own sentence)
+                  const SizedBox(height: HzSpace.s1),
+                  Text(t.qatarOnly, key: const Key('qatar-only'), textAlign: TextAlign.center, style: tt.bodySmall?.copyWith(color: c.textMuted)),
                   const SizedBox(height: HzSpace.s5),
                   Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
                   const SizedBox(height: HzSpace.s3),

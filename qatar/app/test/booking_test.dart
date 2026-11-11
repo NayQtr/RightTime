@@ -14,8 +14,10 @@ import 'sign_in_flow_test.dart' show config, j;
 
 /// One open session; the seat is held on booking and paid once the checkout page has been opened.
 class Fake {
-  Fake({this.late = false});
+  Fake({this.late = false, this.occasionAllowed, this.refuseOccasion = false});
   final bool late;
+  final bool? occasionAllowed; // null: a server that does not say (the question is offered)
+  final bool refuseOccasion; // the server answers 422 NOTICE_TOO_SHORT to an occasion
   bool paid = false;
   final sent = <String, Map<String, dynamic>>{};
 
@@ -38,8 +40,12 @@ class Fake {
           case '/api/v1/questionnaires/current':
             return j({'questionnaire_version_id': 'v4', 'questions': [], 'submitted': {'answers': []}, 'has_submitted_any': true});
           case '/api/v1/sessions':
-            return j({'sessions': [{'id': 's9', 'experience': 'dinner', 'conversation_language': 'ar', 'language_match': true, 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'الدفنة', 'seats_left': 5, 'is_full': false, 'my_booking_id': null}]});
+            return j({'sessions': [{'id': 's9', 'experience': 'dinner', 'conversation_language': 'ar', 'language_match': true, 'starts_at': '2026-11-12T19:30:00+03:00', 'district': 'الدفنة', 'seats_left': 5, 'is_full': false, 'my_booking_id': null,
+                if (occasionAllowed != null) ...{'occasion_allowed': occasionAllowed, 'occasion_notice_hours': 72}}]});
           case '/api/v1/bookings':
+            if (refuseOccasion && body['occasion'] != null) {
+              return j({'code': 'VALIDATION_FAILED', 'message': 'راجعي الإجابات المظللة.', 'details': [{'field': 'occasion', 'code': 'NOTICE_TOO_SHORT', 'min_notice_hours': 72}]}, 422);
+            }
             return j(booking(), 201);
           case '/api/v1/bookings/b1':
             return j(booking());
@@ -72,6 +78,34 @@ void main() {
     await tester.tap(find.byKey(const Key('hold')));
     await tester.pumpAndSettle();
     expect(f.sent['/api/v1/bookings'], {'session_id': 's9', 'occasion': 'birthday'});
+  });
+
+  // Item 32 (provisional, 10 Nov): a celebration needs 3 days' notice
+  testWidgets('celebration too close to the date: no question, a short note, and the booking carries no occasion', (tester) async {
+    final f = Fake(occasionAllowed: false);
+    await start(tester, f);
+    expect(find.text('هل تحتفلين بمناسبة في هذا الموعد؟'), findsNothing);
+    expect(find.byKey(const Key('occasion-birthday')), findsNothing);
+    expect(find.text('الاحتفال بمناسبة يحتاج إلى حجز قبل 3 أيام على الأقل.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    expect(f.sent['/api/v1/bookings'], {'session_id': 's9'});
+  });
+
+  testWidgets('the date came closer while she chose: the refusal hides the question and shows the note, then she books', (tester) async {
+    final f = Fake(occasionAllowed: true, refuseOccasion: true);
+    await start(tester, f);
+    await tester.tap(find.byKey(const Key('occasion-birthday')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('occasion-notice')), findsOneWidget);
+    expect(find.byKey(const Key('occasion-birthday')), findsNothing);
+    expect(find.text('راجعي الإجابات المظللة.'), findsNothing, reason: 'the note explains it; no second message');
+    await tester.tap(find.byKey(const Key('hold')));
+    await tester.pumpAndSettle();
+    expect(f.sent['/api/v1/bookings'], {'session_id': 's9'});
+    expect(find.byKey(const Key('amount')), findsOneWidget, reason: 'held without the occasion');
   });
 
   testWidgets('book: hold the seat, review fee and refund terms, pay on the provider page, come back paid', (tester) async {

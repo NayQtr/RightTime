@@ -69,7 +69,20 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _hold() => _run(() async => b = await context.read<MeetupsRepository>().book(widget.session.id, occasion: occasion == 'none' ? null : occasion));
+  /// Item 32 (provisional): a celebration needs notice; the server says so per session, or refuses a late one.
+  bool tooLate = false;
+  bool get _occasionOpen => widget.session.occasionAllowed && !tooLate;
+
+  Future<void> _hold() => _run(() async {
+        try {
+          b = await context.read<MeetupsRepository>().book(widget.session.id, occasion: !_occasionOpen || occasion == 'none' ? null : occasion);
+        } on ApiError catch (e) {
+          // the date came closer while she chose: the question goes away with the note, and she can book without it
+          if (!e.details.any((d) => d['field'] == 'occasion' && d['code'] == 'NOTICE_TOO_SHORT')) rethrow;
+          tooLate = true;
+          occasion = 'none';
+        }
+      });
 
   Future<void> _pay() => _run(() async {
         final repo = context.read<MeetupsRepository>();
@@ -113,16 +126,20 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     ];
     if (bk == null) {
       children.addAll([
-        Text(t.occasionLegend, style: tt.titleMedium),
-        RadioGroup<String>(
-          groupValue: occasion,
-          onChanged: (v) => setState(() => occasion = v ?? 'none'),
-          child: Column(children: [
-            for (final (v, label) in [('birthday', t.occasionBirthday), ('other', t.occasionOther), ('none', t.occasionNo)])
-              TestId('occasion-$v', child: RadioListTile<String>(key: Key('occasion-$v'), contentPadding: EdgeInsets.zero, value: v, title: Text(label),
-                  secondary: v == 'birthday' ? const Icon(Icons.cake_outlined) : null)),
-          ]),
-        ),
+        if (_occasionOpen) ...[
+          Text(t.occasionLegend, style: tt.titleMedium),
+          RadioGroup<String>(
+            groupValue: occasion,
+            onChanged: (v) => setState(() => occasion = v ?? 'none'),
+            child: Column(children: [
+              for (final (v, label) in [('birthday', t.occasionBirthday), ('other', t.occasionOther), ('none', t.occasionNo)])
+                TestId('occasion-$v', child: RadioListTile<String>(key: Key('occasion-$v'), contentPadding: EdgeInsets.zero, value: v, title: Text(label),
+                    secondary: v == 'birthday' ? const Icon(Icons.cake_outlined) : null)),
+            ]),
+          ),
+        ] else
+          TestId('occasion-notice', child: Text(t.occasionNotice((s.occasionNoticeHours / 24).ceil()), key: const Key('occasion-notice'),
+              style: tt.bodySmall?.copyWith(color: c.textMuted))),
         const SizedBox(height: HzSpace.s3),
         Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat))),
       ]);

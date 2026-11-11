@@ -7,6 +7,7 @@ import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
+import '../auth/widgets.dart' show errorText;
 import '../common/press.dart';
 import '../../domain/theme_controller.dart';
 
@@ -96,7 +97,7 @@ class AccountTab extends StatelessWidget {
     try {
       await session.deleteAccount();
     } on ApiError catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.isOffline ? t.offline : (e.message.isNotEmpty ? e.message : t.errGeneric))));
+      messenger.showSnackBar(SnackBar(content: Text(errorText(t, e))));
     }
   }
 }

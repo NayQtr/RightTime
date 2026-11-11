@@ -93,12 +93,21 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               _Fact(icon: Icons.place_outlined, label: t.district, value: d.district),
               _Fact(icon: Icons.translate, label: t.tableLanguage, value: d.language == 'ar' ? t.langAr : t.langEn),
               if (d.foodBand != null) _Fact(icon: Icons.account_balance_wallet_outlined, label: t.foodBandLabel, value: d.foodBand!),
-              _Fact(icon: Icons.schedule, label: '${t.dateTime} · Asia/Qatar', value: fmtTime(d.startsAt, lang)),
+              _Fact(icon: Icons.schedule, label: t.dateTime, value: fmtTime(d.startsAt, lang)),
               if (d.confirmedCount != null) ...[
                 const SizedBox(height: HzSpace.s4),
                 Text(t.yourTable, style: tt.titleLarge),
                 Text(t.confirmedCount(d.confirmedCount!)),
                 if (d.tablemates.isNotEmpty) Text('${t.tablemates}: ${d.tablemates.join('، ')}'),
+                // item 33 (provisional): another guest celebrates; never who
+                if (d.celebration != null) ...[
+                  const SizedBox(height: HzSpace.s2),
+                  TestId('celebration', child: Row(key: const Key('celebration'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(d.celebration == 'birthday' ? Icons.cake_outlined : Icons.auto_awesome_outlined, size: 20, color: c.primary),
+                    const SizedBox(width: HzSpace.s2),
+                    Expanded(child: Text(d.celebration == 'birthday' ? t.celebrationBirthday : t.celebrationOther, style: const TextStyle(fontWeight: FontWeight.w500))),
+                  ])),
+                ],
               ],
               const SizedBox(height: HzSpace.s4),
               if (v == null && !d.isOver)
