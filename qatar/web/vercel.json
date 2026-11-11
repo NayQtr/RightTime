@@ -17,9 +17,26 @@
     {
       "source": "/venue",
       "destination": "/venue/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
+    {
+      "source": "/about/en",
+      "destination": "/about/en.html"
     }
   ],
   "headers": [
+    {
+      "source": "/((?!about).*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
@@ -34,10 +51,6 @@
         {
           "key": "X-Frame-Options",
           "value": "DENY"
-        },
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex"
         },
         {
           "key": "Content-Security-Policy",

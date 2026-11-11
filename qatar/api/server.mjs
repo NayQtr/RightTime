@@ -11,7 +11,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.resolve(HERE, "../web");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".webmanifest": "application/manifest+json",
-  ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
+  ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8", ".webp": "image/webp", ".jpg": "image/jpeg", ".png": "image/png" };
 
 export function startServer({ databaseUrl = process.env.DATABASE_URL, port = Number(process.env.PORT || 8787), env = process.env } = {}) {
   const sql = postgres(databaseUrl, { max: 5, onnotice: () => {} });
@@ -36,6 +36,8 @@ export function startServer({ databaseUrl = process.env.DATABASE_URL, port = Num
       if (url.pathname.startsWith("/checkout/mock/")) file = path.join(WEB, "checkout-mock.html");
       else if (url.pathname === "/admin" || url.pathname === "/admin/") file = path.join(WEB, "admin", "index.html");
       else if (url.pathname === "/" ) file = path.join(WEB, "index.html");
+      else if (url.pathname === "/about" || url.pathname === "/about/") file = path.join(WEB, "about", "index.html"); // vercel.json rewrites
+      else if (url.pathname === "/about/en") file = path.join(WEB, "about", "en.html");
       else file = path.join(WEB, path.normalize(url.pathname).replace(/^(\.\.[/\\])+/, ""));
       if (!file.startsWith(WEB)) { res.writeHead(403); res.end(); return; }
       const data = await readFile(file);

@@ -1,7 +1,7 @@
 // Gate that runs first in every Vercel build (preview and production), before anything is published or deployed.
 // If any check fails, the build stops: the site is not published and the API is not deployed.
 //   1. Syntax check of every web and API JavaScript file (a file that fails to parse breaks the app for everyone).
-//   2. The automated tests that need no database or browser (design, error reporting, API description, matching, quiz flow, Flutter tokens).
+//   2. The automated tests that need no database or browser (public page, design, error reporting, API description, matching, quiz flow, Flutter tokens).
 //   3. Known vulnerabilities in the API's runtime libraries (npm audit, high or critical).
 // The database and browser tests (e2e, ui, push, promo, ...) need Postgres and Chromium, which the Vercel build machine
 // does not have; they run before every push with `npm run check` in qatar/api (see qatar/ops/check-all.sh).
@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API = path.join(ROOT, "api");
-const PURE_TESTS = ["design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
+const PURE_TESTS = ["about-page", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {

@@ -32,7 +32,7 @@ async function newPage(viewport = { width: 360, height: 780 }) {
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   // pages are served with the production Content-Security-Policy from vercel.json (with this server's API origin), so a
   // blocked script or style shows up here as a console error (NMX-31)
-  await ctx.route((url) => url.origin === env.base && !url.pathname.startsWith("/api/") && /(\.html|\/)$/.test(url.pathname), async (r) => {
+  await ctx.route((url) => url.origin === env.base && !url.pathname.startsWith("/api/") && /(\.html|\/|^\/about(\/en)?)$/.test(url.pathname), async (r) => {
     const res = await r.fetch();
     await r.fulfill({ response: res, headers: { ...res.headers(), "content-security-policy": CSP.replace("connect-src 'self'", `connect-src 'self' ${env.base}`) } });
   });
@@ -780,6 +780,32 @@ test("public account deletion page (Google Play): both languages, served under t
   assert.ok((await page.locator("main").textContent()).includes("14"), "states the 14-day period");
   assert.equal(await page.locator('a[href="tel:+97460053006"]').count(), 2);
   await noHorizontalScroll(page);
+  assert.deepEqual(errors, []);
+  await page.context().close();
+});
+
+test("public page W1 (/about, /about/en): real CSP, phone and desktop width, language link, the call opens the app in that language", async () => {
+  const { page, errors } = await newPage();
+  await page.goto(`${env.base}/about`);
+  await oneH1(page);
+  assert.equal(await page.locator("html").getAttribute("dir"), "rtl");
+  assert.equal(await page.locator("main h1").innerText(), "تعرّفي على ناس.. تفهمك");
+  await noHorizontalScroll(page);
+  // photos below the first screen wait until she scrolls; every photo decodes (WebP from <source>)
+  assert.equal(await page.locator("main img[loading=lazy]").count(), 5);
+  await page.locator("#cta-bottom").scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0));
+  assert.ok((await page.evaluate(() => document.images[0].currentSrc)).endsWith(".webp"));
+  await page.click("#lang");
+  await page.waitForURL(/\/about\/en$/);
+  assert.equal(await page.locator("html").getAttribute("lang"), "en");
+  assert.equal(await page.locator("main h1").innerText(), "Meet people who get you.");
+  await noHorizontalScroll(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await noHorizontalScroll(page);
+  await page.click("#cta-top");
+  await page.waitForFunction(() => location.pathname === "/" && document.documentElement.lang === "en");
+  assert.equal(await page.evaluate(() => localStorage.getItem("q_locale")), '"en"');
   assert.deepEqual(errors, []);
   await page.context().close();
 });
