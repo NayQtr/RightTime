@@ -92,7 +92,7 @@ jobs:
             --output=json --output=html --output-path=lighthouse/mobile --quiet
           node -e '
             const r = require("./lighthouse/mobile.report.json");
-            const rows = Object.values(r.categories).map((c) => `| ${c.title} | ${Math.round(c.score * 100)} |`).join("\n");
+            const rows = Object.values(r.categories).map((c) => `| ${c.title} | ${c.score == null ? "n/a" : Math.round(c.score * 100)} |`).join("\n");
             console.log(`## Lighthouse mobile (report only)\n\nLighthouse ${r.lighthouseVersion}, ${r.configSettings.formFactor}, ${r.finalDisplayedUrl}\n\n| Category | Score |\n|---|---|\n${rows}\n`);
           ' | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
