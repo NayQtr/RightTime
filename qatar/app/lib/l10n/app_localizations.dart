@@ -272,12 +272,6 @@ abstract class AppLocalizations {
   /// **'رقم الجوال'**
   String get phoneLabel;
 
-  /// No description provided for @countryLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'رمز الدولة'**
-  String get countryLabel;
-
   /// No description provided for @phoneInvalid.
   ///
   /// In ar, this message translates to:

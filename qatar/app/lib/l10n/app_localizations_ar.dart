@@ -103,9 +103,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get phoneLabel => 'رقم الجوال';
 
   @override
-  String get countryLabel => 'رمز الدولة';
-
-  @override
   String get phoneInvalid => 'أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.';
 
   @override

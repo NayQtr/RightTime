@@ -104,9 +104,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get phoneLabel => 'Mobile number';
 
   @override
-  String get countryLabel => 'Country code';
-
-  @override
   String get phoneInvalid =>
       'Enter 8 digits starting with a digit from 3 to 7.';
 

@@ -72,9 +72,10 @@ test("phone: the calling code is a dropdown of every country (no Israel), Qatar 
     assert.ok((await page.locator("#cc option").count()) > 200, "every country");
     assert.equal(await page.locator('#cc option[value="IL"]').count(), 0, "Israel is not offered");
     assert.equal(await page.evaluate(() => [...document.querySelectorAll("#cc option")].filter((o) => o.textContent.includes("+972")).length), 0, "no +972 anywhere");
-    // no visible label and no search box: the owner asked for the dropdown alone
+    // no label at all and no search box: the owner asked for the dropdown alone (11 Nov), so even the
+    // screen-reader name is gone and the chosen option itself ("+974 قطر") is what is announced
     assert.equal(await page.locator("#cc-q, #cc-pop, #cc-none").count(), 0);
-    assert.ok((await page.locator("#cc").getAttribute("aria-label")).length > 0, "still named for screen readers");
+    assert.equal(await page.locator("#cc").getAttribute("aria-label"), null, "no label of its own");
 
     await page.selectOption("#cc", "GB");
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[0-9]{4,15}", "another country takes any plausible number");

@@ -30,7 +30,6 @@
   "phoneTitle": "رقم جوالك",
   "phoneHelp": "نرسل لكِ رمزًا من 6 أرقام.",
   "phoneLabel": "رقم الجوال",
-  "countryLabel": "رمز الدولة",
   "phoneInvalid": "أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.",
   "sendCode": "أرسلي الرمز",
   "otpTitle": "أدخلي الرمز",

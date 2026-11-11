@@ -53,7 +53,6 @@ class _PhoneScreenState extends State<PhoneScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final vm = context.watch<SignInViewModel>();
-    final lang = Localizations.localeOf(context).languageCode;
     final qatar = _country.dial == '974';
     return Scaffold(
       appBar: AppBar(),
@@ -72,7 +71,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
                 key: const Key('country'),
                 onPressed: _pickCountry,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Semantics(label: '${t.countryLabel}: ${_country.name(lang)}', child: Text('+${_country.dial}')),
+                  Text('+${_country.dial}'),
                   const Icon(Icons.arrow_drop_down, size: 20),
                 ]),
               ))))),

@@ -7,7 +7,6 @@ export const STRINGS = {
     
     // SCR-02
     phoneTitle: "رقم جوالك", phoneHelp: "نرسل لكِ رمزًا من 6 أرقام.", phoneLabel: "رقم الجوال", sendCode: "أرسلي الرمز",
-    countryLabel: "رمز الدولة", // screen readers only; no visible label (owner, 11 Nov)
     otpTitle: "أدخلي الرمز", otpHelp: "أرسلنا رمزًا إلى", otpLabel: "رمز التحقق", verify: "تحقّقي", resend: "إعادة الإرسال", resendIn: "إعادة الإرسال بعد {s} ث",
     devCode: "بيئة تجريبية: الرمز هو", attemptsLeft: "محاولات متبقية: {n}",
     regTitle: "قبل أن نبدأ", nameLabel: "اسمك الأول كما في بطاقة الدفع", nameHelp: "يظهر لزميلات الطاولة يوم اللقاء. ونطابقه مع الاسم على بطاقة الدفع لحماية اللقاءات.", nameRequired: "اكتبي اسمك الأول.", cIdentity: "اسم بطاقة الدفع لا يطابق اسم الحساب", idCheckPending: "نراجع بيانات الدفع لحجزك. سنكشف لكِ المكان ورمز الطاولة بعد المراجعة.",
@@ -159,7 +158,6 @@ export const STRINGS = {
     
     
     phoneTitle: "Your mobile number", phoneHelp: "We'll send you a 6-digit code.", phoneLabel: "Mobile number", sendCode: "Send code",
-    countryLabel: "Country code", // screen readers only; no visible label
     otpTitle: "Enter the code", otpHelp: "We sent a code to", otpLabel: "Verification code", verify: "Verify", resend: "Resend code", resendIn: "Resend in {s}s",
     devCode: "Staging: the code is", attemptsLeft: "Attempts left: {n}",
     regTitle: "Before we start", nameLabel: "Your first name, as on your payment card", nameHelp: "Shown to your tablemates on the day of the event. We also match it with the name on your payment card, to keep meetups safe.", nameRequired: "Enter your first name.", cIdentity: "The name on the payment card does not match the account", idCheckPending: "We are reviewing the payment details of your booking. We will show you the venue and table code after the review.",

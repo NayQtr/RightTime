@@ -360,7 +360,7 @@ function scrPhone() {
       <div class="field">
         <label class="label" for="phone">${esc(T("phoneLabel"))}</label>
         <div class="phone">
-          <select class="prefix" id="cc" aria-label="${esc(T("countryLabel"))}">
+          <select class="prefix" id="cc">
             ${byName().map((c) => `<option value="${esc(c.iso)}" ${c.iso === country.iso ? "selected" : ""}>+${esc(c.dial)} ${esc(countryName(c))}</option>`).join("")}
           </select>
           <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
