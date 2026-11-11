@@ -11,16 +11,17 @@ The register of every provisional choice, how to change it, the blocked items, o
 `qatar/docs/decisions/provisional-2026-11-10.md` (Arabic). Items listed there as built are provisional, not final: the owner reviews them.
 Still open from it: section 3 (blocked) and section 4 (owner actions), plus the two text questions at the end of section 5.
 
-## Staging publish blocked [2026-11-11]
+## Staging publish done [2026-11-11]
 
-Migrations 018, 019, 020, 021, 023 and questionnaire QA-2026-05 are applied to the staging database
+Migrations 018, 019, 020, 021, 023 and questionnaire QA-2026-05 applied to the staging database
 (fvodcnqmxskgzziwuwmz), verified against the files (function bodies hash-identical).
-The staging web + API deploy FAILED: the Vercel project qatar-mvp-staging has an invalid
-SUPABASE_ACCESS_TOKEN (Production) — the build ends with `unexpected deploy status 401: Invalid access token`.
-Owner action: create a new Supabase access token and replace SUPABASE_ACCESS_TOKEN in
-Vercel > qatar-mvp-staging > Settings > Environment Variables (Production). Then the deploy can be re-run.
-Until then staging serves the previous build and the previous API (health has no `test_paths_open`),
-while its database already carries the new migrations.
+The owner renewed SUPABASE_ACCESS_TOKEN in Vercel, and the staging web + API deployed from rightime-app
+(commit 7093072). Smoke checks all pass: the four pages 200, API health 200, member and admin routes 401
+without sign-in. /about and /about/en are live and the only indexable pages. The questionnaire served is
+QA-2026-05 with Q25. Test paths (otp_dev_mode, mock_payments) are open on staging, as intended there.
+Production is untouched and still needs the owner's approval.
+
+Owner wording approved 11 Nov: the time left in the questionnaire (one minute / two minutes / a few minutes).
 
 ## The list [2026-11-05]
 
