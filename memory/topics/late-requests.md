@@ -41,6 +41,22 @@ NOT done in this release, and production cannot serve a member until the owner s
 - herzone.app still serves staging (item 14b); production is reachable only at herzone-production.vercel.app,
   behind Vercel SSO except on a custom domain.
 
+## Production "no internet" error, fixed [2026-11-11]
+
+The owner opened https://herzone-production.vercel.app on a phone and saw «حدث خطأ. حاولي مرة أخرى.»
+with «لا يوجد اتصال بالإنترنت.». Root cause (traced, not guessed): the production API's CORS_ORIGINS was
+`https://herzone.app` only, so a page served from herzone-production.vercel.app got NO
+Access-Control-Allow-Origin header, the browser blocked the response, the fetch threw, and the app showed its
+offline text. Verified by comparing: staging allows its own origin; production allowed only herzone.app.
+Fix: CORS_ORIGINS on production is now `https://herzone.app,https://herzone-production.vercel.app`.
+Verified after: the production origin is allowed, herzone.app still allowed, an unknown origin still gets no
+header (no wildcard). The welcome page then loaded with no error banner and no failed request.
+The real fix remains item 14b: point herzone.app at herzone-production. Then the vercel.app origin can be
+dropped from the list again.
+
+Still open on production: no admin user, questionnaire still draft, no published legal document, no venue,
+no session. The owner chose the admin display name "HerZone Owner" but has not yet given the email address.
+
 ## The list [2026-11-05]
 
 Waiting on the owner (actions):
