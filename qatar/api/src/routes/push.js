@@ -6,7 +6,7 @@ import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { audit } from "../services/common.js";
 import { coordinatorAlertsTick } from "../services/coordinator_alerts.js";
 import { refundsTick } from "../services/payments.js";
-import { reportError } from "../lib/sentry.js";
+import { reportError, sentryEnv } from "../lib/sentry.js";
 import { b64uKey, resetVapidCache, sendPush, validEndpoint, vapidKeys } from "../services/webpush.js";
 import { notificationText } from "../services/notifications.js";
 
@@ -158,8 +158,7 @@ async function dispatch(ctx) {
   const alerts = await coordinatorAlertsTick(ctx.sql, { getEnv: ctx.getEnv, cfg: ctx.cfg })
     .catch((e) => { console.error("coordinator alerts tick failed:", e && e.message); return { error: true }; });
   // Refunds (B1/B2) ride on it too, also on their own: a missed refund is sent, a refused or unanswered one reported.
-  const sentryEnv = (k) => ctx.getEnv(k) ?? (k === "SENTRY_DSN" ? ctx.cfg.sentryDsn : k === "SENTRY_ENVIRONMENT" ? ctx.cfg.sentryEnvironment : undefined);
-  const refunds = await refundsTick(ctx.sql, ctx.psp, { report: (e) => reportError(sentryEnv, e, { route: "refunds tick" }) })
+  const refunds = await refundsTick(ctx.sql, ctx.psp, { report: (e) => reportError(sentryEnv(ctx.getEnv, ctx.cfg), e, { route: "refunds tick" }) })
     .catch((e) => { console.error("refunds tick failed:", e && e.message); return { error: true }; });
   return json(200, { ...(await dispatchPush(ctx.sql, ctx.getEnv)), coordinator_alerts: alerts, refunds });
 }

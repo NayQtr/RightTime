@@ -4,7 +4,7 @@
 import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { smsSettings } from "../lib/sms.js";
 import { audit } from "../services/common.js";
-import { alertPhones, COORDINATOR_ROLES, coordinatorAlertsTick } from "../services/coordinator_alerts.js";
+import { alertPhones, COORDINATOR_ROLES, coordinatorAlertsTick, pageDone } from "../services/coordinator_alerts.js";
 import { b64uKey, validEndpoint } from "../services/webpush.js";
 
 const A = "/api/admin/v1";
@@ -12,7 +12,7 @@ const MAX_DEVICES = 10;
 
 const view = (r) => ({ id: r.id, case_ref: r.case_ref, kind: r.kind, severity: r.severity, created_at: qa(r.created_at),
   venue: r.venue || null, table_code: r.table_code || null, starts_at: qa(r.starts_at),
-  paged_at: qa(r.paged_at), push: { delivered: r.push_delivered, devices: r.push_devices }, sms: { delivered: r.sms_delivered, numbers: r.sms_numbers },
+  paged_at: qa(r.paged_at), page_done: r.page_done, push: { delivered: r.push_delivered, devices: r.push_devices }, sms: { delivered: r.sms_delivered, numbers: r.sms_numbers },
   escalated_at: qa(r.escalated_at), escalation: r.escalated_at ? { push_delivered: r.escalation_push_delivered, sms_delivered: r.escalation_sms_delivered } : null,
   acknowledged_at: qa(r.acknowledged_at), acknowledged_by: r.acknowledged_by_name || null });
 
@@ -23,7 +23,7 @@ async function listAlerts(ctx) {
   await coordinatorAlertsTick(sql, { getEnv, cfg }).catch((e) => console.error("coordinator alerts tick failed:", e && e.message));
   const open = url.searchParams.get("status") !== "all";
   const rows = await sql`
-    SELECT a.*, r.case_ref, t.table_code, v.name AS venue, s.starts_at, ad.name AS acknowledged_by_name
+    SELECT a.*, ${pageDone(sql)} AS page_done, r.case_ref, t.table_code, v.name AS venue, s.starts_at, ad.name AS acknowledged_by_name
       FROM app.coordinator_alerts a JOIN app.safety_reports r ON r.id = a.report_id
       LEFT JOIN app.event_tables t ON t.id = r.table_id LEFT JOIN app.venues v ON v.id = t.venue_id
       LEFT JOIN app.bookings b ON b.id = r.booking_id LEFT JOIN app.event_sessions s ON s.id = b.session_id

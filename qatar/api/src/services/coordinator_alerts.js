@@ -8,6 +8,7 @@
 //    COORDINATOR_ESCALATE_MINUTES (config.js, default 5), it is sent again to everyone, once, and marked escalated. That
 //    check runs every minute with the push dispatcher (pg_cron, 013) and whenever the admin console reads its alerts.
 // Nothing about the report itself leaves the server: the texts say the kind, the severity and the case reference only.
+import { reportError, sentryEnv } from "../lib/sentry.js";
 import { sendSms, smsSettings } from "../lib/sms.js";
 import { cleanPhone, isE164 } from "../lib/validate.js";
 import { audit } from "./common.js";
@@ -95,6 +96,13 @@ async function deliver(sql, id, round, { getEnv, cfg, fetchImpl = fetch }) {
   }
   const sent = `push_${pushOk}/${devices.length}_sms_${sms ? `${smsOk}/${phones.length}` : "off"}`;
   await audit(sql, null, round === "first" ? "coordinator_paged" : "coordinator_alert_escalated", "safety_reports", a.report_id, sent);
+  if (pushOk + smsOk === 0) {
+    // nobody was reached: say so where the team looks (Sentry), never let "sent" stand for it
+    const err = new Error(`Safety alert ${a.case_ref} (${round}) reached no coordinator: ${sent}. Call the on-call coordinator.`);
+    err.name = "CoordinatorAlertUnreached";
+    console.error(err.message);
+    await reportError(sentryEnv(getEnv, cfg), err, { route: "coordinator alert" });
+  }
   return { push: { delivered: pushOk, devices: devices.length }, sms: sms ? { delivered: smsOk, numbers: phones.length } : null };
 }
 
@@ -111,8 +119,11 @@ export async function pageCoordinators(sql, alertId, opts) {
 
 // The report answers within this, whatever the push services and the SMS provider do (the app gives up after 15 s). A
 // page still going on carries on after the answer (kept alive on Supabase Edge); the every-minute run below is the
-// backstop for an alert whose page never started.
+// backstop for an alert whose page never started or never finished.
 export const PAGE_WAIT_MS = 5000;
+// The first page has finished (whatever it reached) once deliver() wrote its audit row. Used in SQL on alias `a`.
+export const pageDone = (sql) => sql`EXISTS (SELECT 1 FROM app.audit_logs l WHERE l.entity = 'safety_reports'
+  AND l.entity_id = a.report_id AND l.action = 'coordinator_paged')`;
 /** After the report is saved: starts the first page and waits for it at most PAGE_WAIT_MS. Never throws. */
 export async function pageWithin(sql, alertId, opts, ms = PAGE_WAIT_MS) {
   const paging = pageCoordinators(sql, alertId, opts);
@@ -129,8 +140,13 @@ export async function pageWithin(sql, alertId, opts, ms = PAGE_WAIT_MS) {
  */
 export async function coordinatorAlertsTick(sql, opts) {
   const out = { paged: 0, escalated: 0 };
-  const lost = await sql`UPDATE app.coordinator_alerts SET paged_at = now()
-                          WHERE paged_at IS NULL AND created_at < now() - interval '1 minute' RETURNING id`;
+  // never started, or started but never finished (the request stopped mid-page: no "coordinator_paged" audit row, which
+  // deliver() writes last). Sent again; a coordinator may get it twice, never zero times.
+  const lost = await sql`UPDATE app.coordinator_alerts a SET paged_at = now()
+                          WHERE (a.paged_at IS NULL AND a.created_at < now() - interval '1 minute')
+                             OR (a.paged_at < now() - interval '1 minute' AND a.acknowledged_at IS NULL AND a.escalated_at IS NULL
+                                 AND NOT ${pageDone(sql)})
+                          RETURNING a.id`;
   for (const a of lost) {
     await deliver(sql, a.id, "first", opts).catch((e) => console.error("coordinator alert: paging failed:", e && e.message));
     out.paged += 1;

@@ -2,6 +2,7 @@
 import { decrypt } from "../lib/crypto.js";
 import { askNameOpinion, clearsReview } from "../lib/ai.js";
 import { audit, currentTable, notify } from "./common.js";
+import { reportError, sentryEnv } from "../lib/sentry.js";
 
 /** Once a review is approved: if the venue was already revealed for her session, send her the venue notice now. */
 export async function sendHeldVenueNotice(tx, bookingId) {
@@ -48,8 +49,11 @@ export async function runAiOpinions(sql, { getEnv, cfg, keys }, { limit = 5 } = 
       });
       done += 1;
     }
-  } catch {
-    // a person reviews it; the payment and the list never fail because of the second opinion
+  } catch (e) {
+    // a person reviews it; the payment and the list never fail because of the second opinion. The error is still
+    // logged, and a database error (not only a failed AI call) reaches Sentry.
+    console.error("identity second opinion failed:", e && e.message);
+    await reportError(sentryEnv(getEnv, cfg), e, { route: "identity second opinion" });
   }
   return done;
 }

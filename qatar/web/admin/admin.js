@@ -808,7 +808,9 @@ async function scrAlerts(opts) {
   const device = !pushReady() ? "This browser cannot receive alerts."
     : Notification.permission === "denied" ? "Notifications are blocked for this site. Allow them in the browser settings."
     : here ? "Alerts are on for this device." : "Alerts are off for this device.";
-  const sent = (x) => `Push ${x.push.delivered}/${x.push.devices} · SMS ${ch.sms || x.sms.numbers ? `${x.sms.delivered}/${x.sms.numbers}` : "off"}`;
+  // a page still going (or cut off and about to be sent again) is not shown as sent; one that reached nobody says so
+  const sent = (x) => !x.page_done ? "Not confirmed yet"
+    : `Push ${x.push.delivered}/${x.push.devices} · SMS ${ch.sms || x.sms.numbers ? `${x.sms.delivered}/${x.sms.numbers}` : "off"}${x.push.delivered + x.sms.delivered === 0 ? " · reached no one" : ""}`;
   view("Alerts", `<h1>Alerts</h1><div id="flash"></div>
     <p class="caption">Safety reports that must reach a coordinator at once: S1 or S2 during a meetup, and every "I am in danger now".
     Each alert goes to every coordinator device with alerts on${ch.sms ? " and by SMS to the coordinators' numbers" : ""}.

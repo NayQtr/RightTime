@@ -233,3 +233,29 @@ test("a push service that does not answer never holds up her report: 201 within 
   held.forEach((res) => res.destroy());
   await sql`DELETE FROM app.admin_push_subscriptions WHERE endpoint LIKE '%/push/slow'`;
 });
+
+test("a page cut off before it finished is not counted as sent: the next run sends it again and only then is it shown as sent", async () => {
+  // a report with no alert of its own (S3), then its alert as a request that stopped mid-page leaves it: started
+  // (paged_at) two minutes ago, nothing recorded of what it reached
+  const r = await report({ category: "fraud", timing: "after" });
+  assert.equal(r.status, 201);
+  const [rep] = await sql`SELECT id FROM app.safety_reports WHERE case_ref = ${r.body.case_ref}`;
+  assert.equal(await alertOf(r.body.case_ref), undefined);
+  const [a0] = await sql`INSERT INTO app.coordinator_alerts (report_id, kind, severity, created_at, paged_at)
+                         VALUES (${rep.id}, 'report_during', 2, now() - interval '3 minutes', now() - interval '2 minutes') RETURNING id`;
+  const p0 = pushes.length, s0 = sms.length;
+  const d = await dispatch();
+  assert.equal(d.status, 200);
+  assert.ok(d.body.coordinator_alerts.paged >= 1, JSON.stringify(d.body));
+  assert.ok(pushes.length > p0, "pushed again");
+  assert.equal(sms.length - s0, 2, "SMS again");
+  const list = await call("GET", "/api/admin/v1/coordinator-alerts", { token: ops.token });
+  const mine = list.body.alerts.find((x) => x.case_ref === r.body.case_ref);
+  assert.equal(mine.page_done, true);
+  assert.ok(mine.push.delivered + mine.sms.delivered > 0);
+  // a finished page is never sent again by the next run
+  const p1 = pushes.length;
+  await sql`UPDATE app.coordinator_alerts SET paged_at = now() - interval '2 minutes' WHERE id = ${a0.id}`;
+  await dispatch();
+  assert.equal(pushes.length, p1);
+});

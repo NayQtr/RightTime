@@ -41,6 +41,10 @@ export function buildEnvelope(d, err, { route = null, requestId = null, environm
   return `${JSON.stringify(header)}\n${JSON.stringify({ type: "event" })}\n${JSON.stringify(event)}\n`;
 }
 
+/** getEnv for reportError: the environment first, then app_config (a DSN is a public, write-only key). */
+export const sentryEnv = (getEnv, cfg) => (k) => getEnv(k)
+  ?? (k === "SENTRY_DSN" ? cfg && cfg.sentryDsn : k === "SENTRY_ENVIRONMENT" ? cfg && cfg.sentryEnvironment : undefined);
+
 export async function reportError(getEnv, err, opts = {}) {
   const d = parseDsn(getEnv("SENTRY_DSN"));
   if (!d) return false;

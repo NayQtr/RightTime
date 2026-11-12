@@ -60,6 +60,8 @@ test("the open alert shows above every screen for ops, with Acknowledge; the Ale
   const row = page.locator("main tr", { hasText: caseRef });
   assert.equal(await row.count(), 1);
   assert.ok((await row.innerText()).includes("Not yet"));
+  // no coordinator device and no SMS here: the finished page says it reached no one, never a bare "sent"
+  assert.ok((await row.innerText()).includes("reached no one"), await row.innerText());
   assert.ok((await page.locator("#dev-state").innerText()).length > 0, "this device's state is shown");
   assert.equal(await page.locator("#dev-on").count(), 1, "alerts can be turned on here");
   assert.ok((await page.locator("main").innerText()).includes("SMS: not set up"));
