@@ -9,7 +9,6 @@
 // Plain fetch, so it runs on Node (tests) and Supabase Edge (Deno). Nothing here logs an address or a message text.
 import { safeBase } from "./sms.js";
 
-export const EMAIL_PROVIDERS = ["resend"];
 const RESEND = "https://api.resend.com";
 
 /** The provider's settings, or null when email is not set up (no provider chosen, or a secret missing). */

@@ -10,9 +10,9 @@ export class ApiError extends Error {
 
 export const fail = (status, code, details, extra) => { throw new ApiError(status, code, details, extra); };
 
-export function problemBody(err, locale, requestId, domain = "docs.example") {
+export function problemBody(err, locale, requestId) {
   return {
-    type: `https://${domain}/errors/${err.code}`,
+    type: `https://docs.example/errors/${err.code}`,
     status: err.status,
     code: err.code,
     message: errorMessage(err.code, locale),

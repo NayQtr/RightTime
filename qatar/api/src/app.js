@@ -146,7 +146,6 @@ export function createApp({ sql, getEnv = () => undefined }) {
     try {
       ctx = await context(req);
       cfg = ctx.cfg;
-      app.psp = ctx.psp;
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req, cfg) });
       const path = ctx.url.pathname.replace(/\/+$/, "") || "/";
       let route = null, params = {};
@@ -181,11 +180,10 @@ export function createApp({ sql, getEnv = () => undefined }) {
       let res = route.idem ? await withIdempotency(ctx, route, run) : await run();
       const headers = new Headers(res.headers);
       headers.set("X-Request-Id", ctx.requestId);
-      headers.set("X-Content-Type-Options", "nosniff");
       for (const [k, v] of Object.entries(corsHeaders(req, cfg))) headers.set(k, v);
       return new Response(res.body, { status: res.status, headers });
     } catch (e) {
-      const err = mapPgError(e) || (e instanceof ApiError ? e : null);
+      const err = mapPgError(e);
       const locale = ctx?.locale || "ar";
       const requestId = ctx?.requestId || "req_unknown";
       if (!err) {

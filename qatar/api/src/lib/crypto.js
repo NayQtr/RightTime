@@ -103,10 +103,6 @@ export function totpAt(secretB32, timeMs, step = 30) {
   return String(code).padStart(6, "0");
 }
 
-export function totpVerify(secretB32, code, timeMs = Date.now()) {
-  return totpStep(secretB32, code, timeMs) !== null;
-}
-
 // The 30-second step the code belongs to (one step either side of now), or null. Callers store the last accepted step
 // so a code is never accepted twice (NMX-63).
 export function totpStep(secretB32, code, timeMs = Date.now()) {

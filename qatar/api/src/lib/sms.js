@@ -9,7 +9,6 @@
 // TWILIO_BASE_URL only points the tests at a fake server; it must be https unless it is this machine.
 // Plain fetch, so it runs on Node (tests) and Supabase Edge (Deno). Nothing here logs a message text or a full number.
 
-export const SMS_PROVIDERS = ["twilio"];
 const TWILIO = "https://api.twilio.com";
 
 // A provider base URL: https, or plain http only to this machine (tests). Anything else is refused (TLS stays on).

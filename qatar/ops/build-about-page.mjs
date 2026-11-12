@@ -7,12 +7,19 @@
 // PROVISIONAL (owner review, 10 Nov): the sections, their order and the photos below are one obvious place to change.
 // Every line is an existing approved string (no new copy). Photos: the round-3 set without photo 4 (restaurant table)
 // and photo 6 (terrace), owner decision 10 Nov.
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { STRINGS } from "../web/strings.js";
 import { icon } from "../web/icons.js";
 import { brandMark } from "../web/motif.js";
+
+/** The browser chrome colour of the generated pages. It is written out because a meta tag cannot read a CSS variable,
+ *  so it is read from the design source rather than typed, and cannot drift from the palette. */
+const THEME = (() => {
+  const c = JSON.parse(readFileSync(new URL("../design/tokens.json", import.meta.url), "utf8")).color;
+  return { light: c.light.bg.$value, dark: c.dark.bg.$value };
+})();
 
 /** The public address used in canonical, hreflang and Open Graph links. */
 export const SITE = "https://herzone.app";
@@ -54,8 +61,8 @@ export function aboutPage(lang) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F7EDE3" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#241620" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="${THEME.light}" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="${THEME.dark}" media="(prefers-color-scheme: dark)">
   <title>${esc(title)}</title>
   <meta name="description" content="${esc(T("welcomeSub"))}">
   <link rel="canonical" href="${url}">
