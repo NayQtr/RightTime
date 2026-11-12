@@ -146,7 +146,8 @@ void main() {
 
       testWidgets('$label: booking review after the seat is held', skip: skip, (tester) async {
         size(tester);
-        final f = b.Fake();
+        // The launch offer is on (owner, 12 Nov): the store picture must show what the app shows.
+        final f = b.Fake()..launchFree = true;
         await pumpApp(tester, HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: data(f.client)));
         await tester.tap(find.byKey(const Key('session-s9')));
         await tester.pumpAndSettle();
