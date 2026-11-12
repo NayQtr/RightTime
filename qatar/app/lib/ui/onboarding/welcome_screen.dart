@@ -23,17 +23,24 @@ class WelcomeScreen extends StatelessWidget {
     final hero = t.welcomeHero;
     final em = t.welcomeHeroEm;
     final at = hero.lastIndexOf(em);
-    final heroText = at < 0
-        ? Text(hero, style: tt.displaySmall)
-        : Text.rich(TextSpan(style: tt.displaySmall, children: [
-            TextSpan(text: hero.substring(0, at)),
-            TextSpan(text: em, style: TextStyle(color: c.onAccent, backgroundColor: c.accent)),
-            TextSpan(text: hero.substring(at + em.length)),
-          ]));
+    final arabic = Localizations.localeOf(context).languageCode == 'ar';
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) {
+            // The Arabic welcome line reads as one line (owner, 12 Nov). At the full 32 pt it needs more width than a
+            // phone gives it, so on a narrow screen the size follows the width, exactly as the website does: 7% of the
+            // width, never above 31.2. English keeps its size and its two lines — it is a different sentence.
+            final heroStyle = arabic
+                ? tt.displaySmall?.copyWith(fontSize: (box.maxWidth * 0.07).clamp(18.0, 31.2))
+                : tt.displaySmall;
+            final heroText = at < 0
+                ? Text(hero, style: heroStyle)
+                : Text.rich(TextSpan(style: heroStyle, children: [
+                    TextSpan(text: hero.substring(0, at)),
+                    TextSpan(text: em, style: TextStyle(color: c.onAccent, backgroundColor: c.accent)),
+                    TextSpan(text: hero.substring(at + em.length)),
+                  ]));
             // The screen read too long on a tall phone (owner, 11 Nov): two free-growing gaps left a hole above and
             // below the table. Now the gaps are small and fixed, and the whole block is centred in whatever height the
             // phone gives it, so the spare height becomes an even margin instead of a hole. On a short phone, or with

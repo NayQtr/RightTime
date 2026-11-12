@@ -92,6 +92,29 @@ void main() {
 
   // The time row gained "GMT+3" (28), so it is checked at the four phone widths with the real fonts, in both
   // languages and both themes: an overflow fails the test.
+  // The Arabic welcome line must read as one line at every phone width (owner, 12 Nov), with the real fonts.
+  group('the welcome headline is one line in Arabic', () {
+    setUpAll(loadFonts);
+    for (final width in [320.0, 360.0, 390.0, 402.0, 430.0]) {
+      testWidgets('${width.toInt()} px', (tester) async {
+        tester.view.physicalSize = Size(width * 3, 900 * 3);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi([])));
+        await tester.pumpAndSettle();
+        final rich = tester.widget<RichText>(find.descendant(of: find.byType(Scaffold), matching: find.byType(RichText))
+            .evaluate()
+            .map((e) => find.byWidget(e.widget))
+            .firstWhere((f) => (tester.widget<RichText>(f).text.toPlainText()).contains('تعرّفي على ناس')));
+        expect(rich.text.toPlainText(), contains('تفهمك'));
+        final p = rich.text as TextSpan;
+        final tp = TextPainter(text: p, textDirection: TextDirection.rtl, textScaler: MediaQuery.textScalerOf(tester.element(find.byType(Scaffold))));
+        tp.layout(maxWidth: width - 32);
+        expect(tp.computeLineMetrics().length, 1, reason: 'the headline wraps at ${width.toInt()} px');
+      });
+    }
+  });
+
   group('layout with the real fonts', () {
     setUpAll(loadFonts);
     for (final width in [360.0, 390.0, 402.0, 430.0]) {

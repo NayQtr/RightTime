@@ -488,6 +488,10 @@ a.option { text-decoration: none; color: inherit; }
 .hero-welcome { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-2); }
 .hero-welcome h1 { font-family: var(--font-display); font-weight: 600; font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.3; margin: 0; }
 :root[lang="en"] .hero-welcome h1 { font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.15; }
+/* The Arabic welcome line reads as one line (owner, 12 Nov). It needs 397.5px at the full 32px, and the narrowest
+   phone gives the heading 328px, so on a phone the size follows the viewport instead: 7.1vw fits at 360, 390, 402 and
+   430 px with room to spare, and the 32px cap takes over as soon as the screen is wide enough to hold the line. */
+:root[lang="ar"] .hero-welcome h1, :root[lang="ar"] .about-hero h1 { font-size: min(calc(var(--u) * 1.9500), 7vw); }
 /* The emphasised word in the welcome heading sits on the owner's yellow with dark ink (owner, 11 Nov). It is the one
    place yellow is used, and only ever as a fill: as text on a light field it measures 1.34:1. Defined here, not in
    about.css, so the welcome line reads the same on the app shell and on the public page. */
