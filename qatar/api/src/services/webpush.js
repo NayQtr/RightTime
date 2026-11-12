@@ -92,3 +92,14 @@ export async function sendPush(sub, message, vapid, { subject, ttl = 86400, urge
   }
   return { ok: res.status >= 200 && res.status < 300, status: res.status, gone: res.status === 404 || res.status === 410 };
 }
+
+// Which push endpoints we accept, and the shape of the two browser keys. Both the member's devices (routes/push.js)
+// and a coordinator's (routes/alerts.js) are checked with these, so neither route has to import the other.
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
+  /^([a-z0-9-]+\.)*notify\.windows\.com$/];
+export function validEndpoint(endpoint) {
+  let u;
+  try { u = new URL(String(endpoint || "")); } catch { return false; }
+  return u.protocol === "https:" && String(endpoint).length <= 1000 && PUSH_HOSTS.some((re) => re.test(u.hostname));
+}
+export const b64uKey = (s, min, max) => typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s) && s.length >= min && s.length <= max;

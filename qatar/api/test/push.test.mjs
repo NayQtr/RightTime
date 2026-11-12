@@ -4,7 +4,8 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { adminLogin, buildTemplate, client, signUp, startTestEnv } from "./helpers.mjs";
 import { b64u, encryptPayload, fromB64u, generateVapidKey, vapidFromJwk, vapidJwt } from "../src/services/webpush.js";
-import { PUSH_RETRY_MINUTES, dispatchPush, resetVapidCache, validEndpoint } from "../src/routes/push.js";
+import { PUSH_RETRY_MINUTES, dispatchPush, resetVapidCache } from "../src/routes/push.js";
+import { validEndpoint } from "../src/services/webpush.js";
 
 const subtle = globalThis.crypto.subtle;
 let env, call, sql;

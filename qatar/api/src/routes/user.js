@@ -1,14 +1,17 @@
 // User-facing API (v0.3 §3.2–3.5 + v0.4 C14). user_id is ALWAYS ctx.user.id from the verified JWT.
-import { decrypt, encrypt, hmacB64, hmacHex, jwtSign, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
+import { decrypt, encrypt, hmacB64, hmacHex, randomDigits, randomToken, randomUUID, safeEqual, sha256hex } from "../lib/crypto.js";
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { ALL_COUNTRIES } from "../lib/config.js";
 import { callingCodeOf } from "../lib/countries.js";
-import { decisionLabel, durationText, outboundText, renderTemplate } from "../lib/i18n.js";
+import { decisionLabel, durationText, outboundText } from "../lib/i18n.js";
 import { sendSms, smsSettings } from "../lib/sms.js";
 import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
 import { alertKind, pageWithin, raiseAlert } from "../services/coordinator_alerts.js";
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
+import { LOW_RATING_REASONS } from "../lib/feedback.js";
+import { issueTokens, refreshTokens } from "../services/auth.js";
+import { notificationText, notifySessionAlerts } from "../services/notifications.js";
 
 const CONSENT_DOC = { terms: "terms", conduct: "conduct", privacy_notice: "privacy", marketing: "marketing" };
 const REQUIRED_CONSENTS = ["terms", "conduct", "privacy_notice"];
@@ -17,19 +20,7 @@ const REPORT_CATEGORIES = ["harassment", "threat_violence", "photo_without_conse
 const SEVERITY_BY_CATEGORY = { threat_violence: 1, harassment: 2, stalking_unwanted_contact: 2, photo_without_consent: 2, fraud: 2, disruptive: 3 };
 const SLA_HOURS = { 1: 24, 2: 72, 3: 168, 4: 336 };
 
-// ------------------------------------------------------------------ tokens
-async function issueTokens(ctx, subjectType, subjectId, familyId = randomUUID()) {
-  const now = Math.floor(Date.now() / 1000);
-  const ttl = subjectType === "admin" ? ctx.cfg.adminTtl : ctx.cfg.accessTtl;
-  // sid = the session (refresh-token family): the access token is refused as soon as that session is revoked (app.js).
-  const access = jwtSign(ctx.keys.jwt.privateKey, ctx.keys.jwt.kid, { sub: subjectId, typ: subjectType, sid: familyId, iat: now, exp: now + ttl, jti: randomToken(8) });
-  const refresh = "rt_" + randomToken(32);
-  await ctx.sql`
-    INSERT INTO app.refresh_tokens (subject_type, subject_id, family_id, token_hash, expires_at)
-    VALUES (${subjectType}, ${subjectId}, ${familyId}, ${sha256hex(refresh)}, now() + make_interval(days => ${ctx.cfg.refreshTtlDays}))`;
-  return { access_token: access, refresh_token: refresh, token_type: "Bearer", expires_in: ttl };
-}
-export { issueTokens };
+// ------------------------------------------------------------------ tokens: services/auth.js
 
 const registrationStatus = (u) => (u.registration_completed_at ? "complete" : "consents_required");
 const userView = (u) => ({ id: u.id, display_name: u.display_name, locale: u.locale, status: u.status, registration_status: registrationStatus(u),
@@ -215,29 +206,6 @@ async function otpVerify(ctx) {
   return json(200, { ...tokens, user: { id: user.id, is_new: isNew, registration_status: registrationStatus(user), locale: user.locale, status: user.status } });
 }
 
-async function refreshTokens(ctx, subjectType) {
-  const { sql, body } = ctx;
-  const token = String(body.refresh_token || "");
-  const [rt] = await sql`SELECT * FROM app.refresh_tokens WHERE token_hash = ${sha256hex(token)} AND subject_type = ${subjectType}`;
-  if (!rt) fail(401, "UNAUTHENTICATED");
-  if (rt.revoked_at) {
-    await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${rt.family_id} AND revoked_at IS NULL`;
-    fail(401, "UNAUTHENTICATED");
-  }
-  if (new Date(rt.expires_at) < new Date()) fail(401, "UNAUTHENTICATED");
-  // NMX-63: claim the token atomically before issuing new ones. Two requests with the same token at the same moment:
-  // only one claims it; the other is treated as reuse and ends the whole session (it used to split it into two).
-  const [claimed] = await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE id = ${rt.id} AND revoked_at IS NULL RETURNING id`;
-  if (!claimed) {
-    await sql`UPDATE app.refresh_tokens SET revoked_at = now() WHERE family_id = ${rt.family_id} AND revoked_at IS NULL`;
-    fail(401, "UNAUTHENTICATED");
-  }
-  const tokens = await issueTokens(ctx, subjectType, rt.subject_id, rt.family_id);
-  await sql`UPDATE app.refresh_tokens SET replaced_by = (SELECT id FROM app.refresh_tokens WHERE token_hash = ${sha256hex(tokens.refresh_token)})
-             WHERE id = ${rt.id}`;
-  return json(200, tokens);
-}
-export { refreshTokens };
 
 async function logout(ctx) {
   const token = String(ctx.body.refresh_token || "");
@@ -662,30 +630,6 @@ async function requestSessionAlert(ctx) {
   return json(created ? 201 : 200, { active: true, created_at: qa(row.created_at), languages: prof.languages });
 }
 
-// A session went on sale: every open alert of an active member whose current Q01 languages include the session's language
-// is closed and answered with one notification (inbox, and her phone if she turned notifications on). Returns how many.
-// Only while she can still book it: before booking closes, and with a venue within her Q04 budget (as createBooking's
-// BUDGET_CONFLICT); otherwise her alert stays open for the next session.
-export async function notifySessionAlerts(tx, sessionId) {
-  const due = await tx`
-    UPDATE app.session_alerts a SET notified_at = now(), session_id = ${sessionId}
-      FROM app.event_sessions s
-     WHERE s.id = ${sessionId} AND a.notified_at IS NULL AND now() < s.booking_closes_at
-       AND EXISTS (SELECT 1 FROM app.users u WHERE u.id = a.user_id AND u.status = 'active')
-       AND EXISTS (SELECT 1 FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
-                     JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q01' JOIN app.question_options o ON o.id = x.option_id
-                    WHERE r.user_id = a.user_id AND r.status = 'submitted' AND o.maps_to->>'language' = trim(s.conversation_language))
-       AND EXISTS (SELECT 1 FROM app.questionnaire_responses r JOIN app.answers x ON x.response_id = r.id
-                     JOIN app.questions q ON q.id = x.question_id AND q.key = 'Q04' JOIN app.question_options o ON o.id = x.option_id
-                     JOIN app.budget_tiers mine ON mine.id = (o.maps_to->>'budget_tier_id')::uuid
-                     JOIN app.venues v ON v.city_id = s.city_id AND v.is_active AND s.experience = ANY (v.supported_experiences)
-                     JOIN app.budget_tiers bt ON bt.id = v.budget_tier_id AND bt.rank <= mine.rank
-                    WHERE r.user_id = a.user_id AND r.status = 'submitted')
-    RETURNING a.user_id`;
-  for (const d of due) await notify(tx, d.user_id, "SESSION_AVAILABLE", { session_id: sessionId });
-  return due.length;
-}
-
 // ------------------------------------------------------------------ bookings
 async function createPayment(tx, ctx, booking, attempt = 0) {
   const intent = newPaymentIntentId();
@@ -697,9 +641,6 @@ async function createPayment(tx, ctx, booking, attempt = 0) {
 }
 
 const OCCASIONS = ["birthday", "other"];
-// Reasons she can pick with a low rating (migration 023, provisional list). Their words are in web/strings.js (fbReason*,
-// venue, rOther), the app's .arb files (fbReason*, reasonOther) and the admin console (REASON_LABELS, English).
-export const LOW_RATING_REASONS = ["table_fit", "venue", "food_service", "organisation", "no_shows", "other"];
 // Item 32 (provisional): an occasion needs cfg.celebrationNoticeHours of notice (CELEBRATION_NOTICE_HOURS, default 72).
 const occasionAllowed = (startsAt, cfg) => new Date(startsAt).getTime() - Date.now() >= cfg.celebrationNoticeHours * 3600 * 1000;
 
@@ -1210,13 +1151,6 @@ async function appeal(ctx) {
 }
 
 // The text of one notification in a language: the inbox and the phone notification (routes/push.js) show the same words.
-export function notificationText(n, locale) {
-  const fmt = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) =>
-    [k, ["date", "deadline", "reveal_at", "appeal_until"].includes(k) && v ? qa(v) : k === "decision" ? decisionLabel(v, locale)
-      : k === "name" && !v ? (locale === "en" ? "A tablemate" : "زميلة طاولتك") : k === "window" ? durationText(v, locale) : v]));
-  return renderTemplate(n.template_key, locale, fmt(n.payload));
-}
-
 async function notifications(ctx) {
   const rows = await ctx.sql`SELECT * FROM app.notifications_outbox WHERE user_id = ${ctx.user.id} ORDER BY created_at DESC LIMIT 50`;
   return json(200, { notifications: rows.map((n) => ({ id: n.id, template_key: n.template_key, created_at: qa(n.created_at),

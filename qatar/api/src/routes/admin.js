@@ -6,7 +6,9 @@ import { audit, capturedPayment, currentTable, notify } from "../services/common
 import { dispatchRefund } from "../services/payments.js";
 import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
 import { isForCoordinator, venueMessage } from "../services/venue_messages.js";
-import { LOW_RATING_REASONS, issueTokens, notifySessionAlerts } from "./user.js";
+import { LOW_RATING_REASONS } from "../lib/feedback.js";
+import { issueTokens } from "../services/auth.js";
+import { notifySessionAlerts } from "../services/notifications.js";
 
 const OWNER = ["owner"], OPS = ["owner", "ops"], FIN = ["owner", "finance"], TS = ["trust_safety"];
 const ANY = ["owner", "ops", "finance", "trust_safety", "analyst", "researcher", "developer"];

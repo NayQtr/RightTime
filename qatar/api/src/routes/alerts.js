@@ -5,7 +5,7 @@ import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { smsSettings } from "../lib/sms.js";
 import { audit } from "../services/common.js";
 import { alertPhones, COORDINATOR_ROLES, coordinatorAlertsTick } from "../services/coordinator_alerts.js";
-import { b64uKey, validEndpoint } from "./push.js";
+import { b64uKey, validEndpoint } from "../services/webpush.js";
 
 const A = "/api/admin/v1";
 const MAX_DEVICES = 10;

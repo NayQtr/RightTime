@@ -5,12 +5,9 @@ import { decrypt, safeEqual } from "../lib/crypto.js";
 import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { audit } from "../services/common.js";
 import { coordinatorAlertsTick } from "../services/coordinator_alerts.js";
-import { resetVapidCache, sendPush, vapidKeys } from "../services/webpush.js";
-import { notificationText } from "./user.js";
+import { b64uKey, resetVapidCache, sendPush, validEndpoint, vapidKeys } from "../services/webpush.js";
+import { notificationText } from "../services/notifications.js";
 
-// Only the browsers' own push services: the API never posts to an address a client made up.
-const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
-  /^([a-z0-9-]+\.)*notify\.windows\.com$/];
 const MAX_DEVICES = 10;
 const BATCH = 50;
 const FRESH_HOURS = 24; // older queued notifications are not pushed (still in the inbox)
@@ -23,12 +20,6 @@ export const PUSH_RETRY_MINUTES = [2, 10, 30];
 // the key loader lives in services/webpush.js (coordinator alerts use it too); kept exported here for existing callers
 export { resetVapidCache, vapidKeys };
 
-export function validEndpoint(endpoint) {
-  let u;
-  try { u = new URL(String(endpoint || "")); } catch { return false; }
-  return u.protocol === "https:" && String(endpoint).length <= 1000 && PUSH_HOSTS.some((re) => re.test(u.hostname));
-}
-export const b64uKey = (s, min, max) => typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s) && s.length >= min && s.length <= max;
 
 async function publicKey(ctx) {
   const v = await vapidKeys(ctx.sql, ctx.getEnv);
