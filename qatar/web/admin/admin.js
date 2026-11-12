@@ -1,10 +1,8 @@
 // HerZone admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
 import { askConfirm } from "/dialogs.js";
 import { esc } from "/esc.js";
+import { CFG, apiUrl } from "/api-url.js";
 
-const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
-// Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
-const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const A = "/api/admin/v1";
 const ss = {
   get: (k) => { try { return JSON.parse(sessionStorage.getItem("qa_" + k)); } catch { return null; } },

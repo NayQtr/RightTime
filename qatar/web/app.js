@@ -6,10 +6,8 @@ import { icon } from "./icons.js";
 import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
 import { esc } from "./esc.js";
+import { CFG, apiUrl } from "./api-url.js";
 
-const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
-// Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
-const apiUrl = (path) => CFG.apiBase + path + (CFG.apiRegion ? `${path.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem("q_" + k)); } catch { return null; } },
   set(k, v) { try { localStorage.setItem("q_" + k, JSON.stringify(v)); } catch { /* private mode */ } },

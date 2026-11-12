@@ -3,9 +3,8 @@
 // Kept out of the HTML so the CSP can forbid inline scripts. The sign-in lasts 12 hours, in this tab only.
 import { announce, askConfirm } from "/dialogs.js";
 import { esc } from "/esc.js";
+import { apiUrl as api } from "/api-url.js";
 
-const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
-const api = (p) => CFG.apiBase + p + (CFG.apiRegion ? `${p.includes("?") ? "&" : "?"}forceFunctionRegion=${CFG.apiRegion}` : "");
 const main = document.getElementById("main");
 const store = { get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch { /* private mode */ } } };
