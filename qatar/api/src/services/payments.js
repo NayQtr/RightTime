@@ -91,10 +91,15 @@ async function checkIdentity(tx, keys, p, b, cardholderName) {
 }
 
 // Sends one refund to the PSP. requested -> processing (committed) -> PSP call -> refund.succeeded webhook -> refunded.
+// Only a 'requested' refund is ever sent, so one refund reaches the PSP at most once from here (two calls at the same
+// moment: the row lock lets one through). A PSP error is recorded, never swallowed. Only an error the adapter marks
+// `definite` (the PSP refused it, so no money moved) makes the refund 'failed'; any other error (a timeout, a lost
+// answer) leaves it 'processing', because the PSP may have paid it: it is not sent again, and refundsTick() reports it
+// so finance can check it with the PSP. Sending it again could pay her twice.
 export async function dispatchRefund(sql, psp, refundId) {
   const row = await sql.begin(async (tx) => {
     const [r] = await tx`SELECT * FROM app.refunds WHERE id = ${refundId} FOR UPDATE`;
-    if (!r || !["requested", "processing"].includes(r.status) || r.psp_refund_id) return null;
+    if (!r || r.status !== "requested" || r.psp_refund_id) return null;
     await tx`UPDATE app.refunds SET status = 'processing' WHERE id = ${r.id}`;
     const [p] = await tx`SELECT psp_payment_intent_id FROM app.payments WHERE id = ${r.payment_id}`;
     return { refund: r, intent: p.psp_payment_intent_id };
@@ -104,7 +109,46 @@ export async function dispatchRefund(sql, psp, refundId) {
     await psp.refund(row.refund, row.intent);
     return true;
   } catch (e) {
-    await sql`UPDATE app.refunds SET status = 'failed' WHERE id = ${refundId} AND status = 'processing'`;
+    console.error(`refund ${refundId}: PSP call failed${e && e.definite ? " (refused)" : " (outcome unknown)"}:`, e && e.message);
+    if (e && e.definite) await sql`UPDATE app.refunds SET status = 'failed' WHERE id = ${refundId} AND status = 'processing'`;
+    await audit(sql, null, e && e.definite ? "refund_psp_refused" : "refund_psp_error", "refunds", refundId,
+      String((e && (e.code || e.message)) || "error").slice(0, 40));
     return false;
   }
+}
+
+// Refunds that wait for finance on purpose: the refund she chose after an organizer cancellation, and the automatic one
+// after the choice deadline (003, 015). Finance sends them with the batch approval, which sets approved_by.
+const WAITS_FOR_FINANCE = sql0 => sql0`(r.approved_by IS NULL AND (r.idempotency_key LIKE 'auto-oc-%' OR r.idempotency_key LIKE 'choice-refund-%'))`;
+export const REFUND_RESEND_AFTER_MINUTES = 5;
+export const REFUND_STUCK_AFTER_MINUTES = 30;
+
+// Runs every minute with the push dispatcher (routes/push.js). Two jobs:
+//  1. A refund that should have gone to the PSP at once but is still 'requested' after 5 minutes (the server stopped
+//     between saving it and sending it) is sent now. Safe: 'requested' means it never reached the PSP.
+//  2. A refund the PSP refused ('failed'), or one with no answer from the PSP after 30 minutes ('processing'), is
+//     reported once to Sentry (and the server log), so finance can deal with it. Neither is ever sent again from here.
+// `report(err)` sends to Sentry; returns { resent, reported }.
+export async function refundsTick(sql, psp, { report = async () => false } = {}) {
+  const missed = await sql`
+    SELECT r.id FROM app.refunds r
+     WHERE r.status = 'requested' AND r.updated_at < now() - make_interval(mins => ${REFUND_RESEND_AFTER_MINUTES})
+       AND NOT ${WAITS_FOR_FINANCE(sql)}
+     ORDER BY r.created_at LIMIT 20`;
+  let resent = 0;
+  for (const r of missed) if (await dispatchRefund(sql, psp, r.id)) resent++;
+  const stuck = await sql`
+    SELECT r.id, r.status, r.reason, r.created_at FROM app.refunds r
+     WHERE (r.status = 'failed' OR (r.status = 'processing' AND r.updated_at < now() - make_interval(mins => ${REFUND_STUCK_AFTER_MINUTES})))
+       AND NOT EXISTS (SELECT 1 FROM app.audit_logs a WHERE a.entity = 'refunds' AND a.entity_id = r.id AND a.action = 'refund_stuck_reported')
+     ORDER BY r.created_at LIMIT 20`;
+  for (const r of stuck) {
+    const what = r.status === "failed" ? "refused by the PSP" : `no PSP answer after ${REFUND_STUCK_AFTER_MINUTES} minutes`;
+    const err = new Error(`Refund ${r.id} (${r.reason}) ${what}: check it with the PSP; do not send it again before that`);
+    err.name = "RefundNeedsFinance";
+    console.error(err.message);
+    await report(err);
+    await audit(sql, null, "refund_stuck_reported", "refunds", r.id, r.status);
+  }
+  return { resent, reported: stuck.length };
 }

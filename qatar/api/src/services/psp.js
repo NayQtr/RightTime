@@ -1,5 +1,9 @@
 // Payment service provider adapter. Only `test_psp` (mock hosted checkout) exists until a real PSP is signed (O05).
 // A real adapter implements the same three operations and signs/verifies webhooks with its own scheme (v0.4 §1.3).
+// refund(refund, intent) contract, for every adapter: send refund.idempotency_key as the PSP's own idempotency key, so a
+// refund the PSP has already received is never paid twice. Throw an error with `definite = true` only when the PSP
+// refused the refund (no money moved); any other error means "outcome unknown" (services/payments.js dispatchRefund).
+// MUST be re-tested against the real PSP before it takes real money.
 import { hmacHex, randomToken, safeEqual } from "../lib/crypto.js";
 
 export const SIGNATURE_HEADER = "x-signature";
@@ -22,6 +26,10 @@ export const newPaymentIntentId = () => "pi_test_" + randomToken(12);
 
 // The mock "PSP" delivers its webhooks by calling the real webhook route of this API (through deliver()),
 // so signature verification, deduplication and processing are exercised exactly as with a real provider.
+// idempotency_key -> mock refund id, for the whole process (the adapter is built per request): the same key is paid
+// once, as a real PSP does on its side.
+const refundsSeen = new Map();
+
 export function testPsp({ keys, cfg, deliver }) {
   async function send(event) {
     const raw = JSON.stringify(event);
@@ -41,7 +49,9 @@ export function testPsp({ keys, cfg, deliver }) {
       return send({ id, type: "payment.failed", data: { payment_intent: intent.psp_payment_intent_id, failure_code: code } });
     },
     async refund(refund, paymentIntentId) {
+      if (refundsSeen.has(refund.idempotency_key)) return refundsSeen.get(refund.idempotency_key);
       const pspRefundId = "re_test_" + randomToken(12);
+      refundsSeen.set(refund.idempotency_key, pspRefundId);
       await send({ id: "evt_" + randomToken(12), type: "refund.succeeded",
         data: { refund_id: refund.id, psp_refund_id: pspRefundId, payment_intent: paymentIntentId, amount_minor: refund.amount_minor } });
       return pspRefundId;
