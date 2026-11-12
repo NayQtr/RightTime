@@ -9,6 +9,7 @@
 //    check runs every minute with the push dispatcher (pg_cron, 013) and whenever the admin console reads its alerts.
 // Nothing about the report itself leaves the server: the texts say the kind, the severity and the case reference only.
 import { sendSms, smsSettings } from "../lib/sms.js";
+import { cleanPhone, isE164 } from "../lib/validate.js";
 import { audit } from "./common.js";
 import { sendPush, vapidKeys } from "./webpush.js";
 
@@ -28,7 +29,7 @@ export function alertKind({ danger, severity, timing }) {
 /** The coordinators' numbers from COORDINATOR_ALERT_PHONES: valid E.164 only, no repeats, at most 10. */
 export function alertPhones(getEnv) {
   const raw = String((getEnv && getEnv("COORDINATOR_ALERT_PHONES")) || "");
-  const valid = raw.split(",").map((s) => s.replace(/[\s\-().]/g, "")).filter((s) => /^\+[1-9][0-9]{6,14}$/.test(s));
+  const valid = raw.split(",").map(cleanPhone).filter(isE164);
   return [...new Set(valid)].slice(0, MAX_PHONES);
 }
 

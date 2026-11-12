@@ -8,6 +8,7 @@
 //   number or an approved alphanumeric sender name).
 // TWILIO_BASE_URL only points the tests at a fake server; it must be https unless it is this machine.
 // Plain fetch, so it runs on Node (tests) and Supabase Edge (Deno). Nothing here logs a message text or a full number.
+import { isE164 } from "./validate.js";
 
 const TWILIO = "https://api.twilio.com";
 
@@ -41,7 +42,7 @@ export const maskPhone = (p) => (typeof p === "string" && p.length > 6 ? `${p.sl
  */
 export async function sendSms({ to, body }, settings, { fetchImpl = fetch, timeoutMs = 10000 } = {}) {
   if (!settings) return { ok: false, status: 0, error: "not_configured" };
-  if (!/^\+[1-9][0-9]{6,14}$/.test(String(to || "")) || !body) return { ok: false, status: 0, error: "invalid" };
+  if (!isE164(to) || !body) return { ok: false, status: 0, error: "invalid" };
   const form = new URLSearchParams({ To: to, Body: body });
   if (settings.messagingServiceSid) form.set("MessagingServiceSid", settings.messagingServiceSid);
   else form.set("From", settings.from);

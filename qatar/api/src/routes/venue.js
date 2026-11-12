@@ -6,6 +6,7 @@ import { hmacB64, jwtSign, randomDigits, safeEqual, sha256hex } from "../lib/cry
 import { emailSettings, sendEmail } from "../lib/email.js";
 import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { outboundText } from "../lib/i18n.js";
+import { isEmail } from "../lib/validate.js";
 import { audit, seatToken } from "../services/common.js";
 
 const CODE_TTL_MIN = 10;
@@ -14,7 +15,7 @@ const PORTAL_HOURS = 12;
 const NAMES_BEFORE_HOURS = 3;
 
 const normEmail = (e) => String(e || "").trim().toLowerCase();
-const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.length <= 254;
+const validEmail = isEmail;
 const emailHash = (keys, e) => sha256hex(`venue-email:${e}`);
 
 // The same answer whether or not the email is registered, so the page never tells who is a partner.

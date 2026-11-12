@@ -10,6 +10,7 @@ import { alertKind, pageWithin, raiseAlert } from "../services/coordinator_alert
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
 import { LOW_RATING_REASONS } from "../lib/feedback.js";
+import { isE164 } from "../lib/validate.js";
 import { issueTokens, refreshTokens } from "../services/auth.js";
 import { notificationText, notifySessionAlerts } from "../services/notifications.js";
 
@@ -89,7 +90,7 @@ async function tableMembers(sql, tableId) {
 export function reviewLogin(getEnv) {
   const phone = String((getEnv && getEnv("REVIEW_PHONE_E164")) || "").replace(/[\s\-().]/g, "");
   const code = String((getEnv && getEnv("REVIEW_OTP_CODE")) || "").trim();
-  return /^\+[1-9][0-9]{6,14}$/.test(phone) && /^[0-9]{6}$/.test(code) ? { phone, code } : null;
+  return isE164(phone) && /^[0-9]{6}$/.test(code) ? { phone, code } : null;
 }
 
 // The calling code a number belongs to, or null when the server does not accept it. `allowed` is ALL_COUNTRIES (every
@@ -105,7 +106,7 @@ export const countryOf = (phone, allowed, blocked = []) => {
 async function otpRequest(ctx) {
   const { sql, cfg, keys, body } = ctx;
   const phone = String(body.phone_e164 || "").trim();
-  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
+  if (!isE164(phone)) fail(400, "INVALID_PHONE", [{ field: "phone_e164", code: "INVALID_PHONE" }]);
   const review = reviewLogin(ctx.getEnv);
   const isReview = Boolean(review && review.phone === phone);
   // Item 38 (owner's decision, 11 Nov 2026): every country except Israel (+972), which is refused whatever the settings
@@ -1169,7 +1170,7 @@ const health = async (ctx) => json(200, { status: "ok", key_source: ctx.keys.sou
 function supportContact(ctx) {
   const phone = ctx.cfg.coordinatorPhone;
   const funnel = ctx.cfg.funnelCounter;
-  if (!/^\+[1-9][0-9]{6,14}$/.test(phone)) return json(200, { coordinator: null, funnel_counter: funnel });
+  if (!isE164(phone)) return json(200, { coordinator: null, funnel_counter: funnel });
   const local = phone.startsWith("+974") ? `+974 ${phone.slice(4, 8)} ${phone.slice(8)}` : phone;
   return json(200, { coordinator: { phone_e164: phone, phone_display: local, tel_url: `tel:${phone}`,
     whatsapp_url: ctx.cfg.coordinatorWhatsapp ? `https://wa.me/${phone.slice(1)}` : null }, funnel_counter: funnel }, { "Cache-Control": "public, max-age=300" });
@@ -1183,7 +1184,7 @@ const CALLBACK_WHEN = ["now", "10min", "1h", "tomorrow"];
 function normalizePhone(v) {
   const d = String(v).replace(/[\s\-().]/g, "").replace(/^00/, "+");
   if (/^[3-7][0-9]{7}$/.test(d)) return `+974${d}`;
-  return /^\+[1-9][0-9]{6,14}$/.test(d) ? d : null;
+  return isE164(d) ? d : null;
 }
 async function requestCall(ctx) {
   const { sql, user, body, keys } = ctx;

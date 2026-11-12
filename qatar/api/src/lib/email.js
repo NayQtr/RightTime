@@ -8,6 +8,7 @@
 // RESEND_BASE_URL only points the tests at a fake server; it must be https unless it is this machine.
 // Plain fetch, so it runs on Node (tests) and Supabase Edge (Deno). Nothing here logs an address or a message text.
 import { safeBase } from "./sms.js";
+import { isEmail } from "./validate.js";
 
 const RESEND = "https://api.resend.com";
 
@@ -24,7 +25,7 @@ export function emailSettings(getEnv, provider) {
 /** Sends one plain-text email. Returns { ok, status, id?, error? }; never throws. */
 export async function sendEmail({ to, subject, text }, settings, { fetchImpl = fetch, timeoutMs = 10000 } = {}) {
   if (!settings) return { ok: false, status: 0, error: "not_configured" };
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(to || "")) || !subject || !text) return { ok: false, status: 0, error: "invalid" };
+  if (!isEmail(to) || !subject || !text) return { ok: false, status: 0, error: "invalid" };
   try {
     const res = await fetchImpl(`${settings.baseUrl}/emails`, {
       method: "POST",

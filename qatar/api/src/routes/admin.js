@@ -7,6 +7,7 @@ import { dispatchRefund } from "../services/payments.js";
 import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
 import { isForCoordinator, venueMessage } from "../services/venue_messages.js";
 import { LOW_RATING_REASONS } from "../lib/feedback.js";
+import { isE164, isEmail } from "../lib/validate.js";
 import { issueTokens } from "../services/auth.js";
 import { notifySessionAlerts } from "../services/notifications.js";
 
@@ -494,7 +495,7 @@ async function updateVenue(ctx) {
 async function addContact(ctx) {
   requireUuid(ctx.params.id, "venue_id");
   const { name, phone_e164, role, is_day_of_contact } = ctx.body;
-  if (!name || !/^\+[1-9][0-9]{6,14}$/.test(String(phone_e164 || ""))) fail(422, "VALIDATION_FAILED", [{ field: "name/phone_e164" }]);
+  if (!name || !isE164(phone_e164)) fail(422, "VALIDATION_FAILED", [{ field: "name/phone_e164" }]);
   const [c] = await ctx.sql`INSERT INTO app.venue_contacts (venue_id, name, phone_e164_enc, role, is_day_of_contact)
                              VALUES (${ctx.params.id}, ${name}, ${encrypt(ctx.keys.dataKey, phone_e164)}, ${role || null}, ${!!is_day_of_contact}) RETURNING id`;
   await audit(ctx.sql, ctx.admin.id, "venue_contact_add", "venue_contacts", c.id, null);
@@ -820,7 +821,7 @@ async function addVenueUser(ctx) {
   const { sql, params, body, admin } = ctx;
   requireUuid(params.id, "venue_id");
   const email = String(body.email || "").trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) fail(422, "VALIDATION_FAILED", [{ field: "email" }]);
+  if (!isEmail(email)) fail(422, "VALIDATION_FAILED", [{ field: "email" }]);
   const [v] = await sql`SELECT id FROM app.venues WHERE id = ${params.id}`;
   if (!v) fail(404, "NOT_FOUND");
   const [u] = await sql`
