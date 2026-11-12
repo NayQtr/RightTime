@@ -3,7 +3,7 @@
 // The confirmation is a real <dialog> opened with showModal(): the keyboard stays inside it, Escape cancels, and the
 // focus goes back to the button that opened it. Its buttons are named for the action ("Decline" / "Keep the request"),
 // and it is written in the page's own language, which the browser's dialogs cannot do.
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+import { esc } from "/esc.js";
 
 // one polite live region per page, outside <main>, so redrawing the page never announces the whole of it again
 const live = document.createElement("div");

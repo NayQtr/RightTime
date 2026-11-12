@@ -5,6 +5,7 @@ import { INTERSTITIALS, QUIZ_STORE_KEY, buildSteps, firstOpenStep, minutesLeft, 
 import { icon } from "./icons.js";
 import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
+import { esc } from "./esc.js";
 
 const CFG = Object.assign({ apiBase: "", staging: true }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
@@ -33,7 +34,6 @@ new MutationObserver(() => main.querySelectorAll("[data-w]").forEach((e) => { e.
 
 // ------------------------------------------------------------------ helpers
 const T = (k, vars = {}) => String(STRINGS[locale][k] ?? STRINGS.ar[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => (vars[n] ?? `{${n}}`));
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (s) => `<bdi class="num">${esc(s)}</bdi>`;
 // a numeric range such as "18–24" is reordered to "24–18" inside Arabic text; keep it left to right
 const optLabel = (s) => (/^\d+\s*[–-]\s*\d+$/.test(s) ? `<bdi dir="ltr">${esc(s)}</bdi>` : esc(s));

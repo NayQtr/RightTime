@@ -1,5 +1,6 @@
 // HerZone admin panel (v0.3 §4): role-based navigation, maker-checker, P4 reason prompt. English UI for the ops team.
 import { askConfirm } from "/dialogs.js";
+import { esc } from "/esc.js";
 
 const CFG = Object.assign({ apiBase: "" }, window.QATAR_CONFIG || {});
 // Supabase runs the function next to the database when apiRegion is set (forceFunctionRegion: no extra CORS header needed).
@@ -13,7 +14,6 @@ const ss = {
 const main = document.getElementById("main");
 const nav = document.getElementById("nav");
 let timers = [];
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const $ = (s, r = main) => r.querySelector(s);
 const $$ = (s, r = main) => [...r.querySelectorAll(s)];
 const dt = (iso) => (iso ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Qatar", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : "—");

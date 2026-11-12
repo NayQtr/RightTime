@@ -3,7 +3,7 @@
 // Network first: online, every file comes fresh from the server (the copy on the device is only refreshed); the device
 // copy is used only when the network fails. API calls (another origin) and the admin console are never touched.
 const SHELL = "hz-shell-v2";
-const CORE = ["/", "/app.js", "/theme-init.js", "/strings.js", "/countries.js", "/quiz-flow.js", "/icons.js", "/plans.js", "/motif.js", "/config.js", "/monitor.js",
+const CORE = ["/", "/app.js", "/theme-init.js", "/strings.js", "/countries.js", "/quiz-flow.js", "/icons.js", "/esc.js", "/plans.js", "/motif.js", "/config.js", "/monitor.js",
   "/styles.css", "/tokens.css", "/fonts/fonts.css", "/favicon.svg", "/manifest.webmanifest",
   "/fonts/alexandria-arabic-800-normal.woff2", "/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2"];
 

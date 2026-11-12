@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { STRINGS } from "../web/strings.js";
 import { icon } from "../web/icons.js";
 import { brandMark } from "../web/motif.js";
+import { esc } from "../web/esc.js";
 
 /** The browser chrome colour of the generated pages. It is written out because a meta tag cannot read a CSS variable,
  *  so it is read from the design source rather than typed, and cannot drift from the palette. */
@@ -34,7 +35,7 @@ export const GALLERY = ["barista", "cake", "tray", "toast"].map((name) => ({ nam
 export const CLOSING = { name: "seat", sizes: [[720, 900]] };
 export const OG_IMAGE = { file: "og-1200.jpg", width: 1200, height: 630 };
 
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 
 // alt="": the photos set the mood (they are not of a named venue); every point is in the text next to them.
 function picture({ name, sizes }, { sizesAttr, eager = false, cls = "about-photo" }) {

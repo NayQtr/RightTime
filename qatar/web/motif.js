@@ -6,7 +6,7 @@ const pt = (k, n, r) => {
   const a = -Math.PI / 2 + (k * 2 * Math.PI) / n;
   return [(50 + r * Math.cos(a)).toFixed(1), (50 + r * Math.sin(a)).toFixed(1)];
 };
-const escAttr = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+import { esc as escAttr } from "./esc.js";
 
 // pattern: optional array of booleans (one per seat) for decorative arrangements; otherwise the first `filled` seats are on.
 export function tableSvg({ seats = 6, filled = 0, dashed = true, label = "", pattern = null, cls = "table" } = {}) {
