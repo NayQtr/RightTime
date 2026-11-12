@@ -333,7 +333,6 @@ function scrWelcome() {
         <p class="caption quiz-length">${esc(T("quizLength"))}</p>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
-      <p class="caption device-note">${esc(T("deviceNote"))}</p>
     </section>`);
   if (canResume) $("#over").onclick = () => { clearDeviceProgress(); state.quiz = null; go("#/quiz/0"); };
 }

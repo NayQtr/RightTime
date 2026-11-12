@@ -306,10 +306,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get haveAccount => 'لديّ حساب';
 
   @override
-  String get deviceNote =>
-      'نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.';
-
-  @override
   String qOf(int i, int n) {
     return '$i من $n';
   }

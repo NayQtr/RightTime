@@ -1,6 +1,7 @@
 """Store screenshot frames: caption above the real app screenshot.
 Colours come from qatar/design/tokens.json (dark.bg #3A2C39 frame, dark.text #FBF1F8 caption).
-Captions: the five the owner approved on 7 Nov (Arabic), and their English translation (PROVISIONAL, 10 Nov, item 29:
+Captions: the owner approved five on 7 Nov; the booking one was replaced on 12 Nov to carry the launch offer
+(item 41). English is a PROVISIONAL translation (10 Nov, item 29:
 English store materials use the English screenshots only, from screenshots/<device>-en/).
 Usage: python3 build.py <repo root> <output dir> [ar|en]   -> <output dir>/<device>.html or <device>-en.html, one
 .slide per screenshot (each slide is exported at the canvas size into framed/<device>[-en]/NN_name.png).
@@ -19,7 +20,7 @@ captions = {
         ("01_welcome", "تعرّفي على ناس.. تفهمك"),
         ("03_sessions", "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك"),
         ("04_meetup", "كل التفاصيل قبل موعدك"),
-        ("06_book", "احجزي مقعدك بخطوات قليلة"),
+        ("06_book", "احجزي مقعدك — مجاني لفترة محدودة"),
         ("07_account", "مساحتك، بخصوصيتك"),
     ],
     # PROVISIONAL English (for the owner to approve); the first two are the app's own approved English lines
@@ -27,7 +28,7 @@ captions = {
         ("01_welcome", "Meet people who get you."),
         ("03_sessions", "A table of 4 to 6 women, in your language and within your budget"),
         ("04_meetup", "Every detail before your meetup"),
-        ("06_book", "Book your seat in a few steps"),
+        ("06_book", "Book your seat — free for a limited period"),
         ("07_account", "Your space, your privacy"),
     ],
 }

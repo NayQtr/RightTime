@@ -310,10 +310,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get haveAccount => 'I already have an account';
 
   @override
-  String get deviceNote =>
-      'We keep your progress on this device only until you sign up, so you can pick up where you left off.';
-
-  @override
   String qOf(int i, int n) {
     return '$i of $n';
   }

@@ -514,7 +514,6 @@ a.option { text-decoration: none; color: inherit; }
 .hero-welcome .resume-card { background: var(--c-primarySubtle); border-radius: var(--r-md); padding: var(--s-4) var(--s-5); display: grid; gap: var(--s-2); }
 .hero-welcome .resume-card p { margin: 0; }
 .hero-welcome .resume-card .caption { color: var(--c-textMuted); }
-.hero-welcome .device-note { font-size: calc(var(--u) * 0.8125); color: var(--c-textMuted); margin: 0; }
 .legal-text { white-space: pre-line; margin: 0; line-height: 1.75; }
 
 /* tab bar: icon + label, active in maroon */

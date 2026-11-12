@@ -650,12 +650,6 @@ abstract class AppLocalizations {
   /// **'لديّ حساب'**
   String get haveAccount;
 
-  /// No description provided for @deviceNote.
-  ///
-  /// In ar, this message translates to:
-  /// **'نحفظ تقدّمك على هذا الجهاز فقط حتى تسجّلي، لتكملي لاحقًا من حيث توقفتِ.'**
-  String get deviceNote;
-
   /// No description provided for @qOf.
   ///
   /// In ar, this message translates to:

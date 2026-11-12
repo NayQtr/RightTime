@@ -61,8 +61,6 @@ class WelcomeScreen extends StatelessWidget {
                       Text(t.quizLength, textAlign: TextAlign.center, style: tt.bodySmall),
                       const SizedBox(height: HzSpace.s5),
                       Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
-                      const SizedBox(height: HzSpace.s3),
-                      Text(t.deviceNote, textAlign: TextAlign.center, style: tt.bodySmall?.copyWith(color: c.textMuted)),
                     ]),
                   ),
                 ),

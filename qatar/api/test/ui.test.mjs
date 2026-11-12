@@ -437,7 +437,9 @@ test("auto-save: a dropped request is retried, an unfinished quiz resumes where 
   await page.route(/questionnaires\/preview/, (r) => (dropped++ === 0 ? r.abort("connectionreset") : r.continue()));
   await page.goto(env.base + "/");
   assert.equal(await page.locator("#resume-card").count(), 0, "nothing saved yet");
-  assert.ok((await page.locator(".device-note").innerText()).includes("على هذا الجهاز فقط"));
+  // The welcome screen no longer explains that progress is kept on the device (owner, 12 Nov: she sees the feature
+  // work when she comes back, so saying it adds nothing). The privacy notice still discloses it, in its section 3.
+  assert.equal(await page.locator(".device-note").count(), 0, "the device note is gone from the welcome screen");
   await page.click("#start");
   await page.waitForSelector("[data-inter=doha]");
   assert.equal(dropped, 2, "the dropped preview request was retried once");
