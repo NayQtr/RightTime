@@ -3,6 +3,21 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Production release of d3b171c, and two open items [2026-11-12]
+
+Released with the owner's approval («اسمح لك»): the five untangle batches, refunds (one send per refund, an unknown outcome
+never resent, a refusal recorded and reported), safety alerts (an unfinished page is sent again; "Not confirmed yet" /
+"reached no one" in the admin console), identity errors logged. Baseline checks recorded; CI green; web tag
+herzone-web@d3b171ce03d7; Edge Function `api` v17; smoke checks all pass.
+
+Open:
+- **Every-minute call not set up in production** (found after the release): `PUSH_DISPATCH_URL` is empty in production
+  (staging has it), so pg_cron never calls `/api/internal/push:dispatch` there. Until it is set, production sends no
+  member phone notifications, never re-sends an unfinished coordinator alert, and never runs the refunds check. Fix is
+  one config row (a URL, not a secret). Waiting for the owner's approval.
+- **Sentry after this release**: the Sentry call needs the owner's approval in this session; not checked yet.
+- The refund rules must be re-tested against the real PSP before it takes real money.
+
 ## Country picker: every country except Israel [2026-11-11]
 
 Owner's decision (11 Nov), built on `rightime-app`: sign-in takes numbers from EVERY country except Israel (+972).
