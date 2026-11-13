@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const NAMES = ["arrow-right", "arrow-left", "chevron-left", "chevron-right", "calendar-days", "clock", "map-pin", "users", "utensils", "coffee",
+const NAMES = ["arrow-right", "arrow-left", "chevron-left", "chevron-right", "chevron-down", "calendar-days", "clock", "map-pin", "users", "utensils", "coffee",
   "languages", "wallet", "phone", "message-circle", "house", "bell", "circle-user-round", "check", "info", "triangle-alert", "shield-check",
   "lock", "hand-heart", "book-open", "hourglass", "x", "ticket", "sparkle", "log-out", "trash-2", "flag", "star", "circle-check", "sun", "moon", "cake"];
 const src = process.argv[2];

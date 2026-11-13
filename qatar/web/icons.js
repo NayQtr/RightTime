@@ -6,6 +6,7 @@ const ICONS = {
   "arrow-left":"<path d=\"m12 19-7-7 7-7\" /> <path d=\"M19 12H5\" />",
   "chevron-left":"<path d=\"m15 18-6-6 6-6\" />",
   "chevron-right":"<path d=\"m9 18 6-6-6-6\" />",
+  "chevron-down":"<path d=\"m6 9 6 6 6-6\" />",
   "calendar-days":"<path d=\"M8 2v4\" /> <path d=\"M16 2v4\" /> <rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\" /> <path d=\"M3 10h18\" /> <path d=\"M8 14h.01\" /> <path d=\"M12 14h.01\" /> <path d=\"M16 14h.01\" /> <path d=\"M8 18h.01\" /> <path d=\"M12 18h.01\" /> <path d=\"M16 18h.01\" />",
   "clock":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />",
   "map-pin":"<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\" /> <circle cx=\"12\" cy=\"10\" r=\"3\" />",

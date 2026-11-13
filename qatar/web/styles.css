@@ -237,16 +237,43 @@ dl.facts dd { margin: 0; }
 .input:focus { box-shadow: inset 0 0 0 2px var(--c-text); outline: none; }
 textarea.input { min-height: 120px; resize: vertical; padding-block: var(--s-3); }
 .input[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--c-danger); }
-.phone { display: flex; direction: ltr; gap: 0; }
-.phone .prefix { display: grid; place-items: center; padding: 0 var(--s-4); border-start-start-radius: var(--r-sm); border-end-start-radius: var(--r-sm);
-  background: var(--c-surfaceSunken); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--c-textMuted); }
-.phone .input { border-start-start-radius: 0; border-end-start-radius: 0; font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
-/* The calling code is one plain dropdown, Qatar by default (owner, 11 Nov): no label of its own, no search box.
-   The native arrow is kept: the browser draws it on the correct side in both directions. */
-.phone select.prefix { appearance: auto; -webkit-appearance: auto; border: 0; min-height: 52px; width: 9rem;
-  padding-inline: var(--s-2); cursor: pointer; font: inherit; font-weight: 600; color: var(--c-text);
-  background: var(--c-surfaceSunken); direction: ltr; text-overflow: ellipsis; }
-.phone select.prefix:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -2px; }
+/* The number field is one box: flag, arrow and calling code, a thin divider, then the number (owner's design, 13 Nov
+   2026). Left to right in both languages, as a phone number is read. The country list opens under it, in the page's own
+   direction, growing out of the box (popovers from 0.95, owner's motion list of 6 Nov). */
+.phone-wrap { position: relative; }
+.phone-box { display: flex; align-items: stretch; direction: ltr; min-height: 56px; border-radius: var(--r-md); background: var(--c-surface);
+  box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); }
+.phone-box:focus-within { box-shadow: inset 0 0 0 2px var(--c-text); }
+.phone-box:has(.input[aria-invalid="true"]) { box-shadow: inset 0 0 0 2px var(--c-danger); }
+.phone-box .cc { display: flex; align-items: center; gap: var(--s-2); flex: none; min-width: 44px; padding: 0 var(--s-3) 0 var(--s-4); border: 0;
+  border-radius: var(--r-md) 0 0 var(--r-md); background: none; color: var(--c-text); font: inherit; cursor: pointer; }
+.phone-box .cc:focus-visible { outline: 2px solid var(--c-focus); outline-offset: -4px; }
+.phone-box .cc .chev { width: 16px; height: 16px; color: var(--c-textMuted); transition: transform var(--m-base) var(--m-ease); }
+.phone-box .cc[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.phone-box .dc { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.phone-box .sep { flex: none; width: 1px; margin-block: var(--s-3); background: var(--c-border); }
+.phone-box .input { flex: 1; min-width: 0; min-height: 56px; box-shadow: none; border-radius: 0 var(--r-md) var(--r-md) 0; background: none;
+  padding-inline: var(--s-3) var(--s-4); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.phone-box .input:focus, .phone-box .input[aria-invalid="true"] { box-shadow: none; }
+.fl { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 22px; line-height: 1; flex: none; }
+.no-flags .fl { display: none; }
+.cc-list { position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + var(--s-2)); max-height: min(330px, 52vh); overflow-y: auto;
+  overscroll-behavior: contain; margin: 0; padding: var(--s-1); list-style: none; background: var(--c-surface); border-radius: var(--r-md);
+  box-shadow: 0 14px 32px -12px color-mix(in oklch, var(--c-text) 45%, transparent), inset 0 0 0 1px var(--c-border);
+  transform-origin: top center; animation: cc-pop var(--m-base) var(--m-ease); }
+.cc-list:focus { outline: none; }
+.cc-list:focus-visible .active { outline: 2px solid var(--c-focus); outline-offset: -2px; }
+.cc-list [role=option] { display: flex; align-items: center; gap: var(--s-3); min-height: 48px; padding-inline: var(--s-3); border-radius: var(--r-sm); cursor: pointer; }
+.cc-list .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cc-list .dc { color: var(--c-textMuted); font-variant-numeric: tabular-nums; }
+.cc-list .ck { width: 18px; height: 18px; flex: none; visibility: hidden; }
+.cc-list .active { background: var(--c-surfaceSunken); }
+.cc-list [aria-selected="true"] { background: var(--c-primarySubtle); color: var(--c-primary); font-weight: 600; }
+.cc-list [aria-selected="true"] .dc { color: var(--c-primary); }
+.cc-list [aria-selected="true"] .ck { visibility: visible; }
+@media (hover: hover) { .cc-list [role=option]:hover:not([aria-selected="true"]) { background: var(--c-surfaceSunken); } }
+@keyframes cc-pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .cc-list { animation: none; } .phone-box .cc .chev { transition: none; } }
 .otp { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.7500); letter-spacing: 0.4em; text-align: center; direction: ltr; font-variant-numeric: tabular-nums; }
 .error-text { color: var(--c-danger); font-size: var(--t-caption-size); }
 .error-text:empty { display: none; }

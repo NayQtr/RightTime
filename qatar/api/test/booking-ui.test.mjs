@@ -62,26 +62,74 @@ test("welcome: nothing is said about one country any more", async () => {
   }
 });
 
-// Owner's decision (11 Nov 2026): the calling code is one plain dropdown with no label of its own, it lists every
-// country except Israel, Qatar is what it starts on, and the number box beside it sends the full E.164 number.
-test("phone: the calling code is a dropdown of every country (no Israel), Qatar first, and the full number is sent", async () => {
-  for (const [locale, name, number] of [["ar", "المملكة المتحدة", "7700900151"], ["en", "United Kingdom", "7700900152"]]) {
+// Playwright types letters that are not on a US keyboard (Arabic) as inserted text, with no key event; an Arabic keyboard
+// does send one, so the type-ahead is driven by real keydown events here.
+const typeKeys = (page, text) => page.evaluate((t) => { for (const key of t) document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })); }, text);
+
+// Owner's decisions: every country except Israel, Qatar to begin with, no search box (11 Nov 2026); the number field is
+// one box with flag, arrow and calling code, and the list carries each country's flag, alphabetical (13 Nov 2026).
+// The number box sends the full E.164 number.
+test("phone: one box with flag and code, a flag list of every country (no Israel), Qatar first, and the full number is sent", async () => {
+  for (const [locale, name, number, prefix] of [["ar", "المملكة المتحدة", "7700900151", "المم"], ["en", "United Kingdom", "7700900152", "united k"]]) {
     const { page, errors } = await newPage(null, locale);
     await page.goto(`${env.base}/#/signin`);
     await page.waitForSelector("#cc");
-    assert.equal(await page.evaluate(() => document.querySelector("#cc").tagName), "SELECT", "one plain dropdown");
-    assert.equal(await page.locator("#cc").inputValue(), "QA", "starts on Qatar");
+    const cc = page.locator("#cc"), list = page.locator("#cc-list");
+    // one box: the code button, then the number, side by side in it
+    assert.equal(await page.locator(".phone-box > #cc + .sep + #phone").count(), 1, "flag, code and number in one box");
+    assert.match(await cc.innerText(), /\+974/, "starts on Qatar");
+    assert.equal(await cc.locator(".fl").innerText(), "🇶🇦", "with Qatar's flag");
+    assert.equal(await cc.getAttribute("aria-haspopup"), "listbox");
+    assert.equal(await cc.getAttribute("aria-label"), null, "no label of its own: it reads as the chosen country");
+    assert.match(await page.evaluate(() => document.querySelector("#cc").textContent.replace(/\s+/g, " ").trim()), locale === "ar" ? /قطر \+974/ : /Qatar \+974/);
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[3-7][0-9]{7}", "Qatar keeps its strict pattern");
-    assert.ok((await page.locator("#cc option").count()) > 200, "every country");
-    assert.equal(await page.locator('#cc option[value="IL"]').count(), 0, "Israel is not offered");
-    assert.equal(await page.evaluate(() => [...document.querySelectorAll("#cc option")].filter((o) => o.textContent.includes("+972")).length), 0, "no +972 anywhere");
-    // no label at all and no search box: the owner asked for the dropdown alone (11 Nov), so even the
-    // screen-reader name is gone and the chosen option itself ("+974 قطر") is what is announced
-    assert.equal(await page.locator("#cc-q, #cc-pop, #cc-none").count(), 0);
-    assert.equal(await page.locator("#cc").getAttribute("aria-label"), null, "no label of its own");
+    assert.equal(await list.isHidden(), true, "the list is closed to begin with");
 
-    await page.selectOption("#cc", "GB");
+    // the list: every country but Israel, alphabetical, each with its flag; no search box
+    const opts = list.locator("[role=option]");
+    assert.ok((await opts.count()) > 200, "every country");
+    assert.equal(await list.locator('[data-iso="IL"]').count(), 0, "Israel is not offered");
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll("#cc-list [role=option]")].filter((o) => o.textContent.includes("+972")).length), 0, "no +972 anywhere");
+    const names = await opts.locator(".nm").allInnerTexts();
+    assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, locale)), "alphabetical only");
+    assert.equal(await opts.locator(".fl").count(), await opts.count(), "a flag on every row");
+    assert.equal(await page.locator("#cc-q, #cc-pop, #cc-none, .cc-list input").count(), 0, "no search box");
+
+    // opens on a click with Qatar chosen and in view; Escape closes it and gives the focus back
+    await cc.click();
+    await list.waitFor();
+    assert.equal(await cc.getAttribute("aria-expanded"), "true");
+    assert.equal(await list.locator('[aria-selected="true"]').getAttribute("data-iso"), "QA");
+    assert.equal(await page.evaluate(() => document.activeElement.id), "cc-list");
+    assert.ok(await page.evaluate(() => { const l = document.querySelector("#cc-list"), q = document.querySelector("#cc-QA");
+      return q.offsetTop >= l.scrollTop && q.offsetTop + q.offsetHeight <= l.scrollTop + l.clientHeight; }), "Qatar in view when it opens");
+    await page.keyboard.press("Escape");
+    assert.equal(await list.isHidden(), true);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "cc");
+
+    // keyboard: ArrowDown opens, typing jumps (by name, then by code), Enter chooses and moves on to the number
+    await page.keyboard.press("ArrowDown");
+    await list.waitFor();
+    await typeKeys(page, prefix);
+    assert.equal(await list.getAttribute("aria-activedescendant"), "cc-GB", "type-ahead by name");
+    await page.waitForTimeout(900);
+    await page.keyboard.type("97");
+    assert.match(await list.locator(`#${await list.getAttribute("aria-activedescendant")}`).innerText(), /\+97/, "type-ahead by code");
+    await page.waitForTimeout(900);
+    await typeKeys(page, prefix);
+    await page.keyboard.press("Enter");
+    assert.equal(await list.isHidden(), true);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "phone", "on to the number");
+    assert.match(await cc.innerText(), /\+44/);
+    assert.equal(await cc.locator(".fl").innerText(), "🇬🇧");
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[0-9]{4,15}", "another country takes any plausible number");
+
+    // a tap outside closes it without choosing
+    await cc.click();
+    await list.waitFor();
+    await page.mouse.click(5, 5);
+    assert.equal(await list.isHidden(), true);
+    assert.match(await cc.innerText(), /\+44/);
 
     await page.fill("#phone", number);
     await page.click("#send");

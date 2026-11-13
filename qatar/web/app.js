@@ -349,11 +349,33 @@ function scrWelcome() {
 }
 
 // ------------------------------------------------------------------ SCR-02a phone, 02b OTP, 02c registration
-// The calling code is its own control: tapping it opens the list of every country we accept (Israel is not in it), which
-// she can filter by name or by code. Qatar is the choice it starts on. Arrows move, Enter chooses, Escape closes.
+// The number field is one box: flag, arrow and calling code, then the number (owner's design, 13 Nov 2026, from a
+// reference image). The code opens the list of every country we accept (Israel is not in it), alphabetical, each with its
+// flag, Qatar first chosen; no search box (owner, 11 Nov). Arrows move, Enter or Space chooses, Escape closes, and typing
+// letters or digits jumps to the first country whose name or code starts with them.
 const countryName = (c) => (locale === "en" ? c.en : c.ar);
 const byName = () => [...COUNTRIES].sort((a, b) => countryName(a).localeCompare(countryName(b), locale === "en" ? "en" : "ar"));
 const localPattern = (dial) => (dial === "974" ? "[3-7][0-9]{7}" : "[0-9]{4,15}");
+// A flag is the pair of regional-indicator letters of the ISO code. Windows draws those as two letters, not a flag, so
+// flags are shown only where the device draws one (checked once by drawing Qatar's flag and looking for colour).
+const flagOf = (iso) => String.fromCodePoint(...[...iso].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+let flagsDrawn = null;
+function deviceDrawsFlags() {
+  if (flagsDrawn !== null) return flagsDrawn;
+  flagsDrawn = false;
+  try {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 24;
+    const g = cv.getContext("2d", { willReadFrequently: true });
+    g.textBaseline = "top";
+    g.font = '20px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    g.fillText(flagOf("QA"), 0, 0);
+    const d = g.getImageData(0, 0, 24, 24).data;
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i] - d[i + 1] > 40) { flagsDrawn = true; break; }
+  } catch { /* no canvas: no flags, the codes and names still say it all */ }
+  return flagsDrawn;
+}
+const flagSpan = (iso) => `<span class="fl" aria-hidden="true">${flagOf(iso)}</span>`;
 
 function scrPhone() {
   if (!signedIn()) store.set("resume", "#/signin");
@@ -368,28 +390,94 @@ function scrPhone() {
     <p class="muted">${esc(T("phoneHelp"))}</p>
     <form id="f" class="stack" novalidate>
       <div class="field">
-        <label class="label" for="phone">${esc(T("phoneLabel"))}</label>
-        <div class="phone">
-          <select class="prefix" id="cc">
-            ${byName().map((c) => `<option value="${esc(c.iso)}" ${c.iso === country.iso ? "selected" : ""}>+${esc(c.dial)} ${esc(countryName(c))}</option>`).join("")}
-          </select>
-          <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
-                 pattern="${localPattern(country.dial)}" required aria-describedby="perr" value="${esc(kept)}"></div>
+        <label class="label" id="plabel" for="phone">${esc(T("phoneLabel"))}</label>
+        <div class="phone-wrap${deviceDrawsFlags() ? "" : " no-flags"}">
+          <div class="phone-box">
+            <button class="cc" id="cc" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="cc-list"></button>
+            <span class="sep" aria-hidden="true"></span>
+            <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
+                   pattern="${localPattern(country.dial)}" required aria-describedby="perr" value="${esc(kept)}"></div>
+          <ul class="cc-list" id="cc-list" role="listbox" tabindex="-1" aria-labelledby="plabel" hidden>
+            ${byName().map((c) => `<li role="option" id="cc-${esc(c.iso)}" data-iso="${esc(c.iso)}" aria-selected="${c.iso === country.iso}">${flagSpan(c.iso)}<span class="nm">${esc(countryName(c))}</span><bdi class="dc" dir="ltr">+${esc(c.dial)}</bdi>${icon("check", "i ck")}</li>`).join("")}
+          </ul>
+        </div>
         <div id="perr" class="error-text" role="alert"></div>
       </div>
       <button class="btn btn-primary btn-block" id="send" type="submit">${esc(T("sendCode"))}</button>
     </form>`);
-  const sel = $("#cc"), input = $("#phone");
-  // one dropdown, Qatar by default (owner, 11 Nov): no label text, no search box
-  sel.onchange = () => {
-    country = countryByIso(sel.value);
+  const cc = $("#cc"), list = $("#cc-list"), input = $("#phone");
+  const options = [...list.querySelectorAll("[role=option]")];
+  // the button reads as the chosen country: "قطر +974" (its name is hidden on screen, the flag stands for it there)
+  const showChoice = () => {
+    cc.innerHTML = `${flagSpan(country.iso)}${icon("chevron-down", "i chev")}<span class="sr-only">${esc(countryName(country))} </span><bdi class="dc" dir="ltr">+${esc(country.dial)}</bdi>`;
+  };
+  showChoice();
+  let active = null, typed = "", typedAt = 0;
+  const setActive = (li) => {
+    if (!li) return;
+    if (active) active.classList.remove("active");
+    active = li;
+    li.classList.add("active");
+    list.setAttribute("aria-activedescendant", li.id);
+    const top = li.offsetTop, bottom = top + li.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  };
+  const outside = (e) => {
+    if (!list.isConnected) { document.removeEventListener("pointerdown", outside, true); return; }
+    if (!list.hidden && !list.contains(e.target) && !cc.contains(e.target)) close(false);
+  };
+  function open() {
+    list.hidden = false;
+    cc.setAttribute("aria-expanded", "true");
+    const sel = list.querySelector('[aria-selected="true"]') || options[0];
+    list.scrollTop = Math.max(0, sel.offsetTop - (list.clientHeight - sel.offsetHeight) / 2);   // the choice sits in the middle
+    setActive(sel);
+    list.focus({ preventScroll: true });
+    list.scrollIntoView({ block: "nearest" });
+    document.addEventListener("pointerdown", outside, true);
+  }
+  function close(backToButton = true) {
+    list.hidden = true;
+    cc.setAttribute("aria-expanded", "false");
+    list.removeAttribute("aria-activedescendant");
+    document.removeEventListener("pointerdown", outside, true);
+    if (backToButton) cc.focus();
+  }
+  function choose(li) {
+    country = countryByIso(li.dataset.iso);
+    for (const o of options) o.setAttribute("aria-selected", String(o === li));
+    showChoice();
     state.country = country.iso;
     if (store.get("country")) store.set("country", country.iso);
     input.maxLength = country.dial === "974" ? 8 : 15;
     input.pattern = localPattern(country.dial);
     input.removeAttribute("aria-invalid");
     $("#perr").textContent = "";
+    close(false);
     input.focus();
+  }
+  cc.onclick = () => (list.hidden ? open() : close());
+  cc.onkeydown = (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); } };
+  list.onclick = (e) => { const li = e.target.closest("[role=option]"); if (li) choose(li); };
+  list.onkeydown = (e) => {
+    const i = options.indexOf(active);
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: options.length - 1, PageDown: i + 8, PageUp: i - 8 }[e.key];
+    if (to !== undefined) { e.preventDefault(); setActive(options[Math.max(0, Math.min(options.length - 1, to))]); return; }
+    const typing = Date.now() - typedAt < 800;   // a space while she types is part of a name ("United Kingdom")
+    if (e.key === "Enter" || (e.key === " " && !typing)) { e.preventDefault(); choose(active); return; }
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    if (e.key === "Tab") { close(false); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // type-ahead: letters match the start of a name, digits the start of a code
+      e.preventDefault();
+      typed = (typing ? typed : "") + e.key.toLowerCase();
+      typedAt = Date.now();
+      const hit = /^\+?\d+$/.test(typed)
+        ? options.find((o) => countryByIso(o.dataset.iso).dial.startsWith(typed.replace("+", "")))
+        : options.find((o) => countryName(countryByIso(o.dataset.iso)).toLowerCase().startsWith(typed));
+      if (hit) setActive(hit);
+    }
   };
   $("#f").onsubmit = async (e) => {
     e.preventDefault();

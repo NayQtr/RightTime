@@ -34,3 +34,12 @@ Country names are factual data (ISO 3166 short names), not copy.
 
 **Revisit** if paid SMS abroad turns out to cost more than expected: the hourly cap per country is the lever, or the
 owner can narrow `PHONE_ALLOWED_COUNTRY_CODES` to a list without a release.
+
+## 13 Nov 2026: one box with flags (owner)
+
+The owner sent a reference image and approved a mockup («نعم، كما في الصورة»): the number field is now one box —
+the country's flag, a down arrow and the calling code, a thin divider, then the number (left to right in both languages).
+The code opens a list under the box with every country's flag, its name and code, the chosen one marked ✓. Alphabetical
+only (owner's choice; no Gulf group on top), Qatar chosen to begin with, still no search box. On the website the list is
+an ARIA listbox (arrows, Home/End, Enter or Space, Escape; typing letters or digits jumps to a name or code); flags show only
+where the device draws flag emoji (Windows draws two letters, so there the flag is left out). Same design in the app.

@@ -140,6 +140,12 @@ void main() {
     expect(kCountries.length, greaterThan(200));
     expect(countryByIso('QA').dial, '974');
     expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+974')), findsOneWidget, reason: 'starts on Qatar');
+    // one box (owner's design, 13 Nov 2026): Qatar's flag and code, then the number, inside the same frame
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('🇶🇦')), findsOneWidget, reason: 'with its flag');
+    final box = tester.getRect(find.ancestor(of: find.byKey(const Key('country')), matching: find.byType(AnimatedContainer)).first);
+    final number = tester.getRect(find.byKey(const Key('phone')));
+    expect(box.contains(number.center), isTrue, reason: 'the number sits in the same box as the code');
+    expect(tester.getRect(find.byKey(const Key('country'))).center.dx, lessThan(number.center.dx), reason: 'code first, left to right');
 
     // Qatar keeps its 8-digit rule
     await tester.enterText(find.byKey(const Key('phone')), '1234');
@@ -148,12 +154,24 @@ void main() {
     expect(find.text('أدخلي 8 أرقام تبدأ بأحد الأرقام من 3 إلى 7.'), findsOneWidget);
     expect(log, isEmpty);
 
-    // the box opens one plain list: no search field, and Israel is not in it (owner, 11 Nov)
+    // the code opens one plain list under the box: flags, Qatar marked and in view, no search field, no Israel (owner,
+    // 11 and 13 Nov); a tap outside closes it without choosing
     await tester.tap(find.byKey(const Key('country')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('country-search')), findsNothing, reason: 'no search box');
     expect(find.byKey(const Key('country-IL')), findsNothing);
-    await tester.scrollUntilVisible(find.byKey(const Key('country-GB')), 300, scrollable: find.byType(Scrollable).last);
+    expect(find.byKey(const Key('country-QA')), findsOneWidget, reason: 'Qatar in view when it opens');
+    expect(find.descendant(of: find.byKey(const Key('country-QA')), matching: find.byIcon(Icons.check)), findsOneWidget, reason: 'the chosen one is marked');
+    expect(find.descendant(of: find.byKey(const Key('country-QA')), matching: find.text('🇶🇦')), findsOneWidget);
+    expect(tester.getRect(find.byKey(const Key('country-list'))).top, greaterThan(tester.getRect(find.byKey(const Key('country'))).bottom), reason: 'under the box');
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('country-list')), findsNothing);
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+974')), findsOneWidget, reason: 'nothing chosen');
+    await tester.tap(find.byKey(const Key('country')));
+    await tester.pumpAndSettle();
+    // the list opens on Qatar (ق); «المملكة المتحدة» comes earlier, so scroll up
+    await tester.scrollUntilVisible(find.byKey(const Key('country-GB')), -300, scrollable: find.descendant(of: find.byKey(const Key('country-list')), matching: find.byType(Scrollable)));
     await tester.tap(find.byKey(const Key('country-GB')));
     await tester.pumpAndSettle();
     expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+44')), findsOneWidget);
