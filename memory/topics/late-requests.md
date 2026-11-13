@@ -11,10 +11,9 @@ never resent, a refusal recorded and reported), safety alerts (an unfinished pag
 herzone-web@d3b171ce03d7; Edge Function `api` v17; smoke checks all pass.
 
 Open:
-- **Every-minute call not set up in production** (found after the release): `PUSH_DISPATCH_URL` is empty in production
-  (staging has it), so pg_cron never calls `/api/internal/push:dispatch` there. Until it is set, production sends no
-  member phone notifications, never re-sends an unfinished coordinator alert, and never runs the refunds check. Fix is
-  one config row (a URL, not a secret). Waiting for the owner's approval.
+- ~~Every-minute call not set up in production~~: done 13 Nov with the owner's approval («فعل»). `PUSH_DISPATCH_URL` in
+  production now points at the production API (ap-south-1); pg_cron calls it every minute and the first runs answered 200
+  with all three checks (member push, coordinator alerts, refunds). Undo: set the value back to ''.
 - ~~Sentry after this release~~: checked 13 Nov after the owner allowed the call: no unresolved production issue in 24 h.
 - Small untangle items after the release: done on `rightime-app` (bb050a2), not yet released. The big split (web/app.js,
   the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
