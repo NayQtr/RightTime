@@ -236,7 +236,7 @@ void main() {
     }
   });
 
-  test('the reasons and their threshold match the API (LOW_RATING_REASONS in api/src/routes/user.js)', () {
+  test('the reasons and their threshold match the API (LOW_RATING_REASONS in api/src/lib/feedback.js)', () {
     expect(lowRatingReasons, ['table_fit', 'venue', 'food_service', 'organisation', 'no_shows', 'other']);
     expect(lowRatingReasonsUpTo, 3);
   });

@@ -5,7 +5,7 @@ import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { smsSettings } from "../lib/sms.js";
 import { audit } from "../services/common.js";
 import { alertPhones, COORDINATOR_ROLES, coordinatorAlertsTick, pageDone } from "../services/coordinator_alerts.js";
-import { b64uKey, validEndpoint } from "../services/webpush.js";
+import { validSubscription } from "../services/webpush.js";
 
 const A = "/api/admin/v1";
 const MAX_DEVICES = 10;
@@ -59,9 +59,8 @@ async function myDevices(ctx) {
 
 async function subscribe(ctx) {
   const { sql, body, admin } = ctx;
-  const keys = body.keys || {};
-  if (!validEndpoint(body.endpoint) || !b64uKey(keys.p256dh, 80, 100) || !b64uKey(keys.auth, 16, 32))
-    fail(422, "VALIDATION_FAILED", [{ field: "subscription", code: "INVALID" }]);
+  if (!validSubscription(body)) fail(422, "VALIDATION_FAILED", [{ field: "subscription", code: "INVALID" }]);
+  const keys = body.keys;
   await sql.begin(async (tx) => {
     // one row per browser; a browser where another coordinator turns alerts on moves to her
     await tx`INSERT INTO app.admin_push_subscriptions (admin_id, endpoint, p256dh, auth)

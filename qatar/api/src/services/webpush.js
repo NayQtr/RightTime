@@ -103,3 +103,9 @@ export function validEndpoint(endpoint) {
   return u.protocol === "https:" && String(endpoint).length <= 1000 && PUSH_HOSTS.some((re) => re.test(u.hostname));
 }
 export const b64uKey = (s, min, max) => typeof s === "string" && /^[A-Za-z0-9_-]+$/.test(s) && s.length >= min && s.length <= max;
+
+/** A browser's push subscription as the member app and the admin console send it: a real push service and two keys. */
+export const validSubscription = (body) => {
+  const keys = (body && body.keys) || {};
+  return validEndpoint(body && body.endpoint) && b64uKey(keys.p256dh, 80, 100) && b64uKey(keys.auth, 16, 32);
+};

@@ -7,7 +7,7 @@ import { audit } from "../services/common.js";
 import { coordinatorAlertsTick } from "../services/coordinator_alerts.js";
 import { refundsTick } from "../services/payments.js";
 import { reportError, sentryEnv } from "../lib/sentry.js";
-import { b64uKey, resetVapidCache, sendPush, validEndpoint, vapidKeys } from "../services/webpush.js";
+import { resetVapidCache, sendPush, validSubscription, vapidKeys } from "../services/webpush.js";
 import { notificationText } from "../services/notifications.js";
 
 const MAX_DEVICES = 10;
@@ -30,9 +30,8 @@ async function publicKey(ctx) {
 
 async function subscribe(ctx) {
   const { sql, body, user } = ctx;
-  const keys = body.keys || {};
-  if (!validEndpoint(body.endpoint) || !b64uKey(keys.p256dh, 80, 100) || !b64uKey(keys.auth, 16, 32))
-    fail(422, "VALIDATION_FAILED", [{ field: "subscription", code: "INVALID" }]);
+  if (!validSubscription(body)) fail(422, "VALIDATION_FAILED", [{ field: "subscription", code: "INVALID" }]);
+  const keys = body.keys;
   await sql.begin(async (tx) => {
     // one row per device; a device that signs in as someone else moves to that account
     await tx`INSERT INTO app.push_subscriptions (user_id, endpoint, p256dh, auth)

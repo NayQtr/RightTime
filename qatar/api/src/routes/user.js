@@ -619,7 +619,7 @@ async function joinWaitlist(ctx) {
 
 // "Notify me when a session is available" (v0.3 E-LANG-1, migration 023, provisional): one open alert per member, whatever
 // her marketing consent. It is answered once, when a session in one of her Q01 languages goes on sale
-// (notifySessionAlerts below, called from the admin's open-sale), and then it ends.
+// (notifySessionAlerts in services/notifications.js, called from the admin's open-sale), and then it ends.
 async function requestSessionAlert(ctx) {
   const { sql, user } = ctx;
   const resp = await submittedResponse(sql, user.id);

@@ -99,7 +99,6 @@ class EventDetails {
   String get language => _s['conversation_language'] as String;
   String? get foodBand => Money.fromJson(_s['food_price_band'])?.display;
   int? get confirmedCount => (_t?['confirmed_count'] as num?)?.toInt();
-  int? get capacity => (_t?['capacity'] as num?)?.toInt();
   String? get tableCode => _t?['code'] as String?;
   List<String> get tablemates => ((_t?['members'] as List?) ?? const []).map((m) => ((m as Map)['display_name'] as String?) ?? '').where((n) => n.isNotEmpty).toList();
 
@@ -123,7 +122,6 @@ class EventDetails {
   String? get refundIfCancelledNow => _c['refund_if_cancelled_now'] as String?;
   String? get fullRefundUntil => _c['full_refund_until'] as String?;
   String? get amountPaid => Money.fromJson((json['payment'] as Map<String, dynamic>?)?['amount'])?.display;
-  bool get hasAction => (json['actions'] as List? ?? const []).isNotEmpty;
   bool action(String type) => (json['actions'] as List? ?? const []).any((a) => (a as Map)['type'] == type);
 
   /// Tablemates with their seat token (only on the day and after); used to name someone in a private report.
