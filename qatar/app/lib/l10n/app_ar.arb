@@ -131,7 +131,7 @@
   "qOf": "{i} من {n}",
   "timeLeftOne": "بقي نحو دقيقة واحدة",
   "timeLeftTwo": "بقي نحو دقيقتين",
-  "timeLeftFew": "بقي نحو بضعة دقائق",
+  "timeLeftFew": "بقي نحو بضع دقائق",
   "timeLeftUnder": "بقيت أقل من دقيقة",
   "chooseUpTo": "اختاري حتى {n}",
   "next": "التالي",

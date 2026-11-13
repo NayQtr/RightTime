@@ -151,7 +151,7 @@ test("questionnaire: the time left beside the step count, and the table with eve
   await page.waitForSelector(".quiz-q .time-left");
   // the owner's wording (11 Nov): one minute, two minutes, then "a few minutes" (web/app.js timeLeftText)
   const mins = Math.round((n * 10) / 60);
-  const left = mins === 1 ? "بقي نحو دقيقة واحدة" : mins === 2 ? "بقي نحو دقيقتين" : "بقي نحو بضعة دقائق";
+  const left = mins === 1 ? "بقي نحو دقيقة واحدة" : mins === 2 ? "بقي نحو دقيقتين" : "بقي نحو بضع دقائق";
   assert.equal((await page.locator(".quiz-q .step-k").innerText()).trim(), `السؤال 1 من ${n} · ${left}`);
   await tidy(page);
   await page.goto(`${env.base}/#/quiz/${last}`);

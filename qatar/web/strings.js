@@ -89,7 +89,7 @@ export const STRINGS = {
     // quiz-first experience (spec 2026-10-28)
     welcomeHero: "تعرّفي على ناس.. {em}", welcomeHeroEm: "تفهمك", welcomeHeroPlain: "تعرّفي على ناس.. تفهمك", welcomeSub: "طاولة من 4 إلى 6 سيدات، بلغتك وضمن ميزانيتك، في الدوحة.", getStarted: "ابدئي", haveAccount: "لديّ حساب",
     skipQ: "تخطَّي", qOf: "{i} من {n}",
-    timeLeftOne: "بقي نحو دقيقة واحدة", timeLeftTwo: "بقي نحو دقيقتين", timeLeftFew: "بقي نحو بضعة دقائق", timeLeftUnder: "بقيت أقل من دقيقة", // owner's wording, 11 Nov
+    timeLeftOne: "بقي نحو دقيقة واحدة", timeLeftTwo: "بقي نحو دقيقتين", timeLeftFew: "بقي نحو بضع دقائق", timeLeftUnder: "بقيت أقل من دقيقة", // owner's wording, 11 Nov; «بضع» corrected with the owner's approval, 13 Nov
     dohaTitle: "نبدأ في الدوحة", dohaBody: "HerZone متاح حاليًا في الدوحة فقط. سنخبركِ عند افتتاح مدن أخرى.",
     communityTitle: "أهلًا بكِ في HerZone", communityBody: "نصنع مساحة نسائية للقاءات حقيقية وآمنة وجهًا لوجه، تحوّل الغريبات إلى صديقات. أجيبي عن أسئلة قصيرة لنعرفكِ أكثر.",
     howTitle: "كيف يعمل HerZone", how1: "تجيبين عن أسئلة قصيرة", how2: "تختارين موعدًا وتدفعين رسم التنظيم", how3: "نكوّن طاولة من 4 إلى 6 سيدات بلغة مشتركة وضمن ميزانيتك", how4: "نكشف لكِ المكان قبل اللقاء بيوم",

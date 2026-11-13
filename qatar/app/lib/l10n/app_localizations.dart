@@ -665,7 +665,7 @@ abstract class AppLocalizations {
   /// No description provided for @timeLeftFew.
   ///
   /// In ar, this message translates to:
-  /// **'بقي نحو بضعة دقائق'**
+  /// **'بقي نحو بضع دقائق'**
   String get timeLeftFew;
 
   /// No description provided for @timeLeftUnder.

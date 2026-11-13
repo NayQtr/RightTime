@@ -17,8 +17,10 @@ Live walk of herzone.app (13 Nov, after the release): welcome → 21 questions a
 not tried live). Claude's slip: the number field is not type=tel, so the walk script typed «تجربة» into it and pressed
 Next once; the API answered 400 and nothing was stored (no otp_challenges row, no user, no audit row).
 The Vercel MCP has no field for the production branch; it stays a dashboard setting (owner) or one "Allow" per release.
-Open: the Vercel production branch setting (so a push to `release` builds by itself); proposal waiting on the owner:
-«بقي نحو بضعة دقائق» → «بقي نحو بضع دقائق» (grammar; owner's wording of 11 Nov, change only with approval).
+Open: the Vercel production branch setting (so a push to `release` builds by itself); «بقي نحو بضعة دقائق» → «بقي نحو بضع دقائق»: owner approved («صححها», 13 Nov), changed on web and app,
+NOT yet released. Owner (13 Nov): SMS provider and payment gateway «still not ready». Owner wrote «Active» but the
+admin account is NOT activated yet (no enrol attempt reached the server; the enrol page works, checked with the request
+blocked before it left the browser).
 
 ## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's enrolment pending
 
