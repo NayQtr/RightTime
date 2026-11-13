@@ -3,6 +3,16 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Production release of f3adf75 [2026-11-13] — DONE
+
+Owner's approval: «نعم، أنزلها الآن» (13 Nov), then «Go» for the deployment. Baseline checks recorded; CI green on f3adf75;
+`release` fast-forwarded d3b171c → f3adf75. Vercel did not build on the push (production branch still not `release` in the
+project settings), so Claude created the production deployment (dpl_J2HRpSYvUu4nR8xQQYjvmnhzfx6a) with the owner's Allow.
+After: web tag herzone-web@f3adf75a8313; smoke checks all pass; new admin routes live (today 401 without sign-in);
+welcome hint gone; ابدئي opens the questionnaire; Sentry: no unresolved production issue in 24 h.
+Open: the Vercel production branch setting (so a push to `release` builds by itself); proposal waiting on the owner:
+«بقي نحو بضعة دقائق» → «بقي نحو بضع دقائق» (grammar; owner's wording of 11 Nov, change only with approval).
+
 ## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's enrolment pending
 
 Done 13 Nov with the owner's answers (email nayeffr@gmail.com, name «المالك», role owner): admin account created in
@@ -37,14 +47,14 @@ Open:
   production now points at the production API (ap-south-1); pg_cron calls it every minute and the first runs answered 200
   with all three checks (member push, coordinator alerts, refunds). Undo: set the value back to ''.
 - ~~Sentry after this release~~: checked 13 Nov after the owner allowed the call: no unresolved production issue in 24 h.
-- Small untangle items after the release: done on `rightime-app` (bb050a2), not yet released. The big split (web/app.js,
+- Small untangle items after the release: done (bb050a2), released 13 Nov (f3adf75). The big split (web/app.js,
   the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
 - The refund rules must be re-tested against the real PSP before it takes real money.
 
-## Design study of 10 reference sites [2026-11-13] — DONE on rightime-app (809781e), NOT yet released
+## Design study of 10 reference sites [2026-11-13] — DONE (809781e), released 13 Nov (f3adf75)
 
 Owner: «كلها». Item 1 threshold = 3 (owner's choice). Item 3 cancelled («لا شيء تحت ابدئي»); the owner then confirmed
-(«نعم») the hint line «أسئلة قصيرة تأخذ دقائق قليلة.» goes too: removed on web and app (3349073, NOT yet released). Built 1, 2, 4, 5 on web and app (item 5 is
+(«نعم») the hint line «أسئلة قصيرة تأخذ دقائق قليلة.» goes too: removed on web and app (3349073, released 13 Nov). Built 1, 2, 4, 5 on web and app (item 5 is
 admin only); landing pages after sign-in unchanged (Today is first in the menu, the landing page only for researcher and
 developer, who had none). Root fix found on the way: scroll-padding for the sticky bars (WCAG 2.4.11).
 Goes out with the next release, with the owner's approval.
@@ -64,7 +74,7 @@ Not now: search filters (Airbnb; too few sessions), points/streaks (Duolingo; wr
 Owner asked for "All" (site, consoles, app). Member site: 13 screens x 4 widths x ar/en x light/dark, no findings (contrast,
 targets, names, headings, focus, overflow all clean). App: 9 screens, Flutter guidelines: labels all pass; one target
 (table code, 42 px at 430 wide, copyable text) left as is; contrast flags were pixel-sampling misreads (all 60 token pairs
-pass). Admin console: 5 findings fixed with the owner's approval (cb20865, on rightime-app, NOT yet released; goes out with
+pass). Admin console: 5 findings fixed with the owner's approval (cb20865, released 13 Nov in f3adf75; was to go out with
 the next release after the owner's approval): nav 44 px, table links 44 px, session-form heading 44 px, enrol link 44 px,
 fields 16 px and inline fields 44 px. Pre-existing, left as is: "Open sale" sits a few px lower than its row on desktop.
 
