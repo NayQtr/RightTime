@@ -19,7 +19,15 @@ Open:
   the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
 - The refund rules must be re-tested against the real PSP before it takes real money.
 
-## Design study of 10 reference sites [2026-11-13] — WAITING for the owner's choice
+## Design study of 10 reference sites [2026-11-13] — DONE on rightime-app (809781e), NOT yet released
+
+Owner: «كلها». Item 1 threshold = 3 (owner's choice). Item 3 cancelled («لا شيء تحت ابدئي»); the existing hint line under
+the start button was left as it is (ask the owner if they meant that line too). Built 1, 2, 4, 5 on web and app (item 5 is
+admin only); landing pages after sign-in unchanged (Today is first in the menu, the landing page only for researcher and
+developer, who had none). Root fix found on the way: scroll-padding for the sticky bars (WCAG 2.4.11).
+Goes out with the next release, with the owner's approval.
+
+Original proposal:
 
 Captured with Playwright at 390 and 1440: apple, duolingo, linear, pentagram, airbnb, notion, stripe, framer. muji.com was
 in maintenance (security notice), aesop.com blocked automated browsers (403 challenge, not bypassed). Proposed, nothing built:
