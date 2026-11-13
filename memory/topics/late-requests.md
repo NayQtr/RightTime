@@ -15,7 +15,9 @@ Open:
   (staging has it), so pg_cron never calls `/api/internal/push:dispatch` there. Until it is set, production sends no
   member phone notifications, never re-sends an unfinished coordinator alert, and never runs the refunds check. Fix is
   one config row (a URL, not a secret). Waiting for the owner's approval.
-- **Sentry after this release**: the Sentry call needs the owner's approval in this session; not checked yet.
+- ~~Sentry after this release~~: checked 13 Nov after the owner allowed the call: no unresolved production issue in 24 h.
+- Small untangle items after the release: done on `rightime-app` (bb050a2), not yet released. The big split (web/app.js,
+  the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
 - The refund rules must be re-tested against the real PSP before it takes real money.
 
 ## Country picker: every country except Israel [2026-11-11]
