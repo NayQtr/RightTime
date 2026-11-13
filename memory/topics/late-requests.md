@@ -3,6 +3,18 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — OPEN, waiting on the owner
+
+The owner found it (screenshot). Cause: production has never had a published questionnaire (only QA-2026-04, draft);
+staging has QA-2026-05 published. It showed once herzone.app moved to the production project. Claude's miss: after the
+domain move only pages and API were smoke-checked, not the visitor flow. Publishing needs a real approving admin in
+production (database rule: published needs approved_by + published_at, approved_by must be an admin), and production has
+no admin. Owner's choice: publish the questionnaire now, decide later what the number-check step shows until launch.
+Next: owner gives the email (and name) for her/his admin account (also NMX-20) → Claude creates it with a one-use
+enrolment link (herzone.app/admin/#/enroll) → publishes QA-2026-05 with the owner as approver → checks ابدئي on herzone.app.
+After that the flow still stops at the number check (no SMS provider in production) and at sign-up (no legal documents
+in production): the owner decides later what to show there (Arabic wording from the owner).
+
 ## Production release of d3b171c, and two open items [2026-11-12]
 
 Released with the owner's approval («اسمح لك»): the five untangle batches, refunds (one send per refund, an unknown outcome
@@ -21,8 +33,8 @@ Open:
 
 ## Design study of 10 reference sites [2026-11-13] — DONE on rightime-app (809781e), NOT yet released
 
-Owner: «كلها». Item 1 threshold = 3 (owner's choice). Item 3 cancelled («لا شيء تحت ابدئي»); the existing hint line under
-the start button was left as it is (ask the owner if they meant that line too). Built 1, 2, 4, 5 on web and app (item 5 is
+Owner: «كلها». Item 1 threshold = 3 (owner's choice). Item 3 cancelled («لا شيء تحت ابدئي»); the owner then confirmed
+(«نعم») the hint line «أسئلة قصيرة تأخذ دقائق قليلة.» goes too: removed on web and app (3349073, NOT yet released). Built 1, 2, 4, 5 on web and app (item 5 is
 admin only); landing pages after sign-in unchanged (Today is first in the menu, the landing page only for researcher and
 developer, who had none). Root fix found on the way: scroll-padding for the sticky bars (WCAG 2.4.11).
 Goes out with the next release, with the owner's approval.
