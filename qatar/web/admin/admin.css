@@ -2,7 +2,7 @@
 main { max-width: 1280px; }
 #nav { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; padding: var(--s-2) var(--s-4); border-block-end: 1px solid var(--c-border); background: var(--c-surface); position: sticky; top: 0; z-index: 10; }
 #nav ul { list-style: none; display: flex; gap: var(--s-1); flex-wrap: wrap; margin: 0; padding: 0; }
-#nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--s-3); border-radius: var(--r-md); text-decoration: none; color: var(--c-text); }
+#nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s-3); border-radius: var(--r-md); text-decoration: none; color: var(--c-text); }
 #nav a[aria-current="page"] { background: var(--c-primarySubtle); color: var(--c-primary); font-weight: 600; }
 #nav .spacer { flex: 1; }
 table { width: 100%; border-collapse: collapse; background: var(--c-surface); font-size: var(--t-caption-size); }
@@ -13,7 +13,13 @@ th { color: var(--c-textMuted); font-weight: 600; }
 .grid-form { display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end; margin-block-start: var(--s-3); }
 .grid-form label { display: grid; gap: var(--s-1); font-size: var(--t-caption-size); color: var(--c-textMuted); }
 .grid-form .wide { grid-column: 1 / -1; }
-.input.inline { min-height: 32px; width: auto; padding: 2px var(--s-2); font-size: var(--t-caption-size); }
+/* coordinators use the console on their phones (alerts, Tonight): every field 16 px so iPhone does not zoom in on tap,
+   and every control at least 44 px tall (ui-ux-pro-max review, 13 Nov 2026) */
+.grid-form .input { font-size: var(--t-body-size); }
+.input.inline { min-height: 44px; width: auto; padding: 2px var(--s-2); font-size: var(--t-body-size); }
+td > a { display: inline-flex; align-items: flex-start; min-height: 44px; }   /* text stays level with its row; the tap area runs below it */
+details.card > summary { min-height: 44px; padding-block: var(--s-3); box-sizing: border-box; cursor: pointer; }
+.tap-link { display: inline-flex; align-items: center; min-height: 44px; }
 .narrow { max-width: 420px; }
 .plain { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-1); }
 .row-red td { background: color-mix(in srgb, var(--c-danger) 10%, transparent); }

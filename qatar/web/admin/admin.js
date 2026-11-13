@@ -166,7 +166,7 @@ function scrLogin() {
     <div class="field"><label class="label" for="em">Email</label><input class="input" id="em" type="email" autocomplete="username" required></div>
     <div class="field"><label class="label" for="code">Authenticator code (TOTP)</label><input class="input otp" id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required></div>
     <div id="err" role="alert"></div><button class="btn btn-primary" type="submit">Sign in</button>
-    <a href="#/enroll">First time? Enrol your authenticator</a></form>`);
+    <a class="tap-link" href="#/enroll">First time? Enrol your authenticator</a></form>`);
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     const r = await api("POST", `${A}/auth/login`, { email: $("#em").value.trim(), totp_code: $("#code").value.trim() });
