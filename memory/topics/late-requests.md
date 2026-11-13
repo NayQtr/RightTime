@@ -19,6 +19,15 @@ Open:
   the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
 - The refund rules must be re-tested against the real PSP before it takes real money.
 
+## ui-ux-pro-max review [2026-11-13]
+
+Owner asked for "All" (site, consoles, app). Member site: 13 screens x 4 widths x ar/en x light/dark, no findings (contrast,
+targets, names, headings, focus, overflow all clean). App: 9 screens, Flutter guidelines: labels all pass; one target
+(table code, 42 px at 430 wide, copyable text) left as is; contrast flags were pixel-sampling misreads (all 60 token pairs
+pass). Admin console: 5 findings fixed with the owner's approval (cb20865, on rightime-app, NOT yet released; goes out with
+the next release after the owner's approval): nav 44 px, table links 44 px, session-form heading 44 px, enrol link 44 px,
+fields 16 px and inline fields 44 px. Pre-existing, left as is: "Open sale" sits a few px lower than its row on desktop.
+
 ## Country picker: every country except Israel [2026-11-11]
 
 Owner's decision (11 Nov), built on `rightime-app`: sign-in takes numbers from EVERY country except Israel (+972).
