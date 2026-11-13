@@ -3,7 +3,17 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
-## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — OPEN, waiting on the owner
+## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's enrolment pending
+
+Done 13 Nov with the owner's answers (email nayeffr@gmail.com, name «المالك», role owner): admin account created in
+production (id 9290aa62…, audit rows admin_create and admin_enroll_token), one-use enrolment token valid 24 hours, given
+to the owner in chat (not stored in the repository). QA-2026-05 published in production with the owner as approver
+(audit questionnaire_publish, reason owner_approved_in_chat); its content hash matches staging's QA-2026-05. Checked on
+herzone.app: ابدئي → «نبدأ في الدوحة» → «السؤال 1 من 21»; /api/v1/questionnaires/preview 200.
+Still open: the owner enrols at herzone.app/admin/#/enroll before the token expires (if it lapses, Claude issues a new one);
+what the number-check step shows until launch (owner decides later, owner's wording).
+
+Before the fix:
 
 The owner found it (screenshot). Cause: production has never had a published questionnaire (only QA-2026-04, draft);
 staging has QA-2026-05 published. It showed once herzone.app moved to the production project. Claude's miss: after the
