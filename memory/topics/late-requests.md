@@ -212,7 +212,19 @@ Older palette (5 Nov): light = soft butter «زبدة ناعمة» #EFDFCD with 
 Still open in the plan:
 14. (done 5 Nov, later) Production released again: herzone-production serves 9d72927 (deployment dpl_GCa4DZJJLFUfrQU3w4Z9tUhWU67k, READY). Checks: release tag herzone-web@9d729270e845, call-requests and admin routes 401 without login, venue page 200, Sentry no new production issues. Migration 017 pasted and verified in both projects. Previously: herzone-production served ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
 14a. Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
+     Steps sent to the owner 13 Nov: https://vercel.com/rightime/herzone-production/settings/git → Connect Git Repository →
+     GitHub → NayQtr/RightTime (install the Vercel app for that repo only if asked); production branch `release` (same page,
+     or Settings → Environments → Production → Branch Tracking); Ignored Build Step = "Only build production"; leave Root
+     Directory `qatar/web` and the build commands alone. Then Claude checks the link. Checked 13 Nov: preview builds never
+     deploy the API (ops/deploy-api-from-vercel.mjs exits unless VERCEL_ENV=production).
 14b. At launch: move the herzone.app domain to herzone-production (production WEB_BASE_URL already says https://herzone.app; until then links in production messages open the staging site). Owner's decision.
+     Steps sent to the owner 13 Nov. Facts checked: herzone.app is registered at Vercel on Vercel nameservers (no DNS change);
+     production CORS_ORIGINS already lists https://herzone.app; production WEB_BASE_URL is https://herzone.app.
+     Prerequisite on Claude: staging WEB_BASE_URL is ALSO https://herzone.app, so before the move set it to
+     https://qatar-mvp-staging.vercel.app (otherwise staging mock-checkout and message links open production).
+     Then the owner removes www.herzone.app and herzone.app from qatar-mvp-staging (Settings → Domains), adds herzone.app
+     to herzone-production as Production with www.herzone.app redirecting to it (308), and Claude runs
+     `SMOKE_PRODUCTION_WEB=https://herzone.app node qatar/ops/smoke.mjs production` and checks the release tag.
 14c. Production venue page needs an email provider (no on-screen code in production).
 15. Maestro full-journey run needs the branch merged (NMX-56).
 16. Blockers NMX-22/23/24/26/28; the real payment gateway must send the cardholder name.
