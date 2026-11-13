@@ -222,6 +222,12 @@ Still open in the plan:
      production CORS_ORIGINS already lists https://herzone.app; production WEB_BASE_URL is https://herzone.app.
      Prerequisite on Claude: staging WEB_BASE_URL is ALSO https://herzone.app, so before the move set it to
      https://qatar-mvp-staging.vercel.app (otherwise staging mock-checkout and message links open production).
+     DONE 13 Nov by Claude (owner: «نفذ وقلل علي العمل»): staging WEB_BASE_URL is now https://qatar-mvp-staging.vercel.app
+     (staging smoke checks pass); herzone-production Ignored Build Step = build only when VERCEL_GIT_COMMIT_REF=release AND
+     VERCEL_ENV=production (the GitHub default branch is add-rea-mcp-permissions, which must never build production).
+     Adding herzone.app to production failed 409 domain_already_in_use and no tool removes a project domain, so the owner's
+     only steps are: Remove both domains from qatar-mvp-staging, and Connect Git + production branch `release`. A background
+     watcher wakes Claude when herzone.app stops serving staging, to add both domains to production and smoke-check.
      Then the owner removes www.herzone.app and herzone.app from qatar-mvp-staging (Settings → Domains), adds herzone.app
      to herzone-production as Production with www.herzone.app redirecting to it (308), and Claude runs
      `SMOKE_PRODUCTION_WEB=https://herzone.app node qatar/ops/smoke.mjs production` and checks the release tag.
