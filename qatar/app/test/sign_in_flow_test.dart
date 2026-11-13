@@ -83,6 +83,17 @@ void main() {
     expect(find.text('+974 5550 1234'), findsOneWidget);
     expect(find.byKey(const Key('devCode')), findsOneWidget);
 
+    // the code in six boxes over one real field (identity step, 13 Nov 2026): what is typed shows one digit per box
+    expect(find.byKey(const Key('code-box-5')), findsOneWidget);
+    expect(find.byKey(const Key('code-box-6')), findsNothing);
+    await tester.enterText(find.byKey(const Key('code')), '12');
+    await tester.pump();
+    expect(find.descendant(of: find.byKey(const Key('code-box-0')), matching: find.text('1')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('code-box-1')), matching: find.text('2')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('code-box-2')), matching: find.text('')), findsOneWidget);
+    expect(tester.getRect(find.byKey(const Key('code-box-0'))).left, lessThan(tester.getRect(find.byKey(const Key('code-box-5'))).left),
+        reason: 'left to right, as the SMS reads');
+
     // a wrong code shows the server's message; the right one signs in
     await tester.enterText(find.byKey(const Key('code')), '000000');
     await tester.pumpAndSettle();
@@ -96,6 +107,10 @@ void main() {
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();
     expect(find.text('مريم'), findsOneWidget);
+    // the account items are rows of one rounded card, each at least 56 px tall (identity step, 13 Nov 2026)
+    for (final k in ['my-answers', 'lang', 'theme', 'documents', 'cases']) {
+      expect(tester.getSize(find.byKey(Key(k))).height, greaterThanOrEqualTo(56), reason: k);
+    }
     // light or dark by choice: one tap switches the whole app, the next switches back
     Brightness shown() => Theme.of(tester.element(find.byKey(const Key('theme')))).brightness;
     expect(shown(), Brightness.light);

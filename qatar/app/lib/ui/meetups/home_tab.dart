@@ -165,11 +165,19 @@ class _SessionCard extends StatelessWidget {
     final c = hzColors(context);
     final lang = context.watch<LocaleController>().code;
     final status = s.myBookingId != null ? t.alreadyBooked : s.isFull ? t.full : s.seatsLeft <= seatsLow ? t.seatsLeft(s.seatsLeft) : '';
-    return TestId('session-${s.id}', child: Card(
+    // raised light card with a hairline edge and a soft shadow, as on the website (identity step, 13 Nov 2026)
+    return TestId('session-${s.id}', child: Container(
       key: Key('session-${s.id}'),
       margin: const EdgeInsets.only(bottom: HzSpace.s3),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(HzRadius.xl), boxShadow: [
+        BoxShadow(color: c.text.withValues(alpha: 0.18), blurRadius: 24, offset: const Offset(0, 10), spreadRadius: -18),
+      ]),
+      child: Material(
+      color: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.xl), side: BorderSide(color: c.border)),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(HzRadius.md),
+        borderRadius: BorderRadius.circular(HzRadius.xl),
         onTap: s.myBookingId != null
             ? () => pushFromCard(context, '/booking/${s.myBookingId}')
             : s.isFull
@@ -207,6 +215,6 @@ class _SessionCard extends StatelessWidget {
           ]),
         ),
       ),
-    ));
+    )));
   }
 }

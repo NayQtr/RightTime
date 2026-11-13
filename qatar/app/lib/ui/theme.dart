@@ -37,7 +37,8 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
     textTheme: textTheme,
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
+        // 56 px like the fields (identity step, 13 Nov 2026)
+        minimumSize: const Size.fromHeight(56),
         shape: shape,
         backgroundColor: c.primary,
         foregroundColor: c.onPrimary,
@@ -47,14 +48,15 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: shape, foregroundColor: c.text, disabledForegroundColor: c.textDisabled, side: BorderSide(color: c.borderStrong)),
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), shape: shape, foregroundColor: c.text, disabledForegroundColor: c.textDisabled, side: BorderSide(color: c.borderStrong)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: HzSpace.s4, vertical: HzSpace.s4),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.border)),
+      // fields as on the website (identity step, 13 Nov 2026): a clear 1.5 px edge, the ink edge when in use
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.borderStrong, width: 1.5)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.borderStrong, width: 1.5)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.focus, width: 2)),
     ),
     // cards as on the web (.card): a sunken fill, no border and no shadow

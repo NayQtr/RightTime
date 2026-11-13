@@ -160,11 +160,12 @@ class _OptionTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? c.primarySubtle : c.surface,
               borderRadius: BorderRadius.circular(HzRadius.md),
-              border: Border.all(color: selected ? c.primary : c.border, width: selected ? 2 : 1),
+              border: Border.all(color: selected ? c.primary : c.border, width: selected ? 2 : 1.5),
             ),
             child: Row(children: [
               if (o.emoji != null) ...[Text(o.emoji!, style: const TextStyle(fontSize: 20)), const SizedBox(width: HzSpace.s3)],
-              Expanded(child: Text(o.label)),
+              // the chosen answer reads in mauve, as on the website (identity step, 13 Nov 2026)
+              Expanded(child: Text(o.label, style: selected ? TextStyle(color: c.primary, fontWeight: FontWeight.w600) : null)),
               AnimatedSwitcher(
                 key: ValueKey('mark-${o.key}'),
                 duration: still ? Duration.zero : HzMotion.base,

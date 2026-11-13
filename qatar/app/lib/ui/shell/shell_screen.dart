@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart' show errorText;
 import '../common/press.dart';
 import '../../domain/theme_controller.dart';
+import '../theme.dart' show hzColors;
 
 /// The four tabs of the web app: home, my meetups, notifications, account.
 class ShellScreen extends StatelessWidget {
@@ -53,29 +54,27 @@ class AccountTab extends StatelessWidget {
         const SizedBox(height: HzSpace.s2),
         if (session.me?.displayName != null) Text(session.me!.displayName!),
         const SizedBox(height: HzSpace.s6),
-        Press(child: OutlinedButton(key: const Key('my-answers'), onPressed: () => context.push('/quiz'), child: Text(t.myAnswers))),
-        const SizedBox(height: HzSpace.s3),
-        Press(child: OutlinedButton(key: const Key('lang'), onPressed: context.read<LocaleController>().toggle, child: Text(t.language))),
-        const SizedBox(height: HzSpace.s3),
-        Press(child: OutlinedButton(
-          key: const Key('theme'),
-          onPressed: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
-          child: Text(Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark),
-        )),
-        const SizedBox(height: HzSpace.s1),
-        // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent
-        SwitchListTile(
-          key: const Key('sounds'),
-          contentPadding: EdgeInsets.zero,
-          value: context.watch<Sounds>().enabled,
-          onChanged: context.read<Sounds>().setEnabled,
-          title: Text(t.sounds),
-        ),
-        const SizedBox(height: HzSpace.s1),
-        Press(child: OutlinedButton(key: const Key('documents'), onPressed: () => context.push('/documents'), child: Text(t.docsTitle))),
-        const SizedBox(height: HzSpace.s3),
-        Press(child: OutlinedButton(key: const Key('cases'), onPressed: () => context.push('/cases'), child: Text(t.casesTitle))),
-        const SizedBox(height: HzSpace.s3),
+        // one rounded light card of rows, as on the website (identity step, 13 Nov 2026); same items, same order, same words
+        _Group(children: [
+          _Row(key: const Key('my-answers'), label: t.myAnswers, onTap: () => context.push('/quiz')),
+          _Row(key: const Key('lang'), label: t.language, onTap: context.read<LocaleController>().toggle),
+          _Row(
+            key: const Key('theme'),
+            label: Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark,
+            onTap: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
+          ),
+          // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent
+          SwitchListTile(
+            key: const Key('sounds'),
+            contentPadding: EdgeInsets.zero,
+            value: context.watch<Sounds>().enabled,
+            onChanged: context.read<Sounds>().setEnabled,
+            title: Text(t.sounds),
+          ),
+          _Row(key: const Key('documents'), label: t.docsTitle, onTap: () => context.push('/documents')),
+          _Row(key: const Key('cases'), label: t.casesTitle, onTap: () => context.push('/cases')),
+        ]),
+        const SizedBox(height: HzSpace.s6),
         Press(child: FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut))),
         const SizedBox(height: HzSpace.s6),
         Press(child: TextButton(
@@ -112,5 +111,51 @@ class AccountTab extends StatelessWidget {
     } on ApiError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(errorText(t, e))));
     }
+  }
+}
+
+/// A section of the account screen: one rounded light card, its rows divided inside it (identity step, 13 Nov 2026).
+class _Group extends StatelessWidget {
+  const _Group({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = hzColors(context);
+    return Material(
+      color: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.lg), side: BorderSide(color: c.border)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: HzSpace.s4),
+        child: Column(children: [
+          for (final (i, row) in children.indexed) ...[if (i > 0) Divider(height: 1, thickness: 1, color: c.border), row],
+        ]),
+      ),
+    );
+  }
+}
+
+/// One row: its label and the arrow toward where it leads, 56 px tall.
+class _Row extends StatelessWidget {
+  const _Row({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Row(children: [
+          Expanded(child: Text(label)),
+          Icon(rtl ? Icons.chevron_left : Icons.chevron_right, color: hzColors(context).textMuted),
+        ]),
+      ),
+    );
   }
 }

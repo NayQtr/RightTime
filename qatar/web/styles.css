@@ -163,7 +163,7 @@ p { margin: 0 0 var(--s-3); text-wrap: pretty; }
 /* ---------- buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-  min-height: 52px; padding: 0 var(--s-5); border-radius: var(--r-md); border: 0;
+  min-height: 56px; padding: 0 var(--s-5); border-radius: var(--r-md); border: 0;
   font: inherit; font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1); cursor: pointer; text-decoration: none; letter-spacing: 0;
   transition: background-color var(--m-fast) var(--m-ease), transform var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
 }
@@ -231,10 +231,12 @@ dl.facts dd { margin: 0; }
 .field { display: grid; gap: var(--s-2); }
 .field .label, label.label { font-weight: 500; }
 .input, select.input, textarea.input {
-  width: 100%; min-height: 52px; padding: var(--s-2) var(--s-4); border: 0; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); border-radius: var(--r-sm);
+  width: 100%; min-height: 56px; padding: var(--s-2) var(--s-4); border: 0; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); border-radius: var(--r-md);
   background: var(--c-surface); color: var(--c-text); font: inherit;
 }
-.input:focus { box-shadow: inset 0 0 0 2px var(--c-text); outline: none; }
+/* identity step of 13 Nov 2026 (owner: «All»): fields 56 px with 16 px corners like the phone box; focus = the ink edge plus a
+   soft mauve halo, so the field being typed in stands out at a glance */
+.input:focus { box-shadow: inset 0 0 0 2px var(--c-text), 0 0 0 4px color-mix(in oklch, var(--c-primary) 20%, transparent); outline: none; }
 textarea.input { min-height: 120px; resize: vertical; padding-block: var(--s-3); }
 .input[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--c-danger); }
 /* The number field is one box: flag, arrow and calling code, a thin divider, then the number (owner's design, 13 Nov
@@ -243,7 +245,7 @@ textarea.input { min-height: 120px; resize: vertical; padding-block: var(--s-3);
 .phone-wrap { position: relative; }
 .phone-box { display: flex; align-items: stretch; direction: ltr; min-height: 56px; border-radius: var(--r-md); background: var(--c-surface);
   box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); }
-.phone-box:focus-within { box-shadow: inset 0 0 0 2px var(--c-text); }
+.phone-box:focus-within { box-shadow: inset 0 0 0 2px var(--c-text), 0 0 0 4px color-mix(in oklch, var(--c-primary) 20%, transparent); }
 .phone-box:has(.input[aria-invalid="true"]) { box-shadow: inset 0 0 0 2px var(--c-danger); }
 .phone-box .cc { display: flex; align-items: center; gap: var(--s-2); flex: none; min-width: 44px; padding: 0 var(--s-3) 0 var(--s-4); border: 0;
   border-radius: var(--r-md) 0 0 var(--r-md); background: none; color: var(--c-text); font: inherit; cursor: pointer; }
@@ -273,6 +275,19 @@ textarea.input { min-height: 120px; resize: vertical; padding-block: var(--s-3);
 @media (hover: hover) { .cc-list [role=option]:hover:not([aria-selected="true"]) { background: var(--c-surfaceSunken); } }
 @keyframes cc-pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .cc-list { animation: none; } .phone-box .cc .chev { transition: none; } }
+/* the code (identity step, 13 Nov 2026): six boxes, left to right as the SMS reads them, drawn over one real input, so
+   typing, paste and the phone's SMS autofill all fill the six at once; the next box to fill carries the focus look */
+.otp6 { position: relative; display: flex; gap: var(--s-2); justify-content: center; direction: ltr; }
+.otp6 .bx { width: 46px; height: 56px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface);
+  box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); font-family: var(--font-display); font-weight: 700; font-size: 24px; color: var(--c-text);
+  font-variant-numeric: tabular-nums; }
+.otp6 .input.otp { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; margin: 0; opacity: 0; color: transparent;
+  caret-color: transparent; box-shadow: none; cursor: text; font-size: 16px; letter-spacing: 0; }
+.otp6:has(.otp:focus) .bx.next { box-shadow: inset 0 0 0 2px var(--c-text), 0 0 0 4px color-mix(in oklch, var(--c-primary) 20%, transparent); }
+.otp6:has(.otp:focus) .bx.next:empty::after { content: ""; width: 2px; height: 26px; background: var(--c-text); animation: otp-caret 1s steps(1) infinite; }
+.otp6:has(.otp[aria-invalid="true"]) .bx { box-shadow: inset 0 0 0 2px var(--c-danger); }
+@keyframes otp-caret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .otp6 .bx.next:empty::after { animation: none; } }
 .otp { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.7500); letter-spacing: 0.4em; text-align: center; direction: ltr; font-variant-numeric: tabular-nums; }
 .error-text { color: var(--c-danger); font-size: var(--t-caption-size); }
 .error-text:empty { display: none; }
@@ -289,7 +304,7 @@ fieldset.card .check + .check { border-block-start: 1px solid var(--c-border); }
 /* option rows (radio / checkbox): sunken fill, maroon ring when chosen */
 .options { display: grid; gap: var(--s-2); }
 .option { position: relative; display: flex; align-items: center; gap: var(--s-3); min-height: 64px; padding: var(--s-3) var(--s-4) var(--s-3) var(--s-5);
-  border-radius: var(--r-md); background: var(--c-surfaceSunken); cursor: pointer; font-weight: 500;
+  border-radius: var(--r-md); background: var(--c-surface); box-shadow: inset 0 0 0 1.5px var(--c-border); cursor: pointer; font-weight: 500;
   transition: background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease); }
 :root[dir="rtl"] .option { padding: var(--s-3) var(--s-5) var(--s-3) var(--s-4); }
 .option input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
@@ -297,8 +312,9 @@ fieldset.card .check + .check { border-block-start: 1px solid var(--c-border); }
 .option .tick { order: 9; width: 22px; height: 22px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--c-borderStrong); flex: none; display: grid; place-items: center;
   transition: box-shadow var(--m-fast) var(--m-ease), background-color var(--m-fast) var(--m-ease); }
 .option.radio .tick { border-radius: 50%; }
-@media (hover: hover) { .option:hover { background: color-mix(in oklch, var(--c-surfaceSunken) 75%, var(--c-border)); } }
-.option:has(input:checked) { background: var(--c-primarySubtle); box-shadow: inset 0 0 0 2px var(--c-primary); }
+@media (hover: hover) { .option:hover:not(:has(input:checked)) { background: color-mix(in oklch, var(--c-surface) 60%, var(--c-surfaceSunken)); } }
+/* answers (identity step, 13 Nov 2026): light outlined cards; the chosen one tinted, with a mauve edge and mauve text */
+.option:has(input:checked) { background: var(--c-primarySubtle); box-shadow: inset 0 0 0 2px var(--c-primary); color: var(--c-primary); font-weight: 600; }
 .option:has(input:checked) .tick { box-shadow: inset 0 0 0 7px var(--c-primary); }
 .option:not(.radio):has(input:checked) .tick { box-shadow: none; background: var(--c-primary); }
 /* a check mark is not mirrored in RTL: physical left + bottom borders turned -45deg draw a tick in both directions */
@@ -587,9 +603,11 @@ a.option { text-decoration: none; color: inherit; }
 .week button:disabled { cursor: default; opacity: 0.55; }
 .week-group { margin-block-start: var(--s-5); scroll-margin-top: 72px; }
 .week-group > h2 { font-family: var(--font-body); font-size: calc(var(--u) * 0.8125); font-weight: 600; color: var(--c-textMuted); margin: 0 0 var(--s-2); }
-.event-card { display: grid; grid-template-columns: 60px 1fr 24px; gap: var(--s-4); align-items: center; padding: var(--s-4); background: var(--c-surfaceSunken);
+/* meetup cards (identity step, 13 Nov 2026): raised light cards with a hairline edge and a soft shadow */
+.event-card { display: grid; grid-template-columns: 60px 1fr 24px; gap: var(--s-4); align-items: center; padding: var(--s-4); background: var(--c-surface);
+  box-shadow: 0 0 0 1px var(--c-border), 0 10px 24px -18px color-mix(in oklch, var(--c-text) 60%, transparent);
   border-radius: var(--r-xl); text-decoration: none; color: inherit; scroll-margin-top: 80px; transition: background-color var(--m-fast) var(--m-ease); }
-@media (hover: hover) { .event-card:hover { background: color-mix(in oklch, var(--c-surfaceSunken) 75%, var(--c-border)); } }
+@media (hover: hover) { .event-card:hover { background: color-mix(in oklch, var(--c-surface) 60%, var(--c-surfaceSunken)); } }
 /* the date as a calendar leaf: tinted square with the day in the brand colour (7.8:1 on its fill) */
 .event-card .d { text-align: center; background: var(--c-primarySubtle); border-radius: var(--r-md); padding: var(--s-2) var(--s-1); }
 .event-card .d b { display: block; font-family: var(--font-display); font-weight: 800; font-size: calc(var(--u) * 1.7500); line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--c-primary); }
@@ -637,8 +655,10 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
 /* profile */
 .avatar { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-size: calc(var(--u) * 1.6250); font-weight: 800;
   background: var(--c-primarySubtle); color: var(--c-primary); flex: none; }
-.settings { list-style: none; padding: 0; margin: 0; border-block-start: 1px solid var(--c-border); }
+/* account (identity step, 13 Nov 2026): each section one rounded light card, its rows divided inside it */
+.settings { list-style: none; margin: 0; padding: 0 var(--s-4); background: var(--c-surface); border-radius: var(--r-lg); box-shadow: 0 0 0 1px var(--c-border); }
 .settings li { border-block-end: 1px solid var(--c-border); }
+.settings li:last-child { border-block-end: 0; }
 .settings a, .settings button { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-3) 0;
   background: none; border: 0; font: inherit; color: var(--c-text); text-decoration: none; text-align: start; cursor: pointer; }
 /* chevron toward the reading end: "‹" in Arabic, "›" in English */

@@ -494,7 +494,9 @@ function scrOtp() {
     <form id="f" class="stack" novalidate>
       <div class="field">
         <label class="label" for="code">${esc(T("otpLabel"))}</label>
-        <input class="input otp" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required aria-describedby="oerr">
+        <div class="otp6">
+          ${[0, 1, 2, 3, 4, 5].map((i) => `<span class="bx${i === 0 ? " next" : ""}" aria-hidden="true"></span>`).join("")}
+          <input class="input otp" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required aria-describedby="oerr"></div>
         <div id="oerr" class="error-text" role="alert"></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit" id="ver">${esc(T("verify"))}</button>
@@ -505,6 +507,14 @@ function scrOtp() {
   const tick = () => { if (left > 0) { rs.textContent = T("resendIn", { s: left }); rs.disabled = true; left -= 1; } else { rs.textContent = T("resend"); rs.disabled = false; } };
   tick(); every(1000, tick);
   rs.onclick = () => go("#/signin");
+  // the six boxes show what the one real input holds (digits only), and mark the next one to fill
+  const code = $("#code"), boxes = [...document.querySelectorAll(".otp6 .bx")];
+  code.addEventListener("input", () => {
+    const v = code.value.replace(/\D/g, "").slice(0, 6);
+    if (v !== code.value) code.value = v;
+    boxes.forEach((b, i) => { b.textContent = v[i] || ""; b.classList.toggle("next", i === Math.min(v.length, 5)); });
+    code.removeAttribute("aria-invalid");
+  });
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     setBusy($("#ver"), true);

@@ -76,7 +76,7 @@ Future<void> chip(WidgetTester tester, String key) async {
   await tester.tap(find.byKey(Key(key)));
 }
 
-int cards(WidgetTester tester) => find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('session-') && w is Card).evaluate().length;
+int cards(WidgetTester tester) => find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('session-') && w is Container).evaluate().length;   // the raised card (identity step, 13 Nov 2026)
 
 void main() {
   test('time left: questions still to answer x 10 s, in whole minutes; 0 under a minute (same figures as the website)', () {
