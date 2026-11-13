@@ -211,7 +211,13 @@ Motion (6 Nov, owner's list): ease-out in, ease-in out 20% shorter, press 0.97, 
 Older palette (5 Nov): light = soft butter «زبدة ناعمة» #EFDFCD with velvet-wine ink #65444E; dark = velvet wine «نبيذي مخملي» #65444E with butter #EFDFCD. Applied to design/tokens.json (web + app), icons, manifest; all 52 contrast pairs pass. Replaced on 6 Nov by the identity above (never published).
 Still open in the plan:
 14. (done 5 Nov, later) Production released again: herzone-production serves 9d72927 (deployment dpl_GCa4DZJJLFUfrQU3w4Z9tUhWU67k, READY). Checks: release tag herzone-web@9d729270e845, call-requests and admin routes 401 without login, venue page 200, Sentry no new production issues. Migration 017 pasted and verified in both projects. Previously: herzone-production served ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
-14a. Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
+14a. STATUS 13 Nov ~01:05 UTC: the owner tried but could not find where to set the production branch; Vercel still lists
+     herzone-production as NOT linked (get_git_deployment_context lists only qatar-mvp-staging and an older project
+     "rightime", both linked to NayQtr/RightTime and building previews of every push). Recommendation given: skip 14a for
+     now; releases keep working through Claude's create_deployment call plus one owner "Allow". The production build guard
+     (only release + production) stays and is harmless. Side note: the old "rightime" project builds a preview of every
+     push for no known purpose; worth deleting later with the owner's approval.
+     Original item: Connect the Vercel project herzone-production to GitHub (Settings → Git, production branch `release`) so a merge into release deploys by itself.
      Steps sent to the owner 13 Nov: https://vercel.com/rightime/herzone-production/settings/git → Connect Git Repository →
      GitHub → NayQtr/RightTime (install the Vercel app for that repo only if asked); production branch `release` (same page,
      or Settings → Environments → Production → Branch Tracking); Ignored Build Step = "Only build production"; leave Root
