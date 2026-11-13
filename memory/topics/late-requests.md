@@ -211,7 +211,14 @@ Motion (6 Nov, owner's list): ease-out in, ease-in out 20% shorter, press 0.97, 
 Older palette (5 Nov): light = soft butter «زبدة ناعمة» #EFDFCD with velvet-wine ink #65444E; dark = velvet wine «نبيذي مخملي» #65444E with butter #EFDFCD. Applied to design/tokens.json (web + app), icons, manifest; all 52 contrast pairs pass. Replaced on 6 Nov by the identity above (never published).
 Still open in the plan:
 14. (done 5 Nov, later) Production released again: herzone-production serves 9d72927 (deployment dpl_GCa4DZJJLFUfrQU3w4Z9tUhWU67k, READY). Checks: release tag herzone-web@9d729270e845, call-requests and admin routes 401 without login, venue page 200, Sentry no new production issues. Migration 017 pasted and verified in both projects. Previously: herzone-production served ca3b960 (PR #5 merged into release by the owner; build started by Claude with the owner's permission). Smoke checks and Sentry clean.
-14a. STATUS 13 Nov ~01:05 UTC: the owner tried but could not find where to set the production branch; Vercel still lists
+14a. ✅ LINKED 13 Nov: herzone-production is now linked to NayQtr/RightTime (get_git_deployment_context), and the old
+     project "rightime" was deleted by the owner (it served nothing: rightime.vercel.app answered 404, no env vars). Live
+     checks after: herzone.app and herzone-production.vercel.app serve herzone-web@d3b171ce03d7 (staging:false), staging
+     still serves its site. No deployment was triggered by the link. Production branch NOT confirmed (the owner could not
+     find the setting; Vercel's default is the repo default branch add-rea-mcp-permissions). Safe either way: the Ignored
+     Build Step builds only ref=release AND VERCEL_ENV=production. At the next release: push `release`, wait ~3 min; if no
+     production build starts, create it as before (one owner "Allow") and set the branch then.
+     Earlier: STATUS 13 Nov ~01:05 UTC: the owner tried but could not find where to set the production branch; Vercel still lists
      herzone-production as NOT linked (get_git_deployment_context lists only qatar-mvp-staging and an older project
      "rightime", both linked to NayQtr/RightTime and building previews of every push). Recommendation given: skip 14a for
      now; releases keep working through Claude's create_deployment call plus one owner "Allow". The production build guard
