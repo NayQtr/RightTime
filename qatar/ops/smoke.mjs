@@ -14,11 +14,10 @@ import { appendFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Provisional defaults (10 Nov 2026). The production website has no settled public address yet (herzone.app still
-// serves staging until item 14b), so it comes from SMOKE_PRODUCTION_WEB.
+// Defaults. herzone.app has served production since 13 Nov 2026 (item 14b); staging keeps its vercel.app address.
 export const DEFAULT_TARGETS = {
   staging: { web: "https://qatar-mvp-staging.vercel.app", api: "https://fvodcnqmxskgzziwuwmz.supabase.co/functions/v1", production: false },
-  production: { web: "", api: "https://pwxxulqgdydrkowmtkia.supabase.co/functions/v1", production: true },
+  production: { web: "https://herzone.app", api: "https://pwxxulqgdydrkowmtkia.supabase.co/functions/v1", production: true },
 };
 export const PAGES = ["/", "/admin", "/venue", "/delete-account"];
 const TIMEOUT_MS = 15_000;

@@ -217,7 +217,10 @@ Still open in the plan:
      or Settings → Environments → Production → Branch Tracking); Ignored Build Step = "Only build production"; leave Root
      Directory `qatar/web` and the build commands alone. Then Claude checks the link. Checked 13 Nov: preview builds never
      deploy the API (ops/deploy-api-from-vercel.mjs exits unless VERCEL_ENV=production).
-14b. At launch: move the herzone.app domain to herzone-production (production WEB_BASE_URL already says https://herzone.app; until then links in production messages open the staging site). Owner's decision.
+14b. ✅ DONE 13 Nov 00:56 UTC: herzone.app serves production (owner removed both domains from staging; Claude added
+     herzone.app and www.herzone.app → 308 to herzone.app on herzone-production; release tag herzone-web@d3b171ce03d7,
+     staging:false, CORS 204 for https://herzone.app, every production smoke check passes; smoke default production web
+     is now https://herzone.app). Original item: At launch: move the herzone.app domain to herzone-production (production WEB_BASE_URL already says https://herzone.app; until then links in production messages open the staging site). Owner's decision.
      Steps sent to the owner 13 Nov. Facts checked: herzone.app is registered at Vercel on Vercel nameservers (no DNS change);
      production CORS_ORIGINS already lists https://herzone.app; production WEB_BASE_URL is https://herzone.app.
      Prerequisite on Claude: staging WEB_BASE_URL is ALSO https://herzone.app, so before the move set it to
