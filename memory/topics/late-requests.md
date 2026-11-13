@@ -3,6 +3,16 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Phone field redesign + identity proposals [2026-11-13]
+
+Owner sent a reference image (one box: flag, chevron, +code, number; list with flags). Mockup approved («نعم، كما في
+الصورة»), list alphabetical only (owner's choice), no search box (11 Nov rule kept). Built web + app (d9b5cf4).
+OWNER'S CORRECTION (remember for every future output): «It's not emojis, it's flags» — flags are real round flag
+PICTURES (circle-flags, MIT; ops/build-flags.mjs → web/flags/*.svg, app/assets/flags/*.png), never emoji (4ea2893).
+Both on staging; NOT yet released (needs the owner's approval). Owner also approved «جهّز المقترحات»: before/after
+proposal images for the other elements (name field, 6-digit code, questionnaire answers, meetup cards, account list),
+nothing built before the owner approves the images.
+
 ## Production release of f3adf75 [2026-11-13] — DONE
 
 Owner's approval: «نعم، أنزلها الآن» (13 Nov), then «Go» for the deployment. Baseline checks recorded; CI green on f3adf75;
