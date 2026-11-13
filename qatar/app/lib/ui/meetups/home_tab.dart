@@ -10,6 +10,7 @@ import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../common/busy_label.dart';
+import '../common/card_origin.dart';
 import '../common/loader.dart';
 import '../common/motion.dart';
 import '../format.dart';
@@ -150,6 +151,9 @@ class _ChipRow extends StatelessWidget {
   }
 }
 
+/// Seats left are shown only when this few remain (owner's decision, 13 Nov 2026): plenty of room says nothing.
+const seatsLow = 3;
+
 class _SessionCard extends StatelessWidget {
   const _SessionCard(this.s);
 
@@ -160,14 +164,14 @@ class _SessionCard extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     final lang = context.watch<LocaleController>().code;
-    final status = s.myBookingId != null ? t.alreadyBooked : s.isFull ? t.full : t.seatsLeft(s.seatsLeft);
+    final status = s.myBookingId != null ? t.alreadyBooked : s.isFull ? t.full : s.seatsLeft <= seatsLow ? t.seatsLeft(s.seatsLeft) : '';
     return TestId('session-${s.id}', child: Card(
       key: Key('session-${s.id}'),
       margin: const EdgeInsets.only(bottom: HzSpace.s3),
       child: InkWell(
         borderRadius: BorderRadius.circular(HzRadius.md),
         onTap: s.myBookingId != null
-            ? () => context.push('/booking/${s.myBookingId}')
+            ? () => pushFromCard(context, '/booking/${s.myBookingId}')
             : s.isFull
                 ? null
                 : () => context.push('/book', extra: s),
@@ -194,8 +198,10 @@ class _SessionCard extends StatelessWidget {
                 Text(fmtWhen(s.startsAt, lang), style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: HzSpace.s1),
                 Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
-                const SizedBox(height: HzSpace.s2),
-                Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
+                if (status.isNotEmpty) ...[
+                  const SizedBox(height: HzSpace.s2),
+                  Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
+                ],
               ]),
             ),
           ]),

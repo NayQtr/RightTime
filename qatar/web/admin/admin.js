@@ -83,6 +83,7 @@ function bindFilters(list, redraw) {
 const qatarDay = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Qatar", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 
 const NAV = [
+  ["#/today", "Today", ["owner", "ops", "finance", "trust_safety", "analyst", "researcher", "developer"]],
   ["#/sessions", "Sessions & Matching", ["owner", "ops", "analyst", "finance"]],
   ["#/live", "Tonight", ["owner", "ops"]],
   ["#/alerts", "Alerts", ["owner", "ops"]],
@@ -101,17 +102,23 @@ const NAV = [
   ["#/funnel", "Step counter", ["owner", "ops", "analyst"]],
 ];
 
+// Each role lands where it did before Today existed; Today is the landing page only for a role with nothing else.
+const landing = (role) => (NAV.find(([h, , roles]) => h !== "#/today" && roles.includes(role)) || NAV[0])[0];
+
 function renderNav() {
   const a = ss.get("admin");
   nav.innerHTML = a ? `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>
     <ul>${NAV.filter(([, , roles]) => roles.includes(a.role)).map(([h, l]) => `<li><a href="${h}" ${location.hash.startsWith(h) ? 'aria-current="page"' : ""}>${esc(l)}</a></li>`).join("")}</ul>
     <span class="spacer"></span><span class="caption">${esc(a.name)} · <strong>${esc(a.role)}</strong></span>
+    <button class="btn btn-ghost" id="find" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">Find</button>
     <button class="btn btn-ghost kb-btn" id="kb" aria-haspopup="dialog">Shortcuts</button><button class="btn btn-ghost" id="logout">Sign out</button>`
     : `<span class="brand"><span class="brand-mark" aria-hidden="true">H</span>HerZone Admin</span>`;
   alertStrip();
   if (a && ["owner", "ops"].includes(a.role)) { callBadge(); failedBadge(); }
   const kb = document.getElementById("kb");
   if (kb) kb.onclick = shortcutHelp;
+  const fd = document.getElementById("find");
+  if (fd) fd.onclick = findDialog;
   const lo = document.getElementById("logout");
   // sign-out ends the session on the server too (NMX-63); the browser copy is cleared whatever the answer
   if (lo) lo.onclick = async () => { await api("POST", "/api/admin/v1/auth/logout").catch(() => null); ss.del("token"); ss.del("admin"); renderNav(); go("#/login"); };
@@ -121,7 +128,7 @@ function renderNav() {
 // "g" then a letter opens a section (only the sections her role has); "?" lists them. They can be turned off in that
 // list, remembered in this browser (WCAG 2.1.4: single-character shortcuts must be switchable off); the "Shortcuts"
 // button in the menu opens the list either way. Never while typing in a field or while a dialog is open.
-const SHORTCUTS = [["s", "#/sessions"], ["t", "#/live"], ["a", "#/alerts"], ["v", "#/venue-requests"], ["c", "#/call-requests"],
+const SHORTCUTS = [["h", "#/today"], ["s", "#/sessions"], ["t", "#/live"], ["a", "#/alerts"], ["v", "#/venue-requests"], ["c", "#/call-requests"],
   ["u", "#/support"], ["p", "#/approvals"], ["i", "#/identity"], ["r", "#/refunds"], ["k", "#/cases"]];
 const shortcutsOn = () => { try { return localStorage.getItem("qa_shortcuts") !== "off"; } catch { return true; } };
 const myShortcuts = () => {
@@ -135,7 +142,7 @@ function shortcutHelp() {
   d.className = "confirm-dialog kb-help";
   d.setAttribute("aria-labelledby", "kb-h");
   d.innerHTML = `<form method="dialog" class="stack"><h2 id="kb-h">Keyboard shortcuts</h2>
-    <dl class="facts kb-list"><dt><kbd>?</kbd></dt><dd>Show this list</dd>
+    <dl class="facts kb-list"><dt><kbd>?</kbd></dt><dd>Show this list</dd><dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Find a booking or case by its reference</dd>
       ${myShortcuts().map(([k, n]) => `<dt><kbd>g</kbd> <kbd>${k}</kbd></dt><dd>${esc(n[1])}</dd>`).join("")}</dl>
     <label class="check"><input type="checkbox" id="kb-on"${shortcutsOn() ? " checked" : ""}>Keyboard shortcuts on</label>
     <div class="cd-actions"><button class="btn btn-primary" value="close">Close</button></div></form>`;
@@ -145,6 +152,36 @@ function shortcutHelp() {
   d.showModal();
   d.querySelector("button").focus();
 }
+// Find (design study item 5, after Linear): a booking reference opens its session, a case reference opens the case.
+function findDialog() {
+  if (!ss.get("admin") || document.querySelector("dialog[open]")) return;
+  const opener = document.activeElement;
+  const d = document.createElement("dialog");
+  d.className = "confirm-dialog";
+  d.setAttribute("aria-labelledby", "find-h");
+  d.innerHTML = `<form class="stack" id="find-f"><h2 id="find-h">Find</h2>
+    <div class="field"><label class="label" for="find-q">Booking or case reference</label>
+      <input class="input" id="find-q" autocomplete="off" autocapitalize="characters" spellcheck="false" required maxlength="40"></div>
+    <div id="find-err" role="alert"></div>
+    <div class="cd-actions"><button class="btn btn-ghost" type="button" id="find-x">Cancel</button><button class="btn btn-primary" type="submit" id="find-go">Open</button></div></form>`;
+  document.body.appendChild(d);
+  d.querySelector("#find-x").onclick = () => d.close();
+  d.querySelector("#find-f").onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = d.querySelector("#find-go");
+    btn.disabled = true; btn.setAttribute("aria-busy", "true");
+    const r = await api("GET", `${A}/find?q=${encodeURIComponent(d.querySelector("#find-q").value)}`);
+    btn.disabled = false; btn.removeAttribute("aria-busy");
+    if (r.ok) { d.close(); go(r.data.href); return; }
+    d.querySelector("#find-err").innerHTML = `<p class="error-text">${r.status === 404 ? "Nothing found for that reference." : esc((r.data && r.data.message) || "Something went wrong.")}</p>`;
+  };
+  d.addEventListener("close", () => { d.remove(); if (opener && opener.isConnected && opener.focus && !location.hash.startsWith("#/cases/") && !location.hash.startsWith("#/sessions/")) opener.focus(); }, { once: true });
+  d.showModal();
+  d.querySelector("#find-q").focus();
+}
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k" && ss.get("token") && ss.get("admin")) { e.preventDefault(); findDialog(); }
+});
 let gPressedAt = 0;
 document.addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || !ss.get("token") || !ss.get("admin")) return;
@@ -173,7 +210,7 @@ function scrLogin() {
     if (!r.ok) { $("#err").innerHTML = msg(r); return; }
     ss.set("token", r.data.access_token); ss.set("admin", r.data.admin);
     renderNav();
-    go(NAV.find(([, , roles]) => roles.includes(r.data.admin.role))[0]);
+    go(landing(r.data.admin.role));
   };
 }
 
@@ -572,6 +609,29 @@ async function scrCase(id, query) {
 }
 
 // ------------------------------------------------------------------ approvals, support, audit
+// Today (design study item 5, after Notion): what waits for her, as counts from GET /today, each opening its list.
+// Only her role's sections come back; nothing waiting says so plainly.
+const TODAY = [
+  ["alerts", "Safety alerts not acknowledged", "#/alerts", true], ["identity", "Identity checks to decide", "#/identity", true],
+  ["cases", "Trust & Safety cases open", "#/cases", true], ["refunds_check", "Refunds to check with the payment provider", "#/refunds", true],
+  ["tonight", "Tables in the next 30 hours", "#/live"], ["call_requests", "Call requests waiting", "#/call-requests"],
+  ["support", "Support requests open", "#/support"], ["venue_requests", "Venue replies needing action", "#/venue-requests"],
+  ["failed_notifications", "Phone notifications that failed", "#/failed-notifications"],
+  ["refunds_waiting", "Refunds waiting for approval", "#/refunds"], ["approvals", "Approvals waiting for you", "#/approvals"],
+];
+async function scrToday(opts) {
+  const r = await api("GET", `${A}/today`);
+  const c = (r.data && r.data.counts) || {};
+  const rows = TODAY.filter(([k]) => k in c);
+  const waiting = rows.filter(([k]) => c[k] > 0);
+  view("Today", `<h1>Today</h1>
+    ${!r.ok ? `<div class="banner banner-danger" role="alert"><div>${esc((r.data && r.data.message) || "Could not load.")}</div></div>` : ""}
+    <p class="caption">${waiting.length ? `${waiting.length} ${waiting.length === 1 ? "thing waits" : "things wait"} for you.` : "Nothing waits for you right now."}
+      Press <kbd>Ctrl</kbd> <kbd>K</kbd> or Find to open a booking or case by its reference.</p>
+    <ul class="today-list">${rows.map(([k, label, href, urgent]) => `<li><a class="today-item${urgent && c[k] > 0 ? " urgent" : ""}${c[k] ? "" : " quiet"}" href="${href}" data-today="${k}">
+      <span class="num">${c[k]}</span><span>${esc(label)}</span></a></li>`).join("")}</ul>`, opts);
+}
+
 async function scrApprovals(opts) {
   const r = await api("GET", `${A}/approvals`);
   view("Approvals", `<h1>Approvals (maker-checker)</h1><div id="flash"></div>
@@ -909,7 +969,7 @@ async function scrFunnel() {
 
 // ------------------------------------------------------------------ router
 const ROUTES = [
-  [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
+  [/^#\/login$/, scrLogin, false], [/^#\/enroll$/, scrEnroll, false], [/^#\/today$/, scrToday, true], [/^#\/sessions$/, scrSessions, true], [/^#\/sessions\/([\w-]+)$/, scrSession, true],
   [/^#\/live$/, scrLive, true], [/^#\/venues$/, scrVenues, true], [/^#\/refunds$/, scrRefunds, true], [/^#\/cases$/, scrCases, true],
   [/^#\/cases\/([\w-]+)(?:\?(.*))?$/, scrCase, true], [/^#\/approvals$/, scrApprovals, true], [/^#\/support$/, scrSupport, true], [/^#\/audit$/, scrAudit, true],
   [/^#\/promo-codes$/, scrPromoCodes, true], [/^#\/identity$/, scrIdentity, true],
@@ -928,7 +988,7 @@ async function route() {
     try { await fn(...m.slice(1)); } catch (e) { view("Error", `<h1>Error</h1><pre>${esc(e && e.message)}</pre>`); }
     return;
   }
-  go(ss.get("token") ? NAV.find(([, , roles]) => roles.includes(ss.get("admin").role))[0] : "#/login");
+  go(ss.get("token") ? landing(ss.get("admin").role) : "#/login");
 }
 window.addEventListener("hashchange", route);
 route();

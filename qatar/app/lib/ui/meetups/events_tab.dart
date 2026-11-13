@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/meetups_repository.dart';
@@ -7,6 +6,7 @@ import '../../data/models.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../common/card_origin.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
@@ -39,14 +39,14 @@ class EventsTab extends StatelessWidget {
             if (all.isEmpty) ...[Text(t.noBookings), const SizedBox(height: HzSpace.s2), Text(t.bookOnWeb)],
             if (next != null) ...[_NextMeetupCard(b: next, lang: lang), const SizedBox(height: HzSpace.s4)],
             for (final b in rest)
-              TestId('booking-${b.id}', child: ListTile(
+              TestId('booking-${b.id}', child: Builder(builder: (row) => ListTile(
                 key: Key('booking-${b.id}'),
                 contentPadding: EdgeInsets.zero,
                 title: Text('${experienceName(t, b.experience)} · ${fmtWhen(b.startsAt, lang)}'),
                 subtitle: Text('${b.district} · ${t.bookingRef} ${b.ref}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/booking/${b.id}'),
-              )),
+                onTap: () => pushFromCard(row, '/booking/${b.id}'),
+              ))),
           ]);
         },
       ),
@@ -67,7 +67,7 @@ class _NextMeetupCard extends StatelessWidget {
     final c = hzColors(context);
     final tt = Theme.of(context).textTheme;
     final soft = c.onPrimary.withValues(alpha: 0.88);
-    void open() => context.push('/booking/${b.id}');
+    void open() => pushFromCard(context, '/booking/${b.id}');
     return TestId('booking-${b.id}', child: Material(
       key: Key('booking-${b.id}'),
       color: c.primary,

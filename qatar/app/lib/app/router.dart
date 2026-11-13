@@ -9,6 +9,7 @@ import '../data/models.dart';
 import '../ui/meetups/book_screen.dart';
 import '../ui/meetups/cancel_screen.dart';
 import '../ui/meetups/event_details_screen.dart';
+import '../ui/common/card_origin.dart';
 import '../ui/meetups/feedback_screen.dart';
 import '../ui/meetups/report_screen.dart';
 import '../ui/onboarding/quiz_screen.dart';
@@ -48,7 +49,7 @@ GoRouter buildRouter(Session session) => GoRouter(
         GoRoute(path: '/sign-in', builder: (_, _) => const PhoneScreen(), routes: [
           GoRoute(path: 'code', builder: (_, _) => const OtpScreen()),
         ]),
-        GoRoute(path: '/booking/:id', builder: (_, state) => EventDetailsScreen(bookingId: state.pathParameters['id']!)),
+        GoRoute(path: '/booking/:id', pageBuilder: (_, state) => cardZoomPage(state, EventDetailsScreen(bookingId: state.pathParameters['id']!))),
         GoRoute(path: '/book', redirect: (_, state) => state.extra is SessionSummary ? null : '/home', builder: (_, state) => BookScreen(session: state.extra! as SessionSummary)),
         GoRoute(path: '/booking/:id/feedback', builder: (_, state) => FeedbackScreen(bookingId: state.pathParameters['id']!)),
         GoRoute(path: '/booking/:id/cancel', builder: (_, state) => CancelScreen(bookingId: state.pathParameters['id']!)),

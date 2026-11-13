@@ -82,15 +82,29 @@ function toastOnNavigate() {
 // Direction of the last navigation: quiz steps enter from the reading direction going forward and from the other
 // side going back (the same path in reverse); every other screen fades in. Set by route().
 let navDir = "fade", lastHash = null;
-const ENTER = ["enter-forward", "enter-back", "enter-fade"];
+const ENTER = ["enter-forward", "enter-back", "enter-fade", "enter-zoom"];
+// A meetup opened from its card grows out of that card (owner-approved design study item 2, 13 Nov 2026, after Apple's
+// spatial continuity). The click records the card's centre in main's own coordinates; route() uses it within a second.
+let zoomFrom = null;
+document.addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("a.event-card, a.next-card");
+  if (!a || lessMotion()) return;
+  const r = a.getBoundingClientRect(), m = main.getBoundingClientRect();
+  zoomFrom = { x: Math.round(r.left + r.width / 2 - m.left), y: Math.round(r.top + r.height / 2 - m.top), at: Date.now() };
+});
+// The entrance starts on whatever shows first (the loading skeleton or the screen) and is not restarted by the next render.
+function startEntrance() {
+  if (navDir === "zoom" && main.classList.contains("enter-zoom")) return;
+  main.classList.remove(...ENTER);
+  void main.offsetWidth; // restart the entrance animation
+  main.classList.add(`enter-${navDir}`);
+}
 
 function view(title, html) {
   main.inert = false;
   main.removeAttribute("aria-busy");
   main.innerHTML = html;
-  main.classList.remove(...ENTER);
-  void main.offsetWidth; // restart the entrance animation
-  main.classList.add(`enter-${navDir}`);
+  startEntrance();
   document.title = `${title} · ${T("brand")}`;
   const h = main.querySelector("h1");
   if (h) { h.tabIndex = -1; h.focus({ preventScroll: false }); }
@@ -113,7 +127,7 @@ function failedView(title, r, again) {
 
 // A request in flight: the button keeps its width and shows a spinner (styles.css .btn[aria-busy]); re-enabling clears both.
 function setBusy(el, on) { el.disabled = on; if (on) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy"); }
-function loadingView() { main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
+function loadingView() { if (navDir === "zoom") startEntrance(); main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
 
 // ------------------------------------------------------------------ session (NMX-17, MASVS-STORAGE/AUTH)
 // The access token lives in memory only; storage keeps just the refresh token, which the server rotates on every use and
@@ -888,6 +902,9 @@ const offerText = (s) => T("waitlistOffer", { date: fmtDate(s.starts_at), window
 
 // Day and area filters appear on the session list only when more sessions than this are listed (item 43, provisional).
 const FILTERS_ABOVE = 8;
+// Seats left are shown only when this few remain (owner's decision, 13 Nov 2026): plenty of room says nothing.
+const SEATS_LOW = 3;
+const seatsNote = (n) => (n <= SEATS_LOW ? T("seatsLeft", { n }) : "");
 
 // "Notify me when a session is available" (v0.3 E-LANG-1, migration 023): shown with "no sessions in your languages".
 function notifyMeBox(active) {
@@ -923,7 +940,7 @@ async function scrSessions(preselect) {
       <span class="tick" aria-hidden="true"></span>
       <span class="stack" data-u="flex1">
         <span class="row between"><strong>${esc(fmtDate(s.starts_at))}</strong>
-          ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : offerOf(s) ? `<span class="badge badge-warning">${esc(T("holdTimer"))} <span class="num">${esc(offerLeft(offerOf(s)))}</span></span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : `<span class="badge badge-info">${esc(T("seatsLeft", { n: s.seats_left }))}</span>`}</span>
+          ${s.my_booking_id ? `<span class="badge badge-success">${esc(T("alreadyBooked"))}</span>` : offerOf(s) ? `<span class="badge badge-warning">${esc(T("holdTimer"))} <span class="num">${esc(offerLeft(offerOf(s)))}</span></span>` : s.is_full ? `<span class="badge badge-danger">${esc(T("full"))}</span>` : seatsNote(s.seats_left) ? `<span class="badge badge-info">${esc(seatsNote(s.seats_left))}</span>` : ""}</span>
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
         ${offerOf(s) ? `<span class="caption offer-note">${esc(offerText(s))}</span>` : ""}
       </span></label>
@@ -977,7 +994,9 @@ async function scrSessions(preselect) {
     $("#no-match").hidden = shown > 0;
   }));
   $$("[data-wait]").forEach((b) => (b.onclick = async () => {
+    setBusy(b, true);
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
+    setBusy(b, false);
     toast(w.ok ? T("onWaitlist", { n: w.data.position }) : withNext(w.data.message || T("errGeneric")));
   }));
   const radios = $$("input[name=s]");
@@ -1016,7 +1035,7 @@ async function scrSessions(preselect) {
     if (!r2.ok) {
       $("#err").innerHTML = errorBanner(r2.data) + (r2.data.waitlist_href ? `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>` : "");
       const wl = $("#wl");
-      if (wl) wl.onclick = async () => { const w = await api("POST", r2.data.waitlist_href); toast(w.ok ? T("onWaitlist", { n: w.data.position }) : w.data.message); };
+      if (wl) wl.onclick = async () => { setBusy(wl, true); const w = await api("POST", r2.data.waitlist_href); setBusy(wl, false); toast(w.ok ? T("onWaitlist", { n: w.data.position }) : w.data.message); };
       return;
     }
     go(`#/booking/${r2.data.booking_id}/review`);
@@ -1085,7 +1104,7 @@ async function scrReview(id) {
       location.assign(url);
     };
   }
-  $("#change").onclick = async () => { await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
+  $("#change").onclick = async () => { setBusy($("#change"), true); await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
 }
 
 // Coordinator on duty (audit F10): real call / WhatsApp buttons when configured, loaded once per page load.
@@ -1310,14 +1329,14 @@ function weekRibbon(sessions) {
 
 function sessionCard(s) {
   const href = s.my_booking_id ? `#/booking/${s.my_booking_id}` : `#/sessions?s=${s.id}`;
-  const status = s.my_booking_id ? T("alreadyBooked") : offerOf(s) ? `${T("holdTimer")} ${offerLeft(offerOf(s))}` : s.is_full ? T("full") : T("seatsLeft", { n: s.seats_left });
+  const status = s.my_booking_id ? T("alreadyBooked") : offerOf(s) ? `${T("holdTimer")} ${offerLeft(offerOf(s))}` : s.is_full ? T("full") : seatsNote(s.seats_left);
   const lang = T(s.conversation_language === "ar" ? "langAr" : "langEn");
   return `<li><a class="event-card" href="${href}" data-session="${s.id}" data-day="${qatarDay(s.starts_at)}"
-      aria-label="${esc(`${T(s.experience)} · ${fmtDate(s.starts_at)} · ${s.district} · ${status}`)}">
+      aria-label="${esc([T(s.experience), fmtDate(s.starts_at), s.district, status].filter(Boolean).join(" · "))}">
     <span class="d" aria-hidden="true"><b>${esc(fmtDate(s.starts_at, { day: "numeric" }))}</b><span>${esc(fmtDate(s.starts_at, { weekday: "long" }))}</span></span>
     <span class="t" aria-hidden="true"><strong>${esc(T(s.experience))} · ${esc(lang)}</strong>
       <span class="m"><span>${icon("map-pin")}${esc(s.district)}</span><span>${icon("clock")}<span class="num">${esc(fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }))}</span></span></span>
-      <span class="m"><span class="${s.my_booking_id ? "mine" : s.is_full ? "full" : ""}">${icon("users")}${esc(status)}</span></span></span>
+      ${status ? `<span class="m"><span class="${s.my_booking_id ? "mine" : s.is_full ? "full" : ""}">${icon("users")}${esc(status)}</span></span>` : ""}</span>
     <span class="go" aria-hidden="true">${icon(locale === "ar" ? "chevron-left" : "chevron-right")}</span></a></li>`;
 }
 
@@ -1596,7 +1615,7 @@ async function scrChoose(id) {
     <form id="f" class="stack">
       <fieldset><legend class="label">${esc(T("chooseNow"))}</legend><div class="options">
         ${rb.sessions.map((s) => `<label class="option radio" data-u="start"><input type="radio" name="c" value="rebook:${s.session_id}"><span class="tick" aria-hidden="true"></span>
-          <span><strong>${esc(T("optRebook"))}: ${esc(fmtDate(s.starts_at))}</strong><br><span class="caption">${esc(s.district)} · ${esc(T("seatsLeft", { n: s.seats_left }))} · ${esc(T("optRebookHelp"))}${s.is_alternate ? ` · ${esc(T("alternateTag"))}` : ""}</span></span></label>`).join("")}
+          <span><strong>${esc(T("optRebook"))}: ${esc(fmtDate(s.starts_at))}</strong><br><span class="caption">${esc([s.district, seatsNote(s.seats_left), T("optRebookHelp")].filter(Boolean).join(" · "))}${s.is_alternate ? ` · ${esc(T("alternateTag"))}` : ""}</span></span></label>`).join("")}
         <label class="option radio" data-u="start"><input type="radio" name="c" value="refund"><span class="tick" aria-hidden="true"></span>
           <span><strong>${esc(T("optRefund"))}</strong><br><span class="caption">${esc(T("optRefundHelp", { fee: rf.amount.display, days: 10 }))}</span></span></label>
       </div></fieldset>
@@ -1759,7 +1778,9 @@ async function scrProfile() {
   $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
   // a copy of her data (right of access, NMX-38): saved as a JSON file on the device, nothing kept in the page
   $("#mydata").onclick = async () => {
+    setBusy($("#mydata"), true);
     const r = await api("GET", "/api/v1/users/me/export");
+    setBusy($("#mydata"), false);
     if (!r.ok) return toast(withNext((r.data && r.data.message) || T("errGeneric")));
     const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
@@ -1767,8 +1788,8 @@ async function scrProfile() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast(T("myDataDone"));
   };
-  $("#out").onclick = async () => { const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
-  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
+  $("#out").onclick = async () => { setBusy($("#out"), true); const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
+  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; setBusy($("#del"), true); await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
 }
 
 // report categories and their labels (report form and "Decisions about you")
@@ -1844,6 +1865,12 @@ async function route() {
   const quizStep = (h) => { const m = /^#\/quiz\/(\d+)$/.exec(h || ""); return m ? Number(m[1]) : null; };
   const from = quizStep(lastHash), to = quizStep(hash);
   navDir = from !== null && to !== null && from !== to ? (to > from ? "forward" : "back") : "fade";
+  if (zoomFrom && Date.now() - zoomFrom.at < 1000 && /^#\/booking\//.test(hash)) {
+    navDir = "zoom";
+    main.style.setProperty("--zx", `${zoomFrom.x}px`);
+    main.style.setProperty("--zy", `${zoomFrom.y}px`);
+  }
+  zoomFrom = null;
   lastHash = hash;
   renderTabbar(hash);
   // the old screen must not take taps while the next one loads (audit F7/F16); view() re-enables it

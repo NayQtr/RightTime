@@ -141,6 +141,7 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = hzColors(context);
+    final still = MediaQuery.of(context).disableAnimations;
     return Padding(
       padding: const EdgeInsets.only(bottom: HzSpace.s2),
       child: Semantics(
@@ -150,7 +151,10 @@ class _OptionTile extends StatelessWidget {
           key: Key('opt-${o.key}'),
           borderRadius: BorderRadius.circular(HzRadius.md),
           onTap: onTap,
-          child: Container(
+          // the row and its mark change smoothly when chosen (design study item 4, 13 Nov 2026); at once with reduced motion
+          child: AnimatedContainer(
+            duration: still ? Duration.zero : HzMotion.fast,
+            curve: HzMotion.easing,
             constraints: const BoxConstraints(minHeight: 56),
             padding: const EdgeInsets.symmetric(horizontal: HzSpace.s4, vertical: HzSpace.s3),
             decoration: BoxDecoration(
@@ -161,8 +165,16 @@ class _OptionTile extends StatelessWidget {
             child: Row(children: [
               if (o.emoji != null) ...[Text(o.emoji!, style: const TextStyle(fontSize: 20)), const SizedBox(width: HzSpace.s3)],
               Expanded(child: Text(o.label)),
-              Icon(selected ? (multi ? Icons.check_box : Icons.radio_button_checked) : (multi ? Icons.check_box_outline_blank : Icons.radio_button_off),
-                  color: selected ? c.primary : c.borderStrong),
+              AnimatedSwitcher(
+                key: ValueKey('mark-${o.key}'),
+                duration: still ? Duration.zero : HzMotion.base,
+                switchInCurve: HzMotion.easing,
+                switchOutCurve: HzMotion.easingIn,
+                transitionBuilder: (child, animation) => ScaleTransition(scale: Tween<double>(begin: 0.6, end: 1).animate(animation),
+                    child: FadeTransition(opacity: animation, child: child)),
+                child: Icon(selected ? (multi ? Icons.check_box : Icons.radio_button_checked) : (multi ? Icons.check_box_outline_blank : Icons.radio_button_off),
+                    key: ValueKey(selected), color: selected ? c.primary : c.borderStrong),
+              ),
             ]),
           ),
         )),

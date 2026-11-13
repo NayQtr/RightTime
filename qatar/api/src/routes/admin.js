@@ -3,7 +3,7 @@ import { decrypt, encrypt, newTotpSecret, randomChars, randomToken, sha256hex, t
 import { fail, json, money, qa, requireUuid } from "../lib/http.js";
 import { runMatching, MatchingError } from "../matching/engine.js";
 import { audit, capturedPayment, currentTable, notify } from "../services/common.js";
-import { dispatchRefund } from "../services/payments.js";
+import { dispatchRefund, REFUND_STUCK_AFTER_MINUTES } from "../services/payments.js";
 import { runAiOpinions, sendHeldVenueNotice } from "../services/identity.js";
 import { isForCoordinator, venueMessage } from "../services/venue_messages.js";
 import { LOW_RATING_REASONS } from "../lib/feedback.js";
@@ -546,6 +546,56 @@ async function approveBatch(ctx) {
   for (const id of approved) { await dispatchRefund(sql, psp, id); results.push(id); }
   const final = approved.length ? await sql`SELECT id, status FROM app.refunds WHERE id IN ${sql(approved)}` : [];
   return json(200, { approved: approved.length, skipped: ids.length - approved.length, refunds: final });
+}
+
+// ------------------------------------------------------------------ Today and Find (design study item 5, 13 Nov 2026)
+// Today: what waits for this admin, as counts, only for the sections her role can open, each counted exactly as the list
+// it links to counts "open". Find: a booking reference opens its session, a case reference opens the case, for the roles
+// that may open them; anything else is 404, so the answer never reveals a reference the role may not see.
+const APPROVERS = ["owner", "ops", "finance", "trust_safety", "analyst"];   // who sees Approvals in the console menu
+async function today(ctx) {
+  const { sql, admin } = ctx;
+  const can = (roles) => roles.includes(admin.role);
+  const n = async (q) => (await q)[0].n;
+  const counts = {};
+  if (can(OPS)) {
+    counts.alerts = await n(sql`SELECT count(*)::int AS n FROM app.coordinator_alerts WHERE acknowledged_at IS NULL`);
+    counts.tonight = await n(sql`SELECT count(*)::int AS n FROM app.event_sessions s
+      JOIN app.event_tables t ON t.session_id = s.id AND t.status IN ('locked','completed')
+     WHERE s.starts_at BETWEEN now() - interval '6 hours' AND now() + interval '30 hours'`);
+    counts.call_requests = await n(sql`SELECT count(*)::int AS n FROM app.call_requests WHERE status = 'requested'`);
+    counts.support = await n(sql`SELECT count(*)::int AS n FROM app.support_cases WHERE status NOT IN ('resolved','closed')`);
+    counts.venue_requests = await n(sql`SELECT count(*)::int AS n FROM app.session_venues sv JOIN app.event_sessions s ON s.id = sv.session_id
+     WHERE s.starts_at > now() - interval '6 hours' AND (sv.status = 'declined' OR (sv.status = 'pending' AND sv.escalated_at IS NOT NULL))`);
+    counts.failed_notifications = await n(sql`SELECT count(*)::int AS n FROM app.notifications_outbox
+     WHERE channel = 'push' AND status = 'failed' AND handled_at IS NULL`);
+  }
+  if (can([...TS, "owner"])) counts.identity = await n(sql`SELECT count(*)::int AS n FROM app.identity_reviews WHERE status = 'pending'`);
+  if (can(TS)) counts.cases = await n(sql`SELECT count(*)::int AS n FROM app.safety_reports WHERE status NOT IN ('closed','closed_no_action')`);
+  if (can(FIN)) {
+    // waiting for the batch approval (services/payments.js WAITS_FOR_FINANCE), and refused or unanswered by the PSP
+    counts.refunds_waiting = await n(sql`SELECT count(*)::int AS n FROM app.refunds r WHERE r.status = 'requested' AND r.approved_by IS NULL
+      AND (r.idempotency_key LIKE 'auto-oc-%' OR r.idempotency_key LIKE 'choice-refund-%')`);
+    counts.refunds_check = await n(sql`SELECT count(*)::int AS n FROM app.refunds
+     WHERE status = 'failed' OR (status = 'processing' AND updated_at < now() - make_interval(mins => ${REFUND_STUCK_AFTER_MINUTES}))`);
+  }
+  if (can(APPROVERS)) counts.approvals = await n(sql`SELECT count(*)::int AS n FROM app.admin_approvals WHERE status = 'pending' AND proposed_by <> ${admin.id}`);
+  return json(200, { counts });
+}
+
+async function find(ctx) {
+  const { sql, admin, url } = ctx;
+  const q = String(url.searchParams.get("q") || "").trim().toUpperCase().slice(0, 40);
+  if (!q) fail(422, "VALIDATION_FAILED", [{ field: "q", code: "REQUIRED" }]);
+  if ([...OPS, "analyst"].includes(admin.role)) {
+    const [b] = await sql`SELECT session_id FROM app.bookings WHERE booking_ref = ${q}`;
+    if (b) return json(200, { kind: "booking", href: `#/sessions/${b.session_id}` });
+  }
+  if ([...TS, "owner"].includes(admin.role)) {
+    const [r] = await sql`SELECT id FROM app.safety_reports WHERE case_ref = ${q}`;
+    if (r) return json(200, { kind: "case", href: `#/cases/${r.id}` });
+  }
+  fail(404, "NOT_FOUND");
 }
 
 async function autoRefundUnresolved(ctx) {
@@ -1156,6 +1206,8 @@ export const adminRoutes = [
   { method: "POST", path: `${A}/auth/login`, auth: "none", handler: login },
   { method: "POST", path: `${A}/auth/logout`, auth: "admin", handler: adminLogout },
   { method: "GET", path: `${A}/me`, auth: "admin", roles: ANY, handler: me },
+  { method: "GET", path: `${A}/today`, auth: "admin", roles: ANY, handler: today },
+  { method: "GET", path: `${A}/find`, auth: "admin", roles: ANY, handler: find },
   { method: "POST", path: `${A}/admins/{id}:enroll-token`, auth: "admin", roles: OWNER, handler: issueEnrollToken },
   { method: "GET", path: `${A}/sessions`, auth: "admin", roles: [...OPS, "analyst", "finance"], handler: listSessions },
   { method: "POST", path: `${A}/sessions`, auth: "admin", roles: OPS, handler: createSession },
