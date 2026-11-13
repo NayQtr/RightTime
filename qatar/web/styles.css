@@ -514,9 +514,6 @@ a.option { text-decoration: none; color: inherit; }
 .hero-welcome .stack > * + * { margin-block-start: var(--s-2); }
 /* the Arabic headline breaks after "تعرّفي على ناس.." so the phrase is never split across lines */
 @media (min-width: 340px) { :root[lang="ar"] .hero-welcome h1 .lead-in { white-space: nowrap; } } /* a 320 px phone may wrap it */
-/* the length hint belongs to "Start": keep it close to that button and clearly apart from "I have an account" */
-.hero-welcome .quiz-length { margin-block-end: 0; }
-.hero-welcome .quiz-length + .btn { margin-block-start: var(--s-5); }
 /* large screens: words and buttons on one side, the table drawing on the other, vertically centred */
 @media (min-width: 1024px) {
   .hero-welcome { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--s-12); align-items: center;
@@ -669,8 +666,6 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
 /* shared-themes line on a revealed table (r2-personality) */
 .shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }
 .shared-themes .lucide, .shared-themes svg { flex: none; width: 20px; height: 20px; color: var(--c-primary); margin-block-start: 2px; }
-.hero-welcome .quiz-length { margin: 0; text-align: center; color: var(--c-textMuted); }
-.hero-welcome .quiz-length + .btn { margin-block-start: var(--s-5); }
 .occ-note { margin: 0; color: var(--c-textMuted); }
 /* "You're all set" after payment: the booked meetup as a card, then what happens next. */
 .all-set { gap: var(--s-4); }

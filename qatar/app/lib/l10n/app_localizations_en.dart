@@ -304,9 +304,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get getStarted => 'Get started';
 
   @override
-  String get quizLength => 'Short questions that take a few minutes.';
-
-  @override
   String get haveAccount => 'I already have an account';
 
   @override

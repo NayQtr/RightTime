@@ -638,12 +638,6 @@ abstract class AppLocalizations {
   /// **'ابدئي'**
   String get getStarted;
 
-  /// No description provided for @quizLength.
-  ///
-  /// In ar, this message translates to:
-  /// **'أسئلة قصيرة تأخذ دقائق قليلة.'**
-  String get quizLength;
-
   /// No description provided for @haveAccount.
   ///
   /// In ar, this message translates to:

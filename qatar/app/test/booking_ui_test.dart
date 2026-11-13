@@ -49,9 +49,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('qatar-only')), findsNothing);
     expect(find.textContaining('قطر فقط'), findsNothing);
-    final y = tester.getTopLeft(find.text('أسئلة قصيرة تأخذ دقائق قليلة.')).dy;
-    expect(tester.getTopLeft(find.byKey(const Key('start'))).dy < y && y < tester.getTopLeft(find.byKey(const Key('have-account'))).dy, true,
-        reason: 'the length hint still sits between Start and I have an account');
+    // owner, 13 Nov 2026: nothing under "Start" any more (the length hint was removed); Start comes first
+    expect(find.textContaining('أسئلة قصيرة'), findsNothing);
+    expect(tester.getTopLeft(find.byKey(const Key('start'))).dy < tester.getTopLeft(find.byKey(const Key('have-account'))).dy, true,
+        reason: 'Start sits above I have an account');
   });
 
   testWidgets('revealed table: a birthday at the table reads as a nameless line with the cake icon; the time is named GMT+3', (tester) async {

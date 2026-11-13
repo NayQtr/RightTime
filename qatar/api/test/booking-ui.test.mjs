@@ -52,8 +52,11 @@ test("welcome: nothing is said about one country any more", async () => {
     await page.waitForSelector(".hero-welcome #start");
     const text = await page.locator("main").innerText();
     assert.ok(!/قطر فقط|Qatar numbers only/.test(text), text);
-    const [start, len, have] = await Promise.all(["#start", ".quiz-length", "a[href='#/signin']"].map((s) => page.locator(s).boundingBox()));
-    assert.ok(start.y < len.y && len.y < have.y, "the length hint still sits between Start and I have an account");
+    // owner, 13 Nov 2026: nothing under "Start" any more (the length hint was removed); Start comes first
+    assert.equal(await page.locator(".quiz-length").count(), 0);
+    assert.ok(!text.includes(locale === "ar" ? "أسئلة قصيرة" : "Short questions"), text);
+    const [start, have] = await Promise.all(["#start", "a[href='#/signin']"].map((s) => page.locator(s).boundingBox()));
+    assert.ok(start.y < have.y, "Start sits above I have an account");
     assert.deepEqual(errors, []);
     await page.context().close();
   }

@@ -300,9 +300,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get getStarted => 'ابدئي';
 
   @override
-  String get quizLength => 'أسئلة قصيرة تأخذ دقائق قليلة.';
-
-  @override
   String get haveAccount => 'لديّ حساب';
 
   @override

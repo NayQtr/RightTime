@@ -341,8 +341,7 @@ function scrWelcome() {
         <a class="btn btn-primary btn-block" id="resume" href="${esc(resume)}">${esc(T("resumeCta"))}</a>
         <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
       <div class="stack">
-        ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>
-        <p class="caption quiz-length">${esc(T("quizLength"))}</p>`}
+        ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
     </section>`);
