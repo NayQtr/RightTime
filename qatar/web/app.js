@@ -356,26 +356,11 @@ function scrWelcome() {
 const countryName = (c) => (locale === "en" ? c.en : c.ar);
 const byName = () => [...COUNTRIES].sort((a, b) => countryName(a).localeCompare(countryName(b), locale === "en" ? "en" : "ar"));
 const localPattern = (dial) => (dial === "974" ? "[3-7][0-9]{7}" : "[0-9]{4,15}");
-// A flag is the pair of regional-indicator letters of the ISO code. Windows draws those as two letters, not a flag, so
-// flags are shown only where the device draws one (checked once by drawing Qatar's flag and looking for colour).
-const flagOf = (iso) => String.fromCodePoint(...[...iso].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
-let flagsDrawn = null;
-function deviceDrawsFlags() {
-  if (flagsDrawn !== null) return flagsDrawn;
-  flagsDrawn = false;
-  try {
-    const cv = document.createElement("canvas");
-    cv.width = cv.height = 24;
-    const g = cv.getContext("2d", { willReadFrequently: true });
-    g.textBaseline = "top";
-    g.font = '20px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-    g.fillText(flagOf("QA"), 0, 0);
-    const d = g.getImageData(0, 0, 24, 24).data;
-    for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i] - d[i + 1] > 40) { flagsDrawn = true; break; }
-  } catch { /* no canvas: no flags, the codes and names still say it all */ }
-  return flagsDrawn;
-}
-const flagSpan = (iso) => `<span class="fl" aria-hidden="true">${flagOf(iso)}</span>`;
+// Real round flag pictures, the same on every device (owner, 13 Nov 2026: «It's not emojis, it's flags»): circle-flags,
+// MIT, copied into flags/ by ops/build-flags.mjs. Decorative: the country's name and code are always written beside it.
+// The list's flags load as they scroll into view; the chosen one at once.
+const flagImg = (iso, lazy = true) =>
+  `<img class="fl" src="flags/${esc(iso.toLowerCase())}.svg" alt="" width="22" height="22" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 
 function scrPhone() {
   if (!signedIn()) store.set("resume", "#/signin");
@@ -391,14 +376,14 @@ function scrPhone() {
     <form id="f" class="stack" novalidate>
       <div class="field">
         <label class="label" id="plabel" for="phone">${esc(T("phoneLabel"))}</label>
-        <div class="phone-wrap${deviceDrawsFlags() ? "" : " no-flags"}">
+        <div class="phone-wrap">
           <div class="phone-box">
             <button class="cc" id="cc" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="cc-list"></button>
             <span class="sep" aria-hidden="true"></span>
             <input class="input" id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="${country.dial === "974" ? 8 : 15}"
                    pattern="${localPattern(country.dial)}" required aria-describedby="perr" value="${esc(kept)}"></div>
           <ul class="cc-list" id="cc-list" role="listbox" tabindex="-1" aria-labelledby="plabel" hidden>
-            ${byName().map((c) => `<li role="option" id="cc-${esc(c.iso)}" data-iso="${esc(c.iso)}" aria-selected="${c.iso === country.iso}">${flagSpan(c.iso)}<span class="nm">${esc(countryName(c))}</span><bdi class="dc" dir="ltr">+${esc(c.dial)}</bdi>${icon("check", "i ck")}</li>`).join("")}
+            ${byName().map((c) => `<li role="option" id="cc-${esc(c.iso)}" data-iso="${esc(c.iso)}" aria-selected="${c.iso === country.iso}">${flagImg(c.iso)}<span class="nm">${esc(countryName(c))}</span><bdi class="dc" dir="ltr">+${esc(c.dial)}</bdi>${icon("check", "i ck")}</li>`).join("")}
           </ul>
         </div>
         <div id="perr" class="error-text" role="alert"></div>
@@ -409,7 +394,7 @@ function scrPhone() {
   const options = [...list.querySelectorAll("[role=option]")];
   // the button reads as the chosen country: "قطر +974" (its name is hidden on screen, the flag stands for it there)
   const showChoice = () => {
-    cc.innerHTML = `${flagSpan(country.iso)}${icon("chevron-down", "i chev")}<span class="sr-only">${esc(countryName(country))} </span><bdi class="dc" dir="ltr">+${esc(country.dial)}</bdi>`;
+    cc.innerHTML = `${flagImg(country.iso, false)}${icon("chevron-down", "i chev")}<span class="sr-only">${esc(countryName(country))} </span><bdi class="dc" dir="ltr">+${esc(country.dial)}</bdi>`;
   };
   showChoice();
   let active = null, typed = "", typedAt = 0;

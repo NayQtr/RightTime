@@ -16,8 +16,26 @@ import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
 
-/// A country's flag: the pair of regional-indicator letters of its ISO code.
-String flagOf(String iso) => String.fromCharCodes(iso.codeUnits.map((c) => 0x1F1E6 + c - 65));
+/// A country's round flag picture (owner, 13 Nov 2026: «It's not emojis, it's flags»): circle-flags, MIT, drawn to PNG by
+/// qatar/ops/build-flags.mjs. Decorative: the country's name and code are always written beside it.
+class FlagImage extends StatelessWidget {
+  const FlagImage(this.iso, {super.key, this.size = 22});
+
+  final String iso;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+        child: Container(
+          key: Key('flag-$iso'),
+          width: size,
+          height: size,
+          foregroundDecoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: hzColors(context).text.withValues(alpha: 0.12))),
+          child: ClipOval(child: Image.asset('assets/flags/${iso.toLowerCase()}.png', width: size, height: size,
+              filterQuality: FilterQuality.medium, errorBuilder: (_, _, _) => const SizedBox.shrink())),
+        ),
+      );
+}
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -131,7 +149,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
                           child: Padding(
                             padding: const EdgeInsets.only(left: HzSpace.s4, right: HzSpace.s3),
                             child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(flagOf(_country.iso), style: const TextStyle(fontSize: 22, height: 1)),
+                              FlagImage(_country.iso),
                               const SizedBox(width: 6),
                               AnimatedRotation(
                                 turns: open ? 0.5 : 0,
@@ -316,7 +334,7 @@ class _CountryListState extends State<_CountryList> with SingleTickerProviderSta
           decoration: BoxDecoration(color: chosen ? colors.primarySubtle : null, borderRadius: BorderRadius.circular(HzRadius.sm)),
           padding: const EdgeInsets.symmetric(horizontal: HzSpace.s3),
           child: Row(children: [
-            Text(flagOf(c.iso), style: const TextStyle(fontSize: 22, height: 1)),
+            FlagImage(c.iso),
             const SizedBox(width: HzSpace.s3),
             Expanded(child: Text(c.name(widget.lang), maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: ink, fontWeight: chosen ? FontWeight.w600 : null))),

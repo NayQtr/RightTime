@@ -102,6 +102,8 @@ flutter:
   # interface sounds approved by the owner (design phase 7, item 26), see lib/core/sounds.dart
   assets:
     - assets/sounds/
+    # round country flags for the phone field (circle-flags, MIT, see assets/flags/LICENSE-circle-flags.md)
+    - assets/flags/
 
   # HerZone fonts (SIL Open Font License, see assets/fonts/OFL-*.txt), converted from the web fonts
   fonts:

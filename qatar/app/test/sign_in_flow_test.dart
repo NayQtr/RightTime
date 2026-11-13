@@ -141,7 +141,8 @@ void main() {
     expect(countryByIso('QA').dial, '974');
     expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+974')), findsOneWidget, reason: 'starts on Qatar');
     // one box (owner's design, 13 Nov 2026): Qatar's flag and code, then the number, inside the same frame
-    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('🇶🇦')), findsOneWidget, reason: 'with its flag');
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.byKey(const Key('flag-QA'))), findsOneWidget, reason: 'with its flag');
+    expect(find.descendant(of: find.byKey(const Key('flag-QA')), matching: find.byWidgetPredicate((w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/flags/qa.png')), findsOneWidget, reason: 'a picture, not an emoji');
     final box = tester.getRect(find.ancestor(of: find.byKey(const Key('country')), matching: find.byType(AnimatedContainer)).first);
     final number = tester.getRect(find.byKey(const Key('phone')));
     expect(box.contains(number.center), isTrue, reason: 'the number sits in the same box as the code');
@@ -162,7 +163,7 @@ void main() {
     expect(find.byKey(const Key('country-IL')), findsNothing);
     expect(find.byKey(const Key('country-QA')), findsOneWidget, reason: 'Qatar in view when it opens');
     expect(find.descendant(of: find.byKey(const Key('country-QA')), matching: find.byIcon(Icons.check)), findsOneWidget, reason: 'the chosen one is marked');
-    expect(find.descendant(of: find.byKey(const Key('country-QA')), matching: find.text('🇶🇦')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('country-QA')), matching: find.byKey(const Key('flag-QA'))), findsOneWidget);
     expect(tester.getRect(find.byKey(const Key('country-list'))).top, greaterThan(tester.getRect(find.byKey(const Key('country'))).bottom), reason: 'under the box');
     await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
@@ -175,6 +176,7 @@ void main() {
     await tester.tap(find.byKey(const Key('country-GB')));
     await tester.pumpAndSettle();
     expect(find.descendant(of: find.byKey(const Key('country')), matching: find.text('+44')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('country')), matching: find.byKey(const Key('flag-GB'))), findsOneWidget);
 
     // another country takes a longer number, and the server gets the full E.164 form
     await tester.enterText(find.byKey(const Key('phone')), '7700 900123');

@@ -78,7 +78,9 @@ test("phone: one box with flag and code, a flag list of every country (no Israel
     // one box: the code button, then the number, side by side in it
     assert.equal(await page.locator(".phone-box > #cc + .sep + #phone").count(), 1, "flag, code and number in one box");
     assert.match(await cc.innerText(), /\+974/, "starts on Qatar");
-    assert.equal(await cc.locator(".fl").innerText(), "🇶🇦", "with Qatar's flag");
+    assert.match(await cc.locator("img.fl").getAttribute("src"), /flags\/qa\.svg$/, "with Qatar's flag, a picture, not an emoji");
+    assert.ok(await cc.locator("img.fl").evaluate((i) => i.decode().then(() => i.naturalWidth > 0)), "the flag loads");
+    assert.equal(await cc.locator("img.fl").getAttribute("alt"), "", "decorative: the name and code say it");
     assert.equal(await cc.getAttribute("aria-haspopup"), "listbox");
     assert.equal(await cc.getAttribute("aria-label"), null, "no label of its own: it reads as the chosen country");
     assert.match(await page.evaluate(() => document.querySelector("#cc").textContent.replace(/\s+/g, " ").trim()), locale === "ar" ? /قطر \+974/ : /Qatar \+974/);
@@ -92,7 +94,8 @@ test("phone: one box with flag and code, a flag list of every country (no Israel
     assert.equal(await page.evaluate(() => [...document.querySelectorAll("#cc-list [role=option]")].filter((o) => o.textContent.includes("+972")).length), 0, "no +972 anywhere");
     const names = await opts.locator(".nm").allInnerTexts();
     assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, locale)), "alphabetical only");
-    assert.equal(await opts.locator(".fl").count(), await opts.count(), "a flag on every row");
+    assert.equal(await opts.locator("img.fl").count(), await opts.count(), "a flag picture on every row");
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#cc-list [role=option]")].filter((o) => !o.querySelector("img.fl").getAttribute("src").endsWith(`/${o.dataset.iso.toLowerCase()}.svg`)).map((o) => o.dataset.iso)), [], "each row shows its own country's flag");
     assert.equal(await page.locator("#cc-q, #cc-pop, #cc-none, .cc-list input").count(), 0, "no search box");
 
     // opens on a click with Qatar chosen and in view; Escape closes it and gives the focus back
@@ -101,6 +104,7 @@ test("phone: one box with flag and code, a flag list of every country (no Israel
     assert.equal(await cc.getAttribute("aria-expanded"), "true");
     assert.equal(await list.locator('[aria-selected="true"]').getAttribute("data-iso"), "QA");
     assert.equal(await page.evaluate(() => document.activeElement.id), "cc-list");
+    assert.ok(await page.locator("#cc-QA img.fl").evaluate((i) => i.decode().then(() => i.naturalWidth > 0)), "the flags in view load");
     assert.ok(await page.evaluate(() => { const l = document.querySelector("#cc-list"), q = document.querySelector("#cc-QA");
       return q.offsetTop >= l.scrollTop && q.offsetTop + q.offsetHeight <= l.scrollTop + l.clientHeight; }), "Qatar in view when it opens");
     await page.keyboard.press("Escape");
@@ -121,7 +125,7 @@ test("phone: one box with flag and code, a flag list of every country (no Israel
     assert.equal(await list.isHidden(), true);
     assert.equal(await page.evaluate(() => document.activeElement.id), "phone", "on to the number");
     assert.match(await cc.innerText(), /\+44/);
-    assert.equal(await cc.locator(".fl").innerText(), "🇬🇧");
+    assert.match(await cc.locator("img.fl").getAttribute("src"), /flags\/gb\.svg$/);
     assert.equal(await page.locator("#phone").getAttribute("pattern"), "[0-9]{4,15}", "another country takes any plausible number");
 
     // a tap outside closes it without choosing

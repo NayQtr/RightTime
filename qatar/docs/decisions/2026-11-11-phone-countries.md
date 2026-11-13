@@ -41,5 +41,9 @@ The owner sent a reference image and approved a mockup («نعم، كما في �
 the country's flag, a down arrow and the calling code, a thin divider, then the number (left to right in both languages).
 The code opens a list under the box with every country's flag, its name and code, the chosen one marked ✓. Alphabetical
 only (owner's choice; no Gulf group on top), Qatar chosen to begin with, still no search box. On the website the list is
-an ARIA listbox (arrows, Home/End, Enter or Space, Escape; typing letters or digits jumps to a name or code); flags show only
-where the device draws flag emoji (Windows draws two letters, so there the flag is left out). Same design in the app.
+an ARIA listbox (arrows, Home/End, Enter or Space, Escape; typing letters or digits jumps to a name or code). Same design in
+the app.
+
+The flags are real round pictures, not emoji (owner's correction the same day: «It's not emojis, it's flags»): circle-flags
+2.8.3 (MIT), copied by `ops/build-flags.mjs` into `web/flags/*.svg` (shown as `<img>`, so nothing in them can run) and
+`app/assets/flags/*.png` (72x72); `api/test/flags.test.mjs` fails if a country in the list has no flag, or a flag has no country.
