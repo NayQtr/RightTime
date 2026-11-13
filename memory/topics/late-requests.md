@@ -19,6 +19,16 @@ Open:
   the contact sheet in event_details_screen.dart) is deferred, approved by the owner («موافق», 12 Nov).
 - The refund rules must be re-tested against the real PSP before it takes real money.
 
+## Design study of 10 reference sites [2026-11-13] — WAITING for the owner's choice
+
+Captured with Playwright at 390 and 1440: apple, duolingo, linear, pentagram, airbnb, notion, stripe, framer. muji.com was
+in maintenance (security notice), aesop.com blocked automated browsers (403 challenge, not bypassed). Proposed, nothing built:
+1 seats shown only when few are left (MUJI restraint; owner sets the threshold)  2 card -> meetup details continuity
+transition (Apple)  3 three trust facts under the welcome button (Stripe; Arabic wording = owner's)  4 micro-interactions:
+selection check, button loading state, desktop hover (Framer)  5 admin "Today" overview + Ctrl/Cmd-K jump (Notion, Linear).
+Not now: search filters (Airbnb; too few sessions), points/streaks (Duolingo; wrong tone for trust), editorial photography
+(Aesop; wait for real photos from the closed pilot, no faces), desktop typographic pass (Pentagram; later).
+
 ## ui-ux-pro-max review [2026-11-13]
 
 Owner asked for "All" (site, consoles, app). Member site: 13 screens x 4 widths x ar/en x light/dark, no findings (contrast,
