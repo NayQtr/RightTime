@@ -10,6 +10,13 @@ Owner's approval: «نعم، أنزلها الآن» (13 Nov), then «Go» for t
 project settings), so Claude created the production deployment (dpl_J2HRpSYvUu4nR8xQQYjvmnhzfx6a) with the owner's Allow.
 After: web tag herzone-web@f3adf75a8313; smoke checks all pass; new admin routes live (today 401 without sign-in);
 welcome hint gone; ابدئي opens the questionnaire; Sentry: no unresolved production issue in 24 h.
+Staging brought to the same commit the same evening (owner: «كمل»; dpl_5tPyNjQsPwfFEoFvvy7kmBotFn5P, tag
+herzone-web@f3adf75a8313, staging smoke checks pass); it had been on 7d42e0f since 12 Nov. Linear NMX-20 closed.
+Live walk of herzone.app (13 Nov, after the release): welcome → 21 questions and every interstitial → «ما اسمك الأول؟» →
+«رقم جوالك»; no page error. A real number there gets «الخدمة غير متاحة مؤقتًا.» (503, no SMS provider; read from the code,
+not tried live). Claude's slip: the number field is not type=tel, so the walk script typed «تجربة» into it and pressed
+Next once; the API answered 400 and nothing was stored (no otp_challenges row, no user, no audit row).
+The Vercel MCP has no field for the production branch; it stays a dashboard setting (owner) or one "Allow" per release.
 Open: the Vercel production branch setting (so a push to `release` builds by itself); proposal waiting on the owner:
 «بقي نحو بضعة دقائق» → «بقي نحو بضع دقائق» (grammar; owner's wording of 11 Nov, change only with approval).
 
