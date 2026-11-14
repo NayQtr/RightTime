@@ -121,6 +121,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();
+    // the account rows sit in three named groups now, so sign-out is one short scroll down on this small test screen
+    await tester.drag(find.byKey(const Key('my-answers')), const Offset(0, -200));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('signOut')));
     await tester.pumpAndSettle();
     expect(trips.trips, isEmpty);

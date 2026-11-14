@@ -14,6 +14,12 @@ String fmtWhen(String iso, String locale) => _glueTime(latinDigits(DateFormat('E
 
 String fmtTime(String iso, String locale) => _glueTime(latinDigits(DateFormat('h:mm a', locale).format(qatarTime(iso))));
 
+/// A day on its own, for the dated rail of the notifications ("Thursday 12 November").
+String fmtDate(String iso, String locale) => latinDigits(DateFormat('EEEE d MMMM', locale).format(qatarTime(iso)));
+
+/// The month by name, beside the large day numeral on the details screen.
+String fmtMonth(String iso, String locale) => DateFormat('MMMM', locale).format(qatarTime(iso));
+
 /// The day of the month and the weekday for the date "leaf" on session cards (Western digits, Doha time).
 String fmtDay(String iso) => latinDigits(DateFormat('d').format(qatarTime(iso)));
 String fmtWeekday(String iso, String locale) => DateFormat('EEEE', locale).format(qatarTime(iso));

@@ -126,6 +126,9 @@ void main() {
     await tester.tap(find.byKey(const Key('lang')));
     await tester.pumpAndSettle();
     expect(find.text('Account'), findsWidgets);
+    // the account rows sit in three named groups now, so sign-out is one short scroll down on this small test screen
+    await tester.drag(find.byKey(const Key('my-answers')), const Offset(0, -200));
+    await tester.pumpAndSettle();
     expect(Directionality.of(tester.element(find.text('Sign out'))), TextDirection.ltr);
     await tester.tap(find.byKey(const Key('signOut')));
     await tester.pumpAndSettle();
@@ -253,6 +256,9 @@ void main() {
     await tester.pumpWidget(HerZoneApp(config: config, tokens: store, trips: MemoryTripStore(), quizStore: quiz, httpClientFactory: () => fakeApi(log)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('حسابي').last);
+    await tester.pumpAndSettle();
+    // the account rows sit in three named groups now, so sign-out is one short scroll down on this small test screen
+    await tester.drag(find.byKey(const Key('my-answers')), const Offset(0, -200));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('signOut')));
     await tester.pumpAndSettle();
