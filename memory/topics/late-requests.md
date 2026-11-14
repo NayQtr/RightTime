@@ -41,6 +41,16 @@ reserved card slots (Apple), dark depth from three surface steps (Framer), full 
 as one sliding-thumb track (Notion), "your card" as a membership card with a cropped ring + "what you get" as a plain
 roster (Pentagram ×2; the ring pattern echoes the logo mark, so it needs the owner's approval; the logo itself untouched),
 venue reveal as one plain place card (MUJI), cancel as a when / what-you-get-back table (Airbnb). Aesop not retried.
+Owner on round 3: «ليست بجودة الجولات السابقة ولكن مقبوله» — it looked simple and pale (lists and text). LESSON: proposals
+must be visually rich (photos, colour, depth), not rows and lists.
+Round 4 = «جولة بذرة التطوير الأساسية» (owner's name): new ideas for the four CORE screens only, visually rich. Ten
+compositions added to the preview: welcome A (Apple: full-bleed photo melting into the page, frosted table badge) and B
+(Pentagram: split poster, headline on the seam, yellow Start); questionnaire A (Duolingo: colour field per section, chunky
+ledge cards, table seats filling) and B (Notion: bold panel per section, three circles with line drawings); home A (Stripe:
+soft colour fields, floating week card, photo tile with an info card, one dark tile), B (Pentagram: poster cards, big date,
+plum for dinner / pink for coffee), C (MUJI: one full-bleed banner cross-fading every 6 s); details A (Framer: colour field
+with three fanned photo cards), B (Linear: dark candle-lit invitation), C (Airbnb: four-photo mosaic, the table as the
+award). Welcome keeps the owner's rule: nothing under the two buttons.
 NOT decided yet:
 which ideas to build in the real site and app (asked the owner; waiting).
 
