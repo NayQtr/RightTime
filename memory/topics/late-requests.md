@@ -51,6 +51,13 @@ soft colour fields, floating week card, photo tile with an info card, one dark t
 plum for dinner / pink for coffee), C (MUJI: one full-bleed banner cross-fading every 6 s); details A (Framer: colour field
 with three fanned photo cards), B (Linear: dark candle-lit invitation), C (Airbnb: four-photo mosaic, the table as the
 award). Welcome keeps the owner's rule: nothing under the two buttons.
+OWNER REJECTED round 4 as first built (14 Nov): «سيئة… بدون مراعاة لموقع HerZone ولا هويته والتطبيق عليه أصلا سيء» → cancelled
+and redone. Claude's fault: copied the reference sites' looks (yellow buttons, full mauve/yellow/plum colour fields, chunky
+ledge cards, bold yellow panels) instead of translating the idea. RULE for every design proposal from now on: start from
+HerZone's own screen; colours only from the tokens; the primary button stays mauve; yellow only as the small highlight it
+is today; keep the floating top bar, heading place, date leaf, table motif (mauve seats, dashed free seats) and the
+existing texts; an idea adds life (photo, motion, depth) and never a foreign look. Redone round 4 in the preview under
+«الجولة 4 · البذرة (معادة)», same ten sources on the four core screens, in HerZone's own components.
 NOT decided yet:
 which ideas to build in the real site and app (asked the owner; waiting).
 
