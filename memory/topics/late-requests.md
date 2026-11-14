@@ -19,6 +19,15 @@ Open: watch the two admin tests; if either fails in CI again, treat it as real a
 Owner (14 Nov): browse the 10 sites for real, take an idea from EACH, no general verdicts; the current site is «خالي من
 الحياة تقليدي». Never answer a repeated request with "already studied". Five research agents (2 sites each); then
 before/after mockups, the owner's approval, then build. Aesop blocks automated browsers (403 on three pages, not bypassed).
+All ten browsed 14 Nov (muji.com 502 → muji.eu used; Aesop blocked, memory only). One idea each, PROPOSED, nothing built:
+Apple: sections and cards rise 16 px and fade in, 600 ms, 120 ms apart, once. Framer: answers dim on press, fill on release.
+Duolingo: the questionnaire replies to each answer in one line (owner's wording) and the progress bar starts part-filled.
+Stripe: one real number above the welcome headline + Start repeated lower (clashes with the owner's «لا شيء تحت ابدئي»).
+Linear: the next-meetup card as a double-framed object, rows appearing one by one. Notion: tinted tiles above the list.
+Pentagram: /about with a strict 4-size type scale and quote-then-photo rhythm. Aesop (memory): tone-matched photo hero on
+welcome. MUJI: this week's meetups as a peek row of photo cards. Airbnb: week strip as the only filter, with a live count.
+Mockups sent: welcome with a photo instead of the table diagram; home with a photo peek row (light and dark). The photos
+are the round-3 atmosphere set already on /about; their use in the product still needs the owner's approval (item 21).
 
 ## Phone field redesign + identity proposals [2026-11-13]
 
