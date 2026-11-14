@@ -52,7 +52,7 @@ class EventsTab extends StatelessWidget {
                 key: Key('booking-${b.id}'),
                 contentPadding: EdgeInsets.zero,
                 title: Text('${experienceName(t, b.experience)} · ${fmtWhen(b.startsAt, lang)}'),
-                subtitle: Text('${b.district} · ${t.bookingRef} ${b.ref}'),
+                subtitle: Text(['${b.district} · ${t.bookingRef} ${b.ref}', ?_plusOneLine(t, b, lang)].join('\n')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => pushFromCard(row, '/booking/${b.id}'),
               ))),
@@ -61,6 +61,13 @@ class EventsTab extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "+1": her companion's name and the total for the two seats, on a booking that has them; null otherwise.
+String? _plusOneLine(AppLocalizations t, BookingSummary b, String lang) {
+  if (b.seats != 2) return null;
+  final total = b.amount ?? (b.unitFeeMinor == null ? null : fmtMoney(b.unitFeeMinor! * 2, lang));
+  return ltrPlusOne([b.guestName == null ? t.plusOne : t.plusOneGuest(b.guestName!), ?total].join(' · '));
 }
 
 /// "Your next event": the one filled card on this screen, in the brand colour with the on-colour text (as on the website).
@@ -99,6 +106,8 @@ class _NextMeetupCard extends StatelessWidget {
             line(2, Text(fmtWhen(b.startsAt, lang), style: tt.titleMedium?.copyWith(color: c.onPrimary))),
             const SizedBox(height: HzSpace.s1),
             line(3, Text('${b.district} · ${t.bookingRef} ${b.ref}', style: tt.bodyMedium?.copyWith(color: soft))),
+            if (_plusOneLine(t, b, lang) != null)
+              line(4, Text(_plusOneLine(t, b, lang)!, key: const Key('plus-one-card'), style: tt.bodyMedium?.copyWith(color: soft))),
             const SizedBox(height: HzSpace.s4),
             Press(child: FilledButton(
               onPressed: open,

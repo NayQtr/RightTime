@@ -92,6 +92,13 @@ class _CancelFormState extends State<_CancelForm> {
         decoration: BoxDecoration(color: full ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(outcome),
       )),
+      // "+1": cancelling ends both seats, with one refund of the whole amount
+      if (d.seatCount == 2) ...[
+        const SizedBox(height: HzSpace.s3),
+        Text(ltrPlusOne([d.guestName == null ? t.plusOne : t.plusOneGuest(d.guestName!), ?d.amountPaid].join(' · ')), key: const Key('plus-one-cancel'), style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: HzSpace.s1),
+        Text(t.cancelBothSeats, key: const Key('cancel-both')),
+      ],
       const SizedBox(height: HzSpace.s4),
       Text(t.reasonLegend, style: Theme.of(context).textTheme.titleMedium),
       RadioGroup<String>(

@@ -38,6 +38,13 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
   ApiError? error;
   Timer? _poll;
 
+  /// "+1" (owner, 14 Nov): she may bring one companion. The seat is held before the review, so the choice sits here,
+  /// before the hold: the booking is created with her companion's name, and the review then shows the two seats.
+  bool plusOne = false, guestOk = false, seatsRefused = false;
+  final _guest = TextEditingController();
+  bool get _plusOneOpen => widget.session.plusOneAvailable && !seatsRefused;
+  bool get _guestReady => _guest.text.trim().isNotEmpty && guestOk;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +54,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _poll?.cancel();
+    _guest.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -77,8 +85,15 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
 
   Future<void> _hold() => _run(() async {
         try {
-          b = await context.read<MeetupsRepository>().book(widget.session.id, occasion: !_occasionOpen || occasion == 'none' ? null : occasion);
+          b = await context.read<MeetupsRepository>().book(widget.session.id, occasion: !_occasionOpen || occasion == 'none' ? null : occasion,
+              guestName: plusOne && _plusOneOpen ? _guest.text.trim() : null);
         } on ApiError catch (e) {
+          // the second seat went while she chose: +1 turns off with the line that says so, and she can book alone
+          if (e.status == 409 && (e.code == 'NOT_ENOUGH_SEATS' || e.details.any((d) => d['code'] == 'NOT_ENOUGH_SEATS'))) {
+            seatsRefused = true;
+            plusOne = false;
+            return;
+          }
           // the date came closer while she chose: the question goes away with the note, and she can book without it
           if (!e.details.any((d) => d['field'] == 'occasion' && d['code'] == 'NOTICE_TOO_SHORT')) rethrow;
           tooLate = true;
@@ -143,7 +158,32 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
           TestId('occasion-notice', child: Text(t.occasionNotice((s.occasionNoticeHours / 24).ceil()), key: const Key('occasion-notice'),
               style: tt.bodySmall?.copyWith(color: c.textMuted))),
         const SizedBox(height: HzSpace.s3),
-        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull ? null : _hold, child: Text(t.bookSeat))),
+        _PlusOneToggle(on: plusOne, onTap: _plusOneOpen && !busy ? () => setState(() => plusOne = !plusOne) : null),
+        if (!_plusOneOpen)
+          Padding(
+            padding: const EdgeInsets.only(top: HzSpace.s2),
+            // read out when it appears because the server refused the second seat
+            child: Semantics(liveRegion: seatsRefused, child: Text(t.plusOneUnavailable, key: const Key('plus-one-unavailable'), style: tt.bodySmall?.copyWith(color: c.textMuted))),
+          ),
+        if (plusOne && _plusOneOpen) ...[
+          const SizedBox(height: HzSpace.s3),
+          Text(t.plusOneExplain, key: const Key('plus-one-explain')),
+          const SizedBox(height: HzSpace.s3),
+          TextField(
+            key: const Key('guest-name'),
+            controller: _guest,
+            maxLength: 60,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(labelText: t.guestNameLabel),
+            onChanged: (_) => setState(() {}),
+          ),
+          TestId('guest-confirm', child: CheckboxListTile(key: const Key('guest-confirm'), contentPadding: EdgeInsets.zero, controlAffinity: ListTileControlAffinity.leading,
+              value: guestOk, onChanged: (v) => setState(() => guestOk = v!), title: Text(t.guestConfirm))),
+        ],
+        const SizedBox(height: HzSpace.s3),
+        // with +1 on, the seat is held only once her companion is named and confirmed
+        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull || (plusOne && _plusOneOpen && !_guestReady) ? null : _hold, child: Text(t.bookSeat))),
       ]);
     } else if (bk.paid) {
       children.addAll([
@@ -180,7 +220,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: HzSpace.touchTarget),
               child: Row(children: [
-                Flexible(child: Text(t.serviceFee, style: tt.bodySmall?.copyWith(color: c.textMuted))),
+                Flexible(child: Text(bk.seats == 2 ? t.feeTimesTwo : t.serviceFee, key: const Key('fee-line'), style: tt.bodySmall?.copyWith(color: c.textMuted))),
                 const SizedBox(width: HzSpace.s1),
                 Icon(Icons.info_outline, size: 16, color: c.textMuted),
               ]),
@@ -194,6 +234,11 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
           ])
         else
           Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium),
+        // "+1": two seats, with her companion's name; the amount above and on the button is the total for both
+        if (bk.seats == 2) ...[
+          const SizedBox(height: HzSpace.s1),
+          Text(ltrPlusOne([t.twoSeats, bk.guestName == null ? t.plusOne : t.plusOneGuest(bk.guestName!)].join(' · ')), key: const Key('seats')),
+        ],
         Divider(height: HzSpace.s6, thickness: 1, color: c.border),
         if (bk.launchFree) Text(t.feeLaunchNote, key: const Key('launch-note'), style: tt.bodySmall?.copyWith(color: c.textMuted)),
         Text(t.foodNote, style: tt.bodySmall),
@@ -217,6 +262,49 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(title: Text(t.reviewTitle)),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: children)),
+    );
+  }
+}
+
+/// The "+1" control: off by default; on, it takes the brand edge and a tick. A session that cannot seat two leaves it
+/// faded and untappable. A screen reader hears a button and whether it is chosen.
+class _PlusOneToggle extends StatelessWidget {
+  const _PlusOneToggle({required this.on, required this.onTap});
+  final bool on;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final c = hzColors(context);
+    final enabled = onTap != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      selected: on,
+      child: TestId('plus-one', child: Press(dim: true, child: InkWell(
+        key: const Key('plus-one'),
+        borderRadius: BorderRadius.circular(HzRadius.md),
+        onTap: onTap,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.45,
+          child: AnimatedContainer(
+            duration: MediaQuery.of(context).disableAnimations ? Duration.zero : HzMotion.base,
+            curve: HzMotion.easing,
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: HzSpace.s4),
+            decoration: BoxDecoration(
+              color: c.primarySubtle,
+              borderRadius: BorderRadius.circular(HzRadius.md),
+              border: Border.all(color: on ? c.primary : c.primarySubtle, width: 2),
+            ),
+            child: Row(children: [
+              Expanded(child: Text(ltrPlusOne(t.plusOne), style: Theme.of(context).textTheme.titleLarge)),
+              Icon(on ? Icons.check_circle : Icons.add_circle_outline, color: on ? c.primary : c.textMuted),
+            ]),
+          ),
+        ),
+      ))),
     );
   }
 }

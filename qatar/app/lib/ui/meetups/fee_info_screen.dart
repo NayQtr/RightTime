@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/herzone_tokens.dart';
 import '../../l10n/app_localizations.dart';
+import '../format.dart';
 import '../theme.dart';
 
 /// "What does the organising fee cover?" (owner's texts, 14 Nov 2026): what the fee includes and what it does not,
@@ -66,7 +67,7 @@ class FeeInfoScreen extends StatelessWidget {
                   tilePadding: const EdgeInsets.symmetric(horizontal: HzSpace.s4),
                   childrenPadding: const EdgeInsetsDirectional.fromSTEB(HzSpace.s4, 0, HzSpace.s4, HzSpace.s4),
                   expansionAnimationStyle: still ? AnimationStyle.noAnimation : null,
-                  children: [Text(a, key: Key('faq-${i + 1}-answer'))],
+                  children: [Text(ltrPlusOne(a), key: Key('faq-${i + 1}-answer'))],
                 ),
               ],
             ]),
