@@ -850,4 +850,110 @@ class AppLocalizationsEn extends AppLocalizations {
   String payAmount(String amount) {
     return 'Pay $amount';
   }
+
+  @override
+  String get waitlistStep1 => 'Join the waitlist.';
+
+  @override
+  String get waitlistStep2 =>
+      'If a seat opens, we hold it for you and send you a notification.';
+
+  @override
+  String get waitlistStep3 =>
+      'Confirm and pay within the time stated in the notification, or the seat goes to the next person.';
+
+  @override
+  String refundLine(String deadline) {
+    return 'Free cancellation until $deadline. After that, the organising fee isn\'t refunded.';
+  }
+
+  @override
+  String get feeInfoTitle => 'What does the organising fee cover?';
+
+  @override
+  String get feeIncludes => 'Includes';
+
+  @override
+  String get feeExcludes => 'Doesn\'t include';
+
+  @override
+  String get feeInc1 =>
+      'Choosing a table of 4 to 6 women in your language and within your budget.';
+
+  @override
+  String get feeInc2 =>
+      'Booking the venue and revealing it to you the day before the meetup.';
+
+  @override
+  String get feeInc3 =>
+      'A coordinator on duty you can call on the day of the meetup.';
+
+  @override
+  String get feeExc1 => 'Food and drinks, which you pay the venue for.';
+
+  @override
+  String get faqQ1 => 'When do I find out the venue?';
+
+  @override
+  String get faqA1 => 'We reveal it to you the day before the meetup.';
+
+  @override
+  String get faqQ2 => 'What if the table doesn\'t fill?';
+
+  @override
+  String get faqA2 =>
+      'We cancel it and refund you in full or move you to another session — your choice.';
+
+  @override
+  String get faqQ3 => 'Can I cancel?';
+
+  @override
+  String get faqA3 =>
+      'Yes, with a full refund until the deadline shown to you before you pay.';
+
+  @override
+  String get faqQ4 => 'Is my number shared with anyone?';
+
+  @override
+  String get faqA4 => 'We don\'t share your mobile number with anyone.';
+
+  @override
+  String get faqQ5 => 'Can I come with a friend?';
+
+  @override
+  String get faqA5 =>
+      'Yes. Choose “+1” when booking to come with the person you\'d like to bring, and the organising fee is charged for two seats.';
+
+  @override
+  String get plusOne => '+1';
+
+  @override
+  String get plusOneExplain =>
+      'This option lets you come with the person you\'d like to bring.';
+
+  @override
+  String get guestNameLabel => 'Your companion\'s name';
+
+  @override
+  String get guestConfirm =>
+      'I confirm that my companion is a woman aged 18 or over.';
+
+  @override
+  String get twoSeats => 'Two seats';
+
+  @override
+  String get feeTimesTwo => 'Organising fee × 2';
+
+  @override
+  String get plusOneUnavailable =>
+      'Two seats aren\'t available for this session.';
+
+  @override
+  String plusOneGuest(String name) {
+    return '+1 $name';
+  }
+
+  @override
+  String get cancelBothSeats =>
+      'Cancelling covers your seat and your companion\'s seat.';
 }
