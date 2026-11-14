@@ -62,6 +62,13 @@ DECIDED 14 Nov: «طبق فقط الجولة ١ و ٢ و ٣ على HerZone.app»
 preview's wording as it is, nothing under ابدئي, and release straight to herzone.app after tests and the usual release
 order. Plan and exclusions (invented policy texts are not copied): qatar/docs/plans/2026-11-14-rounds-1-3.md; spec =
 qatar/docs/design/preview-2026-11-14/herzone-preview.html. Built batch by batch.
+Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
+on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
+reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's
+wording matches migration 021, but waitlist promises wait for the owner's wording; today a full session shows her real place
+only); (4) the inbox keeps the product's rule for "new" (since her last visit) instead of press-to-mark-read; (5) "how it
+works" drops the preview's "2 / 5" folio (it reads like question progress); (6) two neutral labels on the cancel table come
+from the preview («حتى {deadline}», «بعد ذلك»); every refund sentence there is the product's existing text.
 
 ## Phone field redesign + identity proposals [2026-11-13]
 
