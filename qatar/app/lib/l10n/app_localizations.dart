@@ -1609,6 +1609,186 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'ادفعي {amount}'**
   String payAmount(String amount);
+
+  /// No description provided for @waitlistStep1.
+  ///
+  /// In ar, this message translates to:
+  /// **'انضمّي لقائمة الانتظار.'**
+  String get waitlistStep1;
+
+  /// No description provided for @waitlistStep2.
+  ///
+  /// In ar, this message translates to:
+  /// **'إذا توفّر مقعد نحجزه لكِ ونرسل لكِ إشعارًا.'**
+  String get waitlistStep2;
+
+  /// No description provided for @waitlistStep3.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكّدي وادفعي خلال المدة المذكورة في الإشعار، وإلا انتقل المقعد لمن بعدك.'**
+  String get waitlistStep3;
+
+  /// No description provided for @refundLine.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء مجاني حتى {deadline}. بعده لا يُرد رسم التنظيم.'**
+  String refundLine(String deadline);
+
+  /// No description provided for @feeInfoTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ماذا يشمل رسم التنظيم؟'**
+  String get feeInfoTitle;
+
+  /// No description provided for @feeIncludes.
+  ///
+  /// In ar, this message translates to:
+  /// **'يشمل'**
+  String get feeIncludes;
+
+  /// No description provided for @feeExcludes.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يشمل'**
+  String get feeExcludes;
+
+  /// No description provided for @feeInc1.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختيار طاولة من 4 إلى 6 سيدات بلغتك وضمن ميزانيتك.'**
+  String get feeInc1;
+
+  /// No description provided for @feeInc2.
+  ///
+  /// In ar, this message translates to:
+  /// **'حجز المكان وكشفه لكِ قبل اللقاء بيوم.'**
+  String get feeInc2;
+
+  /// No description provided for @feeInc3.
+  ///
+  /// In ar, this message translates to:
+  /// **'منسّق مناوب يمكنك الاتصال به يوم اللقاء.'**
+  String get feeInc3;
+
+  /// No description provided for @feeExc1.
+  ///
+  /// In ar, this message translates to:
+  /// **'الطعام والمشروبات، تدفعينها للمكان.'**
+  String get feeExc1;
+
+  /// No description provided for @faqQ1.
+  ///
+  /// In ar, this message translates to:
+  /// **'متى أعرف المكان؟'**
+  String get faqQ1;
+
+  /// No description provided for @faqA1.
+  ///
+  /// In ar, this message translates to:
+  /// **'نكشفه لكِ قبل اللقاء بيوم.'**
+  String get faqA1;
+
+  /// No description provided for @faqQ2.
+  ///
+  /// In ar, this message translates to:
+  /// **'ماذا لو لم تكتمل الطاولة؟'**
+  String get faqQ2;
+
+  /// No description provided for @faqA2.
+  ///
+  /// In ar, this message translates to:
+  /// **'نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.'**
+  String get faqA2;
+
+  /// No description provided for @faqQ3.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل أستطيع الإلغاء؟'**
+  String get faqQ3;
+
+  /// No description provided for @faqA3.
+  ///
+  /// In ar, this message translates to:
+  /// **'نعم، مع استرداد كامل حتى المهلة التي تظهر لكِ قبل الدفع.'**
+  String get faqA3;
+
+  /// No description provided for @faqQ4.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل يُشارَك رقمي مع أحد؟'**
+  String get faqQ4;
+
+  /// No description provided for @faqA4.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نشارك رقم جوالك مع أحد.'**
+  String get faqA4;
+
+  /// No description provided for @faqQ5.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل أستطيع الحضور مع صديقة؟'**
+  String get faqQ5;
+
+  /// No description provided for @faqA5.
+  ///
+  /// In ar, this message translates to:
+  /// **'نعم. اختاري «+1» عند الحجز لتحضري برفقة من تودّين حضورها، ويُحسب رسم التنظيم لمقعدين.'**
+  String get faqA5;
+
+  /// No description provided for @plusOne.
+  ///
+  /// In ar, this message translates to:
+  /// **'+1'**
+  String get plusOne;
+
+  /// No description provided for @plusOneExplain.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الخيار يتيح لكِ الحضور برفقة من تودّين حضورها.'**
+  String get plusOneExplain;
+
+  /// No description provided for @guestNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم مرافقتك'**
+  String get guestNameLabel;
+
+  /// No description provided for @guestConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'أؤكد أن مرافقتي امرأة وعمرها 18 سنة أو أكثر.'**
+  String get guestConfirm;
+
+  /// No description provided for @twoSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقعدان'**
+  String get twoSeats;
+
+  /// No description provided for @feeTimesTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'رسم التنظيم × 2'**
+  String get feeTimesTwo;
+
+  /// No description provided for @plusOneUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يتوفر مقعدان في هذا الموعد.'**
+  String get plusOneUnavailable;
+
+  /// No description provided for @plusOneGuest.
+  ///
+  /// In ar, this message translates to:
+  /// **'+1 {name}'**
+  String plusOneGuest(String name);
+
+  /// No description provided for @cancelBothSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإلغاء يشمل مقعدك ومقعد مرافقتك.'**
+  String get cancelBothSeats;
 }
 
 class _AppLocalizationsDelegate

@@ -131,6 +131,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               if (d.foodBand != null) _Fact(icon: Icons.account_balance_wallet_outlined, label: t.foodBandLabel, value: d.foodBand!),
               // The time zone is named the owner's way (11 Nov): "GMT+3", not the IANA id "Asia/Qatar".
               _Fact(icon: Icons.schedule, label: t.dateTime, value: '${fmtTime(d.startsAt, lang)} · GMT+3'),
+              // "+1": her companion and the total for the two seats
+              if (d.seatCount == 2)
+                TestId('plus-one-details', child: KeyedSubtree(
+                  key: const Key('plus-one-details'),
+                  child: _Fact(
+                    icon: Icons.group_outlined,
+                    label: [t.twoSeats, if (d.amountPaid != null) '${t.feeTimesTwo}: ${d.amountPaid}'].join(' · '),
+                    value: ltrPlusOne(d.guestName == null ? t.plusOne : t.plusOneGuest(d.guestName!)),
+                  ),
+                )),
               if (d.confirmedCount != null) ...[
                 const SizedBox(height: HzSpace.s4),
                 Text(t.yourTable, style: tt.titleLarge),
@@ -230,6 +240,12 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 )),
               if (d.action('cancel') && r.offlineSavedAt == null) ...[
                 const SizedBox(height: HzSpace.s8),
+                // the one refund line (owner, 14 Nov), while cancelling is still free; after the deadline the cancel
+                // screen says what applies
+                if (d.refundIfCancelledNow == 'full' && d.fullRefundUntil != null) ...[
+                  Text(t.refundLine(fmtWhen(d.fullRefundUntil!, lang)), key: const Key('refund-line'), style: tt.bodySmall?.copyWith(color: c.textMuted)),
+                  const SizedBox(height: HzSpace.s3),
+                ],
                 Press(child: OutlinedButton(
                   key: const Key('cancel'),
                   style: OutlinedButton.styleFrom(foregroundColor: c.danger, side: BorderSide(color: c.danger), minimumSize: const Size.fromHeight(52)),

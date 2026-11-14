@@ -117,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(f.sent['/api/v1/bookings'], {'session_id': 's9'});
     expect(find.text('59 ر.ق'), findsOneWidget);
-    expect(find.textContaining('استرداد كامل حتى'), findsOneWidget);
+    expect(find.textContaining('إلغاء مجاني حتى'), findsOneWidget);
     expect(find.byKey(const Key('ack')), findsNothing);
 
     await tester.tap(find.byKey(const Key('pay')));

@@ -348,6 +348,30 @@ VoidCallback? _openOf(BuildContext context, SessionSummary s) => s.myBookingId !
         ? null
         : () => context.push('/book', extra: s);
 
+/// Under a full session: how the waiting list works, in three steps (owner's texts, 14 Nov 2026). Information only:
+/// the app has no call to join the list yet, so nothing here can be tapped.
+class _WaitlistSteps extends StatelessWidget {
+  const _WaitlistSteps();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final c = hzColors(context);
+    final small = Theme.of(context).textTheme.bodySmall;
+    return Column(key: const Key('waitlist-steps'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Divider(height: HzSpace.s5, thickness: 1, color: c.border),
+      for (final (i, step) in [t.waitlistStep1, t.waitlistStep2, t.waitlistStep3].indexed)
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : HzSpace.s1),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: HzSpace.s5, child: Text('${i + 1}', style: small?.copyWith(color: c.primary, fontWeight: FontWeight.w700))),
+            Expanded(child: Text(step, style: small?.copyWith(color: c.textMuted))),
+          ]),
+        ),
+    ]);
+  }
+}
+
 /// The date as a calendar leaf, as on the website (decoration: the date line beside it says the same).
 class _Leaf extends StatelessWidget {
   const _Leaf(this.startsAt, {this.width = 60});
@@ -399,7 +423,7 @@ class _PeekCard extends StatelessWidget {
             ExcludeSemantics(child: Image.asset('assets/photos/${s.experience == 'coffee' ? 'cake' : 'seat'}-720.webp', height: 132, fit: BoxFit.cover)),
             Padding(
               padding: const EdgeInsets.all(HzSpace.s3),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _Leaf(s.startsAt, width: 56),
                 const SizedBox(width: HzSpace.s3),
                 Expanded(
@@ -410,7 +434,7 @@ class _PeekCard extends StatelessWidget {
                       Text(status, style: tt.bodySmall?.copyWith(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              ]),
+              ]), if (s.isFull && s.myBookingId == null) const _WaitlistSteps()]),
             ),
           ]),
         ),
@@ -446,7 +470,7 @@ class _SessionCard extends StatelessWidget {
         onTap: _openOf(context, s),
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.s4),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _Leaf(s.startsAt),
             const SizedBox(width: HzSpace.s4),
             Expanded(
@@ -462,7 +486,7 @@ class _SessionCard extends StatelessWidget {
                 ],
               ]),
             ),
-          ]),
+          ]), if (s.isFull && s.myBookingId == null) const _WaitlistSteps()]),
         ),
       ),
     )));

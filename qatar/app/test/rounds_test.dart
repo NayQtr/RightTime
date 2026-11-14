@@ -357,7 +357,7 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const Key('amount'))).style?.fontSize, greaterThanOrEqualTo(24));
     expect(find.descendant(of: find.byKey(const Key('pay')), matching: find.text('ادفعي 59 ر.ق')), findsOneWidget);
     expect(tester.getTopLeft(find.byKey(const Key('terms'))).dy, greaterThan(tester.getBottomLeft(find.byKey(const Key('pay'))).dy));
-    expect(find.textContaining('يمكنك الإلغاء مع استرداد كامل حتى'), findsOneWidget, reason: 'the product\'s own refund note, unchanged');
+    expect(find.text('إلغاء مجاني حتى الثلاثاء 10 نوفمبر · 7:30\u00A0م. بعده لا يُرد رسم التنظيم.'), findsOneWidget, reason: 'the one refund line (owner, 14 Nov)');
   });
 
   testWidgets('booking review close to the date: the warning and its acknowledgement stay before the button', (tester) async {

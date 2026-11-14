@@ -120,8 +120,10 @@ class MeetupsRepository {
   /// Holds a seat for a few minutes and returns what the review needs (and the checkout link when no acknowledgement
   /// is needed).
   /// [occasion] is 'birthday' or 'other' when she celebrates on this date (the coordinator is told); null otherwise.
-  Future<BookingStart> book(String sessionId, {String? occasion}) async =>
-      BookingStart.fromJson((await _api.send('POST', '/api/v1/bookings', body: {'session_id': sessionId, 'occasion': ?occasion}))!);
+  /// [guestName] is her companion's name when she brings one ("+1"): two seats are held, or the server answers 409
+  /// NOT_ENOUGH_SEATS.
+  Future<BookingStart> book(String sessionId, {String? occasion, String? guestName}) async => BookingStart.fromJson((await _api.send('POST', '/api/v1/bookings',
+      body: {'session_id': sessionId, 'occasion': ?occasion, if (guestName != null) 'guest': {'name': guestName}}))!);
 
   Future<BookingStart> booking(String bookingId) async => BookingStart.fromJson((await _api.send('GET', '/api/v1/bookings/$bookingId'))!);
 

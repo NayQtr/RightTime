@@ -27,3 +27,13 @@ String fmtWeekday(String iso, String locale) => DateFormat('EEEE', locale).forma
 /// The Doha calendar day (yyyy-mm-dd) of a session, to filter by day; and its chip label ("Thu 12", "الخميس 12").
 String qatarDayKey(String iso) => qatarTime(iso).toIso8601String().substring(0, 10);
 String fmtDayChip(String iso, String locale) => latinDigits(DateFormat('EEE d', locale).format(qatarTime(iso)));
+
+/// "+1" keeps its order inside Arabic text (a bare "+1" would be drawn "1+" in a right-to-left line).
+String ltrPlusOne(String s) => s.replaceAll('+1', '\u2066+1\u2069');
+
+/// An amount in riyals from its minor units, written as the server writes it ("118 ر.ق", "QAR 118").
+String fmtMoney(int minor, String locale) {
+  final v = minor / 100;
+  final s = minor % 100 == 0 ? '${minor ~/ 100}' : v.toStringAsFixed(2);
+  return locale == 'en' ? 'QAR $s' : '$s ر.ق';
+}

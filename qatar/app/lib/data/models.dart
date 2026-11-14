@@ -5,9 +5,17 @@ class Money {
   static Money? fromJson(Object? j) => j is Map<String, dynamic> ? Money(j['display'] as String) : null;
 }
 
+/// "+1" (owner, 14 Nov): a booking holds one seat or two. An API from before it sends neither field: one seat.
+int _seats(Map<String, dynamic> j) => (j['seats'] as num?)?.toInt() == 2 ? 2 : 1;
+String? _guestName(Map<String, dynamic> j) => j['guest_name'] is String && (j['guest_name'] as String).isNotEmpty ? j['guest_name'] as String : null;
+
+/// The fee for one seat; an API from before "+1" does not send it, and the amount it does send is for the one seat.
+int? _unitFee(Map<String, dynamic> j, Object? amount) =>
+    (j['unit_fee_minor'] as num?)?.toInt() ?? (amount is Map<String, dynamic> ? (amount['amount_minor'] as num?)?.toInt() : null);
+
 class SessionSummary {
   const SessionSummary({required this.id, required this.experience, required this.language, required this.startsAt, required this.district, required this.seatsLeft, required this.isFull, this.myBookingId, this.languageMatch,
-      this.occasionAllowed = true, this.occasionNoticeHours = 72});
+      this.occasionAllowed = true, this.occasionNoticeHours = 72, this.plusOneAvailable = false});
 
   final String id;
   final String experience;
@@ -23,6 +31,9 @@ class SessionSummary {
   final bool occasionAllowed;
   final int occasionNoticeHours;
 
+  /// "+1": the session can still seat two. A server that does not say cannot, so the choice is never offered to it.
+  final bool plusOneAvailable;
+
   factory SessionSummary.fromJson(Map<String, dynamic> j) => SessionSummary(
         id: j['id'] as String,
         experience: j['experience'] as String,
@@ -35,6 +46,7 @@ class SessionSummary {
         languageMatch: j['language_match'] as bool?,
         occasionAllowed: (j['occasion_allowed'] as bool?) ?? true,
         occasionNoticeHours: (j['occasion_notice_hours'] as num?)?.toInt() ?? 72,
+        plusOneAvailable: (j['plus_one_available'] as bool?) ?? false,
       );
 }
 
@@ -46,7 +58,8 @@ class SessionsList {
 }
 
 class BookingSummary {
-  const BookingSummary({required this.id, required this.ref, required this.status, required this.phase, required this.experience, required this.startsAt, required this.district});
+  const BookingSummary({required this.id, required this.ref, required this.status, required this.phase, required this.experience, required this.startsAt, required this.district,
+      this.seats = 1, this.guestName, this.unitFeeMinor, this.amount});
 
   final String id;
   final String ref;
@@ -55,6 +68,11 @@ class BookingSummary {
   final String experience;
   final String startsAt;
   final String district;
+
+  /// "+1": two seats with her companion's name; the amount is the total for the seats (when the list carries it).
+  final int seats;
+  final String? guestName, amount;
+  final int? unitFeeMinor;
 
   static const active = ['payment_pending', 'paid_awaiting_group', 'group_locked', 'revealed', 'checked_in'];
   bool get isActive => active.contains(status);
@@ -67,6 +85,10 @@ class BookingSummary {
         experience: j['experience'] as String,
         startsAt: j['starts_at'] as String,
         district: (j['district'] as String?) ?? '',
+        seats: _seats(j),
+        guestName: _guestName(j),
+        unitFeeMinor: _unitFee(j, j['amount']),
+        amount: Money.fromJson(j['amount'])?.display,
       );
 }
 
@@ -93,6 +115,11 @@ class EventDetails {
   String get revealAt => (json['reveal'] as Map<String, dynamic>)['reveal_at'] as String;
   String get ref => _b['ref'] as String;
   String get status => _b['status'] as String;
+
+  /// "+1": two seats with her companion's name; the amount paid is the total for the seats.
+  int get seatCount => _seats(_b);
+  String? get guestName => _guestName(_b);
+  int? get unitFeeMinor => _unitFee(_b, (json['payment'] as Map<String, dynamic>?)?['amount']);
   String get experience => _s['experience'] as String;
   String get startsAt => _s['starts_at'] as String;
   String get district => (_s['district'] as String?) ?? '';
@@ -223,13 +250,20 @@ class Coordinator {
 /// A held seat (POST /bookings, GET /bookings/{id}): what the review and payment screens need.
 class BookingStart {
   const BookingStart({required this.id, required this.ref, required this.status, required this.amount, this.holdExpiresAt, this.checkoutUrl,
-      required this.ackRequired, this.fullRefundUntil, required this.refundWindowOpen, this.paymentStatus, this.launchFree = false});
+      required this.ackRequired, this.fullRefundUntil, required this.refundWindowOpen, this.paymentStatus, this.launchFree = false,
+      this.seats = 1, this.guestName, this.unitFeeMinor, this.plusOneAvailable = false});
 
   final String id, ref, status, amount;
   final String? holdExpiresAt, checkoutUrl, fullRefundUntil, paymentStatus;
   final bool ackRequired, refundWindowOpen;
   /// Item 41: the organising fee is announced as free for a limited period, and only at this last step.
   final bool launchFree;
+
+  /// "+1": two seats with her companion's name; [amount] is the total (the fee for one seat times the seats).
+  final int seats;
+  final String? guestName;
+  final int? unitFeeMinor;
+  final bool plusOneAvailable;
 
   bool get paid => const ['paid_awaiting_group', 'group_locked', 'revealed', 'checked_in', 'completed'].contains(status);
   bool get expired => const ['expired', 'payment_failed', 'cancelled_by_user', 'cancelled_by_organizer'].contains(status);
@@ -249,6 +283,10 @@ class BookingStart {
       refundWindowOpen: (c['full_refund_window_open'] as bool?) ?? true,
       paymentStatus: (j['payment'] as Map<String, dynamic>?)?['status'] as String?,
       launchFree: (j['launch_free'] as bool?) ?? false,
+      seats: _seats(j),
+      guestName: _guestName(j),
+      unitFeeMinor: _unitFee(j, j['amount']),
+      plusOneAvailable: (j['plus_one_available'] as bool?) ?? false,
     );
   }
 }

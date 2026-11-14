@@ -303,5 +303,49 @@
   "groupProfile": "Profile",
   "groupPrefs": "Preferences",
   "groupPrivacy": "Privacy",
-  "payAmount": "Pay {amount}"
+  "payAmount": "Pay {amount}",
+  "waitlistStep1": "Join the waitlist.",
+  "waitlistStep2": "If a seat opens, we hold it for you and send you a notification.",
+  "waitlistStep3": "Confirm and pay within the time stated in the notification, or the seat goes to the next person.",
+  "refundLine": "Free cancellation until {deadline}. After that, the organising fee isn't refunded.",
+  "feeInfoTitle": "What does the organising fee cover?",
+  "feeIncludes": "Includes",
+  "feeExcludes": "Doesn't include",
+  "feeInc1": "Choosing a table of 4 to 6 women in your language and within your budget.",
+  "feeInc2": "Booking the venue and revealing it to you the day before the meetup.",
+  "feeInc3": "A coordinator on duty you can call on the day of the meetup.",
+  "feeExc1": "Food and drinks, which you pay the venue for.",
+  "faqQ1": "When do I find out the venue?",
+  "faqA1": "We reveal it to you the day before the meetup.",
+  "faqQ2": "What if the table doesn't fill?",
+  "faqA2": "We cancel it and refund you in full or move you to another session — your choice.",
+  "faqQ3": "Can I cancel?",
+  "faqA3": "Yes, with a full refund until the deadline shown to you before you pay.",
+  "faqQ4": "Is my number shared with anyone?",
+  "faqA4": "We don't share your mobile number with anyone.",
+  "faqQ5": "Can I come with a friend?",
+  "faqA5": "Yes. Choose “+1” when booking to come with the person you'd like to bring, and the organising fee is charged for two seats.",
+  "plusOne": "+1",
+  "plusOneExplain": "This option lets you come with the person you'd like to bring.",
+  "guestNameLabel": "Your companion's name",
+  "guestConfirm": "I confirm that my companion is a woman aged 18 or over.",
+  "twoSeats": "Two seats",
+  "feeTimesTwo": "Organising fee × 2",
+  "plusOneUnavailable": "Two seats aren't available for this session.",
+  "plusOneGuest": "+1 {name}",
+  "cancelBothSeats": "Cancelling covers your seat and your companion's seat.",
+  "@refundLine": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "@plusOneGuest": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

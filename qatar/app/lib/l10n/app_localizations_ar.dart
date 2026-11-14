@@ -838,4 +838,102 @@ class AppLocalizationsAr extends AppLocalizations {
   String payAmount(String amount) {
     return 'ادفعي $amount';
   }
+
+  @override
+  String get waitlistStep1 => 'انضمّي لقائمة الانتظار.';
+
+  @override
+  String get waitlistStep2 => 'إذا توفّر مقعد نحجزه لكِ ونرسل لكِ إشعارًا.';
+
+  @override
+  String get waitlistStep3 =>
+      'أكّدي وادفعي خلال المدة المذكورة في الإشعار، وإلا انتقل المقعد لمن بعدك.';
+
+  @override
+  String refundLine(String deadline) {
+    return 'إلغاء مجاني حتى $deadline. بعده لا يُرد رسم التنظيم.';
+  }
+
+  @override
+  String get feeInfoTitle => 'ماذا يشمل رسم التنظيم؟';
+
+  @override
+  String get feeIncludes => 'يشمل';
+
+  @override
+  String get feeExcludes => 'لا يشمل';
+
+  @override
+  String get feeInc1 => 'اختيار طاولة من 4 إلى 6 سيدات بلغتك وضمن ميزانيتك.';
+
+  @override
+  String get feeInc2 => 'حجز المكان وكشفه لكِ قبل اللقاء بيوم.';
+
+  @override
+  String get feeInc3 => 'منسّق مناوب يمكنك الاتصال به يوم اللقاء.';
+
+  @override
+  String get feeExc1 => 'الطعام والمشروبات، تدفعينها للمكان.';
+
+  @override
+  String get faqQ1 => 'متى أعرف المكان؟';
+
+  @override
+  String get faqA1 => 'نكشفه لكِ قبل اللقاء بيوم.';
+
+  @override
+  String get faqQ2 => 'ماذا لو لم تكتمل الطاولة؟';
+
+  @override
+  String get faqA2 => 'نُلغيها ونرد المبلغ كاملًا أو ننقلك لموعد آخر باختيارك.';
+
+  @override
+  String get faqQ3 => 'هل أستطيع الإلغاء؟';
+
+  @override
+  String get faqA3 =>
+      'نعم، مع استرداد كامل حتى المهلة التي تظهر لكِ قبل الدفع.';
+
+  @override
+  String get faqQ4 => 'هل يُشارَك رقمي مع أحد؟';
+
+  @override
+  String get faqA4 => 'لا نشارك رقم جوالك مع أحد.';
+
+  @override
+  String get faqQ5 => 'هل أستطيع الحضور مع صديقة؟';
+
+  @override
+  String get faqA5 =>
+      'نعم. اختاري «+1» عند الحجز لتحضري برفقة من تودّين حضورها، ويُحسب رسم التنظيم لمقعدين.';
+
+  @override
+  String get plusOne => '+1';
+
+  @override
+  String get plusOneExplain =>
+      'هذا الخيار يتيح لكِ الحضور برفقة من تودّين حضورها.';
+
+  @override
+  String get guestNameLabel => 'اسم مرافقتك';
+
+  @override
+  String get guestConfirm => 'أؤكد أن مرافقتي امرأة وعمرها 18 سنة أو أكثر.';
+
+  @override
+  String get twoSeats => 'مقعدان';
+
+  @override
+  String get feeTimesTwo => 'رسم التنظيم × 2';
+
+  @override
+  String get plusOneUnavailable => 'لا يتوفر مقعدان في هذا الموعد.';
+
+  @override
+  String plusOneGuest(String name) {
+    return '+1 $name';
+  }
+
+  @override
+  String get cancelBothSeats => 'الإلغاء يشمل مقعدك ومقعد مرافقتك.';
 }
