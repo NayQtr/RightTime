@@ -35,7 +35,13 @@ Pentagram), added to the same preview as seven screens: details (Pentagram giant
 Airbnb floating book pill with the refund note docking above it), booking review as a receipt (Stripe), inbox as a dated
 rail (Linear), getting-ready card as the empty state (Notion), two-tone interstitial (Pentagram), she picks her reminders
 before the system prompt (Duolingo), three echoing feedback rows (MUJI), gliding tab indicator (Framer).
-Texts with a dashed outline in the preview are Claude's placeholders; real copy = the owner's wording. NOT decided yet:
+Texts with a dashed outline in the preview are Claude's placeholders; real copy = the owner's wording. Round 3 (owner: «اكثر من عظيم، ادخل في الجولة الثالثة»), added to the same preview as ten screens: desktop layout with
+reserved card slots (Apple), dark depth from three surface steps (Framer), full meetup → three-step "what happens next"
+(Duolingo), fee in one figure + five short answers (Stripe), account in labelled groups with in-row ✓ (Linear), 1–5 scale
+as one sliding-thumb track (Notion), "your card" as a membership card with a cropped ring + "what you get" as a plain
+roster (Pentagram ×2; the ring pattern echoes the logo mark, so it needs the owner's approval; the logo itself untouched),
+venue reveal as one plain place card (MUJI), cancel as a when / what-you-get-back table (Airbnb). Aesop not retried.
+NOT decided yet:
 which ideas to build in the real site and app (asked the owner; waiting).
 
 ## Phone field redesign + identity proposals [2026-11-13]
