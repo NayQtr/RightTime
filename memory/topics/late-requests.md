@@ -62,6 +62,17 @@ DECIDED 14 Nov: «طبق فقط الجولة ١ و ٢ و ٣ على HerZone.app»
 preview's wording as it is, nothing under ابدئي, and release straight to herzone.app after tests and the usual release
 order. Plan and exclusions (invented policy texts are not copied): qatar/docs/plans/2026-11-14-rounds-1-3.md; spec =
 qatar/docs/design/preview-2026-11-14/herzone-preview.html. Built batch by batch.
+RELEASED 14 Nov: rounds 1-3 on the website and in the app. herzone.app and staging both serve herzone-web@56e59f75fb42
+(production dpl_5PsYwqRG6VD9aCSwGDCq9gfessHL, staging dpl_HbTXNU2btNjUi6KJ89xjH6Eh5K3E). Order kept: baseline run recorded,
+CI green on 56e59f7, `release` fast-forwarded, deployments, smoke checks passed on both, Sentry no unresolved issue in the hour.
+Local: 334 API/database/browser tests, 170 app tests. No server change, no migration. The app code is merged; no store build made.
+Also waiting on the owner from this release: (a) own wording for lines not in the preview: «لا يوجد لقاء بهذا الاختيار.» and the
+plural forms of the day count («لقاء واحد/لقاءان/{n} لقاءات/{n} لقاءً في هذا اليوم»); (b) the caption «أحد أماكن اللقاء في
+الدوحة.» on /about sits on a mood photo, not a real venue: keep or remove; (c) the «هذا الأسبوع» tile shows the next 7 days and
+uses surfaceSunken (the preview's pale yellow is not a token); (d) the reply line shows on multi-choice questions only
+(single-choice auto-advances); (e) app skipped: floating book pill (fee unknown before the hold), waitlist view (no client
+call), ready card's notifications row, inbox unread dot, dark depth (needs a token), tile eyebrows; store screenshots in
+qatar/docs/store are now stale; account arrows in the app point the wrong way in Arabic (older fault, not fixed: not asked).
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
 on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
 reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's
