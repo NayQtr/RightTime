@@ -1,4 +1,10 @@
 /* venue portal (016): one column, phone first, works on the restaurant's tablet too */
+/* The member site's identity step of 13 Nov 2026 (taller fields and buttons, rounder fields, focus halo) was approved from
+   pictures of the member screens only; this console keeps the sizes it had. */
+.btn { min-height: 52px; }
+.input, select.input, textarea.input { min-height: 52px; border-radius: var(--r-sm); }
+textarea.input { min-height: 120px; }
+.input:focus { box-shadow: inset 0 0 0 2px var(--c-text); }
 .vp-top { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--c-border); flex-wrap: wrap; }
 .vp-brand { font-family: var(--font-display); color: var(--c-primary); font-size: 1.25rem; }
 .vp-top #vp-venue { flex: 1; min-width: 0; }

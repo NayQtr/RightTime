@@ -1,4 +1,10 @@
 /* HerZone admin console styles (moved out of index.html so the CSP needs no 'unsafe-inline', NMX-31). */
+/* The member site's identity step of 13 Nov 2026 (taller fields and buttons, rounder fields, focus halo) was approved from
+   pictures of the member screens only; this console keeps the sizes it had. */
+.btn { min-height: 52px; }
+.input, select.input, textarea.input { min-height: 52px; border-radius: var(--r-sm); }
+textarea.input { min-height: 120px; }
+.input:focus { box-shadow: inset 0 0 0 2px var(--c-text); }
 main { max-width: 1280px; }
 #nav { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; padding: var(--s-2) var(--s-4); border-block-end: 1px solid var(--c-border); background: var(--c-surface); position: sticky; top: 0; z-index: 10; }
 #nav ul { list-style: none; display: flex; gap: var(--s-1); flex-wrap: wrap; margin: 0; padding: 0; }
