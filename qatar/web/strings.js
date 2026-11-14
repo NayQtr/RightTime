@@ -147,6 +147,10 @@ export const STRINGS = {
     tabsLabel: "التنقل الرئيسي", tabHome: "الرئيسية", tabEvents: "لقاءاتي", tabInbox: "الإشعارات", unreadCount: "{n} غير مقروءة", newTag: "جديد", tabProfile: "حسابي",
     city: "الدوحة", cityFull: "الدوحة، قطر", allSessions: "كل المواعيد", thisWeek: "هذا الأسبوع", nextWeek: "الأسبوع القادم", later: "لاحقًا",
     noUpcoming: "لا توجد مواعيد متاحة حاليًا. سنضيف مواعيد جديدة قريبًا.",
+    // rounds 1-3 of the reference-sites study, batch 1 (owner's decision of 14 Nov 2026; wording as in the approved preview)
+    quizReply: "جميل. سنبحث لكِ عن طاولة تشبهك.", tileEvening: "مساءً", tileAfternoon: "عصرًا", noMatch: "لا يوجد لقاء بهذا الاختيار.",
+    dayCount1: "لقاء واحد في هذا اليوم", dayCount2: "لقاءان في هذا اليوم", dayCountFew: "{n} لقاءات في هذا اليوم", dayCountMany: "{n} لقاءً في هذا اليوم",
+    aboutPull: "طاولة صغيرة، ووجوه جديدة، ومكان نختاره بعناية.", aboutCapSeat: "طاولة محجوزة باسم اللقاء.", aboutCapVenue: "أحد أماكن اللقاء في الدوحة.",
     eventsTitle: "لقاءاتي", noEventsTitle: "لا لقاءات قادمة", noEventsBody: "احجزي مقعدك لتلتقي بصديقات جديدات.", bookSeat: "احجزي مقعدك",
     inboxEmptyBody: "ستجدين هنا تحديثات لقاءاتك.", eventsCount: "اللقاءات: {n}", secAccount: "الحساب", secPrefs: "التفضيلات", secHelp: "المساعدة", cityLabel: "المدينة",
     // errors
@@ -284,6 +288,9 @@ export const STRINGS = {
     tabsLabel: "Main navigation", tabHome: "Home", tabEvents: "My events", tabInbox: "Notifications", unreadCount: "{n} unread", newTag: "New", tabProfile: "Account",
     city: "Doha", cityFull: "Doha, Qatar", allSessions: "All sessions", thisWeek: "This week", nextWeek: "Next week", later: "Later",
     noUpcoming: "No sessions are open right now. We'll add new ones soon.",
+    quizReply: "Lovely. We'll look for a table that feels like you.", tileEvening: "Evening", tileAfternoon: "Afternoon", noMatch: "No meetup matches this choice.",
+    dayCount1: "1 meetup on this day", dayCount2: "2 meetups on this day", dayCountFew: "{n} meetups on this day", dayCountMany: "{n} meetups on this day",
+    aboutPull: "A small table, new faces, and a venue we choose with care.", aboutCapSeat: "A table reserved in the meetup's name.", aboutCapVenue: "One of the meetup venues in Doha.",
     eventsTitle: "My events", noEventsTitle: "No upcoming events", noEventsBody: "Book your seat to meet new friends.", bookSeat: "Book your seat",
     inboxEmptyBody: "Updates about your events will appear here.", eventsCount: "Events: {n}", secAccount: "Account", secPrefs: "Preferences", secHelp: "Help", cityLabel: "City",
     errGeneric: "Something went wrong. Please try again.", offline: "You're offline.",

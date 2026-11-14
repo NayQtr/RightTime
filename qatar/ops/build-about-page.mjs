@@ -5,8 +5,12 @@
 // are up to date)
 //
 // PROVISIONAL (owner review, 10 Nov): the sections, their order and the photos below are one obvious place to change.
-// Every line is an existing approved string (no new copy). Photos: the round-3 set without photo 4 (restaurant table)
-// and photo 6 (terrace), owner decision 10 Nov.
+// Every line is an existing approved string. Photos: the round-3 set without photo 4 (restaurant table) and photo 6
+// (terrace), owner decision 10 Nov.
+// Rounds 1-3 study (owner's decision of 14 Nov 2026, after Pentagram): four type sizes only (about.css) and a
+// statement-then-photo rhythm: a pull line, then a photo with a small caption (the 16:9 one in the hero, the 4:5 one
+// at the close). The pull line and the two captions are the approved preview's wording (aboutPull, aboutCapVenue,
+// aboutCapSeat); the other statements are lines the page already had.
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,6 +49,7 @@ function picture({ name, sizes }, { sizesAttr, eager = false, cls = "about-photo
   return `<picture class="${cls}"><source type="image/webp" srcset="${set("webp")}" sizes="${sizesAttr}">`
     + `<img src="${IMG}/${name}-${w}.jpg" srcset="${set("jpg")}" sizes="${sizesAttr}" width="${w}" height="${h}" alt="" ${load}></picture>`;
 }
+const figure = (pic, caption) => `<figure class="about-figure">${pic}<figcaption class="caption">${esc(caption)}</figcaption></figure>`;
 
 export function aboutPage(lang) {
   const S = STRINGS[lang];
@@ -102,10 +107,11 @@ export function aboutPage(lang) {
     <section class="about-hero" aria-labelledby="hero-title">
       <div class="about-hero-text">
         <h1 id="hero-title">${hero}</h1>
+        <p class="pull">${esc(T("aboutPull"))}</p>
         <p>${esc(T("welcomeSub"))}</p>
         ${cta("cta-top")}
       </div>
-      ${picture(HERO, { sizesAttr: "(min-width: 1024px) 480px, 100vw", eager: true })}
+      ${figure(picture(HERO, { sizesAttr: "(min-width: 1024px) 480px, 100vw", eager: true }), T("aboutCapVenue"))}
     </section>
 
     <section aria-labelledby="how-title">
@@ -120,7 +126,7 @@ export function aboutPage(lang) {
 
     <section aria-labelledby="venues-title">
       <h2 id="venues-title">${esc(T("wyg2t"))}</h2>
-      <p class="lead">${esc(T("wyg2b"))}</p>
+      <p class="pull">${esc(T("wyg2b"))}</p>
       <ul class="about-gallery">${GALLERY.map((g) => `<li>${picture(g, { sizesAttr: "(min-width: 1024px) 240px, 50vw" })}</li>`).join("")}</ul>
     </section>
 
@@ -136,9 +142,9 @@ export function aboutPage(lang) {
     </section>
 
     <section class="about-closing" aria-labelledby="closing-title">
-      ${picture(CLOSING, { sizesAttr: "(min-width: 1024px) 320px, 100vw" })}
+      <h2 id="closing-title">${esc(T("bookSeat"))}</h2>
+      ${figure(picture(CLOSING, { sizesAttr: "(min-width: 1024px) 320px, 100vw" }), T("aboutCapSeat"))}
       <div class="about-closing-text">
-        <h2 id="closing-title">${esc(T("bookSeat"))}</h2>
         <p class="lead">${esc(T("welcomeSub"))}</p>
         ${cta("cta-bottom")}
       </div>
