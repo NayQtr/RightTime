@@ -30,6 +30,22 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
+  /// The question whose heading has given way to the reply line. It happens once per visit, on her first answer to a
+  /// question that stays on screen (a single choice moves on by itself).
+  String? _replyFor;
+  bool _replied = false;
+
+  void _choose(QuizViewModel vm, Question q, QOption o) {
+    final first = q.multi && !_replied && vm.selected.isEmpty;
+    vm.choose(o);
+    if (first && vm.selected.isNotEmpty) {
+      setState(() {
+        _replied = true;
+        _replyFor = q.id;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -77,22 +93,36 @@ class _QuizScreenState extends State<QuizScreen> {
       body = ListView(key: ValueKey(q.id), padding: const EdgeInsets.all(HzSpace.gutter), children: [
         LinearProgressIndicator(value: (vm.step + 1) / vm.total, color: c.primary, backgroundColor: c.surfaceSunken, minHeight: 6, borderRadius: BorderRadius.circular(3)),
         const SizedBox(height: HzSpace.s3),
-        // the step count, then the time left in a quieter colour
-        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
-          Text(' · ${timeLeftText(t, vm.minutesToGo)}', key: const Key('time-left'),
-              style: tt.bodySmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
-        ]),
-        if (q.section != null) Text(q.section!, style: tt.bodySmall),
-        const SizedBox(height: HzSpace.s2),
-        TestId('question', child: Text(q.text, key: const Key('question'), style: tt.headlineMedium)),
-        if (q.purpose != null) ...[const SizedBox(height: HzSpace.s2), Text(q.purpose!, style: tt.bodySmall?.copyWith(color: c.textMuted))],
-        if (q.multi && q.max > 1) ...[const SizedBox(height: HzSpace.s2), Text(t.chooseUpTo(q.max), style: tt.bodySmall)],
+        // After her first answer the heading gives way to one reply line and a seat fills at the small table (owner,
+        // 14 Nov: rounds 1-3); the next question brings the heading back. At once with reduced motion.
+        AnimatedSwitcher(
+          duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 180),
+          switchInCurve: HzMotion.easing,
+          switchOutCurve: HzMotion.easing,
+          layoutBuilder: (current, previous) => Stack(alignment: AlignmentDirectional.topStart, children: [...previous, ?current]),
+          child: _replyFor == q.id
+              ? _Reply(key: const Key('quiz-reply'), text: t.quizReply)
+              : Column(key: const ValueKey('heading'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  // the step count, then the time left in a quieter colour
+                  Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+                    Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+                    Text(' · ${timeLeftText(t, vm.minutesToGo)}', key: const Key('time-left'),
+                        style: tt.bodySmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+                  ]),
+                  if (q.section != null) Text(q.section!, style: tt.bodySmall),
+                  const SizedBox(height: HzSpace.s2),
+                  TestId('question', child: Text(q.text, key: const Key('question'), style: tt.headlineMedium)),
+                  if (q.purpose != null) ...[const SizedBox(height: HzSpace.s2), Text(q.purpose!, style: tt.bodySmall?.copyWith(color: c.textMuted))],
+                  if (q.multi && q.max > 1) ...[const SizedBox(height: HzSpace.s2), Text(t.chooseUpTo(q.max), style: tt.bodySmall)],
+                ]),
+        ),
         const SizedBox(height: HzSpace.s4),
-        if (q.layout == 'chips' || q.layout == 'scale')
-          Wrap(spacing: HzSpace.s2, runSpacing: HzSpace.s2, children: [for (final o in q.options) _Chip(o: o, selected: vm.selected.contains(o.id), onTap: () => vm.choose(o))])
+        if (q.layout == 'scale')
+          _ScaleTrack(options: q.options, selected: vm.selected, onTap: (o) => _choose(vm, q, o))
+        else if (q.layout == 'chips')
+          Wrap(spacing: HzSpace.s2, runSpacing: HzSpace.s2, children: [for (final o in q.options) _Chip(o: o, selected: vm.selected.contains(o.id), onTap: () => _choose(vm, q, o))])
         else
-          for (final o in q.options) _OptionTile(o: o, selected: vm.selected.contains(o.id), multi: q.multi, onTap: () => vm.choose(o)),
+          for (final o in q.options) _OptionTile(o: o, selected: vm.selected.contains(o.id), multi: q.multi, onTap: () => _choose(vm, q, o)),
         if (q.layout == 'scale' && (q.scaleLow != null || q.scaleHigh != null))
           Padding(
             padding: const EdgeInsets.only(top: HzSpace.s2),
@@ -147,7 +177,8 @@ class _OptionTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         button: true,
-        child: TestId('opt-${o.key}', child: InkWell(
+        // the row dims while touched and fills when released (owner, 14 Nov: rounds 1-3)
+        child: TestId('opt-${o.key}', child: Press(dim: true, child: InkWell(
           key: Key('opt-${o.key}'),
           borderRadius: BorderRadius.circular(HzRadius.md),
           onTap: onTap,
@@ -178,7 +209,7 @@ class _OptionTile extends StatelessWidget {
               ),
             ]),
           ),
-        )),
+        ))),
       ),
     );
   }
@@ -193,7 +224,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = hzColors(context);
-    return TestId('opt-${o.key}', child: FilterChip(
+    return TestId('opt-${o.key}', child: Press(dim: true, child: FilterChip(
       key: Key('opt-${o.key}'),
       label: Text(o.emoji == null ? o.label : '${o.emoji} ${o.label}'),
       selected: selected,
@@ -203,6 +234,114 @@ class _Chip extends StatelessWidget {
       backgroundColor: c.surfaceSunken,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.primary : c.borderStrong)),
       onSelected: (_) => onTap(),
-    ));
+    )));
+  }
+}
+
+/// The reply that stands where the heading stood after her first answer: the small table with one seat filling, and
+/// one line. The seat fills as the line arrives; with reduced motion it is already filled.
+class _Reply extends StatefulWidget {
+  const _Reply({super.key, required this.text});
+  final String text;
+
+  @override
+  State<_Reply> createState() => _ReplyState();
+}
+
+class _ReplyState extends State<_Reply> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  late final Animation<double> _seat = CurvedAnimation(parent: _c, curve: const Interval(0.25, 1, curve: HzMotion.easing));
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.of(context).disableAnimations) {
+      _c.value = 1;
+    } else {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        liveRegion: true,
+        child: Row(children: [
+          Stack(children: [
+            const TableArt(filled: 0, size: 56),
+            FadeTransition(opacity: _seat, child: const TableArt(filled: 1, size: 56)),
+          ]),
+          const SizedBox(width: HzSpace.s3),
+          Expanded(child: Text(widget.text, style: Theme.of(context).textTheme.titleLarge)),
+        ]),
+      );
+}
+
+/// A scale question as one track: the numbers sit in a single rounded bar and a light thumb slides to the chosen one
+/// (owner, 14 Nov: rounds 1-3). Each number is still its own button with the option's key. At once with reduced motion.
+class _ScaleTrack extends StatelessWidget {
+  const _ScaleTrack({required this.options, required this.selected, required this.onTap});
+  final List<QOption> options;
+  final Set<String> selected;
+  final ValueChanged<QOption> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = hzColors(context);
+    final n = options.length;
+    final at = options.indexWhere((o) => selected.contains(o.id));
+    final still = MediaQuery.of(context).disableAnimations;
+    return Container(
+      key: const Key('scale-track'),
+      height: 56,
+      padding: const EdgeInsets.all(HzSpace.s1),
+      // the sunken surface under the light thumb: the two stay apart in the dark theme as well
+      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(HzRadius.pill)),
+      child: Stack(children: [
+        if (at >= 0)
+          AnimatedAlign(
+            alignment: AlignmentDirectional(n < 2 ? 0 : -1 + 2 * at / (n - 1), 0),
+            duration: still ? Duration.zero : HzMotion.base,
+            curve: Curves.easeOut,
+            child: FractionallySizedBox(
+              widthFactor: 1 / n,
+              heightFactor: 1,
+              child: DecoratedBox(
+                key: const Key('scale-thumb'),
+                decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.pill), boxShadow: HzElevation.e1),
+              ),
+            ),
+          ),
+        Material(
+          type: MaterialType.transparency,
+          child: Row(children: [
+            for (final (i, o) in options.indexed)
+              Expanded(
+                child: Semantics(
+                  selected: i == at,
+                  button: true,
+                  child: TestId('opt-${o.key}', child: InkWell(
+                    key: Key('opt-${o.key}'),
+                    borderRadius: BorderRadius.circular(HzRadius.pill),
+                    onTap: () => onTap(o),
+                    child: Center(
+                      child: Text(o.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16, fontWeight: FontWeight.w700, color: i == at ? c.primary : c.textMuted)),
+                    ),
+                  )),
+                ),
+              ),
+          ]),
+        ),
+      ]),
+    );
   }
 }
