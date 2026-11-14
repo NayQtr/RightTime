@@ -34,7 +34,7 @@ NOT yet released. Owner (13 Nov): SMS provider and payment gateway «still not r
 admin account is NOT activated yet (no enrol attempt reached the server; the enrol page works, checked with the request
 blocked before it left the browser).
 
-## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's enrolment pending
+## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's admin account ACTIVATED (checked 14 Nov)
 
 Done 13 Nov with the owner's answers (email nayeffr@gmail.com, name «المالك», role owner): admin account created in
 production (id 9290aa62…, audit rows admin_create and admin_enroll_token), one-use enrolment token valid 24 hours, given
