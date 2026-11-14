@@ -966,3 +966,128 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
   .bigdate b, .dock-note { animation: none; }
   .pin-bar, .ck-row, .segs input + span, .tabbar::before { transition: none; }
 }
+
+/* ---------- Round 3 of the reference-sites study (owner's decision, 14 Nov 2026). New classes, or rules under the member
+   app's own containers, so the admin and venue consoles keep their look. */
+/* home on a wide screen (after Apple): the page uses the width, the tiles sit in one row, this week's photo cards in
+   three columns and the later lists in two, instead of one phone column in the middle. The tab bar keeps its width. */
+@media (min-width: 1024px) {
+  body:has(main :is(.home-head, .skel-home)) { --col: 1040px; }
+  .tabbar { --col: 560px; }
+  .tiles { grid-template-columns: 2fr 1fr 1fr; }
+  .tile.wide { grid-column: auto; }
+  .peek { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-inline: 0; padding-inline: 0; overflow: visible; }
+  .week-group > .list { grid-template-columns: 1fr 1fr; }
+}
+/* home while it loads: the places of the heading, the tiles and the first cards are kept, in the same layout */
+.skel-home { gap: 0; padding: 0; }
+.skel-home > span:not(.skel-tiles):not(.skel-slots) { border-radius: var(--r-sm); }
+.skel-home .skel-title { height: 42px; width: 40%; margin-block: var(--s-2) var(--s-1); }
+.skel-home .skel-line { height: 14px; width: 62%; margin-block: var(--s-2) var(--s-5); }
+.skel-home .skel-h2 { height: 24px; width: 34%; margin-block: var(--s-6) var(--s-3); }
+.skel-home .skel-h2.small { height: 14px; width: 24%; margin-block: var(--s-2); }
+.skel-home .skel-line.count { height: 14px; width: 30%; margin-block: var(--s-2) 0; visibility: hidden; }
+.skel-home :is(.skel-tiles, .skel-slots) { background: none; animation: none; }
+.skel-home :is(.skel-tiles, .skel-slots) > i { display: block; border-radius: var(--r-md); background: var(--c-surfaceSunken); animation: skel-pulse 1.4s ease-in-out infinite; }
+.skel-home .skel-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-block-end: var(--s-2); }
+.skel-home .skel-tiles > i { height: 92px; }
+.skel-home .skel-tiles > i:first-child { grid-column: 1 / -1; height: 112px; }
+.skel-home .skel-slots { display: flex; gap: var(--s-3); overflow: hidden; margin-inline-end: calc(-1 * var(--s-5)); padding-block: var(--s-1) var(--s-4); }
+.skel-home .skel-slots > i { flex: 0 0 272px; height: 330px; border-radius: var(--r-xl); }
+@media (min-width: 1024px) {
+  .skel-home .skel-tiles { grid-template-columns: 2fr 1fr 1fr; }
+  .skel-home .skel-tiles > i:first-child { grid-column: auto; }
+  .skel-home .skel-tiles > i { height: 112px; }
+  .skel-home .skel-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-inline-end: 0; }
+  .skel-home .skel-slots > i { height: auto; aspect-ratio: 1 / 1.1; }
+}
+@media (prefers-reduced-motion: reduce) { .skel-home :is(.skel-tiles, .skel-slots) > i { animation: none; } }
+/* a full session: her place on the waitlist as a marked step in the session's own row (after Duolingo) */
+.wait-step { position: relative; margin: 0; padding-inline-start: 28px; min-height: 24px; color: var(--c-text); animation: enter-fade 200ms var(--m-ease) backwards; }
+.wait-step::before { content: ""; position: absolute; inset-inline-start: 4px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--c-primary); }
+/* account (after Linear): an icon at the start of each row; a change is confirmed in the row itself */
+.settings .rl { display: inline-flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.settings .rl .i { color: var(--c-primary); stroke-width: 1.7; }
+.settings .v { margin-inline-start: auto; text-align: end; }
+.settings .v.ok { color: var(--c-primary); animation: enter-fade 150ms var(--m-ease) backwards; }
+.settings .v .i { width: 20px; height: 20px; stroke-width: 2.5; }
+/* questionnaire (after Notion): the 1-5 scale is one track, and a raised thumb slides to the chosen number; the chosen
+   state is the thumb itself (a shape with an edge), not colour alone. Chips with several answers take the same look. */
+.quiz-q .scale { position: relative; gap: 0; grid-template-columns: repeat(var(--n, 5), 1fr); height: 56px; padding: 4px; border-radius: 28px;
+  background: color-mix(in oklch, var(--c-primary) 9%, var(--c-bg)); }
+.quiz-q .scale label { z-index: 1; aspect-ratio: auto; max-height: none; height: 100%; border-radius: 24px; background: none; color: var(--c-textMuted);
+  transition: color 200ms var(--m-ease), opacity 150ms var(--m-ease); }
+.quiz-q .scale label:has(input:checked) { background: none; color: var(--c-primary); }
+.scale .thumb { position: absolute; top: 4px; bottom: 4px; inset-inline-start: calc(4px + var(--at, 0) * (100% - 8px) / var(--n, 5)); width: calc((100% - 8px) / var(--n, 5));
+  border-radius: 24px; background: var(--c-surface); box-shadow: inset 0 0 0 1.5px var(--c-primary), 0 3px 9px color-mix(in oklch, var(--c-text) 14%, transparent);
+  opacity: 0; transition: inset-inline-start 200ms ease-out, opacity 150ms var(--m-ease); }
+.scale.has .thumb { opacity: 1; }
+.quiz-q .chip { background: color-mix(in oklch, var(--c-primary) 9%, var(--c-bg)); }
+.quiz-q .chip:has(input:checked) { background: var(--c-surface); color: var(--c-primary);
+  box-shadow: inset 0 0 0 1.5px var(--c-primary), 0 3px 9px color-mix(in oklch, var(--c-text) 14%, transparent); }
+.quiz-q .chip:has(input:checked):active { background-color: var(--c-primarySubtle); }
+/* "your card" (after Pentagram): a membership card; rows of her own answers; a large cropped arc of the table drawing in
+   the corner, decorative and faint */
+.mcard { position: relative; overflow: hidden; width: 100%; display: grid; gap: var(--s-3); padding: var(--s-5); border-radius: var(--r-xl); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border); }
+.mcard > :not(.arc) { position: relative; z-index: 1; }
+.mcard-head { display: flex; align-items: center; gap: var(--s-3); }
+.mcard-head .table { width: 56px; height: 56px; flex: none; }
+.mcard dl { margin: 0; }
+.mcard .f { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3); padding: var(--s-3) 0; border-block-start: 1px solid var(--c-border); }
+.mcard dt { flex: none; font-size: calc(var(--u) * 0.8125); color: var(--c-textMuted); }
+.mcard dd { margin: 0; text-align: end; font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1); }
+.mcard .arc { position: absolute; width: 440px; height: 440px; max-width: none; inset-inline-end: -190px; inset-block-end: -200px; fill: none; stroke: var(--c-primary); stroke-width: 1.2; opacity: 0.14; pointer-events: none; }
+.mcard .arc .d { fill: var(--c-primary); stroke: none; }
+/* "what you get" (after Pentagram): the small mark and the title, one statement, then a plain roster on hairlines */
+.ttl { display: flex; align-items: center; gap: var(--s-2); margin-block: var(--s-3) var(--s-2); }
+.ttl .mark { width: 24px; height: 24px; flex: none; }
+.ttl h1 { margin: 0; font-size: calc(var(--u) * 1.2500); line-height: 1.4; }
+.wyg-say { margin: 0 0 var(--s-4); font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.6250); line-height: 1.5; }
+:root[lang="en"] .wyg-say { line-height: 1.3; }
+#plan > .label { margin-block-end: var(--s-2); }
+.roster { list-style: none; margin: 0; padding: 0; border-block-start: 1px solid var(--c-border); }
+.roster li { display: grid; gap: 2px; align-content: center; min-height: 60px; padding: var(--s-3) 0; border-block-end: 1px solid var(--c-border); }
+.roster strong { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1.0625); }
+.roster span { font-size: calc(var(--u) * 0.8750); color: var(--c-textMuted); }
+.nextf { display: grid; gap: 2px; margin: var(--s-6) 0 0; }
+.nextf small { font-size: calc(var(--u) * 0.8125); color: var(--c-textMuted); }
+.nextf b { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.3750); }
+/* the venue, once revealed (after MUJI): one quiet place card: the name, four facts, one button. The table code is the
+   one yellow highlight on the screen (a fill with dark ink). */
+.place { padding: var(--s-1) var(--s-5) var(--s-5); border-radius: var(--r-lg); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border); }
+.place h2 { margin: 0; padding-block: var(--s-4) var(--s-2); }
+.prow { display: flex; align-items: center; gap: var(--s-3); min-height: 53px; padding-block: var(--s-2); border-block-end: 1px solid var(--c-border); font-size: calc(var(--u) * 0.9375); }
+.prow .i { flex: none; stroke-width: 1.6; }
+.prow > span { flex: none; color: var(--c-textMuted); }
+.prow b { margin-inline-start: auto; font-weight: 600; text-align: end; min-width: 0; overflow-wrap: anywhere; }
+.place .table-code { display: inline-block; padding: 2px var(--s-3); border-radius: var(--r-sm); background: var(--c-accent); color: var(--c-onAccent); box-shadow: none; font-size: calc(var(--u) * 1.1250); }
+.place > .caption { margin: var(--s-2) 0 var(--s-4); }
+.place .arrive { margin-block-start: var(--s-4); }
+.place .arrive p { margin: var(--s-1) 0 0; }
+.place > .caption:last-child { margin-block-end: 0; }
+/* cancelling (after Airbnb): when, and what she gets back; the row in force now carries an edge and full strength, the
+   other is quieter (told by aria-current as well) */
+.cancel-table { margin: 0 0 var(--s-5); border-block-start: 1px solid var(--c-border); }
+.cancel-table .when { display: grid; grid-template-columns: 104px 1fr; gap: var(--s-3); padding: var(--s-4) var(--s-3); border-block-end: 1px solid var(--c-border);
+  border-inline-start: 3px solid transparent; color: var(--c-textMuted); }
+.cancel-table .when.now { border-inline-start-color: var(--c-primary); color: var(--c-text); background: var(--c-surface); }
+.cancel-table dt { font-size: calc(var(--u) * 0.8125); line-height: 1.5; color: var(--c-textMuted); }
+.cancel-table dd { margin: 0; display: grid; gap: 2px; }
+.cancel-table dd span { font-size: calc(var(--u) * 0.8750); color: var(--c-textMuted); }
+@media (prefers-reduced-motion: reduce) {
+  .wait-step, .settings .v.ok { animation: none; }
+  .quiz-q .scale label, .scale .thumb { transition: none; }
+}
+/* Dark theme depth (after Framer): three surface steps and a hairline in the brand colour, no shadows and no glow. The
+   page is the first step, a card the second (surface), and what sits inside a card the third (primarySubtle). Member app
+   only (#topbar); no new token. Written twice: once for a device in dark mode, once for the theme switch. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #topbar ~ main :is(.card:not(.hero), .place, .mcard, .fb-sum, .settings, .event-card, .book-pill, .dock-note, .pin-bar) {
+    background: var(--c-surface); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--c-primary) 8%, transparent); }
+  :root:not([data-theme="light"]) #topbar ~ main .card:not(.hero) :is(.badge:not(.badge-primary), .btn-secondary), :root:not([data-theme="light"]) #topbar ~ main .cancel-table .when.now { background: var(--c-primarySubtle); }
+  :root:not([data-theme="light"]) #topbar ~ main .welcome-photo img { box-shadow: none; }
+}
+:root[data-theme="dark"] #topbar ~ main :is(.card:not(.hero), .place, .mcard, .fb-sum, .settings, .event-card, .book-pill, .dock-note, .pin-bar) {
+  background: var(--c-surface); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--c-primary) 8%, transparent); }
+:root[data-theme="dark"] #topbar ~ main .card:not(.hero) :is(.badge:not(.badge-primary), .btn-secondary), :root[data-theme="dark"] #topbar ~ main .cancel-table .when.now { background: var(--c-primarySubtle); }
+:root[data-theme="dark"] #topbar ~ main .welcome-photo img { box-shadow: none; }

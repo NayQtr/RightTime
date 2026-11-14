@@ -132,7 +132,15 @@ function failedView(title, r, again) {
 
 // A request in flight: the button keeps its width and shows a spinner (styles.css .btn[aria-busy]); re-enabling clears both.
 function setBusy(el, on) { el.disabled = on; if (on) el.setAttribute("aria-busy", "true"); else el.removeAttribute("aria-busy"); }
-function loadingView() { if (navDir === "zoom") startEntrance(); main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
+// Home reserves the places of its heading, tiles and first cards while it loads, so nothing jumps when they arrive
+// (round 3, after Apple); on a wide screen the places follow the wide layout.
+function loadingView(kind) {
+  if (kind === "home") {
+    main.innerHTML = `<div class="skel skel-home" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-line"></span>
+      <span class="skel-h2"></span><span class="skel-tiles"><i></i><i></i><i></i></span><span class="skel-line count"></span><span class="skel-h2 small"></span><span class="skel-slots"><i></i><i></i><i></i></span></div>`;
+    return;
+  }
+  if (navDir === "zoom") startEntrance(); main.innerHTML = `<div class="skel" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-card"></span><span class="skel-card"></span><span class="skel-card short"></span></div>`; }
 
 // ------------------------------------------------------------------ session (NMX-17, MASVS-STORAGE/AUTH)
 // The access token lives in memory only; storage keeps just the refresh token, which the server rotates on every use and
@@ -238,7 +246,7 @@ function isDark() {
 }
 // The new colours are revealed through a circle growing from the switch (a mask, not a fade) where the browser has View
 // Transitions and motion is welcome; otherwise they change at once.
-function setTheme(t) {
+function setTheme(t, origin = null) {
   const root = document.documentElement;
   const apply = () => {
     store.set("theme", t);
@@ -247,9 +255,9 @@ function setTheme(t) {
     renderTopbar();
     const sw = document.getElementById("theme");
     sw.classList.add("icon-swap");
-    sw.focus();
+    if (!origin) sw.focus(); // asked for from a row of the account screen: the keyboard stays on that row
   };
-  const from = document.getElementById("theme");
+  const from = origin || document.getElementById("theme");
   if (!document.startViewTransition || lessMotion() || !from) { apply(); return; }
   const r = from.getBoundingClientRect();
   root.style.setProperty("--vt-x", `${Math.round(r.left + r.width / 2)}px`);
@@ -694,7 +702,7 @@ async function scrQuiz(stepStr) {
   let body;
   if (qq.layout === "scale") {
     const last = qq.options.length - 1;
-    body = `<div class="scale" role="radiogroup" aria-labelledby="qh">${qq.options.map((o, j) => `<label>${input(o).replace("<input ", `<input aria-label="${esc(o.label)}${j === 0 && qq.scale_low ? ` · ${esc(qq.scale_low)}` : ""}${j === last && qq.scale_high ? ` · ${esc(qq.scale_high)}` : ""}" `)}<span aria-hidden="true">${esc(o.label)}</span></label>`).join("")}</div>
+    body = `<div class="scale" role="radiogroup" aria-labelledby="qh"><span class="thumb" aria-hidden="true"></span>${qq.options.map((o, j) => `<label>${input(o).replace("<input ", `<input aria-label="${esc(o.label)}${j === 0 && qq.scale_low ? ` · ${esc(qq.scale_low)}` : ""}${j === last && qq.scale_high ? ` · ${esc(qq.scale_high)}` : ""}" `)}<span aria-hidden="true">${esc(o.label)}</span></label>`).join("")}</div>
       <div class="scale-ends caption" aria-hidden="true"><span>${esc(qq.scale_low || "")}</span><span>${esc(qq.scale_high || "")}</span></div>`;
   } else if (qq.layout === "chips") {
     body = `<div class="chips" role="group" aria-labelledby="qh">${qq.options.map((o) => `<label class="chip">${input(o)}<span>${optLabel(o.label)}</span></label>`).join("")}</div>`;
@@ -715,6 +723,15 @@ async function scrQuiz(stepStr) {
     </form>`);
   growBar();
   const inputs = $$("input[name=o]");
+  // Round 3 (after Notion): the scale is one track; a thumb slides to the chosen number (styles.css, from --at and --n).
+  const track = $(".scale");
+  if (track) track.style.setProperty("--n", String(qq.options.length));
+  const placeThumb = () => {
+    if (!track) return;
+    const at = inputs.findIndex((x) => x.checked);
+    track.classList.toggle("has", at >= 0);
+    if (at >= 0) track.style.setProperty("--at", String(at));
+  };
   // After her first choice on a question with several answers, the heading gives way to one reply line beside the small
   // table, one seat filling (owner-approved study, 14 Nov 2026, after Duolingo). Once per question; any later change to
   // the answer brings the question back. The question stays in the page for screen readers the whole time (it is only
@@ -744,6 +761,7 @@ async function scrQuiz(stepStr) {
     const picked = inputs.filter((x) => x.checked);
     if (qq.max_selections) inputs.forEach((x) => { x.disabled = !x.checked && picked.length >= qq.max_selections; });
     quiz.answers[qq.id] = picked.map((x) => x.value);
+    placeThumb();
     if (changed && !single) {
       if (reply === "none" && changed.checked) { reply = "shown"; swapHead(true); }
       else if (reply === "shown") { reply = "done"; swapHead(false); }
@@ -773,6 +791,9 @@ function scrInter(id, i, back) {
   const done = () => { if (!last) go(`#/quiz/${i + 1}`); else if (signedIn()) finishQuiz(); else go("#/name"); };
   const vibe = id === "vibe" ? vibeOf(answersByKey()) : null;
   const energy = id === "energy" ? energyOf(answersByKey()) : null;
+  const labelsOf = (key) => { const qq = state.quiz.q.questions.find((x) => x.key === key); return qq ? (state.quiz.answers[qq.id] || []).map((oid) => (qq.options.find((o) => o.id === oid) || {}).label).filter(Boolean) : []; };
+  const herName = signedIn() && state.me ? state.me.display_name : store.get("quizName");
+  const cardRows = id !== "vibe" ? [] : [["firstName", herName ? [String(herName)] : []], ["tableLanguage", labelsOf("Q01")], ["cardLooking", labelsOf("Q09")], ["cardEvening", labelsOf("Q19")], ["cardBudget", labelsOf("Q04")]].filter(([, v]) => v.length);
   const screens = {
     doha: () => `<div class="art">${icon("map-pin")}</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
     community: () => `<div class="art">${icon("users")}</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
@@ -781,8 +802,15 @@ function scrInter(id, i, back) {
     how: () => `<p class="tag">${esc(T("howTitle"))}</p><h1 class="say">${esc(T("howSay"))} <i>${esc(T("howSayRest"))}</i></h1>
       <ul class="plain-steps">${["how2", "how3", "how4"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
     science: () => `<div class="art">${icon("book-open")}</div><h1>${esc(T("scienceTitle"))}</h1><div class="quote"><p>${esc(T("scienceBody"))}</p><p class="caption">${esc(T("scienceSource"))}</p></div>`,
-    vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="vibe-card">${vibeTable(vibe)}</div>
-      <h1>${esc(T(`vibe_${vibe}`))}</h1><p class="lead">${esc(T(`vibe_${vibe}Body`))}</p><p class="caption">${esc(T("vibeNote"))}</p>`,
+    // Round 3 (after Pentagram): "your card" as a membership card. Her light summary heads it, then a few of her own
+    // answers as rows (only those she has given), and in the corner a large cropped arc of the table drawing (not the
+    // logo, which is untouched).
+    vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="mcard"><div class="mcard-head">${vibeTable(vibe)}<h1>${esc(T(`vibe_${vibe}`))}</h1></div>
+      <p class="lead">${esc(T(`vibe_${vibe}Body`))}</p>
+      ${cardRows.length ? `<dl>${cardRows.map(([k, v]) => `<div class="f"><dt>${esc(T(k))}</dt><dd>${v.map(optLabel).join(esc(T("listSep")))}</dd></div>`).join("")}</dl>` : ""}
+      <svg class="arc" aria-hidden="true" viewBox="0 0 440 440"><circle cx="220" cy="220" r="118"/>${[0, 1, 2, 3, 4, 5].map((k) => { const a = -Math.PI / 2 + (k * Math.PI) / 3;
+        return `<circle class="d" cx="${(220 + 180 * Math.cos(a)).toFixed(0)}" cy="${(220 + 180 * Math.sin(a)).toFixed(0)}" r="26"/>`; }).join("")}</svg></div>
+      <p class="caption">${esc(T("vibeNote"))}</p>`,
     curating: () => `<div class="dots-loader">${tableSvg({ seats: 6, filled: 0 })}<b id="pct" class="num">0%</b></div>
       <h1>${esc(T("curatingTitle"))}</h1><ul class="checklist" id="cl">${["cur1", "cur2", "cur3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
     ready: () => `<div class="done-art">${tableSvg({ seats: 6, filled: 6 })}</div><h1>${esc(T("readyTitle"))}</h1><p class="lead">${esc(T("readyBody"))}</p>
@@ -951,16 +979,20 @@ async function scrWhatYouGet() {
   const launchFree = Boolean(s && s.launch_free);
   const plan = { kind: "per_seat", fee: s && !launchFree ? s.price.display : null, hours: s ? s.full_refund_until_hours : null };
   const benefits = [["users", "wyg1t", "wyg1b"], ["map-pin", "wyg2t", "wyg2b"], ["message-circle", "wyg3t", "wyg3b"], ["shield-check", "wyg4t", "wyg4b"], ["hand-heart", "wyg5t", "wyg5b"]];
+  // Round 3 (after Pentagram): a plain roster. The small mark (the logo as it is) and the title, one statement, then the
+  // same five benefits as rows on hairlines, with no icons and no card; before the button, what comes next.
   view(T("wygTitle"), `
-    <h1 class="display-title">${esc(T("wygTitle"))}</h1>
-    <section class="card stack" id="plan" data-kind="${plan.kind}">
+    <div class="ttl">${brandMark()}<h1>${esc(T("wygTitle"))}</h1></div>
+    <p class="wyg-say">${esc(T("wygSay"))}</p>
+    <section id="plan" data-kind="${plan.kind}">
       ${launchFree ? "" : `<p class="label">${esc(plan.fee ? T("wygPrice", { fee: plan.fee }) : T("wygPriceNoFee"))}</p>`}
-      <ul class="benefits">${benefits.map(([ic, t, b]) => `<li><span class="bi">${icon(ic)}</span><span><strong>${esc(T(t))}</strong><br><span class="muted">${esc(T(b))}</span></span></li>`).join("")}</ul>
+      <ul class="roster">${benefits.map(([, t, b]) => `<li><strong>${esc(T(t))}</strong><span>${esc(T(b))}</span></li>`).join("")}</ul>
     </section>
     <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(plan.hours ? T("wygRefund", { h: plan.hours }) : T("wygRefundGeneric"))}</div></div>
     ${authed ? `<a class="card card-link plans-link" href="#/plans"><span><strong>${esc(T("plansTitle"))}</strong><br><span class="muted">${esc(T("plansTeaser"))}</span></span></a>` : ""}
     <h2>${esc(T("faqTitle"))}</h2>
     <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
+    ${authed ? `<p class="nextf"><small>${esc(T("next"))}</small><b>${esc(T("wygCta"))}</b></p>` : ""}
     <div class="quiz-foot"><div>${plan.fee ? `<p class="caption foot-price" id="wyg-sum">${esc(T("wygSum", { fee: plan.fee }))}</p>` : ""}<a class="btn btn-primary btn-block" id="wyg-go" href="${authed ? "#/home" : `#/quiz/${state.quizReturn ?? 0}`}">${esc(authed ? T("wygCta") : T("continue"))}</a></div></div>`);
 }
 
@@ -1056,6 +1088,11 @@ function wireNotifyMe() {
   };
 }
 
+// Round 3 (after Duolingo), built only as far as the product's own texts go: a full session says what happened in its
+// own row. Once she joins, the button gives way to a marked step with her real place. The preview's three explanatory
+// steps are waitlist promises and wait for the owner's wording (plan of 14 Nov 2026).
+const waitStep = (n) => `<p class="caption wait-step" role="status">${esc(T("onWaitlist", { n }))}</p>`;
+
 async function scrSessions(preselect) {
   if (!(await guard())) return;
   loadingView();
@@ -1077,8 +1114,8 @@ async function scrSessions(preselect) {
         <span class="caption">${esc(s.district)} · ${esc(T(s.conversation_language === "ar" ? "langAr" : "langEn"))} · ${esc(T("groupSize"))} · ${esc(s.price.display)}</span>
         ${offerOf(s) ? `<span class="caption offer-note">${esc(offerText(s))}</span>` : ""}
       </span></label>
-    ${s.is_full && !s.my_booking_id ? (s.waitlist ? `<p class="caption">${esc(T("onWaitlist", { n: s.waitlist.position }))}</p>`
-      : `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>`) : ""}</div>`;
+    ${s.is_full && !s.my_booking_id ? `<div class="wait-box">${s.waitlist ? waitStep(s.waitlist.position)
+      : `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>`}</div>` : ""}</div>`;
   // a long list gets day and area chips; "All" in each group shows everything again
   const days = [...new Set(ok.map((s) => qatarDay(s.starts_at)))];
   const areas = [...new Set(ok.map((s) => s.district))];
@@ -1138,7 +1175,8 @@ async function scrSessions(preselect) {
     setBusy(b, true);
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
     setBusy(b, false);
-    toast(w.ok ? T("onWaitlist", { n: w.data.position }) : withNext(w.data.message || T("errGeneric")));
+    if (w.ok) b.parentElement.innerHTML = waitStep(w.data.position);
+    else toast(withNext(w.data.message || T("errGeneric")));
   }));
   const radios = $$("input[name=s]");
   // Item 32 (provisional): a celebration needs notice (server: CELEBRATION_NOTICE_HOURS); for a sooner session the
@@ -1499,7 +1537,7 @@ const dayCountText = (n) => T(n === 1 ? "dayCount1" : n === 2 ? "dayCount2" : n 
 
 async function scrHome() {
   if (!(await guard())) return;
-  loadingView();
+  loadingView("home");
   // required documents updated since the user accepted them (terms, conduct, privacy notice): read and accept on home
   const outdated = (state.me && state.me.outdated_consents) || [];
   // accounts registered before HerZone became women-only confirm once before their next booking
@@ -1718,10 +1756,14 @@ async function scrDetails(id) {
       ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.map((m) => m.display_name || T("unnamed")).join("، "))}</p>` : ""}</section>`
       : ph === "forming" ? `<section class="card"><div class="table-figure">${tableSvg({ seats: 6 })}<p class="label">${esc(T("tableForming"))}</p></div></section>` : ""}
     ${!e.venue && ["forming", "locked"].includes(ph) ? `<div class="note note-primary"><span class="icon">${icon("lock")}</span><div>${esc(T("venueHidden", { reveal_at: fmtDate(e.reveal.reveal_at) }))}</div></div>` : ""}
-    ${e.venue ? `<section class="card stack"><h2>${esc(e.venue.name)}</h2><p>${esc(e.venue.address)} · ${esc(e.venue.district)}</p>
-      <a class="btn btn-secondary" href="${esc(e.venue.map_url)}" target="_blank" rel="noopener">${esc(T("openMaps"))}</a>
-      <div><strong>${esc(T("arrival"))}</strong><p>${esc(e.venue.arrival_instructions)}</p></div>
-      <div><span class="label">${esc(T("tableCode"))}</span><div class="table-code">${esc(e.table.code)}</div><p class="caption">${esc(T("mentionCode"))}</p></div>
+    ${e.venue ? `<section class="place" id="place" aria-labelledby="place-h"><h2 id="place-h">${esc(e.venue.name)}</h2>
+      <div class="prow">${icon("map-pin")}<span>${esc(T("district"))}</span><b>${esc(e.venue.address)} · ${esc(e.venue.district)}</b></div>
+      <div class="prow">${icon("clock")}<span>${esc(T("dateTime"))}</span><b class="num">${esc(fmtDate(at, { hour: "numeric", minute: "2-digit" }))}</b></div>
+      <div class="prow">${icon("ticket")}<span>${esc(T("tableCode"))}</span><b><span class="table-code">${esc(e.table.code)}</span></b></div>
+      <div class="prow">${icon("users")}<span>${esc(T("yourTable"))}</span><b>${esc(T("confirmedCount", { n: e.table.confirmed_count }))}</b></div>
+      <p class="caption">${esc(T("mentionCode"))}</p>
+      <a class="btn btn-primary btn-block" href="${esc(e.venue.map_url)}" target="_blank" rel="noopener">${esc(T("openMaps"))}</a>
+      <div class="arrive"><strong>${esc(T("arrival"))}</strong><p>${esc(e.venue.arrival_instructions)}</p></div>
       <p class="caption">${esc(e.venue.bill_policy)}</p></section>` : ""}
     <div id="msg" role="status"></div>
     ${act("check_in") ? `<button class="btn btn-primary btn-block" id="ci">${esc(T("imHere"))}</button>` : ""}
@@ -1792,12 +1834,19 @@ async function scrCancel(id) {
   if (!r.ok) { view(T("cancelTitle"), `<h1>${esc(T("cancelTitle"))}</h1>${errorBanner(r.data)}`); return; }
   const e = r.data;
   const fee = e.payment ? e.payment.amount.display : "";
+  // Round 3 (after Airbnb): a two-row table, when and what she gets back, from this booking's own rules (its deadline,
+  // its late-cancellation share), the row in force now marked. The refund sentences are the product's existing ones.
+  const cn = e.booking.cancellation, fullNow = cn.refund_if_cancelled_now === "full";
   const outcome = e.reveal.phase === "pending_payment" ? T("refundNoPayment")
     : e.booking.cancellation.refund_if_cancelled_now === "full" ? T("refundFull", { fee, days: 10 }) : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) });
   view(T("cancelTitle"), `
     <h1>${esc(T("cancelTitle"))}</h1>
     <section class="card"><strong>${esc(fmtDate(e.session.starts_at))}</strong><div class="caption">${esc(e.session.district)}</div></section>
-    <div class="banner ${e.booking.cancellation.refund_if_cancelled_now === "full" ? "banner-info" : "banner-warning"}"><div>${esc(outcome)}</div></div>
+    ${e.reveal.phase === "pending_payment" ? `<div class="banner banner-warning"><div>${esc(outcome)}</div></div>` : `<dl class="cancel-table" id="cancel-table">
+      <div class="when${fullNow ? " now" : ""}" ${fullNow ? 'aria-current="true"' : ""}><dt>${esc(T("cancelUntil", { deadline: fmtDate(cn.full_refund_until) }))}</dt>
+        <dd><b>${esc(T("optRefund"))}</b><span>${esc(T("refundFull", { fee, days: 10 }))}</span></dd></div>
+      <div class="when${fullNow ? "" : " now"}" ${fullNow ? "" : 'aria-current="true"'}><dt>${esc(T("cancelAfter"))}</dt>
+        <dd>${cn.late_cancel_refund_pct > 0 ? `<span>${esc(T("latePartial", { fee, pct: cn.late_cancel_refund_pct }))}</span>` : `<b>${esc(T("rfNone"))}</b>${fullNow ? "" : `<span>${esc(outcome)}</span>`}`}</dd></div></dl>`}
     <form id="f" class="stack">
       <fieldset><legend class="label">${esc(T("reasonLegend"))}</legend><div class="options">
         ${[["schedule_changed", "rScheduled"], ["illness", "rIll"], ["other", "rOther"]].map(([v, k]) => `<label class="option radio"><input type="radio" name="r" value="${v}"><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span></label>`).join("")}
@@ -1998,27 +2047,41 @@ async function scrProfile() {
   const me = state.me;
   const name = me.display_name || T("unnamed");
   const count = bR.ok ? bR.data.bookings.filter((b) => b.status === "completed").length : 0;
+  // Round 3 (after Linear): labelled groups, an icon at the start of each row, and a change confirmed in its own row: the
+  // value gives way to a check mark for a moment, then shows the new value. No pop-up message.
+  const row = (tag, ic, key, { href = "", id = "", value = null } = {}) => `<li><${tag} class="chev" ${tag === "a" ? `href="${href}"` : `type="button" id="${id}"`}>
+    <span class="rl">${icon(ic)}<span>${esc(T(key))}</span></span>${value === null ? "" : `<span class="muted v">${esc(value)}</span>`}</${tag}></li>`;
+  const themeNext = () => T(isDark() ? "themeToLight" : "themeToDark");
+  const rowOk = (id, next) => {
+    const v = $(`#${id} .v`);
+    if (!v) return;
+    v.innerHTML = icon("check");
+    v.classList.add("ok");
+    setTimeout(() => { if (!v.isConnected) return; v.classList.remove("ok"); v.textContent = next(); }, 1500);
+  };
   view(T("profile"), `
     <h1 class="display-title">${esc(T("profile"))}</h1>
     <section class="row"><span class="avatar" aria-hidden="true">${esc([...name][0])}</span>
       <span><strong>${esc(name)}</strong><br><span class="caption">${esc(T("eventsCount", { n: count }))}</span></span></section>
-    <p class="section-label">${esc(T("secAccount"))}</p>
-    <ul class="settings"><li><a class="chev" href="#/quiz/${INTERSTITIALS.start.length}"><span>${esc(T("myAnswers"))}</span></a></li>
-      <li><a class="chev" href="#/plans"><span>${esc(T("plansTitle"))}</span></a></li>
-      <li><a class="chev" href="#/notify?next=profile"><span>${esc(T("pushSettings"))}</span></a></li>
-      <li><a class="chev" href="#/cases"><span>${esc(T("casesTitle"))}</span></a></li>
-      <li><a class="chev" href="#/privacy"><span>${esc(T("privacyTitle"))}</span></a></li>
-      <li><button class="chev" id="mydata"><span>${esc(T("myData"))}</span></button></li></ul>
+    <p class="section-label">${esc(T("secProfile"))}</p>
+    <ul class="settings">${row("a", "circle-check", "myAnswers", { href: `#/quiz/${INTERSTITIALS.start.length}` })}${row("a", "ticket", "plansTitle", { href: "#/plans" })}${row("a", "flag", "casesTitle", { href: "#/cases" })}</ul>
     <p class="section-label">${esc(T("secPrefs"))}</p>
-    <ul class="settings"><li><div class="static"><span>${esc(T("cityLabel"))}</span><span class="muted">${esc(T("cityFull"))}</span></div></li>
-      <li><button class="chev" id="lng"><span>${esc(T("language"))}</span><span class="muted">${esc(T("langToggle"))}</span></button></li></ul>
+    <ul class="settings">${row("a", "bell", "pushSettings", { href: "#/notify?next=profile" })}
+      <li><div class="static"><span class="rl">${icon("map-pin")}<span>${esc(T("cityLabel"))}</span></span><span class="muted">${esc(T("cityFull"))}</span></div></li>
+      ${row("button", "languages", "language", { id: "lng", value: T("langToggle") })}${row("button", "moon", "appearance", { id: "thm", value: themeNext() })}</ul>
+    <p class="section-label">${esc(T("secPrivacy"))}</p>
+    <ul class="settings">${row("a", "lock", "privacyTitle", { href: "#/privacy" })}${row("button", "shield-check", "myData", { id: "mydata", value: "" })}</ul>
+    <p class="sr-only" role="status" id="row-live"></p>
     <p class="section-label">${esc(T("secHelp"))}</p>
     <section class="stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
     <div class="stack" data-u="mt6">
       <button class="btn btn-secondary btn-block" id="out">${esc(T("signOut"))}</button>
       <button class="btn btn-danger btn-block" id="del">${esc(T("deleteAccount"))}</button></div>`);
   const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
-  $("#lng").onclick = () => setLocale(locale === "ar" ? "en" : "ar");
+  // the language redraws the whole screen in the new language; the row confirms once it is back
+  $("#lng").onclick = () => { state.rowOk = "lng"; setLocale(locale === "ar" ? "en" : "ar"); };
+  if (state.rowOk === "lng") { state.rowOk = null; rowOk("lng", () => T("langToggle")); $("#lng").focus({ preventScroll: true }); }
+  $("#thm").onclick = () => { setTheme(isDark() ? "light" : "dark", $("#thm")); rowOk("thm", themeNext); };
   // a copy of her data (right of access, NMX-38): saved as a JSON file on the device, nothing kept in the page
   $("#mydata").onclick = async () => {
     setBusy($("#mydata"), true);
@@ -2029,7 +2092,8 @@ async function scrProfile() {
     const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast(T("myDataDone"));
+    rowOk("mydata", () => "");
+    $("#row-live").textContent = T("myDataDone");
   };
   $("#out").onclick = async () => { setBusy($("#out"), true); const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
   $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; setBusy($("#del"), true); await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };

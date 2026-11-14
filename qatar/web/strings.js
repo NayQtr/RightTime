@@ -155,7 +155,7 @@ export const STRINGS = {
     dueNow: "المطلوب الآن", readyFirst: "قبل لقائك الأول", readyAnswers: "أجيبي عن أسئلة التعارف", readyPick: "اختاري موعدًا يناسبك", readyPush: "فعّلي إشعارات الجوال", readyRules: "اقرئي قواعد اللقاء",
     howSay: "طاولة صغيرة تُختار بعناية.", howSayRest: "أنتِ تجيبين، ونحن نرتّب الباقي.",
     // batch 3 (round 3), wording as in the approved preview
-    secProfile: "الملف", secPrivacy: "الخصوصية", appearance: "المظهر", cardLooking: "ما تبحثين عنه", cardEvening: "الأمسية المثالية", cardBudget: "الميزانية", wygSay: "أمسية مرتّبة من أولها لآخرها.",
+    secProfile: "الملف", secPrivacy: "الخصوصية", appearance: "المظهر", cardLooking: "ما تبحثين عنه", cardEvening: "الأمسية المثالية", cardBudget: "الميزانية", wygSay: "أمسية مرتّبة من أولها لآخرها.", cancelUntil: "حتى {deadline}", cancelAfter: "بعد ذلك",
     eventsTitle: "لقاءاتي", noEventsTitle: "لا لقاءات قادمة", noEventsBody: "احجزي مقعدك لتلتقي بصديقات جديدات.", bookSeat: "احجزي مقعدك",
     inboxEmptyBody: "ستجدين هنا تحديثات لقاءاتك.", eventsCount: "اللقاءات: {n}", secAccount: "الحساب", secPrefs: "التفضيلات", secHelp: "المساعدة", cityLabel: "المدينة",
     // errors
@@ -298,7 +298,7 @@ export const STRINGS = {
     aboutPull: "A small table, new faces, and a venue we choose with care.", aboutCapSeat: "A table reserved in the meetup's name.", aboutCapVenue: "One of the meetup venues in Doha.",
     dueNow: "Due now", readyFirst: "Before your first meetup", readyAnswers: "Answer the get-to-know-you questions", readyPick: "Pick a time that suits you", readyPush: "Turn on phone notifications", readyRules: "Read the meetup rules",
     howSay: "A small table, chosen with care.", howSayRest: "You answer, and we arrange the rest.",
-    secProfile: "Profile", secPrivacy: "Privacy", appearance: "Appearance", cardLooking: "What you're looking for", cardEvening: "Ideal evening", cardBudget: "Budget", wygSay: "An evening arranged from start to finish.",
+    secProfile: "Profile", secPrivacy: "Privacy", appearance: "Appearance", cardLooking: "What you're looking for", cardEvening: "Ideal evening", cardBudget: "Budget", wygSay: "An evening arranged from start to finish.", cancelUntil: "Until {deadline}", cancelAfter: "After that",
     eventsTitle: "My events", noEventsTitle: "No upcoming events", noEventsBody: "Book your seat to meet new friends.", bookSeat: "Book your seat",
     inboxEmptyBody: "Updates about your events will appear here.", eventsCount: "Events: {n}", secAccount: "Account", secPrefs: "Preferences", secHelp: "Help", cityLabel: "City",
     errGeneric: "Something went wrong. Please try again.", offline: "You're offline.",
