@@ -58,8 +58,10 @@ HerZone's own screen; colours only from the tokens; the primary button stays mau
 is today; keep the floating top bar, heading place, date leaf, table motif (mauve seats, dashed free seats) and the
 existing texts; an idea adds life (photo, motion, depth) and never a foreign look. Redone round 4 in the preview under
 «الجولة 4 · البذرة (معادة)», same ten sources on the four core screens, in HerZone's own components.
-NOT decided yet:
-which ideas to build in the real site and app (asked the owner; waiting).
+DECIDED 14 Nov: «طبق فقط الجولة ١ و ٢ و ٣ على HerZone.app» — build rounds 1–3 (NOT round 4) on the website AND the app, with the
+preview's wording as it is, nothing under ابدئي, and release straight to herzone.app after tests and the usual release
+order. Plan and exclusions (invented policy texts are not copied): qatar/docs/plans/2026-11-14-rounds-1-3.md; spec =
+qatar/docs/design/preview-2026-11-14/herzone-preview.html. Built batch by batch.
 
 ## Phone field redesign + identity proposals [2026-11-13]
 
