@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../auth/widgets.dart';
 import '../format.dart';
 import '../theme.dart';
+import 'fee_info_screen.dart';
 import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
@@ -160,7 +161,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         // The ordinary refund note sits on the sunken surface, as the same note does on the website; only the late
         // warning is tinted. "info" is a steel blue and washed out grey over the warm background of identity v0.5.
         decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
-        child: Text(ordinary ? t.policyBox(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
+        child: Text(ordinary ? t.refundLine(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
       );
       children.addAll([
         Text(t.reviewTitle, style: tt.titleLarge),
@@ -169,7 +170,23 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         // Read as a receipt before paying (owner, 14 Nov: rounds 1-3): what it is, the amount large, and the same
         // amount on the button; the ordinary refund note follows the button directly.
         const SizedBox(height: HzSpace.s3),
-        Text(t.serviceFee, style: tt.bodySmall?.copyWith(color: c.textMuted)),
+        // the fee line opens what the fee covers and the common questions (owner, 14 Nov)
+        Semantics(
+          button: true,
+          hint: t.feeInfoTitle,
+          child: InkWell(
+            key: const Key('fee-info'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FeeInfoScreen())),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: HzSpace.touchTarget),
+              child: Row(children: [
+                Flexible(child: Text(t.serviceFee, style: tt.bodySmall?.copyWith(color: c.textMuted))),
+                const SizedBox(width: HzSpace.s1),
+                Icon(Icons.info_outline, size: 16, color: c.textMuted),
+              ]),
+            ),
+          ),
+        ),
         if (bk.launchFree)
           Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: HzSpace.s2, children: [
             Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium?.copyWith(color: c.textMuted, decoration: TextDecoration.lineThrough)),
