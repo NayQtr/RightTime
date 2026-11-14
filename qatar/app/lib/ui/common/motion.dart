@@ -75,28 +75,32 @@ class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderSt
 
 /// Fades and lifts a list item into place, each [index] 30 ms after the one before (like the website's lists).
 /// One controller, no timers: the item at [index] simply starts later in the same 600 ms. Shown at once when the device
-/// asks for reduced motion.
+/// asks for reduced motion. A page's own blocks arrive further apart ([gap], 120 ms on the website's welcome); the run
+/// then lasts as long as the last block needs.
 class RiseIn extends StatefulWidget {
-  const RiseIn({super.key, required this.index, required this.child});
+  const RiseIn({super.key, required this.index, required this.child, this.gap = HzMotion.stagger});
 
   final int index;
   final Widget child;
+  final Duration gap;
 
   @override
   State<RiseIn> createState() => _RiseInState();
 }
 
 class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+  // 30 ms between rows (HzMotion.stagger) inside the 600 ms run; a wider gap lengthens the run instead of squeezing
+  // the last block
+  late final int _delay = widget.index.clamp(0, 5) * widget.gap.inMilliseconds;
+  late final int _run = _delay + 480 > 600 ? _delay + 480 : 600;
+  late final AnimationController _c = AnimationController(vsync: this, duration: Duration(milliseconds: _run));
   Animation<double>? _a;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_a != null) return;
-    // 30 ms between rows (HzMotion.stagger) inside the 600 ms run
-    final start = widget.index.clamp(0, 5) * HzMotion.stagger.inMilliseconds / 600;
-    _a = CurvedAnimation(parent: _c, curve: Interval(start, 1, curve: Curves.easeOutCubic));
+    _a = CurvedAnimation(parent: _c, curve: Interval(_delay / _run, 1, curve: Curves.easeOutCubic));
     if (MediaQuery.of(context).disableAnimations) {
       _c.value = 1;
     } else {
@@ -153,4 +157,45 @@ class _PulseState extends State<Pulse> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => ScaleTransition(scale: _scale, child: widget.child);
+}
+
+/// A photo arrives once: it fades in while settling from 1.04 to its own size over 1.1 s (the website's welcome photo).
+/// At its final state at once when the device asks for reduced motion.
+class SettleIn extends StatefulWidget {
+  const SettleIn({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<SettleIn> createState() => _SettleInState();
+}
+
+class _SettleInState extends State<SettleIn> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+  late final Animation<double> _a = CurvedAnimation(parent: _c, curve: HzMotion.easing);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.of(context).disableAnimations) {
+      _c.value = 1;
+    } else {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _a,
+        child: ScaleTransition(scale: Tween<double>(begin: 1.04, end: 1).animate(_a), child: widget.child),
+      );
 }

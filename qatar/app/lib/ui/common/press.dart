@@ -9,11 +9,15 @@ import '../../design/herzone_tokens.dart';
 /// to the pointer, so taps, long presses, focus and semantics belong to the button as before. Releasing an enabled
 /// button also plays the tap sound (when her Sounds switch is on). A finger that moves further than the touch slop
 /// (a scroll or a drag that started on the button) is no longer a press: the button eases back and stays silent.
+///
+/// With [dim] the child is an answer row or a tile, not a button: it fades to 0.6 while touched and comes back on
+/// release (the website's `.opt:active`), with no shrink and no sound of its own.
 class Press extends StatefulWidget {
-  const Press({super.key, required this.child});
+  const Press({super.key, required this.child, this.dim = false});
 
   /// A Material button (Filled/Outlined/Text/Elevated, or IconButton).
   final Widget child;
+  final bool dim;
 
   @override
   State<Press> createState() => _PressState();
@@ -47,7 +51,7 @@ class _PressState extends State<Press> {
         if (_down && o != null && (e.position - o).distance > kTouchSlop) _set(false);
       },
       onPointerUp: (_) {
-        if (_down && _enabled) Sounds.instance.play(UiSound.tap);
+        if (_down && _enabled && !widget.dim) Sounds.instance.play(UiSound.tap);
         _origin = null;
         _set(false);
       },
@@ -55,12 +59,19 @@ class _PressState extends State<Press> {
         _origin = null;
         _set(false);
       },
-      child: AnimatedScale(
-        scale: pressed ? 0.97 : 1,
-        duration: pressed ? Duration.zero : const Duration(milliseconds: 220),
-        curve: HzMotion.easing,
-        child: widget.child,
-      ),
+      child: widget.dim
+          ? AnimatedOpacity(
+              opacity: pressed ? 0.6 : 1,
+              duration: pressed || still ? Duration.zero : const Duration(milliseconds: 220),
+              curve: HzMotion.easing,
+              child: widget.child,
+            )
+          : AnimatedScale(
+              scale: pressed ? 0.97 : 1,
+              duration: pressed ? Duration.zero : const Duration(milliseconds: 220),
+              curve: HzMotion.easing,
+              child: widget.child,
+            ),
     );
   }
 }

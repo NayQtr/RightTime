@@ -104,6 +104,8 @@ flutter:
     - assets/sounds/
     # round country flags for the phone field (circle-flags, MIT, see assets/flags/LICENSE-circle-flags.md)
     - assets/flags/
+    # atmosphere photos, no faces (the website's set, web/about/img): welcome, and the week's meetups on home
+    - assets/photos/
 
   # HerZone fonts (SIL Open Font License, see assets/fonts/OFL-*.txt), converted from the web fonts
   fonts:
