@@ -89,6 +89,14 @@ OWNER 14 Nov, after the release: «موافق الكل واحذف التعليق
 no-match line and the day-count forms are now the owner's accepted wording); the /about hero caption is removed (string
 aboutCapVenue deleted, ar and en); the app's account arrows are fixed (cause: chevron_right mirrors itself in Arabic and the
 code also swapped it by hand, so it flipped twice). RELEASED 14 Nov with the owner's yes: herzone.app and staging serve herzone-web@f7b6b858a459 (production dpl_DpyBJbRsiVH8pKnebQ8V3ytYFJdF, staging dpl_BYrrwwsS2bYT4edPQuhCNYhQxbuN); baseline run recorded, CI green, smoke checks passed on both, caption gone from /about and /about/en, Sentry clean in the hour.
++1 AND THE THREE TEXTS (owner 14 Nov: waitlist steps «أ» direct, refund «٢أ», fee+FAQ page as proposed, +1 = name only, feminine
+wording, cancel both seats together, amount doubles). Built on server (migration 026_plus_one.sql, NOT applied to staging or
+production), engine (JS + Python), consoles, website and app; merged on rightime-app; 358 API/db/browser tests, 219 app tests.
+NOT released. Waiting on the owner: (1) the line «اكتبي اسم مرافقتك.» (name-missing error, not the owner's wording); (2) the
+privacy notice has no line about the companion's name (needed before release: it is personal data); (3) should tablemates see
+the companion's name on the day (today only counted); (4) companion confirmed by check box only, no card check; (5) release yes.
+Also open from the review of 14 Nov: account rows «اللغة»/«المظهر» show the target, not the current value (proposed fix, waiting);
+the done step in «قبل لقائك الأول» is struck through (✓ suggested, taste).
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
 on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
 reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's
