@@ -95,6 +95,6 @@ test("website: no money before the last step, and the owner's words at it", asyn
   await page.waitForSelector(".kv strong");
   assert.equal(await page.locator("#launch-note").count(), 0);
   assert.equal(await page.locator(".fee-offer").count(), 0);
-  assert.ok((await page.locator(".kv").first().innerText()).includes("ر.ق"));
+  assert.ok((await page.locator("#fee-row").innerText()).includes("ر.ق"));
   await ctx.close();
 });

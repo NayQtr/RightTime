@@ -87,7 +87,7 @@ test("waitlist offer: home banner, the session list keeps the seat for her, she 
   await noHorizontalScroll(page);
   // the inbox links the offer to the session list
   await page.goto(env.base + "/#/inbox");
-  const offer = page.locator("li.card", { hasText: "توفر مقعد في" });
+  const offer = page.locator("li.msg", { hasText: "توفر مقعد في" });
   await offer.waitFor();
   assert.equal(await offer.locator(`a[href="#/sessions?s=${s.body.id}"]`).innerText(), "احجزي مقعدك");
   assert.deepEqual(errors, []);
