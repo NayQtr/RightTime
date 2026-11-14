@@ -9,6 +9,7 @@ import 'package:herzone/app/app.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
+import 'package:herzone/ui/meetups/home_tab.dart' show homeNow;
 
 import 'meetups_test.dart' as m;
 import 'onboarding_test.dart' as o;
@@ -30,6 +31,16 @@ Future<void> loadFonts() async {
   await icons.load();
 }
 
+/// Asset photos decode outside a test's fake clock: wait for the ones on screen, so a screenshot shows them.
+Future<void> settleImages(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    for (final e in find.byType(Image).evaluate()) {
+      await precacheImage((e.widget as Image).image, e);
+    }
+  });
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(loadFonts);
 
@@ -39,6 +50,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore(), trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => fakeApi([])));
     await tester.pumpAndSettle();
+    await settleImages(tester);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/welcome_ar.png'));
     await tester.tap(find.byKey(const Key('have-account')));
     await tester.pumpAndSettle();
@@ -54,8 +66,12 @@ void main() {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    // "this week" on home starts on the sample meetup's day, whenever the screenshots are taken
+    homeNow = () => DateTime.parse('2026-11-12T09:00:00+03:00');
+    addTearDown(() => homeNow = DateTime.now);
     await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => m.api(online: () => true)));
     await tester.pumpAndSettle();
+    await settleImages(tester);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/home_ar.png'));
     await tester.tap(find.byKey(const Key('session-s1')));
     await tester.pumpAndSettle();

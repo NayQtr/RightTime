@@ -369,5 +369,39 @@
         "type": "String"
       }
     }
+  },
+  "quizReply": "جميل. سنبحث لكِ عن طاولة تشبهك.",
+  "thisWeek": "هذا الأسبوع",
+  "weekCount": "{n, plural, =1{{n} لقاء} other{{n} لقاءات}} هذا الأسبوع",
+  "dayCount": "{n, plural, =1{{n} لقاء} other{{n} لقاءات}} في هذا اليوم",
+  "readyTitle": "قبل لقائك الأول",
+  "readyAnswers": "أجيبي عن أسئلة التعارف",
+  "readyPick": "اختاري موعدًا يناسبك",
+  "readyRules": "اقرئي قواعد اللقاء",
+  "dayToday": "اليوم",
+  "groupProfile": "الملف",
+  "groupPrefs": "التفضيلات",
+  "groupPrivacy": "الخصوصية",
+  "payAmount": "ادفعي {amount}",
+  "@weekCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@dayCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@payAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   }
 }

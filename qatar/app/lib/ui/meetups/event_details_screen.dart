@@ -22,7 +22,7 @@ import 'home_tab.dart' show experienceName;
 import 'resolution_section.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
-import '../common/motion.dart' show Pulse;
+import '../common/motion.dart' show Pulse, RiseIn;
 import '../common/press.dart';
 import '../common/sound_on_show.dart';
 import '../../core/sounds.dart';
@@ -41,6 +41,24 @@ class EventDetailsScreen extends StatefulWidget {
 class _EventDetailsScreenState extends State<EventDetailsScreen> {
   int _reload = 0;
   String get bookingId => widget.bookingId;
+
+  /// Once the heading has scrolled away, a one-line summary stays pinned under the app bar.
+  final _scroll = ScrollController();
+  final _pinned = ValueNotifier<bool>(false);
+  static const _pinAfter = 170.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() => _pinned.value = _scroll.hasClients && _scroll.offset > _pinAfter);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _pinned.dispose();
+    super.dispose();
+  }
 
   Future<void> _checkIn(BuildContext context) async {
     try {
@@ -67,7 +85,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             final c = hzColors(context);
             final tt = Theme.of(context).textTheme;
             final v = d.venue;
-            return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+            final still = MediaQuery.of(context).disableAnimations;
+            return Stack(children: [
+            ListView(controller: _scroll, physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(HzSpace.gutter), children: [
               if (r.offlineSavedAt != null) ...[
                 TestId('offline-copy', child: Container(
                   key: const Key('offline-copy'),
@@ -87,7 +107,21 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 const SizedBox(height: HzSpace.s4),
               ],
               Text(experienceName(t, d.experience), style: tt.headlineMedium),
-              Text(fmtWhen(d.startsAt, lang), style: tt.titleLarge),
+              // the date as one very large numeral with the weekday and month beside it (owner, 14 Nov: rounds 1-3);
+              // a screen reader hears the full date and time as before
+              Semantics(
+                label: fmtWhen(d.startsAt, lang),
+                child: ExcludeSemantics(
+                  child: RiseIn(index: 0, child: Row(key: const Key('big-date'), crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(fmtDay(d.startsAt), style: tt.displaySmall?.copyWith(fontSize: 112, height: 1, fontWeight: FontWeight.w800, color: c.primary)),
+                    const SizedBox(width: HzSpace.s3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: HzSpace.s3),
+                      child: Text('${fmtWeekday(d.startsAt, lang)}\n${fmtMonth(d.startsAt, lang)}', style: tt.titleLarge?.copyWith(fontSize: 17, height: 1.55)),
+                    ),
+                  ])),
+                ),
+              ),
               const SizedBox(height: HzSpace.s1),
               Text('${t.bookingRef} ${d.ref}', style: tt.bodySmall),
               if (d.stage != null) ...[const SizedBox(height: HzSpace.s4), _Tracker(stage: d.stage!)],
@@ -121,14 +155,18 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   child: Text(t.venueHidden(fmtWhen(d.revealAt, lang))),
                 )),
               if (v != null)
+                // the place, once revealed, as one calm card: a light surface with a hairline edge, and one filled
+                // button for the way there (owner, 14 Nov: rounds 1-3); the words are the same
                 TestId('venue', child: Card(
                   key: const Key('venue'),
+                  color: c.surface,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.xl), side: BorderSide(color: c.border)),
                   child: Padding(
                     padding: const EdgeInsets.all(HzSpace.s4),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(v.name, style: tt.titleLarge),
                       Text('${v.address} · ${v.district}'),
-                      const SizedBox(height: HzSpace.s3),
+                      Divider(height: HzSpace.s6, thickness: 1, color: c.border),
                       Text(t.arrival, style: const TextStyle(fontWeight: FontWeight.w600)),
                       Text(v.arrival),
                       if (d.tableCode != null) ...[
@@ -139,14 +177,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       ],
                       const SizedBox(height: HzSpace.s3),
                       Text(v.billPolicy, style: tt.bodySmall),
-                      if (v.mapUrl.isNotEmpty)
+                      if (v.mapUrl.isNotEmpty) ...[
+                        const SizedBox(height: HzSpace.s3),
                         // opened, not copied: the clipboard is readable by other apps and keyboards (app review #10)
-                        Press(child: TextButton.icon(
+                        Press(child: FilledButton.icon(
                           key: const Key('open-map'),
                           icon: const Icon(Icons.map_outlined, size: 18),
                           label: Text(t.openMap),
                           onPressed: () => context.read<LinkOpener>().open(Uri.parse(v.mapUrl)),
                         )),
+                      ],
                     ]),
                   ),
                 )),
@@ -197,6 +237,29 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   child: Text(t.cancelBooking),
                 )),
               ],
+            ]),
+            PositionedDirectional(
+              top: 0,
+              start: 0,
+              end: 0,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _pinned,
+                builder: (context, on, child) => IgnorePointer(
+                  ignoring: !on,
+                  child: ExcludeSemantics(child: AnimatedOpacity(opacity: on ? 1 : 0, duration: still ? Duration.zero : HzMotion.base, curve: HzMotion.easing, child: child)),
+                ),
+                child: Container(
+                  key: const Key('pinned'),
+                  padding: const EdgeInsets.symmetric(horizontal: HzSpace.gutter, vertical: HzSpace.s2),
+                  decoration: BoxDecoration(color: c.bg.withValues(alpha: 0.96), border: Border(bottom: BorderSide(color: c.border))),
+                  child: Row(children: [
+                    Expanded(child: Text('${fmtDate(d.startsAt, lang)} · ${d.district}', maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall)),
+                    const SizedBox(width: HzSpace.s3),
+                    Text(fmtTime(d.startsAt, lang), style: tt.bodySmall?.copyWith(color: c.textMuted)),
+                  ]),
+                ),
+              ),
+            ),
             ]);
           },
         ),

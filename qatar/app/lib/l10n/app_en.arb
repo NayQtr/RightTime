@@ -290,5 +290,18 @@
   "orgBody": "The minimum (4 women) wasn't reached for this session, so we cancelled the table. You won't pay anything.",
   "orgTitle": "Sorry, your table didn't fill",
   "stOrganizer": "We cancelled this table. Choose: refund or another session.",
-  "rebookedInto": "We moved you to booking {ref}."
+  "rebookedInto": "We moved you to booking {ref}.",
+  "quizReply": "Lovely. We'll look for a table that feels like you.",
+  "thisWeek": "This week",
+  "weekCount": "{n, plural, =1{{n} meetup} other{{n} meetups}} this week",
+  "dayCount": "{n, plural, =1{{n} meetup} other{{n} meetups}} on this day",
+  "readyTitle": "Before your first meetup",
+  "readyAnswers": "Answer the getting-to-know-you questions",
+  "readyPick": "Choose a date that suits you",
+  "readyRules": "Read the meetup rules",
+  "dayToday": "Today",
+  "groupProfile": "Profile",
+  "groupPrefs": "Preferences",
+  "groupPrivacy": "Privacy",
+  "payAmount": "Pay {amount}"
 }

@@ -71,6 +71,19 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     ]);
   }
 
+  /// What she chose, to follow a row's title: ": 4 of 5", or just " 4 of 5" after a title that is a question.
+  String _echo(AppLocalizations t, String title, int value) => '${title.endsWith('؟') || title.endsWith('?') ? '' : ':'} ${t.qOf(value, 5)}';
+
+  /// A row's title, then what she chose beside it in a quieter colour ("Overall rating: 4 of 5").
+  Widget _title(String key, String title, int? value) {
+    final t = AppLocalizations.of(context);
+    final tt = Theme.of(context).textTheme;
+    return Wrap(children: [
+      Text(title, style: tt.titleMedium),
+      if (value != null) Text(_echo(t, title, value), key: Key('$key-echo'), style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w400, color: hzColors(context).textMuted)),
+    ]);
+  }
+
   Widget _reasonChips(AppLocalizations t) {
     final c = hzColors(context);
     final label = {'table_fit': t.fbReasonTable, 'venue': t.fbReasonVenue, 'food_service': t.fbReasonFood, 'organisation': t.fbReasonOrg,
@@ -101,13 +114,24 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: sent
             ? [
                 SoundOnShow(child: Text(t.fbThanks, key: const Key('fb-thanks'), style: tt.titleLarge)),
+                const SizedBox(height: HzSpace.s4),
+                // what she sent, read back once (owner, 14 Nov: rounds 1-3)
+                Container(
+                  key: const Key('fb-summary'),
+                  padding: const EdgeInsets.all(HzSpace.s4),
+                  decoration: BoxDecoration(color: hzColors(context).surface, borderRadius: BorderRadius.circular(HzRadius.md), border: Border.all(color: hzColors(context).border)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    for (final (label, value) in [(t.overall, overall), (t.comfort, comfort), (t.venueRating, venue)])
+                      if (value != null) Text('$label${_echo(t, label, value)}'),
+                  ]),
+                ),
                 const SizedBox(height: HzSpace.s6),
                 Press(child: FilledButton(onPressed: () => context.go('/events'), child: Text(t.tabEvents))),
               ]
             : [
                 Text(t.fbTitle, style: tt.headlineMedium),
                 const SizedBox(height: HzSpace.s4),
-                Text(t.overall, style: tt.titleMedium),
+                _title('overall', t.overall, overall),
                 // 3 stars or less: what fell short (optional); a higher rating hides and clears them
                 _stars('overall', overall, (v) => setState(() {
                       overall = v;
@@ -119,9 +143,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   _reasonChips(t),
                   const SizedBox(height: HzSpace.s3),
                 ],
-                Text(t.comfort, style: tt.titleMedium),
+                _title('comfort', t.comfort, comfort),
                 _stars('comfort', comfort, (v) => setState(() => comfort = v)),
-                Text(t.venueRating, style: tt.titleMedium),
+                _title('venue', t.venueRating, venue),
                 _stars('venue', venue, (v) => setState(() => venue = v)),
                 SwitchListTile(key: const Key('again'), contentPadding: EdgeInsets.zero, value: again, onChanged: (v) {
                   Sounds.instance.play(v ? UiSound.toggleOn : UiSound.toggleOff);

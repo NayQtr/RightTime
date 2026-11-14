@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
-import '../common/table_art.dart';
+import '../common/motion.dart';
 import '../theme.dart';
 import '../common/press.dart';
 
@@ -47,7 +47,11 @@ class WelcomeScreen extends StatelessWidget {
             // enlarged text, the block keeps its natural height and the page scrolls.
             final avail = box.maxHeight - 2 * HzSpace.gutter;
             final gap = (avail * 0.045).clamp(HzSpace.s4, HzSpace.s8);
-            final art = (avail * 0.22).clamp(140.0, 220.0);
+            // A photo in the page's colours stands where the table drawing stood (owner, 14 Nov: rounds 1-3). It has
+            // no faces, fades in and settles once, and nothing follows the two buttons. The blocks around it rise in
+            // one after another, 120 ms apart, as on the website.
+            final photo = (avail * 0.36).clamp(160.0, 340.0);
+            Widget rise(int i, Widget child) => RiseIn(index: i, gap: const Duration(milliseconds: 120), child: child);
             return Stack(children: [
               SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(HzSpace.gutter, HzSpace.s12, HzSpace.gutter, HzSpace.gutter),
@@ -55,17 +59,26 @@ class WelcomeScreen extends StatelessWidget {
                   constraints: BoxConstraints(minHeight: avail - HzSpace.s12),
                   child: Center(
                     child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary)),
+                      rise(0, Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary))),
                       const SizedBox(height: HzSpace.s3),
-                      heroText,
+                      rise(1, heroText),
                       const SizedBox(height: HzSpace.s3),
-                      Text(t.welcomeSub, style: tt.bodyLarge?.copyWith(color: c.textMuted)),
+                      rise(2, Text(t.welcomeSub, style: tt.bodyLarge?.copyWith(color: c.textMuted))),
                       SizedBox(height: gap),
-                      Center(child: TableArt(size: art)),
+                      ExcludeSemantics(
+                        child: SettleIn(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(HzRadius.xl),
+                            child: Image.asset('assets/photos/toast-720.webp', key: const Key('welcome-photo'), height: photo, fit: BoxFit.cover),
+                          ),
+                        ),
+                      ),
                       SizedBox(height: gap),
-                      Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
-                      const SizedBox(height: HzSpace.s2),
-                      Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
+                      rise(3, Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
+                        const SizedBox(height: HzSpace.s2),
+                        Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
+                      ])),
                     ]),
                   ),
                 ),

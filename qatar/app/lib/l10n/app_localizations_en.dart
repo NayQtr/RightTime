@@ -792,4 +792,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String rebookedInto(String ref) {
     return 'We moved you to booking $ref.';
   }
+
+  @override
+  String get quizReply =>
+      'Lovely. We\'ll look for a table that feels like you.';
+
+  @override
+  String get thisWeek => 'This week';
+
+  @override
+  String weekCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n meetups',
+      one: '$n meetup',
+    );
+    return '$_temp0 this week';
+  }
+
+  @override
+  String dayCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n meetups',
+      one: '$n meetup',
+    );
+    return '$_temp0 on this day';
+  }
+
+  @override
+  String get readyTitle => 'Before your first meetup';
+
+  @override
+  String get readyAnswers => 'Answer the getting-to-know-you questions';
+
+  @override
+  String get readyPick => 'Choose a date that suits you';
+
+  @override
+  String get readyRules => 'Read the meetup rules';
+
+  @override
+  String get dayToday => 'Today';
+
+  @override
+  String get groupProfile => 'Profile';
+
+  @override
+  String get groupPrefs => 'Preferences';
+
+  @override
+  String get groupPrivacy => 'Privacy';
+
+  @override
+  String payAmount(String amount) {
+    return 'Pay $amount';
+  }
 }
