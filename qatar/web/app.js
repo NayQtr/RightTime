@@ -1092,6 +1092,14 @@ function wireNotifyMe() {
 // own row. Once she joins, the button gives way to a marked step with her real place. The preview's three explanatory
 // steps are waitlist promises and wait for the owner's wording (plan of 14 Nov 2026).
 const waitStep = (n) => `<p class="caption wait-step" role="status">${esc(T("onWaitlist", { n }))}</p>`;
+// The owner's three steps (14 Nov 2026) sit under every full session; once she has joined, the first one is marked done.
+const waitSteps = (joined) => `<ol class="wait-steps">${[1, 2, 3].map((k) => `<li${k === 1 && joined ? ' class="done"' : ""}>${esc(T(`waitStep${k}`))}</li>`).join("")}</ol>`;
+
+// "+1" (owner, 14 Nov 2026): the mark itself always reads left to right; the companion's name follows it.
+const plusMark = '<bdi dir="ltr">+1</bdi>';
+const plusTag = (b) => (b && b.seats === 2 ? `<span class="plus-tag">${plusMark}${b.guest_name ? ` <bdi>${esc(b.guest_name)}</bdi>` : ""}</span>` : "");
+// the server's money text (lib/http.js money()), for a total shown before the server has it
+const moneyText = (minor) => { const v = minor / 100, n = Number.isInteger(v) ? String(v) : v.toFixed(2); return locale === "en" ? `QAR ${n}` : `${n} ر.ق`; };
 
 async function scrSessions(preselect) {
   if (!(await guard())) return;
@@ -1100,6 +1108,7 @@ async function scrSessions(preselect) {
   const r = await api("GET", "/api/v1/sessions");
   if (!r.ok) { view(T("sessionsTitle"), `<h1>${esc(T("sessionsTitle"))}</h1>${errorBanner(r.data)}`); return; }
   const pre = preselect && r.data.sessions.find((x) => x.id === preselect);
+  feeSeen(r.data.sessions[0]);
   if (pre) store.set("exp", pre.experience);
   const exp = store.get("exp") || "dinner";
   const all = r.data.sessions.filter((x) => x.experience === exp);
@@ -1115,7 +1124,7 @@ async function scrSessions(preselect) {
         ${offerOf(s) ? `<span class="caption offer-note">${esc(offerText(s))}</span>` : ""}
       </span></label>
     ${s.is_full && !s.my_booking_id ? `<div class="wait-box">${s.waitlist ? waitStep(s.waitlist.position)
-      : `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>`}</div>` : ""}</div>`;
+      : `<button class="btn btn-secondary" data-wait="${s.id}">${esc(T("joinWaitlist"))}</button>`}${waitSteps(Boolean(s.waitlist))}</div>` : ""}</div>`;
   // a long list gets day and area chips; "All" in each group shows everything again
   const days = [...new Set(ok.map((s) => qatarDay(s.starts_at)))];
   const areas = [...new Set(ok.map((s) => s.district))];
@@ -1146,7 +1155,7 @@ async function scrSessions(preselect) {
     </form>
     <div class="sticky-bar book-dock"><div>
       <p class="dock-note" id="dock-note" role="status"></p>
-      <div class="book-pill">${(ok[0] || all[0] || {}).launch_free ? "" : `<span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>`}
+      <div class="book-pill">${(ok[0] || all[0] || {}).launch_free ? "" : `<a class="caption fee-link" href="#/fee">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</a>`}
         <button class="btn btn-primary" id="go" disabled>${esc(T("continueToPay"))}</button></div></div></div>`);
   // Round 2 (after Airbnb): the bar floats as one pill, and the chosen session's own cancellation line (the product's
   // text and that session's real deadline) docks above it. A session whose full-refund time has passed shows no line
@@ -1175,7 +1184,7 @@ async function scrSessions(preselect) {
     setBusy(b, true);
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
     setBusy(b, false);
-    if (w.ok) b.parentElement.innerHTML = waitStep(w.data.position);
+    if (w.ok) b.parentElement.innerHTML = waitStep(w.data.position) + waitSteps(true);
     else toast(withNext(w.data.message || T("errGeneric")));
   }));
   const radios = $$("input[name=s]");
@@ -1239,27 +1248,50 @@ async function scrReview(id) {
   const lang = T(e.session.conversation_language === "ar" ? "langAr" : "langEn");
   const refundOpen = e.booking.cancellation.full_refund_window_open !== false;
   const line = (k, v, cls = "") => `<div class="kv"><span>${esc(T(k))}</span><span class="${cls}">${esc(v)}</span></div>`;
+  feeSeen({ price: { display: moneyText(b.unit_fee_minor) }, launch_free: b.launch_free });
+  // "+1" (owner, 14 Nov 2026): a toggle, off by default. On: the explanation, her companion's name (required) and a
+  // required check box; the receipt shows two seats and the total, and the pay button carries the total. The second
+  // seat is taken when she presses pay (POST .../guest), and the amount she pays always comes from the server.
+  // What she typed stays while she looks at the fee page and comes back (state.plus, this page load only).
+  const plus = state.plus && state.plus.id === id ? state.plus : (state.plus = { id, on: b.seats === 2, name: b.guest_name || "" });
+  const canPlus = !expired && (b.plus_one_available || b.seats === 2);
+  if (!canPlus) plus.on = false;
+  const total = () => moneyText(b.unit_fee_minor * (plus.on ? 2 : 1));
+  // one line under the pay button (owner's text of 14 Nov 2026) when nothing is refunded after the deadline; a booking
+  // whose terms refund a share after it keeps the longer line, which stays true for it
+  const refundLine = T(e.booking.cancellation.late_cancel_refund_pct > 0 ? "policyBox" : "refundLine", { deadline: fmtDate(e.booking.cancellation.full_refund_until) });
   view(T("reviewTitle"), `
     <h1>${esc(T("reviewTitle"))}</h1>
     <p class="rc-name">${esc(T(e.session.experience))} · ${esc(lang)} · ${esc(fmtDate(e.session.starts_at, { weekday: "long", day: "numeric", month: "long" }))}</p>
-    ${b.launch_free ? "" : `<p class="rc-total num" id="rc-total">${esc(b.amount.display)}</p>`}
+    ${b.launch_free ? "" : `<p class="rc-total num" id="rc-total">${esc(total())}</p>`}
     <section class="receipt">
       ${line("dateTime", fmtDate(e.session.starts_at))}${line("district", e.session.district)}${line("tableLanguage", lang)}${line("groupSizeLabel", T("groupSize"))}
+      <div class="kv" id="plus-row" ${plus.on ? "" : "hidden"}><span>${esc(T("plusOneSeats"))}</span><span class="plus-tag">${plusMark} <bdi id="plus-who">${esc(plus.name)}</bdi></span></div>
       ${line("foodAtVenue", T("foodBand", { band: e.session.food_price_band.display }), "muted")}
-      <div class="kv" id="fee-row"><span>${esc(T("feeNow"))}</span>${b.launch_free
-        ? `<span class="fee-offer"><s class="num">${esc(b.amount.display)}</s> <strong>${esc(T("feeLaunchFree"))}</strong></span>`
-        : `<span class="num">${esc(b.amount.display)}</span>`}</div>
+      <div class="kv" id="fee-row"><span><a href="#/fee" id="fee-link">${esc(T(plus.on ? "plusOneFee" : "feeNow"))}</a></span>${b.launch_free
+        ? `<span class="fee-offer"><s class="num" id="fee-amt">${esc(total())}</s> <strong>${esc(T("feeLaunchFree"))}</strong></span>`
+        : `<span class="num" id="fee-amt">${esc(total())}</span>`}</div>
       ${b.launch_free ? `<p class="caption" id="launch-note">${esc(T("feeLaunchNote"))}</p>` : ""}
-      <div class="kv due" id="due-row"><span>${esc(T("dueNow"))}</span><strong class="num">${esc(b.amount.display)}</strong></div>
+      <div class="kv due" id="due-row"><span>${esc(T("dueNow"))}</span><strong class="num" id="due-amt">${esc(total())}</strong></div>
     </section>
+    ${expired ? "" : `<section class="plus" id="plus">
+      <div class="row between"><button type="button" class="plus-btn" id="plus-btn" aria-pressed="${plus.on}" aria-controls="plus-panel" ${canPlus ? "" : 'disabled aria-describedby="plus-none"'}>${plusMark}</button>
+        ${canPlus ? "" : `<p class="caption" id="plus-none">${esc(T("plusOneNone"))}</p>`}</div>
+      <div class="stack" id="plus-panel" ${plus.on ? "" : "hidden"}>
+        <p class="caption" id="plus-exp">${esc(T("plusOneExplain"))}</p>
+        <div class="field"><label class="label" for="plus-name">${esc(T("plusOneName"))}</label>
+          <input class="input" id="plus-name" maxlength="60" autocomplete="off" required aria-required="true" aria-describedby="plus-exp plus-err" value="${esc(plus.name)}">
+          <span class="error-text" id="plus-err" role="alert"></span></div>
+        <label class="option"><input type="checkbox" id="plus-ok" required><span class="tick" aria-hidden="true"></span><span>${esc(T("plusOneConfirm"))}</span></label>
+      </div></section>`}
     ${refundOpen ? "" : policyHtml(e.booking.cancellation, b.amount.display)}
     ${b.payment && b.payment.status === "failed" ? `<div class="banner banner-warning" role="alert"><div>${esc(T("paymentFailed"))} ${esc(T("payFailedNext"))} ${esc(T("noDoubleCharge"))}</div></div>` : ""}
     <p class="label" id="hold">${expired ? "" : `${esc(T("holdTimer"))} <span class="num" id="clock"></span>`}</p>
     <p class="sr-only" aria-live="polite" id="holdlive"></p>
     <div id="err" role="alert">${expired ? errorBanner({ message: T("holdExpired") }) : ""}</div>
     ${expired ? `<a class="btn btn-primary btn-block" href="#/sessions">${esc(T("chooseAgain"))}</a>`
-      : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? "disabled" : ""}>${esc(T("pay", { fee: b.amount.display }))}</button>`}
-    ${refundOpen ? `<p class="caption rc-under" id="rc-policy">${esc(T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}
+      : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? "disabled" : ""}>${esc(T("pay", { fee: total() }))}</button>`}
+    ${refundOpen ? `<p class="caption rc-under" id="rc-policy">${esc(refundLine)}</p>` : ""}
     <button class="link-btn" id="change">${esc(T("changeSession"))}</button>`);
   if (!expired) {
     const end = new Date(b.hold_expires_at).getTime();
@@ -1273,23 +1305,79 @@ async function scrReview(id) {
       if (s === 0) { clearTimers(); scrReview(id); }
     };
     tick(); every(1000, tick);
-    if (needAck) $("#ack").onchange = () => { $("#pay").disabled = !$("#ack").checked; };
+    // pay waits for every required check box: the late-booking acknowledgement and, with "+1", the companion's
+    const ready = () => (!needAck || $("#ack").checked) && (!plus.on || $("#plus-ok").checked);
+    const sync = () => {
+      $("#plus-btn").setAttribute("aria-pressed", String(plus.on));
+      $("#plus-panel").hidden = !plus.on;
+      $("#plus-row").hidden = !plus.on;
+      $("#plus-who").textContent = plus.name.trim();
+      $("#fee-link").textContent = T(plus.on ? "plusOneFee" : "feeNow");
+      for (const sel of ["#rc-total", "#fee-amt", "#due-amt"]) if ($(sel)) $(sel).textContent = total();
+      $("#pay").textContent = T("pay", { fee: total() });
+      $("#pay").disabled = !ready();
+    };
+    if (needAck) $("#ack").onchange = sync;
+    const nameErr = (msg) => { $("#plus-err").textContent = msg; if (msg) $("#plus-name").setAttribute("aria-invalid", "true"); else $("#plus-name").removeAttribute("aria-invalid"); };
+    if (canPlus) {
+      $("#plus-btn").onclick = () => { plus.on = !plus.on; if (!plus.on) nameErr(""); sync(); if (plus.on) $("#plus-name").focus(); };
+      $("#plus-name").oninput = () => { plus.name = $("#plus-name").value; if (plus.name.trim()) nameErr(""); $("#plus-who").textContent = plus.name.trim(); };
+      $("#plus-ok").onchange = sync;
+    }
+    sync();
     $("#pay").onclick = async () => {
-      if (needAck && !$("#ack").checked) return;
+      if (!ready()) return;
+      if (plus.on && !plus.name.trim()) { nameErr(T("plusOneNameErr")); $("#plus-name").focus(); return; }
       setBusy($("#pay"), true);
       let url = b.checkout_url;
+      // the companion's seat is taken now (or given back when she turned "+1" off); the server answers with the total
+      const want = plus.on ? plus.name.replace(/\s+/g, " ").trim() : null;
+      if (want !== (b.guest_name || null)) {
+        const g = await api("POST", `/api/v1/bookings/${id}/guest`, { guest: want === null ? null : { name: want } });
+        if (!g.ok) {
+          setBusy($("#pay"), false);
+          if (g.data.code === "GUEST_NAME_REQUIRED") { nameErr(T("plusOneNameErr")); $("#plus-name").focus(); return; }
+          // no second seat any more: say so where the control is, and go back to one seat
+          if (g.data.code === "NOT_ENOUGH_SEATS") { state.plus = { id, on: false, name: plus.name }; toast(T("plusOneNone")); scrReview(id); return; }
+          $("#err").innerHTML = errorBanner(g.data); sync(); return;
+        }
+        Object.assign(b, g.data);
+        url = g.data.checkout_url;
+      }
       if (!url) {
         const c = await api("POST", `/api/v1/bookings/${id}/checkout`, needAck ? { acknowledge_late_no_refund: true } : undefined);
         if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#pay"), false); return; }
         url = c.data.checkout_url;
       }
+      state.plus = null;
       funnel("booking_checkout", { keepalive: true }); // the page is about to be left for the payment page
       clearTimers();   // the hold clock must not tick into the replaced view while the browser navigates
       main.innerHTML = `<div class="center"><div class="spinner" aria-hidden="true"></div><h1>${esc(T("redirecting"))}</h1></div>`;
       location.assign(url);
     };
   }
-  $("#change").onclick = async () => { setBusy($("#change"), true); await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
+  $("#change").onclick = async () => { setBusy($("#change"), true); state.plus = null; await api("POST", `/api/v1/bookings/${id}/cancel`, {}); go("#/sessions"); };
+}
+
+// ------------------------------------------------------------------ the organising fee and five short answers
+// Owner's texts of 14 Nov 2026; layout after the approved preview (round 3, Stripe): the fee as one figure, what it
+// includes and what it does not, then questions that open one at a time. The only amount on the page is the real fee
+// the server gave (the session list or her booking); during the launch offer the figure is left out, as it is on the
+// session list. Reached from the fee line of the session choice and of the review; "Back" returns there.
+function feeSeen(s) { if (s && s.price) state.fee = { display: s.price.display, free: Boolean(s.launch_free) }; }
+async function scrFee() {
+  if (!(await guard({ needQuestionnaire: false }))) return;
+  if (!state.fee) { loadingView(); const r = await api("GET", "/api/v1/sessions"); if (r.ok) feeSeen(r.data.sessions[0]); }
+  const fee = state.fee && !state.fee.free ? state.fee.display : "";
+  const list = (keys) => `<ul class="fee-list">${keys.map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`;
+  view(T("feeTitle"), `
+    <h1>${esc(T("feeTitle"))}</h1>
+    ${fee ? `<p class="fee-big num" id="fee-big">${esc(fee)}</p>` : ""}
+    <section class="fee-part" aria-labelledby="fee-in"><h2 class="label" id="fee-in">${esc(T("feeIncl"))}</h2>${list(["feeIn1", "feeIn2", "feeIn3"])}</section>
+    <section class="fee-part out" aria-labelledby="fee-out"><h2 class="label" id="fee-out">${esc(T("feeExcl"))}</h2>${list(["feeOut1"])}</section>
+    <div class="faq fee-questions" id="fee-faq">${[1, 2, 3, 4, 5].map((k) => `<details name="fee-faq"><summary>${esc(T(`feeQ${k}`))}</summary><p class="muted">${esc(T(`feeA${k}`))}</p></details>`).join("")}</div>
+    <button type="button" class="btn btn-secondary btn-block" id="fee-back">${esc(T("back"))}</button>`);
+  $("#fee-back").onclick = () => { if (history.length > 1) history.back(); else go("#/home"); };
 }
 
 // Coordinator on duty (audit F10): real call / WhatsApp buttons when configured, loaded once per page load.
@@ -1443,7 +1531,7 @@ async function scrPayReturn(id) {
       view(T("allSetTitle"), `<div class="center all-set"><div class="success-check">${icon("check")}</div><h1>${esc(T("allSetTitle"))}</h1>
         <p class="lead">${esc(T("paidTitle"))}</p>
         ${it ? `<div class="card booking-peek"><span class="bi">${icon(it.experience === "coffee" ? "coffee" : "utensils")}</span>
-          <span><strong>${esc(T(it.experience))}</strong><br><span>${esc(fmtDate(it.starts_at))}</span>${it.district ? `<br><span class="muted">${esc(it.district)}</span>` : ""}</span></div>` : ""}
+          <span><strong>${esc(T(it.experience))}</strong><br><span>${esc(fmtDate(it.starts_at))}</span>${it.district ? `<br><span class="muted">${esc(it.district)}</span>` : ""}${it.seats === 2 ? `<br>${plusTag(it)} · <span class="num">${esc(it.amount.display)}</span>` : ""}</span></div>` : ""}
         <ol class="next-steps">${["allSet1", "allSet2", "allSet3"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ol>
         <p class="caption">${esc(T("bookingRef"))} ${num(b.ref)}</p><a class="btn btn-primary btn-block" href="#/home">${esc(T("goDashboard"))}</a></div>`);
     } else if (phase === "failed") {
@@ -1656,7 +1744,8 @@ async function scrEvents() {
       : next.phase === "day_of" ? T("stDayOf") : T("viewDetails");
     hero = `<section class="card hero stack" aria-labelledby="nexth">
       <div class="row between"><h2 id="nexth">${esc(T("nextEvent"))}</h2>${statusBadge(next)}</div>
-      <div><strong>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</strong><div class="caption">${esc(next.district)} · <span aria-live="off">${esc(countdown(next.starts_at))}</span></div></div>
+      <div><strong>${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at))}</strong><div class="caption">${esc(next.district)} · <span aria-live="off">${esc(countdown(next.starts_at))}</span></div>
+        ${next.seats === 2 ? `<div class="caption plus-line">${plusTag(next)} · <span class="num">${esc(next.amount.display)}</span></div>` : ""}</div>
       <p>${esc(phaseLine)}</p>
       <ol class="stepper">${steps.map((s, i) => `<li class="${i < cur ? "done" : i === cur ? "current" : ""}" ${i === cur ? 'aria-current="step"' : ""}><span class="dot" aria-hidden="true"></span><span>${esc(T(s))}</span></li>`).join("")}</ol>
       <a class="btn btn-primary btn-block" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">${esc(next.phase === "day_of" ? T("imHere") : T("viewDetails"))}</a>
@@ -1689,7 +1778,7 @@ async function scrEvents() {
     ${hero || ready || `<div class="empty">${tableSvg({ seats: 6 })}<h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
     ${bookings.length > (next ? 1 : 0) ? `<h2>${esc(T("otherBookings"))}</h2><ul class="list">${bookings.filter((b) => b !== next).map((b) => `
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
-      <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
+      <span class="caption">${num(b.ref)} · ${esc(b.district)}${b.seats === 2 ? ` · ${plusTag(b)} · <span class="num">${esc(b.amount.display)}</span>` : ""}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
     <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
   const rulesBox = $("#ready-rules");
@@ -1746,6 +1835,8 @@ async function scrDetails(id) {
       <li>${icon("languages")}<span>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</span><span class="k">${esc(T("tableLanguage"))}</span></li>
       <li>${icon("wallet")}<span>${esc(e.session.food_price_band.display)}</span><span class="k">${esc(T("foodBandLabel"))}</span></li>
       <li>${icon("clock")}<span class="num">${esc(fmtDate(e.session.starts_at, { hour: "numeric", minute: "2-digit" }))}</span><span class="k">${esc(T("dateTime"))}</span></li>
+      ${e.booking.seats === 2 ? `<li id="plus-fact">${icon("users")}<span>${plusTag(e.booking)}</span><span class="k">${esc(T("plusOneSeats"))}</span></li>
+      ${e.payment ? `<li id="plus-total">${icon("ticket")}<span class="num">${esc(e.payment.amount.display)}</span><span class="k">${esc(T("plusOneFee"))}</span></li>` : ""}` : ""}
       ${acc ? `<li>${icon("info")}<span>${esc(acc)}</span><span class="k">${esc(T("accessibility"))}</span></li>` : ""}</ul>
     ${e.table ? `<section class="card stack"><div class="table-figure">${tableSvg({ seats: e.table.capacity, filled: e.table.confirmed_count,
         label: T("tableSeats", { n: e.table.confirmed_count, cap: e.table.capacity }) })}
@@ -1776,7 +1867,8 @@ async function scrDetails(id) {
     <section class="stack" data-u="mt6"><p class="caption">${esc(T("support"))}</p>${contactButtons(contact, id)}
       ${!saved && (act("report") || ["revealed", "locked", "forming"].includes(ph)) ? `<a class="btn btn-ghost btn-block" href="#/report/${id}">${icon("flag")}${esc(T("privateReport"))}</a>` : ""}</section>
     ${act("cancel") ? `<section class="stack" data-u="mt6"><a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
-      <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
+      <p class="caption" id="det-refund">${esc(e.booking.cancellation.refund_if_cancelled_now === "full"
+        ? T(e.booking.cancellation.late_cancel_refund_pct > 0 ? "policyBox" : "refundLine", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p></section>` : ""}`);
   const pin = $("#pin"), head = $("#det-head");
   if (pin && head && "IntersectionObserver" in window) {
@@ -1841,7 +1933,9 @@ async function scrCancel(id) {
     : e.booking.cancellation.refund_if_cancelled_now === "full" ? T("refundFull", { fee, days: 10 }) : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) });
   view(T("cancelTitle"), `
     <h1>${esc(T("cancelTitle"))}</h1>
-    <section class="card"><strong>${esc(fmtDate(e.session.starts_at))}</strong><div class="caption">${esc(e.session.district)}</div></section>
+    <section class="card"><strong>${esc(fmtDate(e.session.starts_at))}</strong><div class="caption">${esc(e.session.district)}</div>
+      ${e.booking.seats === 2 ? `<div class="caption plus-line" id="cancel-plus">${plusTag(e.booking)}${fee ? ` · <span class="num">${esc(fee)}</span>` : ""}</div>` : ""}</section>
+    ${e.booking.seats === 2 ? `<p class="caption" id="cancel-both">${esc(T("plusOneCancel"))}</p>` : ""}
     ${e.reveal.phase === "pending_payment" ? `<div class="banner banner-warning"><div>${esc(outcome)}</div></div>` : `<dl class="cancel-table" id="cancel-table">
       <div class="when${fullNow ? " now" : ""}" ${fullNow ? 'aria-current="true"' : ""}><dt>${esc(T("cancelUntil", { deadline: fmtDate(cn.full_refund_until) }))}</dt>
         <dd><b>${esc(T("optRefund"))}</b><span>${esc(T("refundFull", { fee, days: 10 }))}</span></dd></div>
@@ -2179,7 +2273,7 @@ const ROUTES = [
   [/^#\/welcome$/, scrWelcome], [/^#\/quiz\/(\d+)$/, scrQuiz], [/^#\/name$/, scrName], [/^#\/what-you-get$/, scrWhatYouGet],
   [/^#\/signin$/, scrPhone], [/^#\/otp$/, scrOtp], [/^#\/register$/, scrRegister],
   [/^#\/(?:questions\/\d+|summary)$/, () => go(`#/quiz/${INTERSTITIALS.start.length}`)], [/^#\/sessions(?:\?s=([\w-]+))?$/, scrSessions], [/^#\/events$/, scrEvents],
-  [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
+  [/^#\/fee$/, scrFee], [/^#\/booking\/([\w-]+)\/review$/, scrReview], [/^#\/pay\/return\/([\w-]+)$/, scrPayReturn], [/^#\/home$/, scrHome],
   [/^#\/booking\/([\w-]+)\/cancel$/, scrCancel], [/^#\/booking\/([\w-]+)\/choose$/, scrChoose], [/^#\/booking\/([\w-]+)\/feedback$/, scrFeedback],
   [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy], [/^#\/plans$/, scrPlans], [/^#\/notify(?:\?next=(\w+))?$/, scrNotify],
 ];

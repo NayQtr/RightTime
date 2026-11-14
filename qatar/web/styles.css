@@ -1091,3 +1091,44 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
   background: var(--c-surface); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--c-primary) 8%, transparent); }
 :root[data-theme="dark"] #topbar ~ main .card:not(.hero) :is(.badge:not(.badge-primary), .btn-secondary), :root[data-theme="dark"] #topbar ~ main .cancel-table .when.now { background: var(--c-primarySubtle); }
 :root[data-theme="dark"] #topbar ~ main .welcome-photo img { box-shadow: none; }
+
+/* ---- owner's texts of 14 Nov 2026 and "+1" ---- */
+/* a full session: the three waitlist steps under it; the first is marked once she has joined */
+.wait-steps { list-style: none; margin: var(--s-3) 0 0; padding: 0; display: grid; gap: var(--s-3); counter-reset: ws; }
+.wait-steps li { position: relative; counter-increment: ws; padding-inline-start: 36px; min-height: 24px; font-size: var(--t-caption-size); line-height: var(--t-caption-lh); color: var(--c-textMuted); }
+.wait-steps li::before { content: counter(ws); position: absolute; inset-inline-start: 0; top: -1px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: calc(var(--u) * 0.7500); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--c-text); box-shadow: inset 0 0 0 1.5px var(--c-borderStrong);
+  transition: background-color var(--m-base) var(--m-ease), color var(--m-base) var(--m-ease); }
+.wait-steps li.done { color: var(--c-text); }
+.wait-steps li.done::before { background: var(--c-primary); color: var(--c-onPrimary); box-shadow: none; }
+/* the fee line leads to the fee page */
+.fee-link { color: inherit; text-decoration: underline; text-decoration-color: var(--c-borderStrong); text-underline-offset: 3px; }
+.book-pill a.fee-link { display: flex; align-items: center; min-height: 48px; }
+.receipt .kv a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-borderStrong); text-underline-offset: 3px; }
+:is(.fee-link, .receipt .kv a):focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; border-radius: var(--r-sm); }
+/* the fee page: one figure, what it includes and what it does not, then the questions */
+.fee-big { margin: 0 0 var(--s-4); font-family: var(--font-display); font-weight: 800; font-size: calc(var(--u) * 3); line-height: 1.1; color: var(--c-primary); }
+.fee-part { margin-block-end: var(--s-4); }
+.fee-part h2 { margin: 0 0 var(--s-2); color: var(--c-textMuted); }
+.fee-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.fee-list li { position: relative; padding-inline-start: 28px; }
+.fee-list li::before { content: ""; position: absolute; inset-inline-start: 4px; top: 0.45em; width: 12px; height: 7px; border-left: 2px solid var(--c-primary); border-bottom: 2px solid var(--c-primary); transform: rotate(-45deg); }
+.fee-part.out .fee-list li::before { top: 0.75em; height: 0; width: 12px; border-left: 0; border-bottom-color: var(--c-textMuted); transform: none; }
+.fee-questions { margin-block-end: var(--s-5); }
+/* "+1": a toggle; on, it opens the companion's name and the check box */
+.plus { margin-block: var(--s-4); }
+.plus > .row { gap: var(--s-3); justify-content: flex-start; }
+.plus-btn { min-width: 72px; min-height: 48px; padding: 0 var(--s-4); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); font: inherit; font-weight: 700;
+  font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); cursor: pointer; transition: background-color var(--m-fast) var(--m-ease), color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease); }
+.plus-btn[aria-pressed="true"] { background: var(--c-primary); color: var(--c-onPrimary); box-shadow: none; }
+.plus-btn:disabled { color: var(--c-textDisabled); cursor: not-allowed; }
+.plus-btn:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
+.plus #plus-none { margin: 0; }
+#plus-panel { margin-block-start: var(--s-3); animation: enter-fade 200ms var(--m-ease) backwards; }
+#plus-panel[hidden] { display: none; }
+#plus-panel > p { margin: 0; }
+.plus-tag { font-weight: 600; }
+.plus-line { margin-block-start: var(--s-1); }
+#cancel-both { margin: 0 0 var(--s-3); }
+@media (prefers-reduced-motion: reduce) { .wait-steps li::before, .plus-btn { transition: none; } #plus-panel { animation: none; } }
+.kv[hidden] { display: none; }

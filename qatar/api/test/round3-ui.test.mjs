@@ -190,7 +190,10 @@ test("a full session: joining the waitlist puts her real place in the session's 
   assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.waitlist_entries WHERE session_id = ${S.full} AND status = 'waiting'`)[0].n, 1);
   await page.reload(); await ready(page);
   assert.equal((await page.locator(`.sess[data-id="${S.full}"] .wait-step`).innerText()).trim(), "أنتِ في قائمة الانتظار (الترتيب 1).");
-  assert.equal(await page.locator("main").evaluate((m) => /لا يُخصم|ينتقل المقعد/.test(m.textContent)), false, "no waitlist promise beyond the product's own text");
+  // the three steps under it are the owner's own words (14 Nov 2026), not the preview's example promises
+  assert.equal(await page.locator("main").evaluate((m) => /لا يُخصم|ينتقل المقعد/.test(m.textContent)), false, "none of the preview's example promises");
+  assert.deepEqual(await page.locator(`.sess[data-id="${S.full}"] .wait-steps li`).allInnerTexts(),
+    ["انضمّي لقائمة الانتظار.", "إذا توفّر مقعد نحجزه لكِ ونرسل لكِ إشعارًا.", "أكّدي وادفعي خلال المدة المذكورة في الإشعار، وإلا انتقل المقعد لمن بعدك."]);
   await noSideScroll(page, "sessions");
   assert.deepEqual(page.errors, []);
   await page.context().close();

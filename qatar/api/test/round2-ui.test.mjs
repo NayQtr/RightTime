@@ -163,13 +163,13 @@ test("choosing a session: the bar is one floating pill, and the chosen session's
 
 test("review: a receipt, the amount large, what is due now last, and the cancellation line under the pay button", async () => {
   const amount = (await call("GET", `/api/v1/bookings/${pending.booking}`, { token: pending.token })).body.amount.display.match(/\d+/)[0];
-  for (const [locale, due, starts] of [["ar", "المطلوب الآن", "يمكنك الإلغاء مع استرداد كامل حتى"], ["en", "Due now", "You can cancel with a full refund until"]]) {
+  for (const [locale, due, starts] of [["ar", "المطلوب الآن", "إلغاء مجاني حتى"], ["en", "Due now", "Free cancellation until"]]) {
     const page = await open(`#/booking/${pending.booking}/review`, { who: pending, locale });
     await page.waitForSelector(".receipt #due-row");
     assert.ok((await page.locator("#rc-total").innerText()).includes(amount));
     assert.ok(parseFloat(await page.locator("#rc-total").evaluate((e) => getComputedStyle(e).fontSize)) >= 26, "the amount is the largest line");
     assert.ok((await page.locator(".rc-name").innerText()).includes(locale === "ar" ? "عشاء" : "Dinner"));
-    const rows = await page.locator(".receipt .kv").evaluateAll((els) => els.map((e) => [e.children[0].textContent.trim(), e.children[1].textContent.trim()]));
+    const rows = await page.locator(".receipt .kv:not([hidden])").evaluateAll((els) => els.map((e) => [e.children[0].textContent.trim(), e.children[1].textContent.trim()]));
     assert.equal(rows.length, 7);
     assert.equal(rows[6][0], due, "the last line is what is due now");
     assert.equal(rows[6][1], (await page.locator("#rc-total").innerText()).trim());
