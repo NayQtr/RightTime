@@ -154,39 +154,45 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     } else if (bk.expired) {
       children.addAll([Text(t.holdExpired, key: const Key('expired')), const SizedBox(height: HzSpace.s4), Press(child: OutlinedButton(onPressed: () => context.go('/home'), child: Text(t.backHome)))]);
     } else {
+      final ordinary = bk.refundWindowOpen && bk.fullRefundUntil != null;
+      final terms = Container(
+        padding: const EdgeInsets.all(HzSpace.s3),
+        // The ordinary refund note sits on the sunken surface, as the same note does on the website; only the late
+        // warning is tinted. "info" is a steel blue and washed out grey over the warm background of identity v0.5.
+        decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
+        child: Text(ordinary ? t.policyBox(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
+      );
       children.addAll([
         Text(t.reviewTitle, style: tt.titleLarge),
         // Item 41 (owner, 11 Nov): during the launch period the amount stays visible, struck through, beside the
         // owner's words, and a line explains that it is taken and refunded. Nothing about money is said before this step.
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(t.serviceFee),
-          trailing: bk.launchFree
-              ? Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(bk.amount, key: const Key('amount'), style: TextStyle(color: c.textMuted, decoration: TextDecoration.lineThrough)),
-                  const SizedBox(width: HzSpace.s2),
-                  Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
-                ])
-              : Text(bk.amount, key: const Key('amount'), style: const TextStyle(fontWeight: FontWeight.w700)),
-        ),
+        // Read as a receipt before paying (owner, 14 Nov: rounds 1-3): what it is, the amount large, and the same
+        // amount on the button; the ordinary refund note follows the button directly.
+        const SizedBox(height: HzSpace.s3),
+        Text(t.serviceFee, style: tt.bodySmall?.copyWith(color: c.textMuted)),
+        if (bk.launchFree)
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: HzSpace.s2, children: [
+            Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium?.copyWith(color: c.textMuted, decoration: TextDecoration.lineThrough)),
+            Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
+          ])
+        else
+          Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium),
+        Divider(height: HzSpace.s6, thickness: 1, color: c.border),
         if (bk.launchFree) Text(t.feeLaunchNote, key: const Key('launch-note'), style: tt.bodySmall?.copyWith(color: c.textMuted)),
         Text(t.foodNote, style: tt.bodySmall),
         const SizedBox(height: HzSpace.s3),
         if (bk.holdExpiresAt != null) Text(t.holdUntil(fmtTime(bk.holdExpiresAt!, lang)), style: tt.bodySmall),
         const SizedBox(height: HzSpace.s3),
-        Container(
-          padding: const EdgeInsets.all(HzSpace.s3),
-          // The ordinary refund note sits on the sunken surface, as the same note does on the website; only the late
-          // warning is tinted. "info" is a steel blue and washed out grey over the warm background of identity v0.5.
-          decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
-          child: Text(bk.refundWindowOpen && bk.fullRefundUntil != null ? t.policyBox(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
-        ),
+        // the late warning and its acknowledgement come before the button; the ordinary note comes right after it
+        if (!ordinary) terms,
         if (bk.ackRequired)
           TestId('ack', child: CheckboxListTile(key: const Key('ack'), contentPadding: EdgeInsets.zero, value: ack, onChanged: (v) => setState(() => ack = v!), title: Text(t.lateAck))),
         if (bk.paymentFailed) Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(t.payFailed, style: TextStyle(color: c.danger))),
         const SizedBox(height: HzSpace.s4),
         if (waiting) ...[TestId('waiting', child: Text(t.waitingPayment, key: const Key('waiting'))), const SizedBox(height: HzSpace.s3)],
-        Press(child: FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay, child: BusyLabel(busy: busy, child: Text(t.payNow)))),
+        Press(child: FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay,
+            child: BusyLabel(busy: busy, child: Text(bk.launchFree || bk.amount.isEmpty ? t.payNow : t.payAmount(bk.amount))))),
+        if (ordinary) ...[const SizedBox(height: HzSpace.s3), terms],
         if (waiting) Press(child: TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment))),
       ]);
     }
