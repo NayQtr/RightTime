@@ -28,6 +28,15 @@ Pentagram: /about with a strict 4-size type scale and quote-then-photo rhythm. A
 welcome. MUJI: this week's meetups as a peek row of photo cards. Airbnb: week strip as the only filter, with a live count.
 Mockups sent: welcome with a photo instead of the table diagram; home with a photo peek row (light and dark). The photos
 are the round-3 atmosphere set already on /about; their use in the product still needs the owner's approval (item 21).
+Owner: «طبق الكل ولا ترفع شي عطني روابط داخليه من كلود» → all ten built as an interactive preview ONLY (private Claude
+artifact https://claude.ai/artifact/4da919HbETry29QZxV5anX; nothing in the repo, staging or production). Owner: «تمام كل شي
+حلو», then asked for another round with NEW ideas. Round 2 (same sites, other pages; Aesop blocked a 4th time → two from
+Pentagram), added to the same preview as seven screens: details (Pentagram giant date numeral; Apple pinned summary bar;
+Airbnb floating book pill with the refund note docking above it), booking review as a receipt (Stripe), inbox as a dated
+rail (Linear), getting-ready card as the empty state (Notion), two-tone interstitial (Pentagram), she picks her reminders
+before the system prompt (Duolingo), three echoing feedback rows (MUJI), gliding tab indicator (Framer).
+Texts with a dashed outline in the preview are Claude's placeholders; real copy = the owner's wording. NOT decided yet:
+which ideas to build in the real site and app (asked the owner; waiting).
 
 ## Phone field redesign + identity proposals [2026-11-13]
 
