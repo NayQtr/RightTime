@@ -333,7 +333,8 @@ fieldset.card .check + .check { border-block-start: 1px solid var(--c-border); }
 
 /* progress: thin segmented track */
 .progress { height: 4px; background: var(--c-border); border-radius: var(--r-pill); overflow: hidden; }
-.progress > span { display: block; height: 100%; background: var(--c-primary); border-radius: var(--r-pill); transition: width var(--m-base) var(--m-ease-in-out); }
+.progress > span { display: block; height: 100%; background: var(--c-primary); border-radius: var(--r-pill); transition: width 400ms var(--m-ease); }
+@media (prefers-reduced-motion: reduce) { .progress > span { transition: none; } }
 
 /* booking tracker: four bars (paid · forming · confirmed · revealed) */
 .track { list-style: none; padding: 0; margin: var(--s-4) 0 var(--s-5); display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -537,7 +538,7 @@ a.option { text-decoration: none; color: inherit; }
 .checklist li.done::before { box-shadow: inset 0 0 0 5px var(--c-primary); }
 .choice-stack { display: grid; gap: var(--s-2); width: 100%; margin-block-start: var(--s-3); }
 
-/* welcome: content-height, start-aligned, the table as the image */
+/* welcome: content-height, start-aligned, a photo as the image */
 .hero-welcome { display: grid; gap: var(--s-4); padding-block: var(--s-4) var(--s-2); }
 .hero-welcome h1 { font-family: var(--font-display); font-weight: 600; font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.3; margin: 0; }
 :root[lang="en"] .hero-welcome h1 { font-size: min(calc(var(--u) * 2.0000), 11vw); line-height: 1.15; }
@@ -551,17 +552,24 @@ a.option { text-decoration: none; color: inherit; }
 .hero-welcome h1 em, .about-hero h1 em { font-style: normal; color: var(--c-onAccent); background: var(--c-accent);
   padding: .06em .3em; border-radius: .22em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .hero-welcome > p { color: var(--c-textMuted); margin: 0; max-width: 32ch; }
-.welcome-table { width: min(240px, 66%); justify-self: center; margin-block: var(--s-4); }
-.welcome-table .table { width: 100%; height: auto; display: block; }
+/* the photo (rounds 1-3 study, 14 Nov 2026, after Aesop): an atmosphere photo in the page's tones instead of the table
+   drawing; it fades in and settles once. On a short phone it gives up height so both buttons stay on the first screen. */
+.welcome-photo { display: block; margin-block: var(--s-2); }
+.welcome-photo img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 4.2; max-height: 48svh; object-fit: cover; border-radius: 28px;
+  background: var(--c-surfaceSunken); box-shadow: 0 18px 40px -26px color-mix(in oklch, var(--c-text) 70%, transparent);
+  animation: photo-settle 1.1s var(--m-ease) both; }
+@keyframes photo-settle { from { opacity: 0; transform: scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .welcome-photo img { animation: none; } }
 .hero-welcome .stack > * + * { margin-block-start: var(--s-2); }
 /* the Arabic headline breaks after "تعرّفي على ناس.." so the phrase is never split across lines */
 @media (min-width: 340px) { :root[lang="ar"] .hero-welcome h1 .lead-in { white-space: nowrap; } } /* a 320 px phone may wrap it */
-/* large screens: words and buttons on one side, the table drawing on the other, vertically centred */
+/* large screens: words and buttons on one side, the photo on the other, vertically centred */
 @media (min-width: 1024px) {
   .hero-welcome { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--s-12); align-items: center;
     padding-block: var(--s-8); min-height: calc(100svh - 140px); align-content: center; }
   .hero-welcome > * { grid-column: 1; }
-  .hero-welcome > .welcome-table { grid-column: 2; grid-row: 1 / span 6; width: min(400px, 90%); margin: 0; }
+  .hero-welcome > .welcome-photo { grid-column: 2; grid-row: 1 / span 6; width: min(440px, 100%); justify-self: center; margin: 0; }
+  .hero-welcome > .welcome-photo img { max-height: none; }
   .hero-welcome h1 { font-size: calc(var(--u) * 3); }
   .hero-welcome .stack { max-width: 420px; }
 }
@@ -601,7 +609,29 @@ a.option { text-decoration: none; color: inherit; }
 .week button[aria-pressed="true"] b { color: var(--c-bg); }
 .week button[aria-pressed="true"].has i { background: var(--c-bg); }
 .week button:disabled { cursor: default; opacity: 0.55; }
+/* Home filter (rounds 1-3 study, 14 Nov 2026, after Notion and Airbnb): three tinted tiles. The wide one holds the week
+   strip, which filters the meetups to one day; the two small ones filter to dinner or coffee. A chosen tile or day is
+   told by its edge or fill, never by colour alone (aria-pressed). The strip's tile keeps 4 px at its sides so each day
+   stays a 44 px target on a 360 px phone. */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-block-end: var(--s-2); }
+.tile { position: relative; display: grid; gap: 2px; align-content: start; min-height: 92px; padding: var(--s-3) var(--s-4); border: 0; border-radius: var(--r-md);
+  background: var(--c-primarySubtle); color: var(--c-text); font: inherit; text-align: start; cursor: pointer; overflow: hidden;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--m-fast) var(--m-ease); }
+.tile.wide { grid-column: 1 / -1; min-height: 0; padding: var(--s-3) var(--s-1) var(--s-1); background: var(--c-surfaceSunken); cursor: default; }
+.tile .e { font-size: calc(var(--u) * 0.7500); font-weight: 600; color: var(--c-textMuted); }
+.tile.wide .e { padding-inline: var(--s-3); }
+.tile strong { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1.0625); }
+.tile .i { position: absolute; inset-inline-end: var(--s-3); inset-block-end: var(--s-3); width: 36px; height: 36px; color: var(--c-primary); stroke-width: 1.6; }
+.tile[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--c-primary); }
+.tile:disabled { opacity: 0.55; cursor: default; }
+button.tile:not(:disabled):active { transform: scale(0.97); transition-duration: 0ms; }
+.tile .week { margin-block: var(--s-1) 0; }
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } button.tile:not(:disabled):active { transform: none; } }
+/* the count for the chosen day; its line is always there, so the cards under it do not jump when it speaks */
+.day-count { min-height: 1.6em; margin: 0; color: var(--c-textMuted); font-size: calc(var(--u) * 0.8750); line-height: 1.6; }
+.no-match { margin-block: var(--s-6); text-align: center; }
 .week-group { margin-block-start: var(--s-5); scroll-margin-top: 72px; }
+.day-count + .week-group { margin-block-start: var(--s-2); }
 .week-group > h2 { font-family: var(--font-body); font-size: calc(var(--u) * 0.8125); font-weight: 600; color: var(--c-textMuted); margin: 0 0 var(--s-2); }
 /* meetup cards (identity step, 13 Nov 2026): raised light cards with a hairline edge and a soft shadow */
 .event-card { display: grid; grid-template-columns: 60px 1fr 24px; gap: var(--s-4); align-items: center; padding: var(--s-4); background: var(--c-surface);
@@ -620,6 +650,18 @@ a.option { text-decoration: none; color: inherit; }
 .event-card .m .full { color: var(--c-danger); font-weight: 600; } .event-card .m .mine { color: var(--c-success); font-weight: 600; }
 .event-card .go { color: var(--c-textMuted); display: grid; place-items: center; }
 .event-card .go .i { width: 20px; height: 20px; }
+/* This week's meetups (rounds 1-3 study, 14 Nov 2026, after MUJI): a row of photo cards that is swiped sideways, the next
+   card peeking in from the edge. It runs to the screen's edges (main's own padding is given back inside), snaps card by
+   card, follows the reading direction, and each card is a link, so the keyboard reaches every one. */
+.peek { list-style: none; display: flex; gap: var(--s-3); margin: 0 calc(-1 * var(--s-5)); padding: var(--s-1) var(--s-5) var(--s-4); overflow-x: auto;
+  scroll-snap-type: x mandatory; scroll-padding-inline: var(--s-5); overscroll-behavior-x: contain; scrollbar-width: none; }
+.peek::-webkit-scrollbar { display: none; }
+.peek > li { flex: 0 0 272px; scroll-snap-align: start; }
+.peek > li[hidden] { display: none; }
+@media (max-width: 380px) { .peek { margin-inline: calc(-1 * var(--s-4)); padding-inline: var(--s-4); scroll-padding-inline: var(--s-4); } }
+.event-card.photo-card { grid-template-columns: 60px 1fr; gap: var(--s-3); padding: 0 var(--s-4) var(--s-4); overflow: hidden; height: 100%; align-content: start; }
+.photo-card .shot { grid-column: 1 / -1; display: block; margin-inline: calc(-1 * var(--s-4)); background: var(--c-surfaceSunken); }
+.photo-card .shot img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3.3; object-fit: cover; }
 .next-card { display: grid; gap: var(--s-2); padding: var(--s-4) var(--s-5); border-radius: var(--r-xl); background: var(--c-primarySubtle); text-decoration: none; color: inherit; }
 .next-card .when { font-family: var(--font-display); font-weight: 800; font-size: calc(var(--u) * 1.3750); line-height: 1.3; }
 .next-card .row { color: var(--c-textMuted); font-size: calc(var(--u) * 0.8125); }
@@ -633,13 +675,32 @@ a.option { text-decoration: none; color: inherit; }
 :is(.next-card, .card.hero) .stepper li.done .dot { background: var(--c-onPrimary); }
 :is(.next-card, .card.hero) .stepper li.current .dot { background: var(--c-primary); box-shadow: 0 0 0 3px var(--c-onPrimary); }
 .card.hero .btn-primary { background: var(--c-onPrimary); color: var(--c-primary); }
+/* Double frame (rounds 1-3 study, 14 Nov 2026, after Linear): the card keeps its fill and its content; around it a 6 px
+   band of the brand colour at 8%, and on its own edge a hairline. Its rows then come into focus one after another. */
+main > .next-card, main > .card.hero { margin: calc(var(--s-3) + 6px) 6px;
+  box-shadow: 0 0 0 6px color-mix(in oklch, var(--c-primary) 8%, transparent), inset 0 0 0 1px color-mix(in oklch, var(--c-onPrimary) 22%, transparent); }
+@keyframes sharpen { from { opacity: 0; filter: blur(6px); } }
+:is(.next-card, .card.hero) > * { animation: sharpen 280ms cubic-bezier(0.32, 0.72, 0, 1) 200ms backwards; }
+:is(.next-card, .card.hero) > :nth-child(2) { animation-delay: 260ms; } :is(.next-card, .card.hero) > :nth-child(3) { animation-delay: 320ms; }
+:is(.next-card, .card.hero) > :nth-child(4) { animation-delay: 380ms; } :is(.next-card, .card.hero) > :nth-child(n+5) { animation-delay: 440ms; }
+main.settled :is(.next-card, .card.hero) > * { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.next-card, .card.hero) > * { animation: none; } }
 /* lists arrive one after another (not all at once); nothing moves when the reader asks for less motion */
-@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } }
-main .list > li { animation: rise-in 360ms var(--m-ease) backwards; }
-main .list > li:nth-child(2) { animation-delay: calc(var(--m-stagger) * 1); } main .list > li:nth-child(3) { animation-delay: calc(var(--m-stagger) * 2); }
-main .list > li:nth-child(4) { animation-delay: calc(var(--m-stagger) * 3); } main .list > li:nth-child(5) { animation-delay: calc(var(--m-stagger) * 4); }
-main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
-@media (prefers-reduced-motion: reduce) { main .list > li { animation: none; } }
+/* Rounds 1-3 study (14 Nov 2026, after Apple): headings and cards rise 16 px and fade in over 600 ms, 120 ms apart; the
+   step stops growing after the fifth item, so a long list never keeps her waiting. Once per view: view() starts it,
+   and a filter that hides and shows cards marks the screen settled (main.settled) so nothing rises a second time. */
+@keyframes rise-in { from { opacity: 0; transform: translateY(16px); } }
+main :is(.list, .peek) > li, main .week-group > h2 { animation: rise-in 600ms var(--m-ease) backwards; }
+main :is(.list, .peek) > li:nth-child(2) { animation-delay: 120ms; } main :is(.list, .peek) > li:nth-child(3) { animation-delay: 240ms; }
+main :is(.list, .peek) > li:nth-child(4) { animation-delay: 360ms; } main :is(.list, .peek) > li:nth-child(n+5) { animation-delay: 480ms; }
+main.settled :is(.list, .peek) > li, main.settled .week-group > h2 { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  /* a screen's own headings, and the home tiles, rise the same way (the selector has to outweigh the plain fade that
+     main.enter-fade gives its children above; with less motion they keep that short fade) */
+  main.enter-fade > :is(h1, h2, .display-title, .tiles):not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)),
+  main .home-head .display-title { animation: rise-in 600ms var(--m-ease) backwards; }
+}
+@media (prefers-reduced-motion: reduce) { main :is(.list, .peek) > li, main .week-group > h2 { animation: none; } }
 
 /* details header */
 .det-head { display: grid; gap: var(--s-1); justify-items: start; }
@@ -708,6 +769,28 @@ main .list > li:nth-child(n+6) { animation-delay: calc(var(--m-stagger) * 5); }
   .btn:active, .option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active,
   .settings a:active, .tabbar a:active, .icon-btn:active, .brand:active { transform: none; }
 }
+
+/* Questionnaire answers (rounds 1-3 study, 14 Nov 2026, after Framer): an answer dims while it is pressed (150 ms) and
+   comes back as it fills; the fill and the mark are the selection styles above. */
+.quiz-q :is(.option, .chip) { transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease), opacity 150ms var(--m-ease); }
+.quiz-q :is(.option, .chip):active { opacity: 0.6; transition-duration: 0ms, 0ms, 0ms, 150ms; }
+.quiz-q .scale label { transition: opacity 150ms var(--m-ease); }
+.quiz-q .scale label:active { opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .quiz-q :is(.option, .chip, .scale label) { transition: none; } }
+/* The reply line (after Duolingo): once she has chosen, the heading block fades out (180 ms) and one line fades in
+   (200 ms) beside the small table, where one seat fills. The block keeps its height (app.js), so the answers never
+   move; the question is moved out of sight, not removed, so a screen reader still has it. */
+.q-head { display: flow-root; transition: opacity 200ms var(--m-ease); }
+.q-head.out { opacity: 0; transition-duration: 180ms; }
+.q-head .why { margin-block-end: 0; }
+.q-head.replied { display: grid; align-content: center; }
+.q-head.replied .q-ask { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.q-reply { display: flex; align-items: center; gap: var(--s-3); }
+.q-reply:empty { display: none; }
+.q-reply .table { width: 56px; height: 56px; flex: none; }
+.q-reply .table .seat { transition: fill 400ms var(--m-ease), stroke 400ms var(--m-ease); }
+.q-reply p { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1.1875); line-height: 1.6; }
+@media (prefers-reduced-motion: reduce) { .q-head, .q-head.out, .q-reply .table .seat { transition: none; } }
 
 /* shared-themes line on a revealed table (r2-personality) */
 .shared-themes { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; color: var(--c-text); font-weight: 500; }

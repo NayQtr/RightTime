@@ -47,6 +47,11 @@ const $$ = (sel, root = main) => [...root.querySelectorAll(sel)];
 const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
+// The atmosphere photos of the public page (web/about/img, 720 x 900, no faces): WebP with a JPEG fallback, as /about
+// serves them. alt="": they set the mood; every fact is in the text beside them.
+const photo = (name, { cls = "", eager = false } = {}) => `<picture class="${cls}"><source type="image/webp" srcset="/about/img/${name}-720.webp">`
+  + `<img src="/about/img/${name}-720.jpg" width="720" height="900" alt="" decoding="async" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'}></picture>`;
+
 function clearTimers() { state.timers.forEach((t) => clearInterval(t)); state.timers = []; }
 function every(ms, fn) { const t = setInterval(fn, ms); state.timers.push(t); return t; }
 
@@ -95,7 +100,7 @@ document.addEventListener("click", (e) => {
 // The entrance starts on whatever shows first (the loading skeleton or the screen) and is not restarted by the next render.
 function startEntrance() {
   if (navDir === "zoom" && main.classList.contains("enter-zoom")) return;
-  main.classList.remove(...ENTER);
+  main.classList.remove(...ENTER, "settled");
   void main.offsetWidth; // restart the entrance animation
   main.classList.add(`enter-${navDir}`);
 }
@@ -336,7 +341,7 @@ function scrWelcome() {
     <section class="hero-welcome">
       <h1>${esc(T("welcomeHero")).replace(/^(.+?)\s*\{em\}/, (_, lead) => `<span class="lead-in">${lead}</span> <em>${esc(T("welcomeHeroEm"))}</em>`)}</h1>
       <p>${esc(T("welcomeSub"))}</p>
-      <div class="welcome-table">${tableSvg({ seats: 6, filled: 4 })}</div>
+      ${photo("toast", { cls: "welcome-photo", eager: true })}
       ${canResume ? `<div class="resume-card stack" id="resume-card"><p><strong>${esc(T("resumeTitle"))}</strong></p><p class="caption">${esc(T("resumeBody", { n: answered }))}</p>
         <a class="btn btn-primary btn-block" id="resume" href="${esc(resume)}">${esc(T("resumeCta"))}</a>
         <button class="link-btn" type="button" id="over">${esc(T("startOver"))}</button></div>` : ""}
@@ -656,6 +661,20 @@ function quizHead(back, section, progress) {
       <span class="section">${esc(section || "")}</span><span></span></div>
     ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span data-w="${Math.round((progress.i / progress.n) * 100)}"></span></div>` : ""}`;
 }
+// The bar moves from where the last question left it to this one (400 ms, styles.css); the first question shows its
+// first segment at once. Widths go through the CSSOM (CSP), as the observer above does.
+let lastBarW = null;
+function growBar() {
+  const bar = $(".progress > span");
+  if (!bar) { lastBarW = null; return; }
+  const to = Number(bar.dataset.w) || 0;
+  if (lastBarW !== null && lastBarW !== to) {
+    bar.style.width = `${lastBarW}%`;
+    void bar.offsetWidth;
+  }
+  bar.style.width = `${to}%`;
+  lastBarW = to;
+}
 
 async function scrQuiz(stepStr) {
   if (signedIn() && !(await guard({ needQuestionnaire: false }))) return;
@@ -668,6 +687,7 @@ async function scrQuiz(stepStr) {
   if (step.kind === "inter") { scrInter(step.id, i, back); return; }
   const qq = quiz.q.questions[step.index];
   const n = quiz.q.questions.length;
+  if (step.index === 0) lastBarW = null;
   const chosen = new Set(quiz.answers[qq.id] || []);
   const single = ["single", "tier", "contact_request"].includes(qq.answer_type);
   const input = (o) => `<input type="${single ? "radio" : "checkbox"}" name="o" value="${o.id}" data-key="${esc(o.key)}" data-excl="${o.is_exclusive}" ${chosen.has(o.id) ? "checked" : ""}>`;
@@ -684,14 +704,38 @@ async function scrQuiz(stepStr) {
   }
   view(qq.text, `${quizHead(back, qq.section, { i: step.index + 1, n })}
     <form id="f" class="quiz-q" novalidate>
-      <p class="step-k">${esc(T("qStep", { i: step.index + 1, n }))}<span class="time-left"> · ${esc(timeLeftText(n - step.index))}</span></p>
-      <h1 id="qh">${esc(qq.text)}</h1>
-      <p class="caption why">${qq.max_selections ? `${esc(T("chooseUpTo", { n: qq.max_selections }))} · ` : ""}${esc(qq.purpose)}</p>
+      <div class="q-head" id="q-head"><div class="q-ask">
+        <p class="step-k">${esc(T("qStep", { i: step.index + 1, n }))}<span class="time-left"> · ${esc(timeLeftText(n - step.index))}</span></p>
+        <h1 id="qh">${esc(qq.text)}</h1>
+        <p class="caption why">${qq.max_selections ? `${esc(T("chooseUpTo", { n: qq.max_selections }))} · ` : ""}${esc(qq.purpose)}</p>
+      </div><div class="q-reply" id="q-reply" aria-live="polite"></div></div>
       ${body}
       <div id="note" aria-live="polite"></div>
       <div class="quiz-foot"><div><button class="btn btn-primary btn-block" type="submit" id="nx">${esc(T("continue"))}</button></div></div>
     </form>`);
+  growBar();
   const inputs = $$("input[name=o]");
+  // After her first choice on a question with several answers, the heading gives way to one reply line beside the small
+  // table, one seat filling (owner-approved study, 14 Nov 2026, after Duolingo). Once per question; any later change to
+  // the answer brings the question back. The question stays in the page for screen readers the whole time (it is only
+  // moved out of sight), the reply is announced politely, and nothing here disables an answer or Continue. Single-choice
+  // questions move on by themselves 250 ms after the tap, so they do not show it.
+  const head = $("#q-head"), replyBox = $("#q-reply");
+  let reply = "none"; // none -> shown -> done
+  const swapHead = (toReply) => {
+    const wait = lessMotion() ? 0 : 180;
+    if (toReply) head.style.minHeight = `${head.offsetHeight}px`; // the answers below never jump
+    head.classList.add("out");
+    setTimeout(() => {
+      if (!head.isConnected) return;
+      head.classList.toggle("replied", toReply);
+      replyBox.innerHTML = toReply ? `${tableSvg({ seats: 6, filled: 0 })}<p>${esc(T("quizReply"))}</p>` : "";
+      if (!toReply) head.style.minHeight = "";
+      void head.offsetWidth;
+      head.classList.remove("out");
+      if (toReply) setTimeout(() => { const seat = replyBox.querySelector(".seat"); if (seat) seat.setAttribute("class", "seat on"); }, lessMotion() ? 0 : 120);
+    }, wait);
+  };
   const sync = (changed) => {
     if (changed && !single && changed.checked) {
       if (changed.dataset.excl === "true") inputs.forEach((x) => { if (x !== changed) x.checked = false; });
@@ -700,6 +744,10 @@ async function scrQuiz(stepStr) {
     const picked = inputs.filter((x) => x.checked);
     if (qq.max_selections) inputs.forEach((x) => { x.disabled = !x.checked && picked.length >= qq.max_selections; });
     quiz.answers[qq.id] = picked.map((x) => x.value);
+    if (changed && !single) {
+      if (reply === "none" && changed.checked) { reply = "shown"; swapHead(true); }
+      else if (reply === "shown") { reply = "done"; swapHead(false); }
+    }
     saveQuizLocal();
     if (changed && signedIn()) saveDraftSoon();
     $("#nx").disabled = qq.is_required && picked.length === 0;
@@ -1396,7 +1444,8 @@ function weekOffset(iso) {
 // Calendar day in Asia/Qatar (UTC+3, no DST) as YYYY-MM-DD.
 const qatarDay = (iso) => new Date(new Date(iso).getTime() + 3 * 3600000).toISOString().slice(0, 10);
 
-// Seven days from today; a dot marks days that have sessions, tapping one scrolls to its first card.
+// Seven days from today; a dot marks days that have sessions. The strip is the home filter: tapping such a day keeps
+// only that day's meetups and says how many there are, tapping it again shows everything (scrHome wires it).
 function weekRibbon(sessions) {
   const days = new Set(sessions.map((s) => qatarDay(s.starts_at)));
   const today = Date.now();
@@ -1409,18 +1458,27 @@ function weekRibbon(sessions) {
   }).join("")}</div>`;
 }
 
-function sessionCard(s) {
+// photo: the card of the peek row (this week's meetups): an atmosphere photo on top, then the same date leaf, title and
+// details. Dinner shows the reserved seat; coffee shows the cake or the barista, in turn.
+function sessionCard(s, photoName) {
   const href = s.my_booking_id ? `#/booking/${s.my_booking_id}` : `#/sessions?s=${s.id}`;
   const status = s.my_booking_id ? T("alreadyBooked") : offerOf(s) ? `${T("holdTimer")} ${offerLeft(offerOf(s))}` : s.is_full ? T("full") : seatsNote(s.seats_left);
   const lang = T(s.conversation_language === "ar" ? "langAr" : "langEn");
-  return `<li><a class="event-card" href="${href}" data-session="${s.id}" data-day="${qatarDay(s.starts_at)}"
+  return `<li><a class="event-card${photoName ? " photo-card" : ""}" href="${href}" data-session="${s.id}" data-day="${qatarDay(s.starts_at)}" data-exp="${esc(s.experience)}"
       aria-label="${esc([T(s.experience), fmtDate(s.starts_at), s.district, status].filter(Boolean).join(" · "))}">
+    ${photoName ? photo(photoName, { cls: "shot" }) : ""}
     <span class="d" aria-hidden="true"><b>${esc(fmtDate(s.starts_at, { day: "numeric" }))}</b><span>${esc(fmtDate(s.starts_at, { weekday: "long" }))}</span></span>
     <span class="t" aria-hidden="true"><strong>${esc(T(s.experience))} · ${esc(lang)}</strong>
       <span class="m"><span>${icon("map-pin")}${esc(s.district)}</span><span>${icon("clock")}<span class="num">${esc(fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }))}</span></span></span>
       ${status ? `<span class="m"><span class="${s.my_booking_id ? "mine" : s.is_full ? "full" : ""}">${icon("users")}${esc(status)}</span></span>` : ""}</span>
-    <span class="go" aria-hidden="true">${icon(locale === "ar" ? "chevron-left" : "chevron-right")}</span></a></li>`;
+    ${photoName ? "" : `<span class="go" aria-hidden="true">${icon(locale === "ar" ? "chevron-left" : "chevron-right")}</span>`}</a></li>`;
 }
+function peekRow(list) {
+  let coffees = 0;
+  return `<ul class="peek">${list.map((s) => sessionCard(s, s.experience === "coffee" ? ["cake", "barista"][coffees++ % 2] : "seat")).join("")}</ul>`;
+}
+// «لقاء واحد» · «لقاءان» · «3 لقاءات» · «11 لقاءً»; English: 1 meetup, n meetups.
+const dayCountText = (n) => T(n === 1 ? "dayCount1" : n === 2 ? "dayCount2" : n <= 10 ? "dayCountFew" : "dayCountMany", { n });
 
 async function scrHome() {
   if (!(await guard())) return;
@@ -1463,15 +1521,35 @@ async function scrHome() {
       <span class="when">${esc(T(next.experience))} · ${esc(fmtDate(next.starts_at, { weekday: "long", hour: "numeric", minute: "2-digit" }))}</span>
       <span class="row"><span>${esc(next.district)}</span>${countdown(next.starts_at) ? `<span>· ${esc(countdown(next.starts_at))}</span>` : ""}</span></a>` : ""}
     <h2>${esc(T("allSessions"))}</h2>
-    ${sessions.length ? weekRibbon(sessions) : ""}
-    ${groups.length ? groups.map(([k, list]) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2><ul class="list">${list.map(sessionCard).join("")}</ul></section>`).join("")
+    ${sessions.length ? `<div class="tiles">
+      <div class="tile wide"><span class="e">${esc(T("thisWeek"))}</span>${weekRibbon(sessions)}</div>
+      ${[["dinner", "tileEvening", "utensils"], ["coffee", "tileAfternoon", "coffee"]].map(([k, eyebrow, ic]) => `<button type="button" class="tile" data-kind="${k}" aria-pressed="false"
+        ${sessions.some((x) => x.experience === k) ? "" : "disabled"}><span class="e">${esc(T(eyebrow))}</span><strong>${esc(T(k))}</strong>${icon(ic)}</button>`).join("")}
+    </div><p class="day-count" id="day-count" role="status"></p>` : ""}
+    ${groups.length ? `${groups.map(([k, list], gi) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}</h2>${gi === 0 ? peekRow(list)
+      : `<ul class="list">${list.map((x) => sessionCard(x)).join("")}</ul>`}</section>`).join("")}<p class="muted no-match" id="no-match" hidden>${esc(T("noMatch"))}</p>`
       : `<div class="empty">${tableSvg({ seats: 6 })}<p class="muted">${esc(T("noUpcoming"))}</p></div>`}
     <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
-  $$(".week button[data-day]").forEach((b) => (b.onclick = () => {
-    $$(".week button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-    const card = $(`.event-card[data-day="${b.dataset.day}"]`);
-    if (card) { card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.focus({ preventScroll: true }); }
-  }));
+  // The filter: one day (the week strip) and one kind (the dinner and coffee tiles), each cleared by a second tap. Cards
+  // are hidden, never re-rendered, and the entrance does not play again when they come back (main.settled).
+  let day = null, kind = null;
+  const paint = () => {
+    main.classList.add("settled");
+    let n = 0;
+    $$(".event-card[data-session]").forEach((a) => {
+      const ok = (!day || a.dataset.day === day) && (!kind || a.dataset.exp === kind);
+      a.parentElement.hidden = !ok;
+      if (ok) n += 1;
+    });
+    $$(".week-group").forEach((g) => { g.hidden = !g.querySelector("li:not([hidden])"); });
+    $$(".week button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.day === day)));
+    $$(".tile[data-kind]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.kind === kind)));
+    $("#day-count").textContent = day && n ? dayCountText(n) : "";
+    $("#no-match").hidden = n > 0;
+    if ($(".peek")) $(".peek").scrollLeft = 0;
+  };
+  $$(".week button[data-day]").forEach((b) => (b.onclick = () => { day = day === b.dataset.day ? null : b.dataset.day; paint(); }));
+  $$(".tile[data-kind]").forEach((b) => (b.onclick = () => { kind = kind === b.dataset.kind ? null : b.dataset.kind; paint(); }));
   if (askWoman) {
     $("#woman-ok").onclick = async () => {
       setBusy($("#woman-ok"), true);
