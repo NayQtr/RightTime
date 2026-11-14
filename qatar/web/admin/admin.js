@@ -278,6 +278,8 @@ async function scrSession(id) {
   const d = r.data, s = d.session;
   const role = ss.get("admin").role;
   const ops = ["owner", "ops"].includes(role);
+  // "+1" (migration 026): the companion's name beside her member; she is counted in every seat figure on this page
+  const plusOne = (m) => (m.seats === 2 ? ` <span class="plus-one">+1 ${esc(m.guest_name || "")}</span>` : "");
   // engine flag (matching rules, 10 Nov): the table scored below the low-match threshold; members are still seated
   const lowMatch = (on, score) => (on ? ` <span class="badge badge-warning"${score === null || score === undefined ? "" : ` title="Score ${Math.round(score * 100)}%"`}>Low match</span>` : "");
   view("Session", `<a href="#/sessions">← Sessions</a><h1>${esc(s.experience)} · ${esc(s.language)} · ${esc(s.district)} · ${dt(s.starts_at)}</h1><div id="flash"></div>
@@ -300,11 +302,11 @@ async function scrSession(id) {
     <div class="grid3">${d.tables.map((t) => `<section class="card stack"><div class="row between"><h3>${esc(t.code)} · ${esc(t.venue || "no venue")}</h3>
       <span class="badge badge-${t.status === "locked" ? "success" : t.status.startsWith("cancelled") ? "danger" : "info"}">${esc(t.status)}</span></div>
       <p>${t.confirmed_count}/${t.capacity} confirmed ${t.confirmed_count < 4 && t.status === "forming" ? `<span class="badge badge-danger">below quorum</span>` : ""}${lowMatch(t.low_match, t.match_score)} · venue confirmed: ${t.venue_confirmed_at ? "✓" : "✗"}</p>
-      <ul class="plain">${t.members.map((m) => `<li><span class="num">${esc(m.ref)}</span> ${esc(m.display_name || "—")} · ${esc(m.status)}${m.checked_in ? " ✓" : ""}
+      <ul class="plain">${t.members.map((m) => `<li><span class="num">${esc(m.ref)}</span> ${esc(m.display_name || "—")}${plusOne(m)} · ${esc(m.status)}${m.checked_in ? " ✓" : ""}
         ${ops && t.status === "forming" ? ` <select class="input inline" data-move="${m.booking_id}"><option value="">move to…</option>${d.tables.filter((x) => x.id !== t.id && x.status === "forming").map((x) => `<option value="${x.id}">${esc(x.code)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>
       ${ops ? `<div class="row">${t.status === "forming" ? `<button class="btn btn-primary" data-lock="${t.id}">Lock</button><button class="btn btn-danger" data-cq="${t.id}">Cancel (quorum)</button>` : ""}
         <button class="btn btn-ghost" data-vc="${t.id}">Venue confirmed (T-3h)</button></div>` : ""}</section>`).join("") || "<p class='muted'>No tables yet — run matching.</p>"}</div>
-    ${d.unassigned.length ? `<section class="card"><h2>${d.tables.length ? "Paid but not seated (leftovers)" : "Paid, waiting for matching"}</h2><p>${d.unassigned.map((u) => `<span class="num">${esc(u.ref)}</span> ${esc(u.display_name || "")}`).join(" · ")}</p></section>` : ""}
+    ${d.unassigned.length ? `<section class="card"><h2>${d.tables.length ? "Paid but not seated (leftovers)" : "Paid, waiting for matching"}</h2><p>${d.unassigned.map((u) => `<span class="num">${esc(u.ref)}</span> ${esc(u.display_name || "")}${plusOne(u)}`).join(" · ")}</p></section>` : ""}
     ${ops ? `<h2>Venues for this session</h2><section class="card stack" id="sv"><p class="caption">Loading…</p></section>` : ""}
     <h2>Matching runs</h2><table><thead><tr><th>When</th><th>Mode</th><th>Rule</th><th>Seed</th><th>Summary</th></tr></thead><tbody>
     ${d.runs.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.mode)}</td><td>${esc(x.rule_version)}</td><td class="num">${esc(x.seed)}</td><td><code>${esc(JSON.stringify(x.result_summary))}</code></td></tr>`).join("")}</tbody></table>`);

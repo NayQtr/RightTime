@@ -123,7 +123,7 @@ function requestCard(q) {
   const tables = q.status !== "confirmed" ? "" : q.tables.length ? q.tables.map((t) => `
     <div class="vp-table stack">
       <div class="vp-row"><span>${esc(T("table"))}</span> <span class="vp-code">${esc(t.code)}</span> <span class="caption">${esc(T("women", t.women))}</span></div>
-      ${t.guests ? `<ul class="vp-guests">${t.guests.map((g) => `<li><span>${esc(g.first_name || "—")}</span>
+      ${t.guests ? `<ul class="vp-guests">${t.guests.map((g) => `<li><span>${esc(g.first_name || "—")}${g.plus_one === null || g.plus_one === undefined ? "" : ` <span class="vp-plus"><bdi dir="ltr">+1</bdi> <bdi>${esc(g.plus_one)}</bdi></span>`}</span>
         ${g.arrived ? `<span class="vp-ok">✓ ${esc(T("arrived"))}</span>` : `<button class="btn btn-secondary" data-arrive="${esc(g.id)}">${esc(T("markArrived"))}</button>`}</li>`).join("")}</ul>`
         : `<p class="caption">${esc(T("namesFrom", when(q.names_from, { weekday: "long", hour: "numeric", minute: "2-digit" })))}</p>`}
     </div>`).join("") + `<p class="caption">${esc(T("mentionCode"))}</p>` : `<p class="caption">${esc(T("noTables"))}</p>`;
