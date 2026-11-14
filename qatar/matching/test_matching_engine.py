@@ -388,3 +388,41 @@ def test_history_and_unseated_days_enter_the_inputs_hash_only_when_present():
 
 def test_age_bands_are_the_questionnaire_order():
     assert AGE_BANDS == ("age_18_24", "age_25_34", "age_35_44", "age_45_54", "age_55_plus")
+
+
+# ----------------------------------------------------------------------------- "+1" (migration 026)
+def with_companion(bookings, *indexes):
+    from dataclasses import replace
+    return [replace(b, seats=2) if i in indexes else b for i, b in enumerate(bookings)]
+
+
+@pytest.mark.parametrize("rule", ["r1-baseline", "r1-interest"])
+def test_a_companion_takes_a_seat_at_her_members_table(rule):
+    # 5 bookings, one with a companion = 6 seats = one full table
+    r = run_matching(SESSION, "dry_run", rule, 7, with_companion(make(5), 2))
+    assert [t.size for t in r.tables] == [6] and len(r.tables[0].members) == 5 and r.leftovers == []
+    assert r.explanations["tables"][0]["size"] == 6 and r.explanations["tables"][0]["companions"] == 1
+
+
+def test_three_members_and_a_companion_reach_the_quorum_of_four():
+    r = run_matching(SESSION, "dry_run", "r1-interest", 7, with_companion(make(3), 0))
+    assert [t.size for t in r.tables] == [4] and len(r.tables[0].members) == 3
+
+
+def test_tables_with_companions_never_pass_the_table_size():
+    for seed in range(1, 40):
+        pool = with_companion(make(17), *[i for i in range(17) if (i * seed) % 4 == 0])
+        seats = sum(b.seats for b in pool)
+        r = run_matching(SESSION, "dry_run", "r1-interest", seed, pool)
+        assert all(4 <= t.size <= 6 for t in r.tables)
+        assert validate_tables(r.tables, 6, set()) == []
+        ids = [m.booking_id for t in r.tables for m in t.members] + [lo.booking.booking_id for lo in r.leftovers]
+        assert sorted(ids) == sorted(b.booking_id for b in pool)          # every booking once: seated whole or left whole
+        assert sum(t.size for t in r.tables) + sum(lo.booking.seats for lo in r.leftovers) == seats
+
+
+def test_a_companion_enters_the_inputs_hash_only_when_present():
+    base = run_matching(SESSION, "dry_run", "r1-interest", 7, make(8))
+    ones = run_matching(SESSION, "dry_run", "r1-interest", 7, with_companion(make(8)))
+    two = run_matching(SESSION, "dry_run", "r1-interest", 7, with_companion(make(8), 1))
+    assert ones.inputs_hash == base.inputs_hash != two.inputs_hash

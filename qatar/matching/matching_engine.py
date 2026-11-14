@@ -38,6 +38,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field, replace
+from decimal import Decimal, ROUND_HALF_UP
 from itertools import combinations
 from typing import Dict, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -91,6 +92,7 @@ class BookingInput:
     answers: Optional[Dict[str, List[str]]] = field(default=None, hash=False, compare=False)
     occasion: Optional[str] = None     # migration 018: 'birthday' | 'other' | None
     unseated_days_ago: Optional[int] = None  # migration 020: days since a session where she was left without a table
+    seats: int = 1                     # migration 026: 2 when she brings a companion (+1)
 
 
 @dataclass(frozen=True)
@@ -120,7 +122,8 @@ class Table:
 
     @property
     def size(self) -> int:
-        return len(self.members)
+        """Seats at the table: members plus their companions (migration 026)."""
+        return seat_count(self.members)
 
 
 @dataclass
@@ -288,6 +291,28 @@ def _celebrants_first(items: list, booking=lambda x: x) -> list:
     return [x for x in items if booking(x).occasion] + [x for x in items if not booking(x).occasion]
 
 
+def _round4(x: float) -> float:
+    """Four decimals as engine.js rounds them (Number.toFixed: an exact tie such as 0.15625 goes up). Python's round()
+    sends exact ties to the even digit, which made the two engines differ on such a score."""
+    return float(Decimal(x).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+
+
+def _seats_of(b: BookingInput) -> int:
+    """"+1" (migration 026): a booking may hold two seats, the member's and her companion's. The companion has no
+    answers and no account: she sits at the member's table (one booking is never split) and counts toward the table
+    size, nothing else."""
+    return 2 if b.seats == 2 else 1
+
+
+def seat_count(group: Sequence[BookingInput]) -> int:
+    return sum(_seats_of(b) for b in group)
+
+
+def _pairs_first(items: list, booking=lambda x: x) -> list:
+    """Two-seat bookings are placed first (they are the harder ones to fit); the order is otherwise unchanged."""
+    return [x for x in items if _seats_of(booking(x)) == 2] + [x for x in items if _seats_of(booking(x)) != 2]
+
+
 def _conflicts(member: BookingInput, group: Sequence[BookingInput], blocks: Set[FrozenSet[str]]) -> bool:
     return any(frozenset((member.user_id, other.user_id)) in blocks for other in group)
 
@@ -336,7 +361,7 @@ def _soft_parts(g: Sequence[BookingInput], rules: dict, soft: dict) -> Dict[str,
                     rp += f
     np_ = sum(1 for m in g if m.booking_id in soft["priority"])
     return {"repeat_penalty": rules["repeat_penalty"] * rp, "priority_boost": rules["priority_boost"] * np_,
-            "size_penalty": rules["size4_penalty"] if len(g) == MIN_TABLE else 0}
+            "size_penalty": rules["size4_penalty"] if seat_count(g) == MIN_TABLE else 0}
 
 
 def _objective_of(score: float, p: Dict[str, float]) -> float:
@@ -379,7 +404,7 @@ def _seat_greedy(ordered: List[BookingInput], sizes: List[int], blocks: Set[Froz
     groups: List[List[BookingInput]] = [[] for _ in sizes]
     unseated: List[Tuple[BookingInput, str]] = []
     for m in ordered:
-        options = [i for i in range(len(groups)) if len(groups[i]) < sizes[i]]
+        options = [i for i in range(len(groups)) if seat_count(groups[i]) + _seats_of(m) <= sizes[i]]
         if not options:
             unseated.append((m, "cell_below_quorum"))  # remainder after full tables
             continue
@@ -387,20 +412,20 @@ def _seat_greedy(ordered: List[BookingInput], sizes: List[int], blocks: Set[Froz
         if not fit:
             unseated.append((m, "blocked_conflict"))
             continue
-        target = min(fit, key=lambda i: (len(groups[i]), i))
+        target = min(fit, key=lambda i: (seat_count(groups[i]), i))
         groups[target].append(m)
     # tables that ended below quorum are dissolved; their members try other tables with room
     keep: List[List[BookingInput]] = []
     for g in groups:
-        if len(g) >= MIN_TABLE:
+        if seat_count(g) >= MIN_TABLE:
             keep.append(g)
         else:
             unseated.extend((m, "cell_below_quorum") for m in g)
     still: List[Tuple[BookingInput, str]] = []
     for m, reason in unseated:
-        fit = [g for g in keep if len(g) < max(sizes) and not _conflicts(m, g, blocks)]
+        fit = [g for g in keep if seat_count(g) + _seats_of(m) <= max(sizes) and not _conflicts(m, g, blocks)]
         if fit:
-            min(fit, key=len).append(m)
+            min(fit, key=seat_count).append(m)
         else:
             still.append((m, reason))
     return keep, still
@@ -412,13 +437,15 @@ MAX_MOVES = 200
 def _move_once(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], value, max_size: int) -> bool:
     """Applies the first strictly improving single-member move (fixed scan order); returns whether one was applied."""
     for gi in range(len(groups)):
-        if len(groups[gi]) <= MIN_TABLE:
+        if seat_count(groups[gi]) <= MIN_TABLE:
             continue
         for gj in range(len(groups)):
-            if gj == gi or len(groups[gj]) >= max_size:
+            if gj == gi or seat_count(groups[gj]) >= max_size:
                 continue
             for ai in range(len(groups[gi])):
                 a = groups[gi][ai]
+                if seat_count(groups[gi]) - _seats_of(a) < MIN_TABLE or seat_count(groups[gj]) + _seats_of(a) > max_size:
+                    continue
                 if _conflicts(a, groups[gj], blocks):
                     continue
                 new_i = groups[gi][:ai] + groups[gi][ai + 1:]
@@ -440,6 +467,8 @@ def _optimise(groups: List[List[BookingInput]], blocks: Set[FrozenSet[str]], val
             for a_idx in range(len(groups[gi])):
                 for b_idx in range(len(groups[gj])):
                     a, b = groups[gi][a_idx], groups[gj][b_idx]
+                    if _seats_of(a) != _seats_of(b):
+                        continue  # a swap keeps both table sizes
                     new_i = groups[gi][:a_idx] + [b] + groups[gi][a_idx + 1:]
                     new_j = groups[gj][:b_idx] + [a] + groups[gj][b_idx + 1:]
                     if not (_group_ok(new_i, blocks) and _group_ok(new_j, blocks)):
@@ -488,8 +517,8 @@ def form_groups(cell: List[BookingInput], max_size: int, blocks: Set[FrozenSet[s
 
         def objective(g):
             return score(g)[2] or 0.0
-    ordered = _celebrants_first(stable_shuffle(cell, seed))
-    sizes = _table_sizes(len(ordered), max_size, packing, None if budget is None else budget["left"])
+    ordered = _pairs_first(_celebrants_first(stable_shuffle(cell, seed)))
+    sizes = _table_sizes(seat_count(ordered), max_size, packing, None if budget is None else budget["left"])
     if budget is not None and budget["left"] is not None:
         budget["left"] -= len(sizes)
     if not sizes:
@@ -506,7 +535,7 @@ def _table_fit(t: Table):
 
 def _can_join(m: BookingInput, t: Table, max_size: int, blocks: Set[FrozenSet[str]]) -> bool:
     return (t.language == m.conversation_language and t.tier_rank <= m.budget_tier_rank
-            and t.size < max_size and not _conflicts(m, t.members, blocks))
+            and t.size + _seats_of(m) <= max_size and not _conflicts(m, t.members, blocks))
 
 
 def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max_size: int,
@@ -516,8 +545,8 @@ def place_leftovers_downward(tables: List[Table], leftovers: List[Leftover], max
     """Seat leftovers at an existing table of the SAME language whose tier <= their cap (never higher);
     then pool what remains per language and form new tables at the lowest cap among members."""
     remaining: List[Leftover] = []
-    ordered = _celebrants_first(sorted(leftovers, key=lambda x: (_stable_key(seed, x.booking.booking_id))),
-                                lambda lo: lo.booking)
+    ordered = _pairs_first(_celebrants_first(sorted(leftovers, key=lambda x: (_stable_key(seed, x.booking.booking_id))),
+                                             lambda lo: lo.booking), lambda lo: lo.booking)
     for lo in ordered:
         m = lo.booking
         fit = [t for t in tables if _can_join(m, t, max_size, blocks)]
@@ -556,7 +585,7 @@ def seat_priority(tables: List[Table], leftovers: List[Leftover], max_size: int,
                 continue
             before = objective(t.members)
             for i, s in enumerate(t.members):
-                if s.booking_id in soft["priority"] or s.occasion:
+                if s.booking_id in soft["priority"] or s.occasion or _seats_of(s) != _seats_of(m):
                     continue
                 cand = t.members[:i] + [m] + t.members[i + 1:]
                 if not _group_ok(cand, blocks):
@@ -611,6 +640,10 @@ def inputs_hash(pool: Sequence[BookingInput], blocks: Set[FrozenSet[str]], param
     unseated = sorted([b.booking_id, b.unseated_days_ago] for b in pool if b.unseated_days_ago is not None)
     if unseated:
         doc["unseated"] = unseated
+    # two-seat bookings (026), added only when present, so runs without a companion keep their hash
+    plus_one = sorted(b.booking_id for b in pool if _seats_of(b) == 2)
+    if plus_one:
+        doc["plus_one"] = plus_one
     return hashlib.sha256(json.dumps(doc, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
 
 
@@ -684,7 +717,7 @@ def run_matching(session_id: str, mode: str, rule_version: str, seed: int,
             seen_users.add(b.user_id)
             pool.append(b)
     history = [list(row) for row in (history or ())]
-    rules = effective_rules(len(pool), algorithm)
+    rules = effective_rules(seat_count(pool), algorithm)
     repeat_blocked, penalties = repeat_rules(history, rules)
     blocks = blocked_pairs(list(block_rows) + celebration_pairs(pool) + age_gap_pairs(pool, rules["max_age_band_gap"])
                            + repeat_blocked)
@@ -773,21 +806,24 @@ def explain(tables: Sequence[Table], leftovers: Sequence[Leftover], ineligible, 
             "size": t.size,
             "venue_id": t.venue_id,
             "seats": [_pseudonym(seed, m.booking_id) for m in t.members],
-            "interest": None if t.interest is None else round(t.interest, 4),
-            "cohesion": None if t.cohesion is None else round(t.cohesion, 4),
-            "score": None if t.score is None else round(t.score, 4),
-            "repeat_penalty": round(t.soft.get("repeat_penalty", 0.0), 4),
-            "priority_boost": round(t.soft.get("priority_boost", 0.0), 4),
-            "size_penalty": round(t.soft.get("size_penalty", 0.0), 4),
-            "objective": round(t.objective if t.objective is not None else (t.score or 0.0), 4),
+            "interest": None if t.interest is None else _round4(t.interest),
+            "cohesion": None if t.cohesion is None else _round4(t.cohesion),
+            "score": None if t.score is None else _round4(t.score),
+            "repeat_penalty": _round4(t.soft.get("repeat_penalty", 0.0)),
+            "priority_boost": _round4(t.soft.get("priority_boost", 0.0)),
+            "size_penalty": _round4(t.soft.get("size_penalty", 0.0)),
+            "objective": _round4(t.objective if t.objective is not None else (t.score or 0.0)),
             "low_match": t.low_match,
             "answered_q05": sum(1 for m in t.members if _topics(m) is not None),
             "checks": {"same_language": True, "tier_within_caps": True, "no_blocked_pair": True,
                        "size_within_bounds": True, "no_recent_repeat": True, "age_gap_within_limit": True},
             "warnings": warnings,
         }
+        companions = sum(1 for m in t.members if _seats_of(m) == 2)
+        if companions:
+            row["companions"] = companions
         if personality:
-            row["energy_balance"] = None if t.energy is None else round(t.energy, 4)
+            row["energy_balance"] = None if t.energy is None else _round4(t.energy)
             row["answered"] = answered
         out_tables.append(row)
     out = {
@@ -812,5 +848,5 @@ def to_table_assignments(result: MatchResult) -> List[dict]:
         for m in t.members:
             rows.append({"booking_id": m.booking_id, "table_code": t.table_code,
                          "member_score": None if t.member_scores.get(m.booking_id) is None
-                         else round(t.member_scores[m.booking_id], 4)})
+                         else _round4(t.member_scores[m.booking_id])})
     return rows

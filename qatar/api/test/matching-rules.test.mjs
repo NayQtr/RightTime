@@ -171,3 +171,45 @@ test("history and unseated days enter the inputs hash only when present (earlier
   assert.notEqual(run(pool, { rule: "r1-interest", history: [["u000", "u001", 50, false]] }).inputs_hash, plain);
   assert.notEqual(run([{ ...pool[0], unseated_days_ago: 40 }, ...pool.slice(1)], { rule: "r1-interest" }).inputs_hash, plain);
 });
+
+// ------------------------------------------------------------------ "+1" (migration 026)
+// A booking with a companion takes two seats: she has no answers, sits at the member's table and counts toward the
+// table size. Python has the same tests; test/parity.test.mjs compares both engines on random jobs with companions.
+const withCompanion = (pool, ...idx) => pool.map((b, i) => (idx.includes(i) ? { ...b, seats: 2 } : b));
+const sizeOf = (t) => t.members.reduce((n, m) => n + (m.seats === 2 ? 2 : 1), 0);
+
+test("+1: a companion takes a seat at her member's table and counts toward its size", () => {
+  for (const rule of ["r1-baseline", "r1-interest"]) {
+    const r = run(withCompanion(make(5), 2), { rule, seed: 7 });
+    assert.equal(r.tables.length, 1);
+    assert.equal(r.tables[0].members.length, 5);
+    assert.equal(r.explanations.tables[0].size, 6);
+    assert.equal(r.explanations.tables[0].companions, 1);
+    assert.equal(r.leftovers.length, 0);
+  }
+  // three members and one companion reach the quorum of four
+  const q = run(withCompanion(make(3), 0), { rule: "r1-interest", seed: 7 });
+  assert.deepEqual(q.tables.map(sizeOf), [4]);
+  // without a companion the output has no "companions" key, as before
+  assert.equal("companions" in run(make(5)).explanations.tables[0], false);
+});
+
+test("+1: tables never pass 6 seats, and a booking is seated whole or left whole", () => {
+  for (let seed = 1; seed < 40; seed++) {
+    const pool = withCompanion(make(17), ...Array.from({ length: 17 }, (_, i) => i).filter((i) => (i * seed) % 4 === 0));
+    const seats = pool.reduce((n, b) => n + (b.seats || 1), 0);
+    const r = run(pool, { rule: "r1-interest", seed });
+    for (const t of r.tables) assert.ok(sizeOf(t) >= 4 && sizeOf(t) <= 6, `seed ${seed}: ${sizeOf(t)} seats`);
+    const ids = [...r.tables.flatMap((t) => t.members.map((m) => m.booking_id)), ...r.leftovers.map((lo) => lo.booking.booking_id)].sort();
+    assert.deepEqual(ids, pool.map((b) => b.booking_id).sort());
+    assert.equal(r.tables.reduce((n, t) => n + sizeOf(t), 0) + r.leftovers.reduce((n, lo) => n + (lo.booking.seats || 1), 0), seats);
+  }
+});
+
+test("+1: a companion enters the inputs hash only when present", () => {
+  const base = run(make(8), { rule: "r1-interest", seed: 7 });
+  const ones = run(make(8).map((b) => ({ ...b, seats: 1 })), { rule: "r1-interest", seed: 7 });
+  const two = run(withCompanion(make(8), 1), { rule: "r1-interest", seed: 7 });
+  assert.equal(ones.inputs_hash, base.inputs_hash);
+  assert.notEqual(two.inputs_hash, base.inputs_hash);
+});

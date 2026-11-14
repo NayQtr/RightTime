@@ -160,6 +160,13 @@ function groupOk(group, blocks) {
 
 function sum(xs) { let s = 0; for (const x of xs) s += x; return s; }
 
+// "+1" (migration 026): a booking may hold two seats, the member's and her companion's. The companion has no answers and
+// no account: she sits at the member's table (one booking is never split) and counts toward the table size, nothing else.
+const seatsOf = (b) => (b.seats === 2 ? 2 : 1);
+export const seatCount = (group) => { let n = 0; for (const b of group) n += seatsOf(b); return n; };
+// Two-seat bookings are placed first (they are the harder ones to fit); the order is otherwise unchanged.
+const pairsFirst = (items, booking = (x) => x) => [...items.filter((x) => seatsOf(booking(x)) === 2), ...items.filter((x) => seatsOf(booking(x)) !== 2)];
+
 export function scoreGroup(group) {
   const answered = group.map((b) => [b, topics(b)]).filter(([, t]) => t !== null);
   const memberScores = {};
@@ -194,7 +201,7 @@ function softParts(g, rules, soft) {
   }
   for (const m of g) if (soft.priority.has(m.booking_id)) np++;
   return { repeat_penalty: rules.repeat_penalty * rp, priority_boost: rules.priority_boost * np,
-    size_penalty: g.length === MIN_TABLE ? rules.size4_penalty : 0 };
+    size_penalty: seatCount(g) === MIN_TABLE ? rules.size4_penalty : 0 };
 }
 const objectiveOf = (score, p) => score - p.repeat_penalty + p.priority_boost - p.size_penalty;
 // The value the optimiser maximises for one table: its score with the soft rules applied.
@@ -224,26 +231,26 @@ function seatGreedy(ordered, sizes, blocks) {
   const groups = sizes.map(() => []);
   const unseated = [];
   for (const m of ordered) {
-    const options = groups.map((g, i) => i).filter((i) => groups[i].length < sizes[i]);
+    const options = groups.map((g, i) => i).filter((i) => seatCount(groups[i]) + seatsOf(m) <= sizes[i]);
     if (!options.length) { unseated.push([m, "cell_below_quorum"]); continue; }
     const fit = options.filter((i) => !conflicts(m, groups[i], blocks));
     if (!fit.length) { unseated.push([m, "blocked_conflict"]); continue; }
     let target = fit[0];
-    for (const i of fit) if (groups[i].length < groups[target].length) target = i;
+    for (const i of fit) if (seatCount(groups[i]) < seatCount(groups[target])) target = i;
     groups[target].push(m);
   }
   const keep = [];
   for (const g of groups) {
-    if (g.length >= MIN_TABLE) keep.push(g);
+    if (seatCount(g) >= MIN_TABLE) keep.push(g);
     else for (const m of g) unseated.push([m, "cell_below_quorum"]);
   }
   const maxSize = Math.max(...sizes);
   const still = [];
   for (const [m, reason] of unseated) {
-    const fit = keep.filter((g) => g.length < maxSize && !conflicts(m, g, blocks));
+    const fit = keep.filter((g) => seatCount(g) + seatsOf(m) <= maxSize && !conflicts(m, g, blocks));
     if (fit.length) {
       let t = fit[0];
-      for (const g of fit) if (g.length < t.length) t = g;
+      for (const g of fit) if (seatCount(g) < seatCount(t)) t = g;
       t.push(m);
     } else still.push([m, reason]);
   }
@@ -260,6 +267,7 @@ function optimise(groups, blocks, value, maxSize = null) {
         for (let ai = 0; ai < groups[gi].length; ai++) {
           for (let bi = 0; bi < groups[gj].length; bi++) {
             const a = groups[gi][ai], b = groups[gj][bi];
+            if (seatsOf(a) !== seatsOf(b)) continue;   // a swap keeps both table sizes
             const ni = [...groups[gi].slice(0, ai), b, ...groups[gi].slice(ai + 1)];
             const nj = [...groups[gj].slice(0, bi), a, ...groups[gj].slice(bi + 1)];
             if (!(groupOk(ni, blocks) && groupOk(nj, blocks))) continue;
@@ -280,11 +288,12 @@ const MAX_MOVES = 200;
 // Applies the first strictly improving single-member move (fixed scan order); returns whether one was applied.
 function moveOnce(groups, blocks, value, maxSize) {
   for (let gi = 0; gi < groups.length; gi++) {
-    if (groups[gi].length <= MIN_TABLE) continue;
+    if (seatCount(groups[gi]) <= MIN_TABLE) continue;
     for (let gj = 0; gj < groups.length; gj++) {
-      if (gj === gi || groups[gj].length >= maxSize) continue;
+      if (gj === gi || seatCount(groups[gj]) >= maxSize) continue;
       for (let ai = 0; ai < groups[gi].length; ai++) {
         const a = groups[gi][ai];
+        if (seatCount(groups[gi]) - seatsOf(a) < MIN_TABLE || seatCount(groups[gj]) + seatsOf(a) > maxSize) continue;
         if (conflicts(a, groups[gj], blocks)) continue;
         const ni = [...groups[gi].slice(0, ai), ...groups[gi].slice(ai + 1)];
         const nj = [...groups[gj], a];
@@ -311,8 +320,8 @@ function optimiseFor(groups, blocks, algorithm, maxSize, objective) {
 }
 
 function formGroups(cell, maxSize, blocks, algorithm, seed, packing, budget, objective) {
-  const ordered = celebrantsFirst(stableShuffle(cell, seed));
-  const sizes = tableSizes(ordered.length, maxSize, packing, budget ? budget.left : null);
+  const ordered = pairsFirst(celebrantsFirst(stableShuffle(cell, seed)));
+  const sizes = tableSizes(seatCount(ordered), maxSize, packing, budget ? budget.left : null);
   if (budget && budget.left !== null) budget.left -= sizes.length;
   if (!sizes.length) return [[], ordered.map((m) => [m, "cell_below_quorum"])];
   let [groups, unseated] = seatGreedy(ordered, sizes, blocks);
@@ -320,13 +329,13 @@ function formGroups(cell, maxSize, blocks, algorithm, seed, packing, budget, obj
   return [groups, unseated];
 }
 
-const tableFit = (x, y) => (x.members.length - y.members.length) || (y.tier_rank - x.tier_rank) || cmp(x.table_code, y.table_code);
+const tableFit = (x, y) => (seatCount(x.members) - seatCount(y.members)) || (y.tier_rank - x.tier_rank) || cmp(x.table_code, y.table_code);
 const canJoin = (m, t, maxSize, blocks) => t.language === m.conversation_language && t.tier_rank <= m.budget_tier_rank
-  && t.members.length < maxSize && !conflicts(m, t.members, blocks);
+  && seatCount(t.members) + seatsOf(m) <= maxSize && !conflicts(m, t.members, blocks);
 
 function placeLeftoversDownward(tables, leftovers, maxSize, blocks, algorithm, seed, nextCode, packing, budget, objective) {
   const remaining = [];
-  const sorted = celebrantsFirst([...leftovers].sort((x, y) => cmp(stableKey(seed, x.booking.booking_id), stableKey(seed, y.booking.booking_id))), (lo) => lo.booking);
+  const sorted = pairsFirst(celebrantsFirst([...leftovers].sort((x, y) => cmp(stableKey(seed, x.booking.booking_id), stableKey(seed, y.booking.booking_id))), (lo) => lo.booking), (lo) => lo.booking);
   for (const lo of sorted) {
     const m = lo.booking;
     const fit = tables.filter((t) => canJoin(m, t, maxSize, blocks));
@@ -364,7 +373,7 @@ function seatPriority(tables, leftovers, maxSize, blocks, objective, soft, seed)
       const before = objective(t.members);
       for (let i = 0; i < t.members.length; i++) {
         const s = t.members[i];
-        if (soft.priority.has(s.booking_id) || s.occasion) continue;
+        if (soft.priority.has(s.booking_id) || s.occasion || seatsOf(s) !== seatsOf(m)) continue;
         const cand = [...t.members.slice(0, i), m, ...t.members.slice(i + 1)];
         if (!groupOk(cand, blocks)) continue;
         const gain = objective(cand) - before;
@@ -385,9 +394,9 @@ function assignVenues(tables, venues) {
   const warnings = [];
   if (!venues) return warnings;
   const stock = Object.fromEntries(venues.map((v) => [v.venue_id, v.tables_available]));
-  const order = [...tables].sort((x, y) => (y.members.length - x.members.length) || cmp(x.table_code, y.table_code));
+  const order = [...tables].sort((x, y) => (seatCount(y.members) - seatCount(x.members)) || cmp(x.table_code, y.table_code));
   for (const t of order) {
-    const fit = venues.filter((v) => v.tier_rank <= t.tier_rank && v.capacity >= t.members.length && stock[v.venue_id] > 0);
+    const fit = venues.filter((v) => v.tier_rank <= t.tier_rank && v.capacity >= seatCount(t.members) && stock[v.venue_id] > 0);
     if (!fit.length) { warnings.push(`${t.table_code}: no_venue_available`); continue; }
     fit.sort((x, y) => (y.tier_rank - x.tier_rank) || cmp(x.venue_id, y.venue_id));
     t.venue_id = fit[0].venue_id;
@@ -422,6 +431,9 @@ export function inputsHash(pool, blocks, params, withAnswers = false, history = 
   const unseated = pool.filter((b) => b.unseated_days_ago !== null && b.unseated_days_ago !== undefined)
     .map((b) => [b.booking_id, b.unseated_days_ago]).sort(cmpList);
   if (unseated.length) doc.unseated = unseated;
+  // two-seat bookings (026), added only when present, so runs without a companion keep their hash
+  const plusOne = pool.filter((b) => seatsOf(b) === 2).map((b) => b.booking_id).sort(cmp);
+  if (plusOne.length) doc.plus_one = plusOne;
   return sha256(canonical(doc));
 }
 
@@ -429,7 +441,7 @@ export function validateTables(tables, maxSize, blocks) {
   const errors = [];
   const seen = new Set();
   for (const t of tables) {
-    const n = t.members.length;
+    const n = seatCount(t.members);
     if (n < MIN_TABLE || n > maxSize) errors.push(`${t.table_code}: size ${n} outside ${MIN_TABLE}..${maxSize}`);
     if (!t.members.every((m) => m.conversation_language === t.language)) errors.push(`${t.table_code}: mixed or wrong language`);
     if (t.members.some((m) => m.budget_tier_rank < t.tier_rank)) errors.push(`${t.table_code}: tier above a member's cap`);
@@ -452,7 +464,7 @@ function explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings, 
     weights: algorithm === "interest_opt_v1" ? { interest: W_INTEREST, cohesion: W_COHESION } : personality ? PERSONALITY_WEIGHTS : null,
     rules,
     tables: tables.map((t) => ({
-      table_code: t.table_code, language: t.language, tier_rank: t.tier_rank, size: t.members.length,
+      table_code: t.table_code, language: t.language, tier_rank: t.tier_rank, size: seatCount(t.members),
       venue_id: t.venue_id, seats: t.members.map((m) => pseudonym(seed, m.booking_id)),
       interest: t.interest === null ? null : round4(t.interest),
       cohesion: t.cohesion === null ? null : round4(t.cohesion),
@@ -460,6 +472,7 @@ function explain(tables, leftovers, ineligible, seed, algorithm, venueWarnings, 
       repeat_penalty: round4(t.soft.repeat_penalty), priority_boost: round4(t.soft.priority_boost),
       size_penalty: round4(t.soft.size_penalty), objective: round4(t.objective),
       low_match: t.low_match,
+      ...(t.members.some((m) => seatsOf(m) === 2) ? { companions: t.members.filter((m) => seatsOf(m) === 2).length } : {}),
       answered_q05: t.members.filter((m) => topics(m) !== null).length,
       checks: { same_language: true, tier_within_caps: true, no_blocked_pair: true, size_within_bounds: true,
         no_recent_repeat: true, age_gap_within_limit: true },
@@ -503,7 +516,7 @@ export function runMatching({ sessionId, mode, ruleVersion, seed, bookings, bloc
     else { seenUsers.add(b.user_id); pool.push(b); }
   }
   history = history || [];
-  const rules = effectiveRules(pool.length, algorithm);
+  const rules = effectiveRules(seatCount(pool), algorithm);
   const repeats = repeatRules(history, rules);
   const blocks = blockedPairs([...blockRows, ...celebrationPairs(pool), ...ageGapPairs(pool, rules.max_age_band_gap), ...repeats.blocked]);
   const soft = { penalties: repeats.penalties, priority: new Set(pool.filter((b) => hasPriority(b, rules)).map((b) => b.booking_id)) };

@@ -72,8 +72,7 @@ function runJs(job) {
   };
 }
 
-test("JS engine == Python engine on 400 random jobs (r1 and r2-personality)", () => {
-  const jobs = Array.from({ length: 400 }, (_, i) => makeJob(i + 1));
+function runPy(jobs) {
   const py = execFileSync("python3", ["-c", `
 import json, sys, subprocess
 jobs = json.load(sys.stdin)
@@ -83,7 +82,12 @@ for j in jobs:
     out.append(json.loads(p.stdout) if p.returncode == 0 else {"error": p.stderr.strip().splitlines()[-1]})
 print(json.dumps(out))
 `], { input: JSON.stringify(jobs), maxBuffer: 64 * 1024 * 1024 }).toString();
-  const pyResults = JSON.parse(py);
+  return JSON.parse(py);
+}
+
+test("JS engine == Python engine on 400 random jobs (r1 and r2-personality)", () => {
+  const jobs = Array.from({ length: 400 }, (_, i) => makeJob(i + 1));
+  const pyResults = runPy(jobs);
   let compared = 0;
   const seen = { regular: 0, penalised: 0, low: 0, priorityGain: 0, gaveSeat: 0 };
   jobs.forEach((job, i) => {
@@ -111,4 +115,41 @@ print(json.dumps(out))
 test("both engines use the same matching rules", () => {
   const py = JSON.parse(execFileSync("python3", ["parity_driver.py", "--rules"], { cwd: MATCHING_DIR }).toString());
   assert.deepEqual(py, JSON.parse(JSON.stringify(MATCHING_RULES)));
+});
+
+// "+1" (migration 026): some bookings hold two seats (the member and her companion). Both engines must seat them the
+// same way, never above the table size, and a job without a companion keeps the hash it had before.
+test("JS engine == Python engine with companions on 200 random jobs", () => {
+  const jobs = Array.from({ length: 200 }, (_, i) => {
+    const job = makeJob(1000 + i), r = rng(77 + i);
+    r();
+    for (const b of job.bookings) if (r() < 0.25) b.seats = 2; else if (r() < 0.5) b.seats = 1;
+    return job;
+  });
+  const pyResults = runPy(jobs);
+  let compared = 0, withPairs = 0, sixes = 0;
+  jobs.forEach((job, i) => {
+    let js;
+    try { js = runJs(job); } catch (e) { js = { error: e.message }; }
+    if (pyResults[i].error || js.error) {
+      assert.ok(pyResults[i].error && js.error, `job ${i + 1}: only one engine failed: py=${pyResults[i].error} js=${js.error}`);
+      return;
+    }
+    assert.deepEqual(js, pyResults[i], `job ${i + 1} differs`);
+    compared++;
+    const seats = Object.fromEntries(job.bookings.map((b) => [b.booking_id, b.seats === 2 ? 2 : 1]));
+    js.tables.forEach((t, k) => {
+      const size = t.members.reduce((n, id) => n + seats[id], 0);
+      assert.ok(size >= 4 && size <= job.venue_capacity, `job ${i + 1} table ${t.code}: ${size} seats`);
+      assert.equal(js.explanations.tables[k].size, size);
+      if (t.members.some((id) => seats[id] === 2)) withPairs++;
+      if (size === 6) sixes++;
+    });
+  });
+  assert.ok(compared > 160, `only ${compared} jobs compared`);
+  assert.ok(withPairs > 100 && sixes > 20, `${withPairs} tables with a companion, ${sixes} tables of six`);
+  // seats: 1 (or no seats field) is the same input as before the migration
+  const plain = makeJob(5), ones = makeJob(5);
+  for (const b of ones.bookings) b.seats = 1;
+  assert.equal(runJs(ones).inputs_hash, runJs(plain).inputs_hash);
 });

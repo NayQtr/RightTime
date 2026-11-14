@@ -46,7 +46,7 @@ def main(argv=None):
         consents_current=bool(b["consents_current"]), age_attested=bool(b["age_attested"]),
         account_active=bool(b["account_active"]),
         answers=b.get("answers"), occasion=b.get("occasion"),
-        unseated_days_ago=b.get("unseated_days_ago")) for b in data["bookings"]]
+        unseated_days_ago=b.get("unseated_days_ago"), seats=int(b.get("seats") or 1)) for b in data["bookings"]]
     venues = [VenueInput(v["venue_id"], int(v["tier_rank"]), int(v["capacity"]), int(v["tables_available"]))
               for v in data["venues"]]
     max_tables = args.max_tables if args.max_tables is not None else sum(v.tables_available for v in venues)
