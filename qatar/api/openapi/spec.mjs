@@ -12,6 +12,9 @@ const ok = (schema, description = "OK") => ({ description, content: { "applicati
 const obj = (properties, required = Object.keys(properties)) => ({ type: "object", properties, required });
 const str = (extra = {}) => ({ type: "string", ...extra });
 const nullable = (schema) => ({ anyOf: [schema, { type: "null" }] });
+// "+1" (migration 026): one booking may hold two seats, hers and her companion's
+const seatFields = { seats: { type: "integer", enum: [1, 2], description: "1, or 2 when she brings a companion (+1)" }, guest_name: nullable(str({ description: "The companion's name; null without a companion" })), unit_fee_minor: { type: "integer", description: "The organising fee for one seat; amount is the total (fee x seats)" } };
+const plusOne = { type: "boolean", description: "Offer \"+1\" only when true: a second seat is free for her companion" };
 const ts = { type: "string", format: "date-time", description: "ISO-8601 in Asia/Qatar (+03:00)" };
 const uuid = { type: "string", format: "uuid" };
 const idParam = (name = "id", description = "Booking id") => ({ name, in: "path", required: true, schema: name === "ref" ? str() : uuid, description });
@@ -112,20 +115,25 @@ export const paths = {
   "/api/v1/bookings": {
     post: { tags: ["bookings"], ...user, ...idem, summary: "Hold a seat (minutes) and get the checkout link",
       requestBody: body(obj({ session_id: uuid, alternate_session_ids: { type: "array", items: uuid, maxItems: 3 },
-        occasion: nullable(str({ enum: ["birthday", "other"], description: "She celebrates an occasion on this date; the coordinator is told. Refused (422, field occasion, code NOTICE_TOO_SHORT) when the session starts sooner than CELEBRATION_NOTICE_HOURS (default 72)" })) }, ["session_id"])),
+        occasion: nullable(str({ enum: ["birthday", "other"], description: "She celebrates an occasion on this date; the coordinator is told. Refused (422, field occasion, code NOTICE_TOO_SHORT) when the session starts sooner than CELEBRATION_NOTICE_HOURS (default 72)" })),
+        guest: nullable(ref("Guest")) }, ["session_id"])),
       responses: { 201: ok(obj({ booking_id: uuid, ref: str(), status: ref("BookingStatus"), hold_expires_at: ts,
         checkout_url: nullable(str({ description: "null when the late no-refund acknowledgement is required first (POST .../checkout)" })),
-        amount: ref("Money"), cancellation: ref("RefundTerms") }), "Seat held"), ...errors(401, 403, 404, 409, 422) } },
+        amount: ref("Money"), ...seatFields, plus_one_available: plusOne, cancellation: ref("RefundTerms") }), "Seat held"), ...errors(401, 403, 404, 409, 422) } },
     get: { tags: ["bookings"], ...user, summary: "The member's bookings, newest dinner first",
       responses: { 200: ok(obj({ bookings: { type: "array", items: ref("BookingSummary") } })), ...errors(401, 403) } } },
   "/api/v1/bookings/{id}": { get: { tags: ["bookings"], ...user, summary: "One booking with its payment and refund terms",
     parameters: [idParam()],
-    responses: { 200: ok(obj({ id: uuid, ref: str(), status: ref("BookingStatus"), hold_expires_at: nullable(ts), amount: ref("Money"),
-      payment: nullable(obj({ status: str(), failure_code: nullable(str()) })), checkout_url: nullable(str()), cancellation: ref("RefundTerms") })), ...errors(400, 401, 403, 404) } } },
+    responses: { 200: ok(ref("BookingReview")), ...errors(400, 401, 403, 404) } } },
+  "/api/v1/bookings/{id}/guest": { post: { tags: ["bookings"], ...user, ...idem,
+    summary: "\"+1\" on the review step: add, rename or remove the companion of an unpaid booking while its hold runs. The second seat is taken or given back and the amount to pay follows (fee x seats). 409 NOT_ENOUGH_SEATS when no second seat is free; 422 GUEST_NAME_REQUIRED for an empty or too long name; 409 PAYMENT_NOT_PENDING once paid",
+    parameters: [idParam(), ...idem.parameters],
+    requestBody: body(obj({ guest: nullable(ref("Guest")) }, ["guest"])),
+    responses: { 200: ok(ref("BookingReview")), ...errors(400, 401, 403, 404, 409, 422) } } },
   "/api/v1/bookings/{id}/checkout": { post: { tags: ["bookings"], ...user, ...idem, summary: "A new checkout link while the seat is held",
     parameters: [idParam(), ...idem.parameters],
     requestBody: { required: false, content: { "application/json": { schema: obj({ acknowledge_late_no_refund: { type: "boolean" } }, []) } } },
-    responses: { 200: ok(obj({ checkout_url: str(), hold_expires_at: ts })), ...errors(401, 403, 404, 409, 422) } } },
+    responses: { 200: ok(obj({ checkout_url: str(), hold_expires_at: ts, amount: ref("Money"), ...seatFields })), ...errors(401, 403, 404, 409, 422) } } },
   "/api/v1/bookings/{id}/event-details": { get: { tags: ["bookings"], ...user,
     summary: "Everything about the dinner, revealed by phase: table code and themes after reveal, venue and tablemates on the day. Supports If-None-Match.",
     parameters: [idParam(), { name: "If-None-Match", in: "header", required: false, schema: str() }],
@@ -246,7 +254,7 @@ export const spec = {
       BookingStatus: str({ enum: BOOKING_STATUSES }),
       Phase: str({ enum: PHASES }),
       Session: obj({ id: uuid, experience: str(), conversation_language: str(), language_match: nullable({ type: "boolean" }), starts_at: ts, ends_at: ts, district: str(),
-        seats_left: { type: "integer" }, is_full: { type: "boolean" }, price: ref("Money"), group_size: str({ example: "4–6" }), full_refund_until: ts,
+        seats_left: { type: "integer" }, is_full: { type: "boolean" }, plus_one_available: plusOne, price: ref("Money"), group_size: str({ example: "4–6" }), full_refund_until: ts,
         full_refund_until_hours: { type: "integer" }, booking_closes_at: ts, my_booking_id: nullable(uuid),
         waitlist: nullable(obj({ status: str({ enum: ["waiting", "offered"] }), position: nullable({ type: "integer", description: "Her place among the members still waiting" }),
           offer_expires_at: nullable(ts), window_text: nullable(str({ description: "Time left on the offer in the request language, e.g. ساعتين / 2 hours" })) },
@@ -257,10 +265,14 @@ export const spec = {
         refund_if_cancelled_after_payment: str({ enum: ["full", "partial", "none"] }), late_cancel_refund_pct: { type: "integer" },
         acknowledgement_required: nullable(str({ enum: ["late_no_refund"] })) }),
       BookingSummary: obj({ id: uuid, ref: str(), status: ref("BookingStatus"), phase: ref("Phase"), experience: str(), starts_at: ts, ends_at: ts,
-        lock_at: nullable(ts), reveal_at: nullable(ts), district: str(), confirmed_count: nullable({ type: "integer" }), hold_expires_at: nullable(ts) }),
+        lock_at: nullable(ts), reveal_at: nullable(ts), district: str(), confirmed_count: nullable({ type: "integer" }), hold_expires_at: nullable(ts),
+        amount: ref("Money"), ...seatFields }),
+      Guest: obj({ name: str({ minLength: 1, maxLength: 60, description: "The companion's name only (no phone, no account); trimmed by the server" }) }, ["name"]),
+      BookingReview: obj({ id: uuid, ref: str(), status: ref("BookingStatus"), hold_expires_at: nullable(ts), amount: ref("Money"), ...seatFields, plus_one_available: plusOne,
+        payment: nullable(obj({ status: str(), failure_code: nullable(str()) })), checkout_url: nullable(str()), cancellation: ref("RefundTerms") }),
       Action: obj({ type: str({ enum: ["cancel", "pay", "check_in", "report", "feedback", "resolution"] }), method: str({ enum: ["POST"] }), href: str() }),
       EventDetails: obj({
-        booking: obj({ id: uuid, ref: str(), status: ref("BookingStatus"), cancel_reason: str(), cancellation: { type: "object" } }, ["id", "ref", "status", "cancellation"]),
+        booking: obj({ id: uuid, ref: str(), status: ref("BookingStatus"), ...seatFields, cancel_reason: str(), cancellation: { type: "object" } }, ["id", "ref", "status", "cancellation"]),
         session: obj({ experience: str(), conversation_language: str(), starts_at: ts, ends_at: ts, timezone: str({ enum: ["Asia/Qatar"] }), district: str(),
           food_price_band: obj({ max_minor: { type: "integer" }, display: str() }), accessibility: nullable({}), group_size: str() }),
         reveal: obj({ phase: ref("Phase"), lock_at: nullable(ts), reveal_at: nullable(ts), check_in_opens_at: nullable(ts) }),

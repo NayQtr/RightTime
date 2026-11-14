@@ -32,6 +32,8 @@ export const ERRORS = {
   QUESTIONNAIRE_INCOMPLETE: ["أكملي إجاباتك قبل الحجز.", "Please complete your answers before booking."],
   SESSION_NOT_FOUND: ["الموعد غير موجود.", "Session not found."],
   SESSION_FULL: ["امتلأ هذا الموعد للتو.", "This session just filled up."],
+  NOT_ENOUGH_SEATS: ["لا يتوفر مقعدان في هذا الموعد.", "Two seats are not available for this session."],
+  GUEST_NAME_REQUIRED: ["اكتبي اسم مرافقتك.", "Please write your companion's name."],
   SESSION_NOT_ON_SALE: ["الحجز غير متاح لهذا الموعد.", "Booking isn't open for this session."],
   ALREADY_BOOKED: ["لديك حجز في هذا الموعد.", "You already have a booking for this session."],
   LANGUAGE_CONFLICT: ["هذا الموعد بلغة لم تختاريها في إجاباتك.", "This session is in a language you didn't choose in your answers."],

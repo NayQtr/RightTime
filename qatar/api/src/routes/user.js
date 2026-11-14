@@ -75,6 +75,24 @@ async function refundTerms(sql, b, s = null) {
 const termsView = (t) => ({ full_refund_until: qa(t.fullUntil), full_refund_until_hours: t.hours, full_refund_window_open: t.windowOpen,
   refund_if_cancelled_after_payment: t.afterPayment, late_cancel_refund_pct: t.pct, acknowledgement_required: t.ackRequired ? "late_no_refund" : null });
 
+// "+1" (migration 026): one booking may hold two seats, hers and her companion's. price_minor is the total.
+const seatFields = (b) => ({ seats: b.seats, guest_name: b.guest_name || null, unit_fee_minor: b.price_minor / b.seats });
+// body.guest = { name }: the companion's name only, 1-60 characters after trimming. Absent or null = no companion.
+function guestNameOf(body) {
+  if (body.guest === undefined || body.guest === null) return null;
+  const name = typeof body.guest === "object" && typeof body.guest.name === "string" ? body.guest.name.replace(/\s+/g, " ").trim() : "";
+  if (!name || [...name].length > 60) fail(422, "GUEST_NAME_REQUIRED", [{ field: "guest.name", code: name ? "TOO_LONG" : "REQUIRED" }]);
+  return name;
+}
+const notEnoughSeats = () => fail(409, "NOT_ENOUGH_SEATS", [{ field: "guest", code: "NOT_ENOUGH_SEATS" }]);
+// Can this unpaid booking take (or does it already have) a companion's seat?
+async function plusOneFor(sql, b) {
+  if (b.status !== "payment_pending") return false;
+  if (b.seats === 2) return true;
+  const [s] = await sql`SELECT status, seats_sold, max_seats FROM app.event_sessions WHERE id = ${b.session_id}`;
+  return s.status === "on_sale" && s.seats_sold < s.max_seats;
+}
+
 async function tableMembers(sql, tableId) {
   return sql`
     SELECT b.id AS booking_id, b.user_id, b.occasion, u.display_name FROM app.table_assignments a
@@ -329,7 +347,7 @@ async function exportMe(ctx) {
     else byQuestion.push({ key: r.key, question: L(r, "text"), answers: [L(r, "label")] });
   }
   const bookings = await sql`
-    SELECT b.id, b.booking_ref, b.status, b.price_minor, b.created_at, b.cancelled_at, s.experience, s.starts_at
+    SELECT b.id, b.booking_ref, b.status, b.price_minor, b.seats, b.guest_name, b.created_at, b.cancelled_at, s.experience, s.starts_at
       FROM app.bookings b JOIN app.event_sessions s ON s.id = b.session_id WHERE b.user_id = ${user.id} ORDER BY s.starts_at`;
   const refOf = Object.fromEntries(bookings.map((b) => [b.id, b.booking_ref]));
   const payments = await sql`SELECT booking_id, amount_minor, status, method_brand, card_last4, succeeded_at, created_at
@@ -355,7 +373,7 @@ async function exportMe(ctx) {
     consents: consents.map((c) => ({ type: c.consent_type, document_version: c.document_version, granted: c.granted, recorded_at: qa(c.recorded_at), source: c.source })),
     questionnaire: resp ? { submitted_at: qa(resp.submitted_at), answers: byQuestion } : null,
     bookings: bookings.map((b) => ({ booking_ref: b.booking_ref, experience: b.experience, starts_at: qa(b.starts_at), status: b.status,
-      fee: money(b.price_minor, locale), booked_at: qa(b.created_at), cancelled_at: qa(b.cancelled_at) })),
+      fee: money(b.price_minor, locale), seats: b.seats, companion_name: b.guest_name || null, booked_at: qa(b.created_at), cancelled_at: qa(b.cancelled_at) })),
     payments: payments.map((p) => ({ booking_ref: refOf[p.booking_id] ?? null, amount: money(p.amount_minor, locale), status: p.status,
       card: p.method_brand ? `${p.method_brand} ${p.card_last4 ?? ""}`.trim() : null, paid_at: qa(p.succeeded_at), created_at: qa(p.created_at) })),
     refunds: refunds.map((r) => ({ booking_ref: refOf[r.booking_id] ?? null, amount: money(r.amount_minor, locale), reason: r.reason, status: r.status,
@@ -575,6 +593,8 @@ async function listSessions(ctx) {
         // a seat kept for her from the waitlist (021) is hers to book: the session is not full for her
         seats_left: offered ? Math.max(1, s.max_seats - s.seats_sold) : s.max_seats - s.seats_sold,
         is_full: !offered && (s.status === "sold_out" || s.seats_sold >= s.max_seats),
+        // "+1" (026): two seats are free for her (with a seat kept from the waitlist, one more free seat is enough)
+        plus_one_available: !s.my_booking_id && s.status === "on_sale" && s.max_seats - s.seats_sold >= (offered ? 1 : 2),
         price: money(s.service_fee_minor, locale), group_size: "4–6",
         full_refund_until: qa(hoursBefore(s.starts_at, s.full_refund_until_hours)), full_refund_until_hours: s.full_refund_until_hours, booking_closes_at: qa(s.booking_closes_at),
         my_booking_id: s.my_booking_id,
@@ -655,6 +675,7 @@ async function createBooking(ctx) {
   // Celebration meetups (migration 018): she can say the date is for an occasion; the coordinator gets a case.
   const occasion = body.occasion ?? null;
   if (occasion !== null && !OCCASIONS.includes(occasion)) fail(422, "VALIDATION_FAILED", [{ field: "occasion", code: "INVALID" }]);
+  const guest = guestNameOf(body);
   const resp = await submittedResponse(sql, user.id);
   if (!resp) fail(422, "QUESTIONNAIRE_INCOMPLETE");
   const prof = await profileOf(sql, resp.id);
@@ -681,12 +702,14 @@ async function createBooking(ctx) {
                               AND status = 'offered' AND offer_expires_at > now()`;
   if (!offer && (fresh.status === "sold_out" || fresh.seats_sold >= fresh.max_seats))
     fail(409, "SESSION_FULL", [{ field: "session_id", code: "SESSION_FULL" }], { waitlist_href: `/api/v1/sessions/${s.id}/waitlist` });
+  // "+1" (026): two seats, or one more beside the seat kept for her from the waitlist; hold_seat checks again, atomically
+  if (guest && fresh.max_seats - fresh.seats_sold < (offer ? 1 : 2)) notEnoughSeats();
   const idemKey = ctx.req.headers.get("idempotency-key");
   let result;
   try {
     result = await sql.begin(async (tx) => {
       const [b] = await tx`
-        SELECT (h).* FROM (SELECT app.hold_seat(${user.id}, ${s.id}, ${prof.tier.id}, ${resp.id}, ${alternates}::uuid[], ${idemKey}, ${cfg.seatHoldMinutes}) AS h) x`;
+        SELECT (h).* FROM (SELECT app.hold_seat(${user.id}, ${s.id}, ${prof.tier.id}, ${resp.id}, ${alternates}::uuid[], ${idemKey}, ${cfg.seatHoldMinutes}, ${guest}) AS h) x`;
       await tx`UPDATE app.bookings SET occasion = ${occasion} WHERE id = ${b.id}`;
       if (occasion) {
         const [open] = await tx`SELECT id FROM app.support_cases WHERE booking_id = ${b.id} AND type = 'occasion_celebration'`;
@@ -698,12 +721,14 @@ async function createBooking(ctx) {
     });
   } catch (e) {
     if (e && e.code === "P0010") fail(409, "SESSION_FULL", [{ field: "session_id", code: "SESSION_FULL" }], { waitlist_href: `/api/v1/sessions/${s.id}/waitlist` });
+    if (e && e.code === "P0013") notEnoughSeats();
     throw e;
   }
   const { b, p } = result;
   const terms = await refundTerms(sql, b, s);
   return json(201, { booking_id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
     checkout_url: terms.ackRequired ? null : ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id), amount: money(b.price_minor, locale),
+    ...seatFields(b), plus_one_available: await plusOneFor(sql, b),
     launch_free: cfg.launchFree, cancellation: termsView(terms) });
 }
 
@@ -723,20 +748,46 @@ async function listBookings(ctx) {
     district: locale === "en" ? r.district_hint_en : r.district_hint_ar,
     confirmed_count: r.table_status === "locked" ? r.confirmed_count : null,
     hold_expires_at: qa(r.hold_expires_at),
+    amount: money(r.price_minor, locale), ...seatFields(r),
   })) });
 }
 
 async function getBooking(ctx) {
+  return json(200, await bookingView(ctx, await ownedBooking(ctx.sql, ctx, ctx.params.id)));
+}
+
+// The booking as the review step reads it (GET /bookings/{id}, and the answer of POST /bookings/{id}/guest).
+async function bookingView(ctx, b) {
   const { sql, locale, cfg } = ctx;
-  const b = await ownedBooking(sql, ctx, ctx.params.id);
   const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC LIMIT 1`;
   const holdValid = b.status === "payment_pending" && b.hold_expires_at && new Date(b.hold_expires_at) > new Date();
   const terms = await refundTerms(sql, b);
-  return json(200, { id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
-    amount: money(b.price_minor, locale),
+  return { id: b.id, ref: b.booking_ref, status: b.status, hold_expires_at: qa(b.hold_expires_at),
+    amount: money(b.price_minor, locale), ...seatFields(b), plus_one_available: Boolean(holdValid) && await plusOneFor(sql, b),
     payment: p ? { status: p.status, failure_code: p.failure_code } : null,
     checkout_url: holdValid && !terms.ackRequired && p && p.status === "created" ? ctx.psp.checkoutUrl(b.id, p.psp_payment_intent_id) : null,
-    launch_free: cfg.launchFree, cancellation: termsView(terms) });
+    launch_free: cfg.launchFree, cancellation: termsView(terms) };
+}
+
+// "+1" on the review step (026): adds, renames ({ guest: { name } }) or removes ({ guest: null }) the companion of an
+// unpaid booking whose hold is still running. The second seat is taken or given back atomically (app.set_booking_guest)
+// and the amount to pay follows: fee x seats, on the booking and on its unpaid payment.
+async function setGuest(ctx) {
+  const { sql, body } = ctx;
+  if (!("guest" in body)) fail(422, "VALIDATION_FAILED", [{ field: "guest", code: "REQUIRED" }]);
+  const guest = guestNameOf(body);
+  const b = await ownedBooking(sql, ctx, ctx.params.id);
+  if (b.status !== "payment_pending") fail(409, "PAYMENT_NOT_PENDING");
+  if (!b.hold_expires_at || new Date(b.hold_expires_at) <= new Date()) fail(409, "HOLD_EXPIRED");
+  let nb;
+  try {
+    [nb] = await sql`SELECT (g).* FROM (SELECT app.set_booking_guest(${b.id}, ${ctx.user.id}, ${guest}) AS g) x`;
+  } catch (e) {
+    if (e && e.code === "P0013") notEnoughSeats();
+    if (e && e.code === "P0014") fail(409, "PAYMENT_NOT_PENDING");
+    throw e;
+  }
+  return json(200, await bookingView(ctx, nb));
 }
 
 async function newCheckout(ctx) {
@@ -755,7 +806,8 @@ async function newCheckout(ctx) {
     if (pays[0] && pays[0].status === "created") return { b, p: pays[0] };
     return { b, p: await createPayment(tx, ctx, b, pays.length) };
   });
-  return json(200, { checkout_url: ctx.psp.checkoutUrl(out.b.id, out.p.psp_payment_intent_id), hold_expires_at: qa(out.b.hold_expires_at) });
+  return json(200, { checkout_url: ctx.psp.checkoutUrl(out.b.id, out.p.psp_payment_intent_id), hold_expires_at: qa(out.b.hold_expires_at),
+    amount: money(out.b.price_minor, ctx.locale), ...seatFields(out.b) });
 }
 
 async function resolutionOptions(sql, b, locale, cfg) {
@@ -765,7 +817,7 @@ async function resolutionOptions(sql, b, locale, cfg) {
            (s.id = ANY (${b.alternate_session_ids}::uuid[])) AS is_alternate
       FROM app.event_sessions s
      WHERE s.status = 'on_sale' AND s.conversation_language = ${b.conversation_language} AND s.booking_closes_at > now()
-       AND s.id <> ${b.session_id} AND s.seats_sold < s.max_seats
+       AND s.id <> ${b.session_id} AND s.seats_sold + ${b.seats} <= s.max_seats
      ORDER BY (s.id = ANY (${b.alternate_session_ids}::uuid[])) DESC, s.starts_at LIMIT 5`;
   return {
     choice_deadline: qa(deadline), default_if_no_choice: "refund", open: deadline > new Date(),
@@ -797,7 +849,7 @@ async function eventDetails(ctx) {
   const terms = await refundTerms(sql, b, s);
   const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY (status IN ('succeeded','refunded','partially_refunded')) DESC, created_at DESC LIMIT 1`;
   const out = {
-    booking: { id: b.id, ref: b.booking_ref, status: b.status, ...(b.cancel_reason_code ? { cancel_reason: b.cancel_reason_code } : {}),
+    booking: { id: b.id, ref: b.booking_ref, status: b.status, ...seatFields(b), ...(b.cancel_reason_code ? { cancel_reason: b.cancel_reason_code } : {}),
       cancellation: { policy_version: cp.version, full_refund_until: qa(fullUntil), can_cancel: cancellable,
         refund_if_cancelled_now: cancellable && b.status !== "payment_pending" ? (now <= fullUntil ? "full" : (cp.late_cancel_refund_pct > 0 ? "partial" : "none")) : null,
         full_refund_until_hours: terms.hours, full_refund_window_open: terms.windowOpen, refund_if_cancelled_after_payment: terms.afterPayment, late_cancel_refund_pct: terms.pct,
@@ -1270,6 +1322,7 @@ export const userRoutes = [
   { method: "GET", path: "/api/v1/bookings", auth: "user", handler: listBookings },
   { method: "GET", path: "/api/v1/bookings/{id}", auth: "user", handler: getBooking },
   { method: "POST", path: "/api/v1/bookings/{id}/checkout", auth: "user", idem: true, handler: newCheckout },
+  { method: "POST", path: "/api/v1/bookings/{id}/guest", auth: "user", idem: true, handler: setGuest },
   { method: "GET", path: "/api/v1/bookings/{id}/event-details", auth: "user", handler: eventDetails },
   { method: "POST", path: "/api/v1/bookings/{id}/cancel", auth: "user", idem: true, handler: cancelBooking },
   { method: "POST", path: "/api/v1/bookings/{id}/resolution", auth: "user", idem: true, handler: chooseResolution },

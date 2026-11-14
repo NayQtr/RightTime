@@ -144,7 +144,7 @@ async function listSessions(ctx) {
   const rows = await ctx.sql`
     SELECT s.*, (SELECT count(*)::int FROM app.event_tables t WHERE t.session_id = s.id AND t.status IN ('forming','locked')) AS tables,
            (SELECT count(*)::int FROM app.event_tables t WHERE t.session_id = s.id AND t.status = 'locked') AS locked_tables,
-           (SELECT count(*)::int FROM app.bookings b WHERE b.session_id = s.id AND b.status = 'paid_awaiting_group') AS paid_waiting
+           (SELECT COALESCE(sum(b.seats), 0)::int FROM app.bookings b WHERE b.session_id = s.id AND b.status = 'paid_awaiting_group') AS paid_waiting
       FROM app.event_sessions s ORDER BY s.starts_at DESC LIMIT 200`;
   return json(200, { sessions: rows.map((s) => ({ id: s.id, experience: s.experience, language: s.conversation_language.trim(),
     starts_at: qa(s.starts_at), lock_at: qa(s.lock_at), reveal_at: qa(s.reveal_at), district: s.district_hint_en, status: s.status,
@@ -186,10 +186,10 @@ async function sessionDetail(ctx) {
   const [s] = await sql`SELECT * FROM app.event_sessions WHERE id = ${params.id}`;
   if (!s) fail(404, "SESSION_NOT_FOUND");
   const pool = await sql`
-    SELECT b.conversation_language AS language, bt.rank AS tier_rank, count(*)::int AS n FROM app.bookings b
+    SELECT b.conversation_language AS language, bt.rank AS tier_rank, sum(b.seats)::int AS n FROM app.bookings b
       JOIN app.budget_tiers bt ON bt.id = b.budget_tier_id WHERE b.session_id = ${s.id} AND b.status = 'paid_awaiting_group'
      GROUP BY 1, 2 ORDER BY 1, 2`;
-  const [{ holds }] = await sql`SELECT count(*)::int AS holds FROM app.bookings WHERE session_id = ${s.id} AND status = 'payment_pending'`;
+  const [{ holds }] = await sql`SELECT COALESCE(sum(seats), 0)::int AS holds FROM app.bookings WHERE session_id = ${s.id} AND status = 'payment_pending'`;
   const [{ waitlist }] = await sql`SELECT count(*)::int AS waitlist FROM app.waitlist_entries WHERE session_id = ${s.id} AND status = 'waiting'`;
   const [{ blocks }] = await sql`
     SELECT count(*)::int AS blocks FROM app.blocked_pairs bp
@@ -201,11 +201,11 @@ async function sessionDetail(ctx) {
      WHERE t.session_id = ${s.id} AND (t.status <> 'planned' OR EXISTS (SELECT 1 FROM app.table_assignments a WHERE a.table_id = t.id AND a.is_current))
      ORDER BY t.table_code`;
   const members = await sql`
-    SELECT a.table_id, b.id AS booking_id, b.booking_ref, b.status, u.display_name, b.checked_in_at FROM app.table_assignments a
+    SELECT a.table_id, b.id AS booking_id, b.booking_ref, b.status, u.display_name, b.checked_in_at, b.seats, b.guest_name FROM app.table_assignments a
       JOIN app.bookings b ON b.id = a.booking_id JOIN app.users u ON u.id = b.user_id
      WHERE a.is_current AND a.table_id IN (SELECT id FROM app.event_tables WHERE session_id = ${s.id}) ORDER BY b.booking_ref`;
   const unassigned = await sql`
-    SELECT b.id AS booking_id, b.booking_ref, b.status, u.display_name FROM app.bookings b JOIN app.users u ON u.id = b.user_id
+    SELECT b.id AS booking_id, b.booking_ref, b.status, u.display_name, b.seats, b.guest_name FROM app.bookings b JOIN app.users u ON u.id = b.user_id
      WHERE b.session_id = ${s.id} AND b.status = 'paid_awaiting_group'
        AND NOT EXISTS (SELECT 1 FROM app.table_assignments a WHERE a.booking_id = b.id AND a.is_current)`;
   const runs = await sql`SELECT id, mode, rule_version, algorithm, seed::text AS seed, result_summary, created_at FROM app.matching_runs
@@ -219,8 +219,8 @@ async function sessionDetail(ctx) {
       venue: t.venue_name, venue_confirmed_at: qa(t.venue_confirmed_at),
       low_match: t.low_match === true, match_score: t.match_score === null || t.match_score === undefined ? null : Number(t.match_score),
       members: members.filter((m) => m.table_id === t.id).map((m) => ({ booking_id: m.booking_id, ref: m.booking_ref, status: m.status,
-        display_name: m.display_name, checked_in: !!m.checked_in_at })) })),
-    unassigned: unassigned.map((m) => ({ booking_id: m.booking_id, ref: m.booking_ref, display_name: m.display_name })),
+        display_name: m.display_name, checked_in: !!m.checked_in_at, seats: m.seats, guest_name: m.guest_name || null })) })),
+    unassigned: unassigned.map((m) => ({ booking_id: m.booking_id, ref: m.booking_ref, display_name: m.display_name, seats: m.seats, guest_name: m.guest_name || null })),
     runs: runs.map((r) => ({ ...r, created_at: qa(r.created_at) })),
   });
 }
@@ -248,7 +248,7 @@ async function runFor(ctx, mode) {
     if (e instanceof MatchingError) fail(422, "VALIDATION_FAILED", [{ reason: e.message }]);
     throw e;
   }
-  const summary = { tables: res.tables.length, seated: res.tables.reduce((a, t) => a + t.members.length, 0),
+  const summary = { tables: res.tables.length, seated: res.tables.reduce((a, t) => a + t.members.reduce((n, m) => n + (m.seats || 1), 0), 0),
     leftovers: res.leftovers.length, ineligible: res.ineligible.length, packing_mode: packingMode, max_tables: maxTables,
     low_match: res.tables.filter((t) => t.low_match).length };
   const runId = await sql.begin(async (tx) => {
@@ -428,9 +428,9 @@ async function tonight(ctx) {
   const rows = await sql`
     SELECT s.id AS session_id, s.starts_at, s.ends_at, s.district_hint_en, t.id AS table_id, t.table_code, t.status, t.confirmed_count,
            t.venue_confirmed_at, v.name AS venue_name,
-           (SELECT count(*)::int FROM app.table_assignments a JOIN app.bookings b ON b.id = a.booking_id
+           (SELECT COALESCE(sum(b.seats), 0)::int FROM app.table_assignments a JOIN app.bookings b ON b.id = a.booking_id
              WHERE a.table_id = t.id AND a.is_current AND b.checked_in_at IS NOT NULL) AS checked_in,
-           (SELECT count(*)::int FROM app.bookings b WHERE b.session_id = s.id AND b.status = 'cancelled_by_user'
+           (SELECT COALESCE(sum(b.seats), 0)::int FROM app.bookings b WHERE b.session_id = s.id AND b.status = 'cancelled_by_user'
              AND b.cancelled_at > now() - interval '24 hours') AS late_cancellations,
            (SELECT count(*)::int FROM app.safety_reports r WHERE r.table_id = t.id AND r.status NOT IN ('closed','closed_no_action') AND r.severity <= 2) AS open_s1_s2,
            (SELECT array_agg(DISTINCT r.category::text) FROM app.safety_reports r WHERE r.table_id = t.id AND r.status NOT IN ('closed','closed_no_action')) AS incident_categories

@@ -39,6 +39,18 @@ export async function applyPspEvent(sql, event, opts = {}) {
         toDispatch.push(r.id);
         return;
       }
+      // "+1" (026): the charge must be the booking's total (fee x seats). A charge of another amount (the companion was
+      // added or removed while an older payment page was open) never confirms the booking and is never kept: it is
+      // refunded in full, like a duplicate charge, and she can pay the real total while her hold runs.
+      if (b.status === "payment_pending" && p.amount_minor !== b.price_minor) {
+        await tx`UPDATE app.payments SET status = 'cancelled', succeeded_at = now() WHERE id = ${p.id}`;
+        const [r] = await tx`
+          INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
+          VALUES (${p.id}, ${p.booking_id}, ${p.amount_minor}, 'seat_unavailable', 'requested', ${"total-" + p.id}) RETURNING id`;
+        await audit(tx, null, "payment_total_mismatch", "payments", p.id, "026");
+        toDispatch.push(r.id);
+        return;
+      }
       await tx`
         UPDATE app.payments SET status = 'succeeded', succeeded_at = now(), failure_code = NULL,
                method_brand = ${d.method_brand || null}, card_last4 = ${d.card_last4 || null}

@@ -109,13 +109,14 @@ async function listRequests(ctx) {
     const tableViews = [];
     for (const t of tables) {
       const guests = await sql`
-        SELECT b.id, b.status, b.checked_in_at, u.display_name FROM app.table_assignments a
+        SELECT b.id, b.status, b.checked_in_at, b.seats, b.guest_name, u.display_name FROM app.table_assignments a
           JOIN app.bookings b ON b.id = a.booking_id JOIN app.users u ON u.id = b.user_id
          WHERE a.table_id = ${t.id} AND a.is_current AND b.status IN ('group_locked','revealed','checked_in','completed')
          ORDER BY u.display_name`;
-      tableViews.push({ code: t.table_code, women: guests.length,
+      // "+1" (026): a companion is one more woman at the table, named on the member's row
+      tableViews.push({ code: t.table_code, women: guests.reduce((n, g) => n + g.seats, 0),
         guests: namesOpen ? guests.map((g) => ({ id: guestToken(keys, venueUser.venue_id, g.id), first_name: g.display_name || null,
-          arrived: Boolean(g.checked_in_at) })) : null });
+          plus_one: g.seats === 2 ? (g.guest_name || "") : null, arrived: Boolean(g.checked_in_at) })) : null });
     }
     out.push({ session_id: r.session_id, starts_at: qa(r.starts_at), ends_at: qa(r.ends_at), experience: r.experience,
       women_expected: r.planned_guests, status: r.status, can_answer: r.status === "pending" && now < new Date(r.starts_at).getTime(),

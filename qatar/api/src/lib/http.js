@@ -34,6 +34,7 @@ export function json(status, body, headers = {}) {
 // Postgres SQLSTATEs raised by app.* functions -> API errors
 const PG_MAP = {
   P0010: [409, "SESSION_FULL"], P0011: [422, "SESSION_NOT_ON_SALE"], P0012: [409, "ALREADY_BOOKED"],
+  P0013: [409, "NOT_ENOUGH_SEATS"], P0014: [409, "CONFLICT"], // 026: no second seat for a companion; seats fixed once paid
   P0030: [409, "NOT_REBOOKABLE"], P0031: [422, "LANGUAGE_CONFLICT"],
   P0004: [409, "CONFLICT"], P0002: [409, "CONFLICT"],
   P0020: [404, "NOT_FOUND"], P0021: [409, "CONFLICT"], P0022: [409, "CONFLICT"],

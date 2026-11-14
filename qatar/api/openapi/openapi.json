@@ -1529,6 +1529,16 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "guest": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/Guest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -1575,6 +1585,33 @@
                     "amount": {
                       "$ref": "#/components/schemas/Money"
                     },
+                    "seats": {
+                      "type": "integer",
+                      "enum": [
+                        1,
+                        2
+                      ],
+                      "description": "1, or 2 when she brings a companion (+1)"
+                    },
+                    "guest_name": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "The companion's name; null without a companion"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "unit_fee_minor": {
+                      "type": "integer",
+                      "description": "The organising fee for one seat; amount is the total (fee x seats)"
+                    },
+                    "plus_one_available": {
+                      "type": "boolean",
+                      "description": "Offer \"+1\" only when true: a second seat is free for her companion"
+                    },
                     "cancellation": {
                       "$ref": "#/components/schemas/RefundTerms"
                     }
@@ -1586,6 +1623,10 @@
                     "hold_expires_at",
                     "checkout_url",
                     "amount",
+                    "seats",
+                    "guest_name",
+                    "unit_fee_minor",
+                    "plus_one_available",
                     "cancellation"
                   ]
                 }
@@ -1681,86 +1722,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "ref": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "$ref": "#/components/schemas/BookingStatus"
-                    },
-                    "hold_expires_at": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "ISO-8601 in Asia/Qatar (+03:00)"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "amount": {
-                      "$ref": "#/components/schemas/Money"
-                    },
-                    "payment": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "status": {
-                              "type": "string"
-                            },
-                            "failure_code": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "status",
-                            "failure_code"
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "checkout_url": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "cancellation": {
-                      "$ref": "#/components/schemas/RefundTerms"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "ref",
-                    "status",
-                    "hold_expires_at",
-                    "amount",
-                    "payment",
-                    "checkout_url",
-                    "cancellation"
-                  ]
+                  "$ref": "#/components/schemas/BookingReview"
                 }
               }
             }
@@ -1779,6 +1741,90 @@
           }
         },
         "operationId": "getBookingsId"
+      }
+    },
+    "/api/v1/bookings/{id}/guest": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Booking id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "summary": "\"+1\" on the review step: add, rename or remove the companion of an unpaid booking while its hold runs. The second seat is taken or given back and the amount to pay follows (fee x seats). 409 NOT_ENOUGH_SEATS when no second seat is free; 422 GUEST_NAME_REQUIRED for an empty or too long name; 409 PAYMENT_NOT_PENDING once paid",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "guest": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/Guest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "guest"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/E400"
+          },
+          "401": {
+            "$ref": "#/components/responses/E401"
+          },
+          "403": {
+            "$ref": "#/components/responses/E403"
+          },
+          "404": {
+            "$ref": "#/components/responses/E404"
+          },
+          "409": {
+            "$ref": "#/components/responses/E409"
+          },
+          "422": {
+            "$ref": "#/components/responses/E422"
+          }
+        },
+        "operationId": "postBookingsIdGuest"
       }
     },
     "/api/v1/bookings/{id}/checkout": {
@@ -1838,11 +1884,41 @@
                       "type": "string",
                       "format": "date-time",
                       "description": "ISO-8601 in Asia/Qatar (+03:00)"
+                    },
+                    "amount": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "seats": {
+                      "type": "integer",
+                      "enum": [
+                        1,
+                        2
+                      ],
+                      "description": "1, or 2 when she brings a companion (+1)"
+                    },
+                    "guest_name": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "The companion's name; null without a companion"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "unit_fee_minor": {
+                      "type": "integer",
+                      "description": "The organising fee for one seat; amount is the total (fee x seats)"
                     }
                   },
                   "required": [
                     "checkout_url",
-                    "hold_expires_at"
+                    "hold_expires_at",
+                    "amount",
+                    "seats",
+                    "guest_name",
+                    "unit_fee_minor"
                   ]
                 }
               }
@@ -4074,6 +4150,10 @@
           "is_full": {
             "type": "boolean"
           },
+          "plus_one_available": {
+            "type": "boolean",
+            "description": "Offer \"+1\" only when true: a second seat is free for her companion"
+          },
           "price": {
             "$ref": "#/components/schemas/Money"
           },
@@ -4183,6 +4263,7 @@
           "district",
           "seats_left",
           "is_full",
+          "plus_one_available",
           "price",
           "group_size",
           "full_refund_until",
@@ -4319,6 +4400,32 @@
                 "type": "null"
               }
             ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "seats": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1, or 2 when she brings a companion (+1)"
+          },
+          "guest_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The companion's name; null without a companion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit_fee_minor": {
+            "type": "integer",
+            "description": "The organising fee for one seat; amount is the total (fee x seats)"
           }
         },
         "required": [
@@ -4333,7 +4440,138 @@
           "reveal_at",
           "district",
           "confirmed_count",
-          "hold_expires_at"
+          "hold_expires_at",
+          "amount",
+          "seats",
+          "guest_name",
+          "unit_fee_minor"
+        ]
+      },
+      "Guest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "The companion's name only (no phone, no account); trimmed by the server"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "BookingReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "hold_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 in Asia/Qatar (+03:00)"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "seats": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1, or 2 when she brings a companion (+1)"
+          },
+          "guest_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The companion's name; null without a companion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit_fee_minor": {
+            "type": "integer",
+            "description": "The organising fee for one seat; amount is the total (fee x seats)"
+          },
+          "plus_one_available": {
+            "type": "boolean",
+            "description": "Offer \"+1\" only when true: a second seat is free for her companion"
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "failure_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "failure_code"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancellation": {
+            "$ref": "#/components/schemas/RefundTerms"
+          }
+        },
+        "required": [
+          "id",
+          "ref",
+          "status",
+          "hold_expires_at",
+          "amount",
+          "seats",
+          "guest_name",
+          "unit_fee_minor",
+          "plus_one_available",
+          "payment",
+          "checkout_url",
+          "cancellation"
         ]
       },
       "Action": {
@@ -4381,6 +4619,29 @@
               },
               "status": {
                 "$ref": "#/components/schemas/BookingStatus"
+              },
+              "seats": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ],
+                "description": "1, or 2 when she brings a companion (+1)"
+              },
+              "guest_name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The companion's name; null without a companion"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit_fee_minor": {
+                "type": "integer",
+                "description": "The organising fee for one seat; amount is the total (fee x seats)"
               },
               "cancel_reason": {
                 "type": "string"
