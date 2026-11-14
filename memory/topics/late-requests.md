@@ -76,7 +76,7 @@ qatar/docs/store are now stale; account arrows in the app point the wrong way in
 OWNER 14 Nov, after the release: «موافق الكل واحذف التعليق وصحح الأسهم» — (a), (c) and (d) above are APPROVED as built (the
 no-match line and the day-count forms are now the owner's accepted wording); the /about hero caption is removed (string
 aboutCapVenue deleted, ar and en); the app's account arrows are fixed (cause: chevron_right mirrors itself in Arabic and the
-code also swapped it by hand, so it flipped twice). Built and tested; NOT yet on herzone.app (needs the owner's release yes).
+code also swapped it by hand, so it flipped twice). RELEASED 14 Nov with the owner's yes: herzone.app and staging serve herzone-web@f7b6b858a459 (production dpl_DpyBJbRsiVH8pKnebQ8V3ytYFJdF, staging dpl_BYrrwwsS2bYT4edPQuhCNYhQxbuN); baseline run recorded, CI green, smoke checks passed on both, caption gone from /about and /about/en, Sentry clean in the hour.
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
 on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
 reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's
