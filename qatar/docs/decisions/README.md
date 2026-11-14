@@ -16,5 +16,6 @@ The full list of provisional choices of that day, in Arabic, is `provisional-202
 | 2026-11-10 | [Coordinator alerts: push and SMS](2026-11-10-coordinator-alerts.md) | Provisional | 40 |
 | 2026-11-10 | [Real-font layout check kept](2026-11-10-real-font-check.md) | Provisional | 47 |
 | 2026-11-11 | [Phone numbers: every country except Israel, with a country picker](2026-11-11-phone-countries.md) | Owner's decision | 38 |
+| 2026-11-14 | ["+1": a member may bring one companion](2026-11-14-plus-one.md) | Owner's decision; built, not released | — |
 
 New page: copy one of these, name it `YYYY-MM-DD-topic.md`, and add a row here.

@@ -3,6 +3,18 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Owner's texts of 14 Nov and "+1" [2026-11-14] — BUILT on rightime-app (website and server), NOT released
+Owner approved on 14 Nov: (A1) three waitlist steps under a full session, (A2) the one-line refund text under the pay
+button and in the booking details, (A3) the fee page «ماذا يشمل رسم التنظيم؟» with five questions; and decided (B) «+1»: a
+member brings one companion (name only, amount doubles, same table, both seats cancel together, one refund).
+Decision record: qatar/docs/decisions/2026-11-14-plus-one.md. Migration 026_plus_one.sql is written and tested locally
+only: NOT applied to staging or production. The app is built by another agent against the same API.
+Waiting on the owner: (1) review of the new Arabic «+1» lines before release, including «اكتبي اسم مرافقتك.» (Claude's
+wording for an empty name); (2) a line in the privacy notice about the companion's name; (3) whether the other women at
+the table see the companion's name on the day (today: not shown, only counted); (4) the companion is confirmed by the
+check box only (no card check); (5) the refund line says «بعده لا يُرد رسم التنظيم»: a booking whose terms refund a share
+after the deadline keeps the older, longer line; (6) release needs the usual order plus applying migration 026.
+
 ## Production release of e41e896 [2026-11-14] — DONE
 
 Owner's approval: «نعم، أنزلها الآن» (14 Nov). Baseline checks recorded (b87e7ce). CI on b87e7ce failed on two admin-console
