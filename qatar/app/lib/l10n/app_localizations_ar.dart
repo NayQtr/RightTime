@@ -781,4 +781,61 @@ class AppLocalizationsAr extends AppLocalizations {
   String rebookedInto(String ref) {
     return 'نقلناك إلى الحجز $ref.';
   }
+
+  @override
+  String get quizReply => 'جميل. سنبحث لكِ عن طاولة تشبهك.';
+
+  @override
+  String get thisWeek => 'هذا الأسبوع';
+
+  @override
+  String weekCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n لقاءات',
+      one: '$n لقاء',
+    );
+    return '$_temp0 هذا الأسبوع';
+  }
+
+  @override
+  String dayCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n لقاءات',
+      one: '$n لقاء',
+    );
+    return '$_temp0 في هذا اليوم';
+  }
+
+  @override
+  String get readyTitle => 'قبل لقائك الأول';
+
+  @override
+  String get readyAnswers => 'أجيبي عن أسئلة التعارف';
+
+  @override
+  String get readyPick => 'اختاري موعدًا يناسبك';
+
+  @override
+  String get readyRules => 'اقرئي قواعد اللقاء';
+
+  @override
+  String get dayToday => 'اليوم';
+
+  @override
+  String get groupProfile => 'الملف';
+
+  @override
+  String get groupPrefs => 'التفضيلات';
+
+  @override
+  String get groupPrivacy => 'الخصوصية';
+
+  @override
+  String payAmount(String amount) {
+    return 'ادفعي $amount';
+  }
 }

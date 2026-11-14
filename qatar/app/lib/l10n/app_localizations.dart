@@ -1531,6 +1531,84 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'نقلناك إلى الحجز {ref}.'**
   String rebookedInto(String ref);
+
+  /// No description provided for @quizReply.
+  ///
+  /// In ar, this message translates to:
+  /// **'جميل. سنبحث لكِ عن طاولة تشبهك.'**
+  String get quizReply;
+
+  /// No description provided for @thisWeek.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الأسبوع'**
+  String get thisWeek;
+
+  /// No description provided for @weekCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n, plural, =1{{n} لقاء} other{{n} لقاءات}} هذا الأسبوع'**
+  String weekCount(int n);
+
+  /// No description provided for @dayCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n, plural, =1{{n} لقاء} other{{n} لقاءات}} في هذا اليوم'**
+  String dayCount(int n);
+
+  /// No description provided for @readyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قبل لقائك الأول'**
+  String get readyTitle;
+
+  /// No description provided for @readyAnswers.
+  ///
+  /// In ar, this message translates to:
+  /// **'أجيبي عن أسئلة التعارف'**
+  String get readyAnswers;
+
+  /// No description provided for @readyPick.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختاري موعدًا يناسبك'**
+  String get readyPick;
+
+  /// No description provided for @readyRules.
+  ///
+  /// In ar, this message translates to:
+  /// **'اقرئي قواعد اللقاء'**
+  String get readyRules;
+
+  /// No description provided for @dayToday.
+  ///
+  /// In ar, this message translates to:
+  /// **'اليوم'**
+  String get dayToday;
+
+  /// No description provided for @groupProfile.
+  ///
+  /// In ar, this message translates to:
+  /// **'الملف'**
+  String get groupProfile;
+
+  /// No description provided for @groupPrefs.
+  ///
+  /// In ar, this message translates to:
+  /// **'التفضيلات'**
+  String get groupPrefs;
+
+  /// No description provided for @groupPrivacy.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخصوصية'**
+  String get groupPrivacy;
+
+  /// No description provided for @payAmount.
+  ///
+  /// In ar, this message translates to:
+  /// **'ادفعي {amount}'**
+  String payAmount(String amount);
 }
 
 class _AppLocalizationsDelegate
