@@ -289,6 +289,9 @@ void main() {
     }
     expect(tester.getTopLeft(find.text('التفضيلات')).dy, lessThan(tester.getTopLeft(find.byKey(const Key('lang'))).dy));
     expect(tester.getTopLeft(find.text('الخصوصية')).dy, lessThan(tester.getTopLeft(find.byKey(const Key('documents'))).dy));
+    // the row arrows point where the row leads: chevron_right mirrors itself in Arabic, so it is never swapped by hand
+    expect(find.descendant(of: find.byKey(const Key('documents')), matching: find.byIcon(Icons.chevron_right)), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left), findsNothing);
     Finder tick(String row) => find.descendant(of: find.byKey(Key(row)), matching: find.byIcon(Icons.check_rounded));
     expect(tick('theme'), findsNothing);
     await tester.tap(find.byKey(const Key('theme')));

@@ -150,7 +150,7 @@ export const STRINGS = {
     // rounds 1-3 of the reference-sites study, batch 1 (owner's decision of 14 Nov 2026; wording as in the approved preview)
     quizReply: "جميل. سنبحث لكِ عن طاولة تشبهك.", tileEvening: "مساءً", tileAfternoon: "عصرًا", noMatch: "لا يوجد لقاء بهذا الاختيار.",
     dayCount1: "لقاء واحد في هذا اليوم", dayCount2: "لقاءان في هذا اليوم", dayCountFew: "{n} لقاءات في هذا اليوم", dayCountMany: "{n} لقاءً في هذا اليوم",
-    aboutPull: "طاولة صغيرة، ووجوه جديدة، ومكان نختاره بعناية.", aboutCapSeat: "طاولة محجوزة باسم اللقاء.", aboutCapVenue: "أحد أماكن اللقاء في الدوحة.",
+    aboutPull: "طاولة صغيرة، ووجوه جديدة، ومكان نختاره بعناية.", aboutCapSeat: "طاولة محجوزة باسم اللقاء.",
     // batch 2 (round 2), wording as in the approved preview
     dueNow: "المطلوب الآن", readyFirst: "قبل لقائك الأول", readyAnswers: "أجيبي عن أسئلة التعارف", readyPick: "اختاري موعدًا يناسبك", readyPush: "فعّلي إشعارات الجوال", readyRules: "اقرئي قواعد اللقاء",
     howSay: "طاولة صغيرة تُختار بعناية.", howSayRest: "أنتِ تجيبين، ونحن نرتّب الباقي.",
@@ -295,7 +295,7 @@ export const STRINGS = {
     noUpcoming: "No sessions are open right now. We'll add new ones soon.",
     quizReply: "Lovely. We'll look for a table that feels like you.", tileEvening: "Evening", tileAfternoon: "Afternoon", noMatch: "No meetup matches this choice.",
     dayCount1: "1 meetup on this day", dayCount2: "2 meetups on this day", dayCountFew: "{n} meetups on this day", dayCountMany: "{n} meetups on this day",
-    aboutPull: "A small table, new faces, and a venue we choose with care.", aboutCapSeat: "A table reserved in the meetup's name.", aboutCapVenue: "One of the meetup venues in Doha.",
+    aboutPull: "A small table, new faces, and a venue we choose with care.", aboutCapSeat: "A table reserved in the meetup's name.",
     dueNow: "Due now", readyFirst: "Before your first meetup", readyAnswers: "Answer the get-to-know-you questions", readyPick: "Pick a time that suits you", readyPush: "Turn on phone notifications", readyRules: "Read the meetup rules",
     howSay: "A small table, chosen with care.", howSayRest: "You answer, and we arrange the rest.",
     secProfile: "Profile", secPrivacy: "Privacy", appearance: "Appearance", cardLooking: "What you're looking for", cardEvening: "Ideal evening", cardBudget: "Budget", wygSay: "An evening arranged from start to finish.", cancelUntil: "Until {deadline}", cancelAfter: "After that",

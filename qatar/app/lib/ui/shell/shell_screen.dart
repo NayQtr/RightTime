@@ -241,7 +241,6 @@ class _RowState extends State<_Row> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final rtl = Directionality.of(context) == TextDirection.rtl;
     final c = hzColors(context);
     return InkWell(
       onTap: () {
@@ -258,7 +257,7 @@ class _RowState extends State<_Row> with SingleTickerProviderStateMixin {
               duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 150),
               child: _ok.isAnimating
                   ? Icon(Icons.check_rounded, key: const ValueKey('ok'), color: c.primary)
-                  : Icon(rtl ? Icons.chevron_left : Icons.chevron_right, key: const ValueKey('go'), color: c.textMuted),
+                  : Icon(Icons.chevron_right, key: const ValueKey('go'), color: c.textMuted) // the icon mirrors itself in Arabic,
             ),
           ),
         ]),

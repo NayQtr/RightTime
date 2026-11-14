@@ -348,9 +348,9 @@ test("less motion: the photo, the cards, the framed card, the reply and the bar 
   await q.context().close();
 });
 
-test("/about: four type sizes, and a statement followed by a captioned photo (16:9 in the hero, 4:5 at the close)", async () => {
-  for (const [path, t] of [["/about", { pull: "طاولة صغيرة، ووجوه جديدة، ومكان نختاره بعناية.", caps: ["أحد أماكن اللقاء في الدوحة.", "طاولة محجوزة باسم اللقاء."] }],
-    ["/about/en", { pull: "A small table, new faces, and a venue we choose with care.", caps: ["One of the meetup venues in Doha.", "A table reserved in the meetup's name."] }]]) {
+test("/about: four type sizes, and a statement followed by a photo (16:9 in the hero without a caption, 4:5 with one at the close)", async () => {
+  for (const [path, t] of [["/about", { pull: "طاولة صغيرة، ووجوه جديدة، ومكان نختاره بعناية.", caps: ["طاولة محجوزة باسم اللقاء."] }],
+    ["/about/en", { pull: "A small table, new faces, and a venue we choose with care.", caps: ["A table reserved in the meetup's name."] }]]) {
     for (const width of [390, 1280]) {
       const page = await (await context({ viewport: { width, height: 844 } })).newPage();
       await page.goto(env.base + path);
@@ -366,8 +366,8 @@ test("/about: four type sizes, and a statement followed by a captioned photo (16
       assert.equal(await page.locator("main .pull").count(), 2, "one pull line in the hero, one for the venues");
       assert.deepEqual((await page.locator("main figure figcaption").allInnerTexts()).map((x) => x.trim()), t.caps);
       const figs = await page.locator("main figure").evaluateAll((fs) => fs.map((f) => { const r = f.querySelector("img").getBoundingClientRect(), c = f.querySelector("figcaption");
-        const prev = f.previousElementSibling; return { ratio: +(r.width / r.height).toFixed(2), cap: getComputedStyle(c).fontSize, capUnder: c.getBoundingClientRect().top >= r.bottom, after: prev.matches("h2") || Boolean(prev.querySelector(".pull")) }; }));
-      assert.deepEqual(figs, [{ ratio: 1.78, cap: "13px", capUnder: true, after: true }, { ratio: 0.8, cap: "13px", capUnder: true, after: true }]);
+        const prev = f.previousElementSibling; return { ratio: +(r.width / r.height).toFixed(2), cap: c ? getComputedStyle(c).fontSize : null, capUnder: c ? c.getBoundingClientRect().top >= r.bottom : null, after: prev.matches("h2") || Boolean(prev.querySelector(".pull")) }; }));
+      assert.deepEqual(figs, [{ ratio: 1.78, cap: null, capUnder: null, after: true }, { ratio: 0.8, cap: "13px", capUnder: true, after: true }]);
       await noSideScroll(page, `${path} at ${width}`);
       await page.context().close();
     }

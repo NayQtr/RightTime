@@ -8,9 +8,9 @@
 // Every line is an existing approved string. Photos: the round-3 set without photo 4 (restaurant table) and photo 6
 // (terrace), owner decision 10 Nov.
 // Rounds 1-3 study (owner's decision of 14 Nov 2026, after Pentagram): four type sizes only (about.css) and a
-// statement-then-photo rhythm: a pull line, then a photo with a small caption (the 16:9 one in the hero, the 4:5 one
-// at the close). The pull line and the two captions are the approved preview's wording (aboutPull, aboutCapVenue,
-// aboutCapSeat); the other statements are lines the page already had.
+// statement-then-photo rhythm: a pull line, then a photo (16:9 in the hero; the 4:5 one at the close has a small
+// caption). The pull line and that caption are the approved preview's wording (aboutPull, aboutCapSeat; the owner
+// removed the hero caption on 14 Nov 2026: the photo is not a real venue); the other statements are lines the page already had.
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,7 +111,7 @@ export function aboutPage(lang) {
         <p>${esc(T("welcomeSub"))}</p>
         ${cta("cta-top")}
       </div>
-      ${figure(picture(HERO, { sizesAttr: "(min-width: 1024px) 480px, 100vw", eager: true }), T("aboutCapVenue"))}
+      <figure class="about-figure">${picture(HERO, { sizesAttr: "(min-width: 1024px) 480px, 100vw", eager: true })}</figure>
     </section>
 
     <section aria-labelledby="how-title">
