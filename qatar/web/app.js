@@ -776,7 +776,10 @@ function scrInter(id, i, back) {
   const screens = {
     doha: () => `<div class="art">${icon("map-pin")}</div><h1>${esc(T("dohaTitle"))}</h1><p class="lead">${esc(T("dohaBody"))}</p>`,
     community: () => `<div class="art">${icon("users")}</div><h1>${esc(T("communityTitle"))}</h1><p class="lead">${esc(T("communityBody"))}</p>`,
-    how: () => `<h1>${esc(T("howTitle"))}</h1><ol class="steps">${["how1", "how2", "how3", "how4"].map((k, j) => `<li><span class="n" aria-hidden="true">${j + 1}</span><span>${esc(T(k))}</span></li>`).join("")}</ol>`,
+    // Round 2 (after Pentagram): a small tag, then one statement in two tones, then the steps as plain hairline rows.
+    // The statement says the first step ("you answer"), so the list carries the other three.
+    how: () => `<p class="tag">${esc(T("howTitle"))}</p><h1 class="say">${esc(T("howSay"))} <i>${esc(T("howSayRest"))}</i></h1>
+      <ul class="plain-steps">${["how2", "how3", "how4"].map((k) => `<li>${esc(T(k))}</li>`).join("")}</ul>`,
     science: () => `<div class="art">${icon("book-open")}</div><h1>${esc(T("scienceTitle"))}</h1><div class="quote"><p>${esc(T("scienceBody"))}</p><p class="caption">${esc(T("scienceSource"))}</p></div>`,
     vibe: () => `<p class="caption">${esc(T("vibeTitle"))}</p><div class="vibe-card">${vibeTable(vibe)}</div>
       <h1>${esc(T(`vibe_${vibe}`))}</h1><p class="lead">${esc(T(`vibe_${vibe}Body`))}</p><p class="caption">${esc(T("vibeNote"))}</p>`,
@@ -1104,9 +1107,17 @@ async function scrSessions(preselect) {
       <p class="caption occ-note" id="occ-note" hidden></p>
       <div id="err" role="alert"></div>
     </form>
-    <div class="sticky-bar"><div>
-      ${(ok[0] || all[0] || {}).launch_free ? "" : `<span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>`}
-      <button class="btn btn-primary btn-block" id="go" disabled>${esc(T("continueToPay"))}</button></div></div>`);
+    <div class="sticky-bar book-dock"><div>
+      <p class="dock-note" id="dock-note" role="status"></p>
+      <div class="book-pill">${(ok[0] || all[0] || {}).launch_free ? "" : `<span class="caption">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</span>`}
+        <button class="btn btn-primary" id="go" disabled>${esc(T("continueToPay"))}</button></div></div></div>`);
+  // Round 2 (after Airbnb): the bar floats as one pill, and the chosen session's own cancellation line (the product's
+  // text and that session's real deadline) docks above it. A session whose full-refund time has passed shows no line
+  // here; the review screen then carries the late-cancellation warning.
+  const dockNote = (s) => {
+    const open = Boolean(s && s.full_refund_until && new Date(s.full_refund_until) > new Date());
+    $("#dock-note").textContent = open ? T("policyBox", { deadline: fmtDate(s.full_refund_until) }) : "";
+  };
   $$("[data-exp]").forEach((b) => (b.onclick = () => { store.set("exp", b.dataset.exp); scrSessions(); }));
   wireNotifyMe();
   // filters hide whole rows; a chosen session that gets hidden is let go, so "Continue" never books one she cannot see
@@ -1119,7 +1130,7 @@ async function scrSessions(preselect) {
       row.hidden = Boolean((day && qatarDay(s.starts_at) !== day) || (k !== "" && s.district !== areas[Number(k)]));
       if (!row.hidden) shown += 1;
       const radio = $("input[name=s]", row);
-      if (row.hidden && radio.checked) { radio.checked = false; $("#go").disabled = true; $("#alts").hidden = true; $("#occ").hidden = true; }
+      if (row.hidden && radio.checked) { radio.checked = false; $("#go").disabled = true; $("#alts").hidden = true; $("#occ").hidden = true; dockNote(null); }
     }
     $("#no-match").hidden = shown > 0;
   }));
@@ -1144,6 +1155,7 @@ async function scrSessions(preselect) {
     const others = ok.filter((s) => s.id !== x.value && !s.my_booking_id);
     $("#alts").hidden = !others.length;
     const picked = ok.find((s) => s.id === x.value) || {};
+    dockNote(picked);
     occasionFor(picked.occasion_allowed !== false, picked.occasion_notice_hours);
     $("#altlist").innerHTML = others.slice(0, 6).map((s) => `<label class="option"><input type="checkbox" name="alt" value="${s.id}"><span class="tick" aria-hidden="true"></span><span>${esc(fmtDate(s.starts_at))} · ${esc(s.district)}</span></label>`).join("");
     $$("input[name=alt]").forEach((a) => (a.onchange = () => {
@@ -1183,28 +1195,33 @@ async function scrReview(id) {
   const expired = !b.hold_expires_at || new Date(b.hold_expires_at) <= new Date();
   if (!expired) funnel("booking_review");
   const needAck = e.booking.cancellation.acknowledgement_required === "late_no_refund";
+  // Round 2 (after Stripe): the review reads as a receipt. What it is, the amount large, the lines on hairlines, the
+  // last line what is due now; the pay button carries the amount, and the cancellation line of this booking (the
+  // product's own text) sits right under it. A late booking keeps its warning and its check box above the button.
+  const lang = T(e.session.conversation_language === "ar" ? "langAr" : "langEn");
+  const refundOpen = e.booking.cancellation.full_refund_window_open !== false;
+  const line = (k, v, cls = "") => `<div class="kv"><span>${esc(T(k))}</span><span class="${cls}">${esc(v)}</span></div>`;
   view(T("reviewTitle"), `
     <h1>${esc(T("reviewTitle"))}</h1>
-    <section class="card"><dl class="facts">
-      <dt>${esc(T("experience"))}</dt><dd>${esc(T(e.session.experience))}</dd>
-      <dt>${esc(T("dateTime"))}</dt><dd>${esc(fmtDate(e.session.starts_at))}</dd>
-      <dt>${esc(T("district"))}</dt><dd>${esc(e.session.district)}</dd>
-      <dt>${esc(T("tableLanguage"))}</dt><dd>${esc(T(e.session.conversation_language === "ar" ? "langAr" : "langEn"))}</dd>
-      <dt>${esc(T("groupSizeLabel"))}</dt><dd>${esc(T("groupSize"))}</dd></dl></section>
-    <section class="card">
-      <div class="kv"><span>${esc(T("feeNow"))}</span>${b.launch_free
+    <p class="rc-name">${esc(T(e.session.experience))} · ${esc(lang)} · ${esc(fmtDate(e.session.starts_at, { weekday: "long", day: "numeric", month: "long" }))}</p>
+    ${b.launch_free ? "" : `<p class="rc-total num" id="rc-total">${esc(b.amount.display)}</p>`}
+    <section class="receipt">
+      ${line("dateTime", fmtDate(e.session.starts_at))}${line("district", e.session.district)}${line("tableLanguage", lang)}${line("groupSizeLabel", T("groupSize"))}
+      ${line("foodAtVenue", T("foodBand", { band: e.session.food_price_band.display }), "muted")}
+      <div class="kv" id="fee-row"><span>${esc(T("feeNow"))}</span>${b.launch_free
         ? `<span class="fee-offer"><s class="num">${esc(b.amount.display)}</s> <strong>${esc(T("feeLaunchFree"))}</strong></span>`
-        : `<strong>${esc(b.amount.display)}</strong>`}</div>
+        : `<span class="num">${esc(b.amount.display)}</span>`}</div>
       ${b.launch_free ? `<p class="caption" id="launch-note">${esc(T("feeLaunchNote"))}</p>` : ""}
-      <div class="kv"><span>${esc(T("foodAtVenue"))}</span><span class="muted">${esc(T("foodBand", { band: e.session.food_price_band.display }))}</span></div>
+      <div class="kv due" id="due-row"><span>${esc(T("dueNow"))}</span><strong class="num">${esc(b.amount.display)}</strong></div>
     </section>
-    ${policyHtml(e.booking.cancellation, b.amount.display)}
+    ${refundOpen ? "" : policyHtml(e.booking.cancellation, b.amount.display)}
     ${b.payment && b.payment.status === "failed" ? `<div class="banner banner-warning" role="alert"><div>${esc(T("paymentFailed"))} ${esc(T("payFailedNext"))} ${esc(T("noDoubleCharge"))}</div></div>` : ""}
     <p class="label" id="hold">${expired ? "" : `${esc(T("holdTimer"))} <span class="num" id="clock"></span>`}</p>
     <p class="sr-only" aria-live="polite" id="holdlive"></p>
     <div id="err" role="alert">${expired ? errorBanner({ message: T("holdExpired") }) : ""}</div>
     ${expired ? `<a class="btn btn-primary btn-block" href="#/sessions">${esc(T("chooseAgain"))}</a>`
       : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? "disabled" : ""}>${esc(T("pay", { fee: b.amount.display }))}</button>`}
+    ${refundOpen ? `<p class="caption rc-under" id="rc-policy">${esc(T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p>` : ""}
     <button class="link-btn" id="change">${esc(T("changeSession"))}</button>`);
   if (!expired) {
     const end = new Date(b.hold_expires_at).getTime();
@@ -1607,17 +1624,45 @@ async function scrEvents() {
       <a class="btn btn-primary btn-block" href="${next.status === "payment_pending" ? `#/booking/${next.id}/review` : `#/booking/${next.id}`}">${esc(next.phase === "day_of" ? T("imHere") : T("viewDetails"))}</a>
     </section>`;
   }
+  // Round 2 (after Notion): before her first booking the empty screen is a getting-ready card. Every row shows a real
+  // state and leads to where it is done: her answers, a session, phone notifications on this device, and the conduct
+  // rules (opened here; marked read on this device once she opens them). Later, with past bookings, the plain empty state.
+  let ready = "";
+  if (!bookings.length) {
+    const legal = await api("GET", "/api/v1/legal/current", undefined, { noAuth: true });
+    const rules = legal.ok && legal.data.conduct ? legal.data.conduct.text : "";
+    const pushOn = pushSupport() === "ok" && Notification.permission === "granted" && Boolean(await devicePushSub());
+    if (location.hash !== "#/events") return; // she moved on while these loaded: never draw over the next screen
+    const rows = [["readyAnswers", Boolean(state.q && state.q.submitted), `#/quiz/${INTERSTITIALS.start.length}`], ["readyPick", false, "#/home"], ["readyPush", pushOn, "#/notify?next=profile"]];
+    const read = Boolean(store.get("rulesRead"));
+    const total = rows.length + (rules ? 1 : 0), doneN = rows.filter((x) => x[1]).length + (rules && read ? 1 : 0);
+    const label = (k, ok) => (ok ? `<s>${esc(T(k))}</s>` : esc(T(k)));
+    ready = `<section class="ready-card" aria-labelledby="ready-h"><span class="n num" id="ready-n" data-total="${total}">${esc(T("qOf", { i: doneN, n: total }))}</span><h2 id="ready-h">${esc(T("readyFirst"))}</h2>
+      <ul>${rows.map(([k, ok, href]) => `<li><a class="ck-row${ok ? " done" : ""}" href="${href}">${label(k, ok)}</a></li>`).join("")}
+        ${rules ? `<li><details id="ready-rules"><summary class="ck-row${read ? " done" : ""}">${label("readyRules", read)}</summary><p class="caption legal-text">${esc(rules)}</p></details></li>` : ""}</ul>
+      ${tableSvg({ seats: 6 })}</section>
+      <a class="btn btn-primary btn-block" href="#/home">${esc(T("bookSeat"))}</a>`;
+  }
   view(T("eventsTitle"), `
     <h1 class="display-title">${esc(T("eventsTitle"))}</h1>
     ${state.suspended ? `<div class="banner banner-danger" role="alert"><div>${esc(T("suspended"))} <a href="#/cases">${esc(T("casesTitle"))}</a></div></div>` : ""}
     ${choice ? `<div class="banner banner-danger"><div>${esc(T("stOrganizer"))} <a href="#/booking/${choice.id}/choose">${esc(T("chooseNow"))}</a></div></div>` : ""}
     ${done ? `<div class="banner banner-info"><div>${esc(T("stCompleted"))} <a href="#/booking/${done.id}/feedback">${esc(T("rateIt"))}</a></div></div>` : ""}
-    ${hero || `<div class="empty">${tableSvg({ seats: 6 })}<h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
+    ${hero || ready || `<div class="empty">${tableSvg({ seats: 6 })}<h2>${esc(T("noEventsTitle"))}</h2><p class="muted">${esc(T("noEventsBody"))}</p><a class="btn btn-primary" href="#/home">${esc(T("bookSeat"))}</a></div>`}
     ${bookings.length > (next ? 1 : 0) ? `<h2>${esc(T("otherBookings"))}</h2><ul class="list">${bookings.filter((b) => b !== next).map((b) => `
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
     <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+  const rulesBox = $("#ready-rules");
+  if (rulesBox) rulesBox.addEventListener("toggle", () => {
+    if (!rulesBox.open || store.get("rulesRead")) return;
+    store.set("rulesRead", true);
+    const row = rulesBox.querySelector("summary"), n = $("#ready-n");
+    row.classList.add("done");
+    row.innerHTML = `<s>${esc(T("readyRules"))}</s>`;
+    n.textContent = T("qOf", { i: $$(".ready-card .ck-row.done").length, n: Number(n.dataset.total) });
+  });
 }
 
 // ------------------------------------------------------------------ SCR-07 event details
@@ -1646,10 +1691,16 @@ async function scrDetails(id) {
     `<li class="${j < stage ? "done" : j === stage ? "current" : ""}" ${j === stage ? 'aria-current="step"' : ""}>${esc(T(k))}</li>`).join("")}</ol>`;
   // identity check (015): the venue and table code wait for the review of the name on her card
   const idNote = e.identity_check === "pending" ? `<div class="banner banner-info" id="id-check" role="status"><span class="icon">${icon("info")}</span><div>${esc(T("idCheckPending"))}</div></div>` : "";
-  view(T("detailsTitle"), `${offlineNote}${idNote}
-    <header class="det-head">${track ? "" : statusBadge(e.booking)}
+  // Round 2 (owner-approved study, 14 Nov 2026): the date leads as one large numeral (after Pentagram), and once the
+  // heading has scrolled away a slim summary stays under the top bar (after Apple). Both repeat what the heading and
+  // the facts already say, so they are hidden from screen readers; the full date and time stay in the heading for them.
+  const at = e.session.starts_at;
+  view(T("detailsTitle"), `<div class="pin-bar" id="pin" aria-hidden="true"><span><b>${esc(fmtDate(at, { weekday: "long", day: "numeric", month: "long" }))}</b> · ${esc(e.session.district)}</span><span class="num">${esc(fmtDate(at, { hour: "numeric", minute: "2-digit" }))}</span></div>
+    ${offlineNote}${idNote}
+    <header class="det-head" id="det-head">${track ? "" : statusBadge(e.booking)}
       <h1>${esc(T("detailsHead", { exp: T(e.session.experience), day: fmtDate(e.session.starts_at, { weekday: "long" }) }))}</h1>
-      <span class="when num">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
+      <span class="bigdate" aria-hidden="true"><b class="num">${esc(fmtDate(at, { day: "numeric" }))}</b><span>${esc(fmtDate(at, { weekday: "long" }))}<br>${esc(fmtDate(at, { month: "long" }))}</span></span>
+      <span class="when num sr-only">${esc(fmtDate(e.session.starts_at, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}</span>
       <span class="ref">${num(e.booking.ref)}${cd ? ` · ${esc(cd)}` : ""}</span></header>
     ${track}
     <ul class="facts-list" aria-label="${esc(T("essentials"))}">
@@ -1685,6 +1736,14 @@ async function scrDetails(id) {
     ${act("cancel") ? `<section class="stack" data-u="mt6"><a class="btn btn-danger btn-block" href="#/booking/${id}/cancel">${esc(T("cancelBooking"))}</a>
       <p class="caption">${esc(e.booking.cancellation.refund_if_cancelled_now === "full" ? T("policyBox", { deadline: fmtDate(e.booking.cancellation.full_refund_until) })
         : T("refundNone", { deadline: fmtDate(e.booking.cancellation.full_refund_until) }))}</p></section>` : ""}`);
+  const pin = $("#pin"), head = $("#det-head");
+  if (pin && head && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver(([en]) => {
+      if (!pin.isConnected) { io.disconnect(); return; }
+      pin.classList.toggle("on", !en.isIntersecting && en.boundingClientRect.top < 76);
+    }, { rootMargin: "-76px 0px 0px 0px" });
+    io.observe(head);
+  }
   const ci = $("#ci");
   if (ci) ci.onclick = async () => { setBusy(ci, true); const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); setBusy(ci, false); } };
   if (ph === "completed") renderContacts(id);
@@ -1807,27 +1866,42 @@ async function scrFeedback(id) {
   loadingView();
   const r = await api("GET", `/api/v1/bookings/${id}/event-details`);
   if (!r.ok) { view(T("fbTitle"), `<h1>${esc(T("fbTitle"))}</h1>${errorBanner(r.data)}`); return; }
-  const stars = (name, label, required) => `<fieldset><legend class="label">${esc(label)}</legend><div class="stars">
+  // Round 2 (after MUJI): each row's heading repeats what she chose, the comment waits behind "+", and after sending
+  // she sees what she sent. The questions, their order and what is required are unchanged.
+  const stars = (name, label, required) => `<fieldset><legend class="label">${esc(label)}<i class="echo" id="echo-${name}"></i></legend><div class="stars segs">
     ${[1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="${name}" value="${v}" ${required ? "required" : ""}><span>${v}</span><span class="sr-only">/ 5</span></label>`).join("")}</div></fieldset>`;
   view(T("fbTitle"), `
     <h1>${esc(T("fbTitle"))}</h1>
     <form id="f" class="stack" novalidate>
       ${stars("overall", T("overall"), true)}
-      <fieldset id="reasons" hidden><legend class="label">${esc(T("fbReasonsLegend"))}</legend><div class="chips">
+      <fieldset id="reasons" hidden><legend class="label">${esc(T("fbReasonsLegend"))}<i class="echo" id="echo-reason"></i></legend><div class="chips">
         ${LOW_RATING_REASONS.map(([k, label]) => `<label class="chip"><input type="checkbox" name="reason" value="${k}"><span>${esc(T(label))}</span></label>`).join("")}</div></fieldset>
       ${stars("comfort", T("comfort"), true)}${stars("venue", T("venueRating"), false)}
       <label class="check"><input type="checkbox" id="again"><span>${esc(T("wouldBookAgain"))}</span></label>
-      <div class="field"><label class="label" for="cm">${esc(T("commentLabel"))}</label><textarea class="input" id="cm" maxlength="500" aria-describedby="cmh"></textarea><span id="cmh" class="caption">${esc(T("commentHelp"))}</span></div>
+      <button type="button" class="more-row" id="cm-more" aria-expanded="false" aria-controls="cm-box"><span>${esc(T("commentLabel"))}</span><span class="pm" aria-hidden="true">+</span></button>
+      <div class="field" id="cm-box" hidden><label class="sr-only" for="cm">${esc(T("commentLabel"))}</label><textarea class="input" id="cm" maxlength="500" aria-describedby="cmh"></textarea><span id="cmh" class="caption">${esc(T("commentHelp"))}</span></div>
       <div id="err" role="alert"></div>
       <button class="btn btn-primary btn-block" type="submit" id="go">${esc(T("send"))}</button>
     </form>
     <a class="btn btn-ghost btn-block" href="#/report/${id}">${esc(T("reportSeparate"))}</a>`);
   const val = (n) => { const x = $$(`input[name=${n}]:checked`)[0]; return x ? Number(x.value) : null; };
+  const outOf = (v) => T("qOf", { i: v, n: 5 });
+  const reasonNames = () => $$("input[name=reason]:checked").map((x) => x.nextElementSibling.textContent);
+  const echoReasons = () => { $("#echo-reason").textContent = reasonNames().length ? ` : ${reasonNames().join(T("listSep"))}` : ""; };
+  ["overall", "comfort", "venue"].forEach((name) => $$(`input[name=${name}]`).forEach((x) => x.addEventListener("change", () => { $(`#echo-${name}`).textContent = ` : ${outOf(val(name))}`; })));
+  $$("input[name=reason]").forEach((x) => x.addEventListener("change", echoReasons));
+  $("#cm-more").onclick = () => {
+    const open = $("#cm-box").hidden;
+    $("#cm-box").hidden = !open;
+    $("#cm-more").setAttribute("aria-expanded", String(open));
+    $("#cm-more .pm").textContent = open ? "\u2212" : "+";
+    if (open) $("#cm").focus();
+  };
   // 3 stars or less: the reasons appear under the overall rating; a higher rating hides and clears them
   $$("input[name=overall]").forEach((x) => (x.onchange = () => {
     const low = val("overall") !== null && val("overall") <= LOW_RATING_REASONS_UP_TO;
     $("#reasons").hidden = !low;
-    if (!low) $$("input[name=reason]").forEach((r) => { r.checked = false; });
+    if (!low) { $$("input[name=reason]").forEach((r) => { r.checked = false; }); echoReasons(); }
   }));
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
@@ -1835,7 +1909,10 @@ async function scrFeedback(id) {
     const c = await api("POST", `/api/v1/bookings/${id}/feedback`, { overall_rating: val("overall"), comfort_rating: val("comfort"), venue_rating: val("venue"),
       would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null, ...(reasons.length ? { low_rating_reasons: reasons } : {}) });
     if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); return; }
+    const sent = [["overall", val("overall")], ["comfort", val("comfort")], ["venueRating", val("venue")]].filter(([, v]) => v !== null).map(([k, v]) => [T(k), outOf(v)]);
+    if (reasons.length) sent.push([T("fbReasonsLegend"), reasonNames().join(T("listSep"))]);
     view(T("fbThanks"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("fbThanks"))}</h1>
+      <section class="fb-sum" id="fb-sum">${sent.map(([k, v]) => `<div class="kv"><span>${esc(k)}</span><span class="num">${esc(v)}</span></div>`).join("")}</section>
       <a class="btn btn-secondary" href="#/booking/${id}">${esc(T("contactGo"))}</a>
       <a class="btn btn-primary" href="#/sessions">${esc(T("bookAnother"))}</a></div>`);
   };
@@ -1903,9 +1980,15 @@ async function scrInbox() {
   const seen = store.get("inboxSeen");
   const isNew = (n) => !seen || new Date(n.created_at) > new Date(seen);
   if (r.ok) { if (list.length) store.set("inboxSeen", list[0].created_at); inboxFetch = null; showInboxBadge(0); }
-  view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<ul class="list">${list.map((n) => `
-    <li class="card${isNew(n) ? " is-new" : ""}">${isNew(n) ? `<span class="badge badge-info new-tag">${esc(T("newTag"))}</span>` : ""}<p>${esc(n.text)}</p><div class="row between"><span class="caption">${esc(fmtDate(n.created_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>
-    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : n.session_id ? `<a href="#/sessions?s=${esc(n.session_id)}">${esc(T("bookSeat"))}</a>` : ""}</div></li>`).join("")}</ul>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
+  // Round 2 (after Linear): a dated record on a rail. Notifications are grouped under their day (Qatar time); each has
+  // a dot on the rail, filled while it is new since her last visit (the same rule as the tab's count) and a ring after.
+  const days = [];
+  for (const n of list) { const k = qatarDay(n.created_at), g = days[days.length - 1]; if (g && g.k === k) g.items.push(n); else days.push({ k, items: [n] }); }
+  view(T("inbox"), `<h1 class="display-title">${esc(T("inbox"))}</h1>${list.length ? `<div class="rail">${days.map((g) => `<section aria-labelledby="rd-${g.k}">
+    <h2 class="rail-day" id="rd-${g.k}">${esc(fmtDate(g.items[0].created_at, { weekday: "long", day: "numeric", month: "long" }))}</h2>
+    <ul class="list">${g.items.map((n) => `
+    <li class="msg${isNew(n) ? " is-new" : ""}">${isNew(n) ? `<span class="badge badge-info new-tag">${esc(T("newTag"))}</span>` : ""}<p>${esc(n.text)}</p><div class="row between"><span class="caption num">${esc(fmtDate(n.created_at, { hour: "numeric", minute: "2-digit" }))}</span>
+    ${n.booking_id ? `<a href="#/booking/${n.booking_id}">${esc(T("viewDetails"))}</a>` : n.session_id ? `<a href="#/sessions?s=${esc(n.session_id)}">${esc(T("bookSeat"))}</a>` : ""}</div></li>`).join("")}</ul></section>`).join("")}</div>` : `<div class="empty"><div class="face" aria-hidden="true"></div><h2>${esc(T("noNotifications"))}</h2><p class="muted">${esc(T("inboxEmptyBody"))}</p></div>`}`);
 }
 
 async function scrProfile() {
@@ -1978,13 +2061,32 @@ const TABS = [["#/home", "tabHome", "house"], ["#/events", "tabEvents", "calenda
 function renderTabbar(hash) {
   const nav = document.getElementById("tabbar");
   const active = TABS.find(([h]) => h === hash);
+  // Round 2 (after Framer): while the bar stays on screen its four links are kept, only the current one changes, and a
+  // tinted marker glides to it (styles.css draws it from --ind-x and --ind-w). A first show, or a new language, draws
+  // the bar afresh and places the marker at once.
+  const kept = !nav.hidden && nav.dataset.locale === locale && nav.children.length === TABS.length;
   nav.hidden = !(active && store.get("tokens"));
   if (nav.hidden) { nav.innerHTML = ""; return; }
   nav.setAttribute("aria-label", T("tabsLabel"));
-  nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${h === "#/inbox"
-    ? `<span class="ti-wrap">${icon(ic, "ti")}<span class="tab-badge" id="inbox-badge" hidden></span></span>` : icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  if (kept) {
+    [...nav.children].forEach((a) => { if (a.getAttribute("href") === hash) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  } else {
+    nav.dataset.locale = locale;
+    nav.innerHTML = TABS.map(([h, k, ic]) => `<a href="${h}" ${h === hash ? 'aria-current="page"' : ""}>${h === "#/inbox"
+      ? `<span class="ti-wrap">${icon(ic, "ti")}<span class="tab-badge" id="inbox-badge" hidden></span></span>` : icon(ic, "ti")}<span>${esc(T(k))}</span></a>`).join("");
+  }
+  placeTabMarker(!kept);
   if (hash !== "#/inbox") refreshInboxBadge();
 }
+function placeTabMarker(jump) {
+  const nav = document.getElementById("tabbar"), a = nav.querySelector('a[aria-current="page"]');
+  if (nav.hidden || !a) return;
+  if (jump) nav.classList.add("no-glide");
+  nav.style.setProperty("--ind-x", `${a.offsetLeft}px`);
+  nav.style.setProperty("--ind-w", `${a.offsetWidth}px`);
+  if (jump) { void nav.offsetWidth; nav.classList.remove("no-glide"); }
+}
+window.addEventListener("resize", () => placeTabMarker(true));
 
 // Unread count on the Notifications tab (NMX-18): notifications newer than the last time the inbox was opened on this
 // device. Also shown on the home-screen app icon where the phone supports it (Badging API).

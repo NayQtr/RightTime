@@ -862,3 +862,107 @@ main.settled :is(.list, .peek) > li, main.settled .week-group > h2 { animation: 
 [data-u="bdanger"] { border-color: var(--c-danger); }
 /* a seat kept from the waitlist (021): the offer line sits under the session details */
 .option .offer-note { display: block; margin-block-start: var(--s-1); }
+
+/* ---------- Round 2 of the reference-sites study (owner's decision, 14 Nov 2026; plan docs/plans/2026-11-14-rounds-1-3.md).
+   New classes only, so the admin and venue consoles (which load this file too) keep their look. */
+/* details: the date as one large numeral (after Pentagram); it settles once */
+.bigdate { display: flex; align-items: flex-end; gap: var(--s-3); margin-block: var(--s-1); }
+.bigdate b { font-family: var(--font-display); font-weight: 800; font-size: min(calc(var(--u) * 8), 34vw); line-height: 1; color: var(--c-primary);
+  animation: date-settle 400ms var(--m-ease) both; }
+.bigdate > span { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1.0625); line-height: 1.55; padding-block-end: 14px; }
+@keyframes date-settle { from { opacity: 0; transform: translateY(16px); } }
+/* details: once the heading has scrolled away, a slim summary stays under the floating top bar (after Apple). It takes
+   no room in the page (its own height is given back), and it is not there for taps or screen readers. */
+.pin-bar { position: sticky; top: 84px; z-index: 9; display: flex; justify-content: space-between; align-items: center; gap: var(--s-3);
+  height: 44px; margin-block-end: -44px; padding: 0 var(--s-4); border-radius: var(--r-pill); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border);
+  font-size: calc(var(--u) * 0.8750); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms var(--m-ease), visibility 0s 200ms; }
+.pin-bar.on { opacity: 1; visibility: visible; transition-delay: 0s; }
+.pin-bar b { font-family: var(--font-display); font-weight: 700; }
+.pin-bar > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-bar > span:last-child { flex: none; color: var(--c-textMuted); }
+html:has(main .pin-bar) { scroll-padding-top: 136px; }
+/* choosing a session: the bottom bar floats as one pill (after Airbnb): the fee line and the button; the chosen session's
+   cancellation line docks above it */
+.book-dock { background: none; box-shadow: none; pointer-events: none; }
+.book-dock > div > * { pointer-events: auto; }
+.book-pill { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 64px; padding: var(--s-2); padding-inline-start: var(--s-5);
+  border-radius: 36px; background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border), 0 12px 28px -14px color-mix(in oklch, var(--c-text) 60%, transparent); }
+.book-pill:has(> .btn:only-child) { padding-inline-start: var(--s-2); }
+.book-pill .caption { flex: 1; min-width: 0; color: var(--c-text); }
+.book-pill .btn { flex: none; min-height: 48px; border-radius: var(--r-pill); }
+.book-pill .btn:only-child { flex: 1; }
+.dock-note { margin: 0; padding: var(--s-2) var(--s-4); border-radius: var(--r-md); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border);
+  font-size: var(--t-caption-size); line-height: var(--t-caption-lh); animation: dock-in 300ms var(--m-ease) both; }
+.dock-note:empty { display: none; }
+@keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
+body:has(main .dock-note:not(:empty)) main { padding-bottom: calc(232px + env(safe-area-inset-bottom)); }
+html:has(main .dock-note:not(:empty)) { scroll-padding-bottom: calc(232px + env(safe-area-inset-bottom)); }
+body:has(main .dock-note:not(:empty)) .toast { bottom: calc(204px + env(safe-area-inset-bottom)); }
+/* review: a receipt (after Stripe): what it is, the amount large, then the lines on hairlines, the last one what is due */
+.rc-name { margin: 0; color: var(--c-textMuted); font-size: calc(var(--u) * 0.8750); }
+.rc-total { margin: 0 0 var(--s-3); font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1.7500); line-height: 1.3; }
+.receipt { border-block-start: 1px solid var(--c-border); }
+.receipt .kv { font-size: calc(var(--u) * 0.9375); }
+.receipt .kv > span:first-child { color: var(--c-textMuted); }
+.receipt .kv > :last-child { text-align: end; }
+.receipt .kv.due { font-weight: 600; }
+.receipt .kv.due > span:first-child { color: var(--c-text); }
+.receipt #launch-note { padding-block: var(--s-2); border-block-end: 1px solid var(--c-border); }
+.rc-under { margin: var(--s-2) 0 0; text-align: center; }
+/* inbox: a dated record on a rail (after Linear). The day stays under the top bar while its notifications scroll; the
+   dot is filled while a notification is new, a ring after. */
+.rail { position: relative; padding-inline-start: 26px; }
+.rail::before { content: ""; position: absolute; inset-block: 6px; inset-inline-start: 8px; width: 1px; background: color-mix(in oklch, var(--c-primary) 30%, transparent); }
+.rail-day { position: sticky; top: 80px; z-index: 1; margin: 0; padding: var(--s-3) 0 var(--s-2); background: var(--c-bg);
+  font-family: var(--font-body); font-size: calc(var(--u) * 0.8125); font-weight: 600; color: var(--c-textMuted); }
+.rail .list { gap: 0; }
+.msg { position: relative; display: grid; gap: 2px; padding: var(--s-3) 0; border-block-end: 1px solid var(--c-border); }
+.msg p { margin: 0; }
+.msg .new-tag { justify-self: start; }
+.msg::before { content: ""; position: absolute; inset-inline-start: -23px; top: 20px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-bg);
+  box-shadow: inset 0 0 0 1.5px var(--c-primary); }
+.msg.is-new::before { background: var(--c-primary); }
+.msg.is-new p { font-weight: 600; }
+/* my meetups, before a first booking: a getting-ready card (after Notion). A done row is struck through and its edge is
+   full, so the state is never told by colour alone. */
+.ready-card { position: relative; overflow: hidden; display: grid; gap: var(--s-1); margin-block: var(--s-4); padding: var(--s-5); border-radius: var(--r-md); background: var(--c-primarySubtle); }
+.ready-card .n { font-size: calc(var(--u) * 0.8125); color: var(--c-textMuted); }
+.ready-card h2 { margin: 0 0 var(--s-2); font-size: calc(var(--u) * 1.1875); }
+.ready-card ul { position: relative; z-index: 1; list-style: none; margin: 0; padding: 0; display: grid; }
+.ck-row { display: flex; align-items: center; min-height: 44px; padding: 0 var(--s-3); border-inline-start: 3px solid color-mix(in oklch, var(--c-primary) 28%, transparent);
+  color: var(--c-text); text-decoration: none; font-size: calc(var(--u) * 0.9375); cursor: pointer; transition: border-color 250ms var(--m-ease), color 250ms var(--m-ease); }
+.ck-row.done { border-inline-start-color: var(--c-primary); color: var(--c-textMuted); }
+summary.ck-row { list-style: none; }
+summary.ck-row::-webkit-details-marker { display: none; }
+.ready-card details p { margin: var(--s-2) 0 var(--s-3); padding: var(--s-3) var(--s-4); max-height: 46vh; overflow-y: auto; border-radius: var(--r-sm); background: var(--c-surface); color: var(--c-text); }
+.ready-card > .table { position: absolute; inset-inline-end: 8px; inset-block-end: 6px; width: 84px; height: 84px; opacity: 0.5; pointer-events: none; }
+@media (hover: hover) { .ck-row:hover { background: color-mix(in oklch, var(--c-primary) 8%, transparent); } }
+/* "how it works" (after Pentagram): a small tag, one statement in two tones, then plain hairline rows */
+.inter .tag { margin: 0; padding: 0 10px; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1px var(--c-borderStrong); color: var(--c-textMuted); font-size: calc(var(--u) * 0.7500); line-height: 22px; }
+.inter h1.say { font-weight: 700; font-size: calc(var(--u) * 1.7500); line-height: 1.5; }
+:root[lang="en"] .inter h1.say { line-height: 1.3; }
+.inter .say i { font-style: normal; color: var(--c-textMuted); }
+.inter .plain-steps { list-style: none; width: 100%; margin: var(--s-2) 0 0; padding: 0; border-block-start: 1px solid var(--c-border); }
+.inter .plain-steps li { padding: var(--s-3) 0; border-block-end: 1px solid var(--c-border); font-size: calc(var(--u) * 1.0625); }
+/* feedback (after MUJI): each row's heading repeats the choice; the 1-5 answers are five light cells; the comment waits
+   behind "+"; after sending, a summary of what was sent */
+legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); }
+.segs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.segs input + span { width: auto; background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-border); transition: background-color 150ms ease, color 150ms ease; }
+.segs input:checked + span { box-shadow: none; }
+.more-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); width: 100%; min-height: 60px; padding: 0; border: 0;
+  border-block: 1px solid var(--c-border); background: none; color: var(--c-text); font: inherit; font-weight: 600; text-align: start; cursor: pointer; }
+.more-row .pm { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); line-height: 1; }
+#cm-box[hidden] { display: none; }
+.fb-sum { width: 100%; padding: 0 var(--s-4); border-radius: var(--r-md); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border); text-align: start; }
+.fb-sum .kv > span:first-child { color: var(--c-textMuted); }
+.fb-sum .kv > :last-child { text-align: end; }
+/* tab bar (after Framer): a tinted marker behind the current tab glides to the next one; the screen itself changes at once */
+.tabbar::before { content: ""; position: absolute; top: 6px; left: 0; width: var(--ind-w, 0px); height: 56px; border-radius: 14px; background: var(--c-primarySubtle);
+  transform: translateX(var(--ind-x, 0px)); pointer-events: none; transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1), width 400ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tabbar.no-glide::before { transition: none; }
+.tabbar a { position: relative; }
+@media (prefers-reduced-motion: reduce) {
+  .bigdate b, .dock-note { animation: none; }
+  .pin-bar, .ck-row, .segs input + span, .tabbar::before { transition: none; }
+}
