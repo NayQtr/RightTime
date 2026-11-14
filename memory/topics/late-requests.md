@@ -3,6 +3,23 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Production release of e41e896 [2026-11-14] — DONE
+
+Owner's approval: «نعم، أنزلها الآن» (14 Nov). Baseline checks recorded (b87e7ce). CI on b87e7ce failed on two admin-console
+browser tests (alerts screen h1 timeout; low-match marker count) that pass locally alone and in full runs and had passed
+CI on the same code one commit earlier; root cause NOT found (suspected timing under load). While looking, found Claude's
+own slip: the identity step's .btn/.input sizes also reached the admin console and the venue page (shared styles.css);
+both now keep their previous sizes (e41e896, CSS only, made after the recorded baseline run). CI green on e41e896 →
+`release` fast-forwarded f3adf75 → e41e896 → production dpl_Do4JpBRjdyrjLkqtrNHq5E6CNgxQ and staging
+dpl_GEziAnLnS6EaMJV7eVBeXaJskDA2 (the owner allowed both). After: both serve herzone-web@e41e896355fd; smoke checks pass
+on both; live herzone.app phone field shows the flag picture, 227 countries, no page error; questionnaire 200.
+Open: watch the two admin tests; if either fails in CI again, treat it as real and find the cause.
+
+## Reference-sites study, round 2 [2026-11-14] — IN PROGRESS
+Owner (14 Nov): browse the 10 sites for real, take an idea from EACH, no general verdicts; the current site is «خالي من
+الحياة تقليدي». Never answer a repeated request with "already studied". Five research agents (2 sites each); then
+before/after mockups, the owner's approval, then build. Aesop blocks automated browsers (403 on three pages, not bypassed).
+
 ## Phone field redesign + identity proposals [2026-11-13]
 
 Owner sent a reference image (one box: flag, chevron, +code, number; list with flags). Mockup approved («نعم، كما في
