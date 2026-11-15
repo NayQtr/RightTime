@@ -3,6 +3,14 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Repair phases after the arena analysis [2026-11-15] — PROPOSED to the owner
+Source: arena winner (.arena run 20261115-224436, not in git). Phases: 0 owner decisions (legal texts, Twilio account,
+payment provider, pattern a/b, backups) → 1 one full booking in production (Twilio secrets, real PSP adapter, publish legal,
+one venue + session, live end-to-end test) → 2 pilot tables + measures (attendance, event_feedback, rebook) → 3 «سُفرة»
+pattern (dashed seats only) + seats-fill moment on details → 4 AI: opener library (Gemini drafts, owner approves), coordinator
+memo (table-level numbers only), feedback statistics → 5 continuity (daily backup, stores) → 6 competition pack. Waiting on
+the owner's go and phase-0 decisions.
+
 ## Production release of eb207d5 [2026-11-15] — DONE
 Owner: «انزل الكل وتأكد من كل شي» (15 Nov). Baseline checks recorded (eb207d5). CI green on eb207d5 → `release`
 fast-forwarded d703847 → eb207d5 → production dpl_2K7nubqsZefpzbmuRoUu7HaRedzv and staging
