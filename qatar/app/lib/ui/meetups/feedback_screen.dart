@@ -154,7 +154,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 TextField(key: const Key('comment'), controller: _comment, maxLength: 500, maxLines: 3, decoration: InputDecoration(labelText: t.commentLabel, helperText: t.commentHelp)),
                 if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!)],
                 const SizedBox(height: HzSpace.s4),
-                Press(child: FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: BusyLabel(busy: busy, child: Text(t.send)))),
+                Press(child: FilledButton(key: const Key('send-feedback'), onPressed: overall == null || comfort == null || busy ? null : _send, child: BusyLabel(busy: busy, child: Text(t.sendRating)))),
               ]),
       ),
     );
