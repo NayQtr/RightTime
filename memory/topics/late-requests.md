@@ -3,7 +3,7 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
-## App UX fixes and design patterns [2026-11-15] — BUILT on rightime-app (Flutter app), NOT released
+## App UX fixes and design patterns [2026-11-15] — owner: «انزل الكل وتأكد من كل شي» (15 Nov): all new lines approved as written, the rail fix kept, both seat-key wordings kept as they are; released (see below)
 Merged 72d7908 (patterns) and b6334b1 (accessibility); the time underline on the details is mauve (81aec05), never
 yellow. Store screenshots regenerated. Waiting on the owner: review of the new app lines (Claude's wording, app_ar.arb):
 unreadCount «{n} غير مقروءة», newTag «جديد», yourPick «اختيارك», bookTwoSeats «احجزي مقعدين», tableKeyTaken «محجوز»,
@@ -12,7 +12,7 @@ tableKeyFree «متاح», bookStepDate «الموعد», bookStepReview «ال�
 says «مقعد محجوز / مقعد متاح»: the owner picks one for both. Also open: keep the app's unrequested fix to the
 notifications rail overlap (cfa93de)?
 
-## Website design patterns, items 1–13 [2026-11-15] — BUILT on rightime-app (website only), NOT released
+## Website design patterns, items 1–13 [2026-11-15] — approved with «انزل الكل» (15 Nov), released
 Built (14c5516, e09e69a, 1286acf): booking bar with her pick and the reason Continue waits, seat key, three-step row on
 review, pay-again with amount, +1 tick, appearance switch, notifications by Today/Yesterday, mauve underline on where and
 when, contact button in the pinned bar on the meetup day, status pill and chevron on photo cards, time left on the resume
@@ -21,7 +21,7 @@ strings.js, ar/en): keyTaken «مقعد محجوز», keyFree «مقعد متا�
 stepPay «الدفع», dayToday «اليوم», dayYesterday «أمس». Also to see once: the resume line «الإجابات المحفوظة على هذا
 الجهاز: {n} · بقي نحو …» and the week count «هذا الأسبوع · 4» (read aloud as «، اللقاءات: 4»).
 
-## Website UX/accessibility fixes [2026-11-15] — BUILT on rightime-app (website only), NOT released
+## Website UX/accessibility fixes [2026-11-15] — approved with «انزل الكل» (15 Nov), released
 Audit gaps fixed (fee1696, 0db24ae, f542f67, bfd86d8): focus above the tab bar, tab labels scale with text, Back keeps
 scroll and Home filter, entrance on first visit only, +1 visible label, pay-button reason, linked registration and report
 errors, inline errors instead of error toasts, in-page delete dialog, feedback sent once, appeal retry, dinner/coffee
