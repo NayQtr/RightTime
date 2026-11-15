@@ -15,6 +15,10 @@ import '../common/press.dart';
 import '../common/sound_on_show.dart';
 import '../theme.dart';
 
+/// The clock behind "today" and "yesterday" on the notifications. Tests set it to a fixed day.
+@visibleForTesting
+DateTime Function() inboxNow = DateTime.now;
+
 /// Notifications in full (the lock screen only ever shows a generic line, NMX-21).
 class InboxTab extends StatelessWidget {
   const InboxTab({super.key});
@@ -61,8 +65,12 @@ class InboxTab extends StatelessWidget {
                 first: i == 0,
                 child: Padding(
                   padding: const EdgeInsets.only(top: HzSpace.s2, bottom: HzSpace.s1),
-                  child: Text(_dayName(t, n.createdAt, lang), key: Key('day-${qatarDayKey(n.createdAt)}'),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).textMuted, fontWeight: FontWeight.w600)),
+                  // a small header for each day, so a screen reader can move from day to day
+                  child: Semantics(
+                    header: true,
+                    child: Text(_dayName(t, n.createdAt, lang), key: Key('day-${qatarDayKey(n.createdAt)}'),
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).textMuted, fontWeight: FontWeight.w600)),
+                  ),
                 ),
               ),
             _Rail(
@@ -90,9 +98,14 @@ class InboxTab extends StatelessWidget {
     );
   }
 
-  /// "Today" for a notice of this Doha day, the full date otherwise.
-  static String _dayName(AppLocalizations t, String iso, String lang) =>
-      qatarDayKey(iso) == qatarDayKey(DateTime.now().toIso8601String()) ? t.dayToday : fmtDate(iso, lang);
+  /// "Today" for a notice of this Doha day, "Yesterday" for the one before, the weekday and date otherwise.
+  static String _dayName(AppLocalizations t, String iso, String lang) {
+    final now = inboxNow().toUtc();
+    final day = qatarDayKey(iso);
+    if (day == qatarDayKey(now.toIso8601String())) return t.dayToday;
+    if (day == qatarDayKey(now.subtract(const Duration(days: 1)).toIso8601String())) return t.dayYesterday;
+    return fmtDate(iso, lang);
+  }
 
   static String? _newest(List<Notice> list) {
     String? best;
