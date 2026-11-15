@@ -352,5 +352,25 @@
   "newTag": "New",
   "needGuestName": "Please write your companion's name.",
   "needGuestConfirm": "Tick the box about your companion above.",
-  "needLateAck": "Tick the late-cancellation box above."
+  "needLateAck": "Tick the late-cancellation box above.",
+  "yourPick": "Your pick",
+  "bookTwoSeats": "Book two seats",
+  "tableKeyTaken": "Taken",
+  "tableKeyFree": "Free",
+  "bookStepDate": "Date",
+  "bookStepReview": "Review",
+  "bookStepPay": "Payment",
+  "bookStepOf": "Step {n} of {total}",
+  "@bookStepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sendRating": "Send rating",
+  "dayYesterday": "Yesterday"
 }

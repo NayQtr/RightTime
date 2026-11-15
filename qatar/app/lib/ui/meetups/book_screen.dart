@@ -145,12 +145,15 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         ? const SizedBox.shrink()
         : Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(why, key: Key(id), style: tt.bodySmall?.copyWith(color: c.textMuted)));
     final children = <Widget>[
+      // where she is in booking: the date she chose, the review, then paying (as on the website)
+      if (bk == null || review) ...[_BookSteps(current: bk == null ? 0 : waiting ? 2 : 1), const SizedBox(height: HzSpace.s4)],
       if (review) ...[Semantics(header: true, child: Text(t.reviewTitle, key: const Key('review-title'), style: tt.headlineMedium)), const SizedBox(height: HzSpace.s1)],
       Text('${experienceName(t, s.experience)} · ${fmtWhen(s.startsAt, lang)}', style: review ? tt.titleMedium : tt.headlineMedium),
       const SizedBox(height: HzSpace.s1),
       Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
       const SizedBox(height: HzSpace.s4),
     ];
+    final twoSeats = plusOne && _plusOneOpen;
     final holdWhy = busy || !(plusOne && _plusOneOpen) ? null : _guest.text.trim().isEmpty ? t.needGuestName : !guestOk ? t.needGuestConfirm : null;
     if (bk == null) {
       children.addAll([
@@ -192,12 +195,6 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
           TestId('guest-confirm', child: CheckboxListTile(key: const Key('guest-confirm'), contentPadding: EdgeInsets.zero, controlAffinity: ListTileControlAffinity.leading,
               value: guestOk, onChanged: (v) => setState(() => guestOk = v!), title: Text(t.guestConfirm))),
         ],
-        const SizedBox(height: HzSpace.s3),
-        ...failed,
-        // with +1 on, the seat is held only once her companion is named and confirmed
-        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull || (plusOne && _plusOneOpen && !_guestReady) ? null : _hold,
-            child: Semantics(hint: holdWhy, child: Text(t.bookSeat)))),
-        reason(holdWhy, 'hold-reason'),
       ]);
     } else if (bk.paid) {
       children.addAll([
@@ -274,10 +271,77 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         if (waiting) Press(child: TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment))),
       ]);
     }
+    // before the seat is held, a bar stays at the bottom with her pick and the button; the button names what it does
+    // and, while it waits, says why under it
+    final bar = bk != null
+        ? null
+        : Material(
+            key: const Key('pick-bar'),
+            color: c.surface,
+            shape: Border(top: BorderSide(color: c.border)),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(HzSpace.gutter, HzSpace.s3, HzSpace.gutter, HzSpace.s3),
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(t.yourPick, style: tt.labelSmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+                  Text(ltrPlusOne([experienceName(t, s.experience), fmtWhen(s.startsAt, lang), if (twoSeats) t.plusOne].join(' · ')),
+                      key: const Key('pick-summary'), maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.titleSmall),
+                  const SizedBox(height: HzSpace.s2),
+                  ...failed,
+                  // with +1 on, the seat is held only once her companion is named and confirmed
+                  Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull || (twoSeats && !_guestReady) ? null : _hold,
+                      child: Semantics(hint: holdWhy, child: Text(twoSeats ? t.bookTwoSeats : t.bookSeat)))),
+                  reason(holdWhy, 'hold-reason'),
+                ]),
+              ),
+            ),
+          );
     return Scaffold(
       appBar: AppBar(title: review ? null : Text(t.reviewTitle)),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: children)),
+      bottomNavigationBar: bar,
     );
+  }
+}
+
+/// The three steps of booking: the date, the review, then paying. Done steps carry a tick and the current one is bold in
+/// the brand colour (not colour alone); a screen reader hears the current step and its place ("Review, step 2 of 3").
+class _BookSteps extends StatelessWidget {
+  const _BookSteps({required this.current});
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final c = hzColors(context);
+    final steps = [t.bookStepDate, t.bookStepReview, t.bookStepPay];
+    return Row(key: const Key('book-steps'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < steps.length; i++)
+        Expanded(
+          child: Semantics(
+            selected: i == current,
+            label: i == current ? '${steps[i]}، ${t.bookStepOf(i + 1, steps.length)}' : steps[i],
+            excludeSemantics: true,
+            child: Column(key: Key('book-step-$i'), children: [
+              Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i <= current ? c.primary : c.border),
+              const SizedBox(height: HzSpace.s1),
+              Text.rich(
+                TextSpan(children: [
+                  if (i < current) ...[
+                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.primary)),
+                    const TextSpan(text: ' '),
+                  ],
+                  TextSpan(text: steps[i]),
+                ]),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, fontWeight: i == current ? FontWeight.w700 : FontWeight.w400,
+                    color: i == current ? c.primary : i < current ? c.text : c.textMuted),
+              ),
+            ]),
+          ),
+        ),
+    ]);
   }
 }
 

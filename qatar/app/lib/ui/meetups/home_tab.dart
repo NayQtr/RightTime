@@ -99,6 +99,8 @@ class _SessionListState extends State<_SessionList> {
     final daysWith = {for (final s in all) qatarDayKey(s.startsAt)};
     final peek = [for (final s in shown) if (weekKeys.contains(qatarDayKey(s.startsAt))) s];
     final later = [for (final s in shown) if (!weekKeys.contains(qatarDayKey(s.startsAt))) s];
+    // the week heading carries its count: the week's meetups under the kind and area chosen (the strip picks the day)
+    final weekN = [for (final s in all) if (weekKeys.contains(qatarDayKey(s.startsAt)) && (area == null || s.district == area) && (kind == null || s.experience == kind)) s].length;
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
       Text(t.cityFull, style: Theme.of(context).textTheme.headlineMedium),
       const SizedBox(height: HzSpace.s4),
@@ -106,7 +108,15 @@ class _SessionListState extends State<_SessionList> {
         RiseIn(index: 0, once: 'home', child: _Tile(
           color: c.surfaceSunken,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(t.thisWeek, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+            Semantics(
+              header: true,
+              label: t.weekCount(weekN),
+              excludeSemantics: true,
+              child: Row(children: [
+                Text(t.thisWeek, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+                Text(' · $weekN', key: const Key('week-heading-count'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
+              ]),
+            ),
             const SizedBox(height: HzSpace.s1),
             Row(key: const Key('week'), children: [
               for (final d in week)
@@ -410,6 +420,10 @@ class _PeekCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final lang = context.watch<LocaleController>().code;
     final status = _statusOf(t, s);
+    final open = _openOf(context, s);
+    // on the photo: the status as a small pill at the top start (full, booked, or the few seats left), and a round
+    // chevron at the bottom end when the card opens; both on a nearly solid light fill so they read over any photo
+    final veil = c.surface.withValues(alpha: 0.92);
     return TestId('session-${s.id}', child: Container(
       key: Key('session-${s.id}'),
       constraints: const BoxConstraints.tightFor(width: 272),
@@ -418,9 +432,38 @@ class _PeekCard extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.xl), side: BorderSide(color: c.border)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: _openOf(context, s),
+          onTap: open,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            ExcludeSemantics(child: Image.asset('assets/photos/${s.experience == 'coffee' ? 'cake' : 'seat'}-720.webp', height: 132, fit: BoxFit.cover)),
+            Stack(children: [
+              Positioned.fill(child: ExcludeSemantics(child: Image.asset('assets/photos/${s.experience == 'coffee' ? 'cake' : 'seat'}-720.webp', height: 132, fit: BoxFit.cover))),
+              const SizedBox(height: 132, width: double.infinity),
+              if (status.isNotEmpty)
+                PositionedDirectional(
+                  top: HzSpace.s2,
+                  start: HzSpace.s2,
+                  child: Container(
+                    key: Key('pill-${s.id}'),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: veil, borderRadius: BorderRadius.circular(HzRadius.pill)),
+                    child: Text(status, style: tt.labelSmall?.copyWith(fontWeight: FontWeight.w600,
+                        color: s.myBookingId != null ? c.success : s.isFull ? c.danger : c.text)),
+                  ),
+                ),
+              if (open != null)
+                PositionedDirectional(
+                  bottom: HzSpace.s2,
+                  end: HzSpace.s2,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      key: Key('chevron-${s.id}'),
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(color: veil, shape: BoxShape.circle),
+                      child: Icon(Icons.chevron_right, size: 18, color: c.text), // the icon mirrors itself in Arabic
+                    ),
+                  ),
+                ),
+            ]),
             Padding(
               padding: const EdgeInsets.all(HzSpace.s3),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -430,8 +473,6 @@ class _PeekCard extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('${experienceName(t, s.experience)} · ${s.language == 'ar' ? t.langAr : t.langEn}', style: tt.titleMedium),
                     Text('${s.district} · ${fmtTime(s.startsAt, lang)}', style: tt.bodySmall?.copyWith(color: c.textMuted)),
-                    if (status.isNotEmpty)
-                      Text(status, style: tt.bodySmall?.copyWith(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
                   ]),
                 ),
               ]), if (s.isFull && s.myBookingId == null) const _WaitlistSteps()]),

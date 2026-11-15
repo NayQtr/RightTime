@@ -162,21 +162,27 @@ class AccountTab extends StatelessWidget {
         // words, now in three named groups (owner, 14 Nov: rounds 1-3). A changed setting answers with a tick in its
         // own row instead of a message.
         _Group(title: t.groupProfile, children: [
-          _Row(key: const Key('my-answers'), label: t.myAnswers, onTap: () => context.push('/quiz')),
+          _Row(key: const Key('my-answers'), icon: Icons.quiz_outlined, label: t.myAnswers, onTap: () => context.push('/quiz')),
         ]),
         const SizedBox(height: HzSpace.s4),
         _Group(title: t.groupPrefs, children: [
-          _Row(key: const Key('lang'), label: t.language, confirms: true, onTap: context.read<LocaleController>().toggle),
+          _Row(key: const Key('lang'), icon: Icons.translate, label: t.language, confirms: true, onTap: context.read<LocaleController>().toggle),
           _Row(
             key: const Key('theme'),
+            icon: Theme.of(context).brightness == Brightness.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
             label: Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark,
             confirms: true,
             onTap: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
           ),
-          // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent
+          // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent. A
+          // screen reader hears the label, "switch" and on or off; on screen the thumb carries a tick or a cross, so the
+          // state is never told by colour alone
           SwitchListTile(
             key: const Key('sounds'),
             contentPadding: EdgeInsets.zero,
+            horizontalTitleGap: HzSpace.s3,
+            secondary: const _IconTile(Icons.volume_up_outlined),
+            thumbIcon: WidgetStateProperty.resolveWith((st) => Icon(st.contains(WidgetState.selected) ? Icons.check_rounded : Icons.close_rounded)),
             value: context.watch<Sounds>().enabled,
             onChanged: context.read<Sounds>().setEnabled,
             title: Text(t.sounds),
@@ -184,8 +190,8 @@ class AccountTab extends StatelessWidget {
         ]),
         const SizedBox(height: HzSpace.s4),
         _Group(title: t.groupPrivacy, children: [
-          _Row(key: const Key('documents'), label: t.docsTitle, onTap: () => context.push('/documents')),
-          _Row(key: const Key('cases'), label: t.casesTitle, onTap: () => context.push('/cases')),
+          _Row(key: const Key('documents'), icon: Icons.description_outlined, label: t.docsTitle, onTap: () => context.push('/documents')),
+          _Row(key: const Key('cases'), icon: Icons.gavel_outlined, label: t.casesTitle, onTap: () => context.push('/cases')),
         ]),
         const SizedBox(height: HzSpace.s6),
         Press(child: OutlinedButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut))), // secondary, as on the website
@@ -286,11 +292,31 @@ class _Group extends StatelessWidget {
   }
 }
 
-/// One row: its label and the arrow toward where it leads, 56 px tall. A row that changes a setting on the spot
+/// The small neutral tile at the start of an account row, holding the row's icon (40 px, found by shape before it is read).
+class _IconTile extends StatelessWidget {
+  const _IconTile(this.icon);
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = hzColors(context);
+    return ExcludeSemantics(
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(HzRadius.sm)),
+        child: Icon(icon, size: 20, color: c.textMuted),
+      ),
+    );
+  }
+}
+
+/// One row: its icon tile, its label and the arrow toward where it leads, 56 px tall. A row that changes a setting on the spot
 /// ([confirms]) shows a tick in place of its arrow for a moment after the tap.
 class _Row extends StatefulWidget {
-  const _Row({super.key, required this.label, required this.onTap, this.confirms = false});
+  const _Row({super.key, required this.icon, required this.label, required this.onTap, this.confirms = false});
 
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool confirms;
@@ -320,6 +346,8 @@ class _RowState extends State<_Row> with SingleTickerProviderStateMixin {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 56),
         child: Row(children: [
+          _IconTile(widget.icon),
+          const SizedBox(width: HzSpace.s3),
           Expanded(child: Text(widget.label)),
           AnimatedBuilder(
             animation: _ok,

@@ -15,6 +15,10 @@ import '../common/press.dart';
 import '../common/sound_on_show.dart';
 import '../theme.dart';
 
+/// The clock behind "today" and "yesterday" on the notifications. Tests set it to a fixed day.
+@visibleForTesting
+DateTime Function() inboxNow = DateTime.now;
+
 /// Notifications in full (the lock screen only ever shows a generic line, NMX-21).
 class InboxTab extends StatelessWidget {
   const InboxTab({super.key});
@@ -61,8 +65,12 @@ class InboxTab extends StatelessWidget {
                 first: i == 0,
                 child: Padding(
                   padding: const EdgeInsets.only(top: HzSpace.s2, bottom: HzSpace.s1),
-                  child: Text(_dayName(t, n.createdAt, lang), key: Key('day-${qatarDayKey(n.createdAt)}'),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).textMuted, fontWeight: FontWeight.w600)),
+                  // a small header for each day, so a screen reader can move from day to day
+                  child: Semantics(
+                    header: true,
+                    child: Text(_dayName(t, n.createdAt, lang), key: Key('day-${qatarDayKey(n.createdAt)}'),
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).textMuted, fontWeight: FontWeight.w600)),
+                  ),
                 ),
               ),
             _Rail(
@@ -90,9 +98,14 @@ class InboxTab extends StatelessWidget {
     );
   }
 
-  /// "Today" for a notice of this Doha day, the full date otherwise.
-  static String _dayName(AppLocalizations t, String iso, String lang) =>
-      qatarDayKey(iso) == qatarDayKey(DateTime.now().toIso8601String()) ? t.dayToday : fmtDate(iso, lang);
+  /// "Today" for a notice of this Doha day, "Yesterday" for the one before, the weekday and date otherwise.
+  static String _dayName(AppLocalizations t, String iso, String lang) {
+    final now = inboxNow().toUtc();
+    final day = qatarDayKey(iso);
+    if (day == qatarDayKey(now.toIso8601String())) return t.dayToday;
+    if (day == qatarDayKey(now.subtract(const Duration(days: 1)).toIso8601String())) return t.dayYesterday;
+    return fmtDate(iso, lang);
+  }
 
   static String? _newest(List<Notice> list) {
     String? best;
@@ -114,24 +127,27 @@ class _Rail extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = hzColors(context);
     final line = c.primary.withValues(alpha: 0.3);
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        ExcludeSemantics(
-          child: SizedBox(
-            width: 26,
-            child: Stack(children: [
-              PositionedDirectional(start: 8, top: first ? 14 : 0, bottom: last ? null : 0, height: last ? 26 : null, child: Container(width: 1, color: line)),
-              if (dot)
-                PositionedDirectional(
-                  start: 3.5,
-                  top: 22,
-                  child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
-                ),
-            ]),
-          ),
+    // the rail is drawn beside the row at the row's own height (no intrinsic measuring, which came out shorter than a
+    // notice marked "New" and let the time under it run into the next day's header)
+    return Stack(children: [
+      Padding(padding: const EdgeInsetsDirectional.only(start: 26), child: child),
+      PositionedDirectional(
+        start: 0,
+        top: 0,
+        bottom: 0,
+        width: 26,
+        child: ExcludeSemantics(
+          child: Stack(children: [
+            PositionedDirectional(start: 8, top: first ? 14 : 0, bottom: last ? null : 0, height: last ? 26 : null, child: Container(width: 1, color: line)),
+            if (dot)
+              PositionedDirectional(
+                start: 3.5,
+                top: 22,
+                child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
+              ),
+          ]),
         ),
-        Expanded(child: child),
-      ]),
-    );
+      ),
+    ]);
   }
 }

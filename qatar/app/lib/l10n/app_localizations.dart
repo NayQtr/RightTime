@@ -1819,6 +1819,66 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'ضعي علامة على إقرار الإلغاء المتأخر أعلاه.'**
   String get needLateAck;
+
+  /// No description provided for @yourPick.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختيارك'**
+  String get yourPick;
+
+  /// No description provided for @bookTwoSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'احجزي مقعدين'**
+  String get bookTwoSeats;
+
+  /// No description provided for @tableKeyTaken.
+  ///
+  /// In ar, this message translates to:
+  /// **'محجوز'**
+  String get tableKeyTaken;
+
+  /// No description provided for @tableKeyFree.
+  ///
+  /// In ar, this message translates to:
+  /// **'متاح'**
+  String get tableKeyFree;
+
+  /// No description provided for @bookStepDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'الموعد'**
+  String get bookStepDate;
+
+  /// No description provided for @bookStepReview.
+  ///
+  /// In ar, this message translates to:
+  /// **'المراجعة'**
+  String get bookStepReview;
+
+  /// No description provided for @bookStepPay.
+  ///
+  /// In ar, this message translates to:
+  /// **'الدفع'**
+  String get bookStepPay;
+
+  /// No description provided for @bookStepOf.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخطوة {n} من {total}'**
+  String bookStepOf(int n, int total);
+
+  /// No description provided for @sendRating.
+  ///
+  /// In ar, this message translates to:
+  /// **'أرسلي التقييم'**
+  String get sendRating;
+
+  /// No description provided for @dayYesterday.
+  ///
+  /// In ar, this message translates to:
+  /// **'أمس'**
+  String get dayYesterday;
 }
 
 class _AppLocalizationsDelegate

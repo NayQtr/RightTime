@@ -160,7 +160,8 @@ class _ReadyCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(child: Text(t.readyTitle, style: tt.titleLarge)),
-          const TableArt(filled: 1, size: 48),
+          // the drawing with its key under it: one seat taken (hers), the others free
+          const Column(mainAxisSize: MainAxisSize.min, children: [TableArt(filled: 1, size: 48), SizedBox(height: HzSpace.s1), TableKey()]),
         ]),
         const SizedBox(height: HzSpace.s2),
         step('ready-answers', t.readyAnswers),
