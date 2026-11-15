@@ -53,6 +53,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     _scroll.addListener(() => _pinned.value = _scroll.hasClients && _scroll.offset > _pinAfter);
   }
 
+  /// The coordinator on duty, for the help button in the pinned summary on meetup day.
+  late final Future<Coordinator?> _coordinator = context.read<MeetupsRepository>().coordinator().catchError((Object _) => null);
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -130,7 +133,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               _Fact(icon: Icons.translate, label: t.tableLanguage, value: d.language == 'ar' ? t.langAr : t.langEn),
               if (d.foodBand != null) _Fact(icon: Icons.account_balance_wallet_outlined, label: t.foodBandLabel, value: d.foodBand!),
               // The time zone is named the owner's way (11 Nov): "GMT+3", not the IANA id "Asia/Qatar".
-              _Fact(icon: Icons.schedule, label: t.dateTime, value: '${fmtTime(d.startsAt, lang)} · GMT+3'),
+              _Fact(icon: Icons.schedule, label: t.dateTime, value: '${fmtTime(d.startsAt, lang)} · GMT+3', highlight: true),
               // "+1": her companion and the total for the two seats
               if (d.seatCount == 2)
                 TestId('plus-one-details', child: KeyedSubtree(
@@ -262,16 +265,36 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 valueListenable: _pinned,
                 builder: (context, on, child) => IgnorePointer(
                   ignoring: !on,
-                  child: ExcludeSemantics(child: AnimatedOpacity(opacity: on ? 1 : 0, duration: still ? Duration.zero : HzMotion.base, curve: HzMotion.easing, child: child)),
+                  child: ExcludeSemantics(excluding: !on, child: AnimatedOpacity(opacity: on ? 1 : 0, duration: still ? Duration.zero : HzMotion.base, curve: HzMotion.easing, child: child)),
                 ),
                 child: Container(
                   key: const Key('pinned'),
                   padding: const EdgeInsets.symmetric(horizontal: HzSpace.gutter, vertical: HzSpace.s2),
                   decoration: BoxDecoration(color: c.bg.withValues(alpha: 0.96), border: Border(bottom: BorderSide(color: c.border))),
+                  // the summary repeats the heading, so a screen reader skips it; on meetup day the help button at its end
+                  // stays reachable and opens the same contact sheet as the button further down
                   child: Row(children: [
-                    Expanded(child: Text('${fmtDate(d.startsAt, lang)} · ${d.district}', maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall)),
+                    Expanded(child: ExcludeSemantics(child: Text('${fmtDate(d.startsAt, lang)} · ${d.district}', maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall))),
                     const SizedBox(width: HzSpace.s3),
-                    Text(fmtTime(d.startsAt, lang), style: tt.bodySmall?.copyWith(color: c.textMuted)),
+                    ExcludeSemantics(child: Text(fmtTime(d.startsAt, lang), style: tt.bodySmall?.copyWith(color: c.textMuted))),
+                    if (d.phase == 'day_of')
+                      FutureBuilder<Coordinator?>(
+                        future: _coordinator,
+                        builder: (context, snap) => snap.data == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsetsDirectional.only(start: HzSpace.s3),
+                                child: Builder(
+                                  builder: (button) => IconButton(
+                                    key: const Key('pin-help'),
+                                    tooltip: t.contactRequest,
+                                    style: IconButton.styleFrom(minimumSize: const Size.square(HzSpace.touchTarget)),
+                                    icon: Icon(Icons.call_outlined, size: 22, color: c.primary),
+                                    onPressed: () => showContactSheet(context, snap.data!, bookingId: bookingId, from: button),
+                                  ),
+                                ),
+                              ),
+                      ),
                   ]),
                 ),
               ),
@@ -315,17 +338,106 @@ class _CoordinatorButtons extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const _Fact({required this.icon, required this.label, required this.value});
+  const _Fact({required this.icon, required this.label, required this.value, this.highlight = false});
   final IconData icon;
   final String label, value;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(icon),
-        title: Text(value),
+        title: highlight ? Align(alignment: AlignmentDirectional.centerStart, child: _DrawnUnderline(child: Text(value))) : Text(value),
         subtitle: Text(label),
       );
+}
+
+/// The one gentle highlight on the details: when the time first comes into view, a thin yellow line draws itself once
+/// under it, from the start side. With reduced motion it is simply there. Decoration only: the words are unchanged.
+class _DrawnUnderline extends StatefulWidget {
+  const _DrawnUnderline({required this.child});
+  final Widget child;
+
+  @override
+  State<_DrawnUnderline> createState() => _DrawnUnderlineState();
+}
+
+class _DrawnUnderlineState extends State<_DrawnUnderline> with SingleTickerProviderStateMixin {
+  late final AnimationController _draw = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+  ScrollPosition? _position;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _position?.removeListener(_check);
+    _position = Scrollable.maybeOf(context)?.position;
+    _position?.addListener(_check);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  void _check() {
+    if (!mounted || _draw.value > 0 || _draw.isAnimating) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final view = Scrollable.maybeOf(context)?.context.findRenderObject();
+    final double viewTop, viewBottom;
+    if (view is RenderBox && view.hasSize) {
+      viewTop = view.localToGlobal(Offset.zero).dy;
+      viewBottom = viewTop + view.size.height;
+    } else {
+      viewTop = 0;
+      viewBottom = MediaQuery.of(context).size.height;
+    }
+    if (top + box.size.height > viewTop && top < viewBottom) {
+      _position?.removeListener(_check);
+      if (MediaQuery.of(context).disableAnimations) {
+        _draw.value = 1;
+      } else {
+        _draw.animateTo(1, curve: HzMotion.easing);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _position?.removeListener(_check);
+    _draw.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = hzColors(context);
+    return AnimatedBuilder(
+      animation: _draw,
+      builder: (context, child) => CustomPaint(
+        key: const Key('when-highlight'),
+        foregroundPainter: _UnderlinePainter(progress: _draw.value, color: c.accent, rtl: Directionality.of(context) == TextDirection.rtl),
+        child: child,
+      ),
+      child: Padding(padding: const EdgeInsets.only(bottom: 3), child: widget.child),
+    );
+  }
+}
+
+class _UnderlinePainter extends CustomPainter {
+  _UnderlinePainter({required this.progress, required this.color, required this.rtl});
+  final double progress;
+  final Color color;
+  final bool rtl;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final w = size.width * progress;
+    final y = size.height - 1;
+    final paint = Paint()..color = color..strokeWidth = 2..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(rtl ? size.width : 0, y), Offset(rtl ? size.width - w : w, y), paint);
+  }
+
+  @override
+  bool shouldRepaint(_UnderlinePainter old) => old.progress != progress || old.color != color || old.rtl != rtl;
 }
 
 /// paid · forming · confirmed · revealed
