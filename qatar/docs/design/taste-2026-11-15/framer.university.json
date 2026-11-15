@@ -1,0 +1,74 @@
+{
+  "source": "https://framer.university/",
+  "tokens": {
+    "spacing": {
+      "scale": [2, 4, 6, 8, 10, 16, 20, 24, 44, 100],
+      "base_unit": 2
+    },
+    "typography": {
+      "families": ["Suisse Intl (Regular 400, Book 450, Medium 500, SemiBold 600)"],
+      "scale": [
+        { "role": "hero title (visual)", "size": "~60px", "weight": "500", "family": "Suisse Intl" },
+        { "role": "section h2", "size": "56px", "weight": "500", "family": "Suisse Intl Medium", "line_height": "64.4px" },
+        { "role": "hero subtitle (h1)", "size": "24px", "weight": "400", "family": "Suisse Intl Regular", "line_height": "40.8px" },
+        { "role": "FAQ question / h3", "size": "18px", "weight": "400", "family": "Suisse Intl Book", "line_height": "27px" },
+        { "role": "body, button", "size": "16px", "weight": "500", "family": "Suisse Intl Medium" },
+        { "role": "nav, card title, testimonial", "size": "14px", "weight": "400", "family": "Suisse Intl Regular" },
+        { "role": "tag chip, footer", "size": "12px", "weight": "400", "family": "Suisse Intl Regular" }
+      ]
+    },
+    "colors": [
+      { "role": "page background", "value": "#050505" },
+      { "role": "section band (23.3%)", "value": "#0C0D0D" },
+      { "role": "chip / secondary button fill", "value": "#222426" },
+      { "role": "text secondary (108 nodes)", "value": "#B5B9BA" },
+      { "role": "text primary (106 nodes)", "value": "#FFFFFF" },
+      { "role": "text muted", "value": "#52585B" },
+      { "role": "action fill: Get course (6% of surface)", "value": "#1A8CFF" },
+      { "role": "action text link: Schedule a session", "value": "#2480FF" }
+    ],
+    "radius": ["2px", "4px", "8px", "12px", "100px", "1000px"],
+    "shadows": [
+      "0 2px 8px 0 rgba(5,5,5,0.2)",
+      "0 0 0 1px #050505",
+      "0 0 0 1px #343639",
+      "0 0 0 1px #272B2D, 0 0 10px 2px rgba(5,5,5,0.4)"
+    ],
+    "image_ratios": [
+      { "usage": "hero background video", "ratio": "16:10 full-bleed" },
+      { "usage": "blog card cover", "ratio": "~2.3:1 at 480px" },
+      { "usage": "testimonial avatar", "ratio": "1:1 at 44px" }
+    ],
+    "grid": { "max_width": "980px", "columns": 2, "gutter": "20px", "column_width": "480px" }
+  },
+  "taste": [
+    {
+      "name": "One blue means do this",
+      "trigger": "When a dark, photo-led page needs the visitor to find the purchase",
+      "decision": "Chose a single blue (#1A8CFF fill, #2480FF text link) reserved for the next step, everything else in four grays, over colour-coded sections or tinted headings",
+      "reason": "Because when colour only ever means 'act here', the eye finds the action without reading; the same blue on a heading would dilute that promise",
+      "evidence": ["#1A8CFF covers 6% of surface: nav Get course + hero Get course", "#2480FF only on Schedule a session", "text is #FFFFFF x106 / #B5B9BA x108", "secondary button Watch intro is #222426"]
+    },
+    {
+      "name": "The cost is printed on the button",
+      "trigger": "When inviting a visitor to spend time before spending money",
+      "decision": "Chose to put the duration inside the control (\"Watch intro 0:30\", \"30/60 minutes\" support) in a muted gray over a bare verb",
+      "reason": "Because people commit to a known, small cost; an unlabelled 'Watch' could mean 30 seconds or 30 minutes and many will not risk it",
+      "evidence": ["0:30 set in #B5B9BA-range gray inside the 44px #222426 pill, after a white label", "support copy states 30/60 minutes before the link", "play icon 16px leading"]
+    },
+    {
+      "name": "Sections change floor, not lines",
+      "trigger": "When moving from one content block to the next on a long dark page",
+      "decision": "Chose a background step (#0C0D0D band to #050505) with no rule between sections, keeping 1px dividers only inside lists (FAQ, footer), over horizontal rules between every section",
+      "reason": "Because a change of floor tells the reader 'new topic' without adding another line to look at; rules are kept for rows that must be counted",
+      "evidence": ["#0C0D0D 23.3% of surface vs #050505 page", "no divider at the support section edge (mid screenshot)", "FAQ rows 76px apart with 1px rules", "footer 1px rule above socials"]
+    },
+    {
+      "name": "Proof wears a name and a date",
+      "trigger": "When showing that the course is liked",
+      "decision": "Chose a moving row of real posts with a 44px avatar, name, verified mark, @handle and date (\"Feb 10\") over anonymous star ratings or a big satisfaction percentage",
+      "reason": "Because a quote that can be traced to a person on a day reads as a witness; an unsigned score reads as marketing",
+      "evidence": ["testimonial row under the hero: 14px name #FFFFFF, handle and date #B5B9BA", "avatars 44px, 1:1", "laurel badge BEST FRAMER CREATOR 2024, 12px uppercase"]
+    }
+  ]
+}

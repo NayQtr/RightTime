@@ -1,0 +1,68 @@
+{
+  "source": "https://recent.design/",
+  "tokens": {
+    "spacing": {
+      "scale": [2, 4, 6, 8, 12, 16, 24, 32],
+      "base_unit": 4
+    },
+    "typography": {
+      "families": ["Inter"],
+      "scale": [
+        { "role": "page title (h1 \"Design\")", "size": "16px", "weight": "500", "family": "Inter", "line_height": "22.4px" },
+        { "role": "everything else: nav, pills, job rows, body", "size": "13px", "weight": "400", "family": "Inter", "line_height": "18.2px" },
+        { "role": "job title / active nav", "size": "13px", "weight": "500", "family": "Inter" },
+        { "role": "micro label", "size": "12px", "weight": "400", "family": "Inter" }
+      ]
+    },
+    "colors": [
+      { "role": "page background (58.3%)", "value": "#FFFFFF" },
+      { "role": "panel / pill / card well (37.6%)", "value": "#F5F5F5" },
+      { "role": "text primary, active pill fill", "value": "#0B0B0B" },
+      { "role": "text secondary (black 48.6% alpha on white)", "value": "#838383" },
+      { "role": "text tertiary (black 26.7% alpha)", "value": "#BBBBBB" },
+      { "role": "overlay button on images (black 44.7% alpha)", "value": "rgba(0,0,0,0.447)" },
+      { "role": "single accent: the word \"new\" only", "value": "#F900A3" }
+    ],
+    "radius": ["2px", "8px", "50%", "9999px"],
+    "shadows": [
+      "inset 0 0 0 1px rgba(255,255,255,0.16)",
+      "0 1px 2px 0 rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)",
+      "0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 1px -1px rgba(0,0,0,0.2), 0 1px 2px 0 rgba(0,0,0,0.08)"
+    ],
+    "image_ratios": [
+      { "usage": "masonry thumbnail, portrait", "ratio": "0.56:1 to 0.91:1" },
+      { "usage": "masonry thumbnail, landscape", "ratio": "1.33:1 to 1.79:1" }
+    ],
+    "grid": { "max_width": "1141px content beside a ~236px sidebar", "columns": 4, "gutter": "12px", "column_width": "276px" }
+  },
+  "taste": [
+    {
+      "name": "One size, three inks",
+      "trigger": "When ranking nav, filters, job listings and captions on a page whose images are loud",
+      "decision": "Chose a single 13px Inter size for 57 of 60 text nodes and ranked text by black opacity (#0B0B0B / 48.6% / 26.7%) over a multi-step type scale",
+      "reason": "Because every text size step is a new thing for the eye to land on; holding size constant keeps the interface reading as one quiet label layer under the work",
+      "evidence": ["sizeDistribution 13px x57, 12px x2, 16px x1", "weights 400 x49, 500 x11", "text colours oklch(0 0 0 / .486) x31 and / .267 x3"]
+    },
+    {
+      "name": "Colour is spent once",
+      "trigger": "When the chrome needs a highlight for a new section",
+      "decision": "Chose one hot pink (#F900A3) on the single word \"new\" over a brand accent on buttons, pills and links",
+      "reason": "Because a colour that appears only once is read as news; spread across controls it would become decoration and lose that meaning",
+      "evidence": ["pink text colour count 1", "active filter pill is #0B0B0B fill, inactive #F5F5F5", "background surfaces are #FFFFFF 58.3% + #F5F5F5 37.6%"]
+    },
+    {
+      "name": "Feedback in 120 ms, always the same curve",
+      "trigger": "When pills, rows and image buttons change on hover and focus",
+      "decision": "Chose one 120ms cubic-bezier(0.2,0,0,1) for colour, border and shadow, and 180ms for opacity, with :focus-visible and prefers-reduced-motion both handled, over per-component timing or no transitions",
+      "reason": "Because a response that arrives in about one frame-cycle of attention feels like the control itself reacting, not an animation playing",
+      "evidence": ["transitions: background-color/border-color/box-shadow/color 0.12s cubic-bezier(0.2,0,0,1)", "opacity 0.18s", "focusVisible true", "reducedMotion true"]
+    },
+    {
+      "name": "Community proof as a dated count",
+      "trigger": "When asking a visitor to sign up from the sidebar",
+      "decision": "Chose an exact, time-stamped number with a stack of real avatars (\"Join 31,832 members, including 270 who signed up yesterday\") over a rounded claim or logos",
+      "reason": "Because a specific figure tied to yesterday proves the place is alive now; a round claim could have been written years ago",
+      "evidence": ["13px #838383 line under a #0B0B0B pill Sign up button", "5 overlapping 20px avatars", "count badges (24px circles) on multi-image cards: 3, 4"]
+    }
+  ]
+}

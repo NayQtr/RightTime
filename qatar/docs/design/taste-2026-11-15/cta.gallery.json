@@ -1,0 +1,69 @@
+{
+  "source": "https://www.cta.gallery/",
+  "tokens": {
+    "spacing": {
+      "scale": [2, 5, 10, 15, 20, 30, 50, 120],
+      "base_unit": 5
+    },
+    "typography": {
+      "families": ["Overused Grotesk SemiBold", "Inter Display Medium"],
+      "scale": [
+        { "role": "hero", "size": "46px", "weight": "600", "family": "Overused Grotesk SemiBold", "line_height": "50.6px" },
+        { "role": "section-title", "size": "22px", "weight": "400", "family": "Inter Display Medium", "line_height": "35.2px" },
+        { "role": "card-title / nav label", "size": "18px", "weight": "400", "family": "Inter Display Medium" },
+        { "role": "body / lead", "size": "16px", "weight": "400", "family": "Inter Display Medium", "line_height": "25.6px" },
+        { "role": "filter / secondary link", "size": "14px", "weight": "400", "family": "Inter Display Medium" },
+        { "role": "button / footer / micro-label", "size": "12px", "weight": "400", "family": "Inter Display Medium" }
+      ]
+    },
+    "colors": [
+      { "role": "page background (87.5% of surface)", "value": "#0E0F11" },
+      { "role": "sidebar / raised panel (9.9%)", "value": "#1A1A1C" },
+      { "role": "control fill (buttons, dropdowns)", "value": "#161618" },
+      { "role": "hairline rule", "value": "#232324" },
+      { "role": "text primary", "value": "#C9CBD1" },
+      { "role": "text emphasis (hero)", "value": "#FFFFFF" },
+      { "role": "decorative only (<1%): templates pill / sidebar glow", "value": "#836FE9" },
+      { "role": "decorative only (<1%)", "value": "#FE4787" }
+    ],
+    "radius": ["5px", "10px", "200px"],
+    "shadows": [],
+    "image_ratios": [
+      { "usage": "gallery thumbnail, wide column", "ratio": "2.17:1" },
+      { "usage": "gallery thumbnail, narrow column", "ratio": "1.81:1" },
+      { "usage": "sponsor tile", "ratio": "1.13:1" },
+      { "usage": "favicon / category icon", "ratio": "1:1" }
+    ],
+    "grid": { "max_width": "none (1440px canvas, 270px fixed sidebar)", "columns": 3, "gutter": "0px + 1px vertical rule", "template": "493px 457px 403px" }
+  },
+  "taste": [
+    {
+      "name": "The screenshots are the only colour",
+      "trigger": "When building a gallery whose content is other people's brightly coloured CTAs",
+      "decision": "Chose a near-black, accent-free chrome (#0E0F11 on 87.5% of the surface, #1A1A1C panels, #C9CBD1 text, no coloured button fill) over a branded accent on buttons, filters and links",
+      "reason": "Because a visitor is judging the colour of the exhibits; any colour in the frame competes with them and skews the comparison",
+      "evidence": ["#0E0F11 87.5% + #1A1A1C 9.9% of background area", "#836FE9 0.5% and #FE4787 0.3% only", "Submit Your CTA and Load More are #161618 with a hairline, not a fill", "0 box-shadows"]
+    },
+    {
+      "name": "Hairlines carve the grid, not cards",
+      "trigger": "When laying out ~60 thumbnails of uneven height",
+      "decision": "Chose a 3-column masonry with 0px gap and 1px column/row rules over floating cards with gutters and shadows",
+      "reason": "Because a ruled sheet reads as one catalogue to scan; separate shadowed cards would each ask to be looked at as an object",
+      "evidence": ["grid template 493/457/403px, gap 0px", "effects.shadows empty", "thumbnail radius 10px inside unrounded cells", "20px cell padding (spacing 20px x53)"]
+    },
+    {
+      "name": "Every category is always one glance away",
+      "trigger": "When offering 9 CTA types to browse",
+      "decision": "Chose a fixed 270px sidebar with a 40px icon tile plus 18px label per type over a collapsed menu or a horizontal chip row",
+      "reason": "Because browsers switch type often; a permanent labelled list with a picture per item removes the open-menu step and lets the eye find a type by shape before reading",
+      "evidence": ["9 rows at 52px rhythm", "icon tiles 40px, radius 10px, fill #1A1A1C-#232324", "labels 18px #FFFFFF", "secondary filters are 2 dropdowns (14px), not chips"]
+    },
+    {
+      "name": "A finite page with a door at the end",
+      "trigger": "When the collection is longer than one screen",
+      "decision": "Chose a single Load More button and a reachable footer at ~4,700px over infinite scroll",
+      "reason": "Because a page that ends gives a sense of having seen the set and keeps the About/Submit links reachable; infinite scroll removes both",
+      "evidence": ["scrollHeight 4701px", "Load More button: 12px text, #161618 fill, radius 10px", "footer 12px, two lines, after the button"]
+    }
+  ]
+}
