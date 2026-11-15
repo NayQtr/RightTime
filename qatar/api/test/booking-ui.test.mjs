@@ -210,6 +210,31 @@ test("revealed table: the other women read a nameless celebration line (cake for
   }
 });
 
+test("revealed table: the opener question shows under the shared themes only when the API sends one", async () => {
+  const cases = [["ar", "سؤال تجريبي للطاولة؟"], ["en", "A test question for the table?"], ["ar", null]];
+  for (const [locale, opener] of cases) {
+    const { page, errors } = await newPage(S.u, locale);
+    // the API side is covered in personality-api.test.mjs; here the screen draws what event-details returns
+    await page.route("**/event-details", async (r) => {
+      const res = await r.fetch();
+      const e = await res.json();
+      e.reveal.phase = "revealed";
+      e.table = { confirmed_count: 5, capacity: 6, code: "K7Q2", shared_themes: [locale === "en" ? "Traveling" : "السفر"], opener };
+      await r.fulfill({ response: res, json: e });
+    });
+    await page.goto(`${env.base}/#/booking/${S.booking}`);
+    await page.waitForSelector(".table-figure");
+    if (!opener) assert.equal(await page.locator("#table-opener").count(), 0, "no line while no opener is approved");
+    else {
+      assert.equal((await page.locator("#table-opener").innerText()).trim(), opener);
+      assert.ok(await page.locator(".shared-themes:not(#table-opener) + #table-opener").count() === 1, "right under the shared-themes line");
+      assert.equal(await page.locator("#table-opener svg").count(), 1, "with its icon");
+    }
+    assert.deepEqual(errors, []);
+    await page.context().close();
+  }
+});
+
 test("next steps: failed payment (pay-return and review), generic error, failed refund", async () => {
   const u = await signUp(call, { name: "شيخة" });
   const bk = (await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: S.far } })).body;

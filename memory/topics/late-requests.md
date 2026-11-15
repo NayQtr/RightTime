@@ -3,6 +3,15 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Table opener library [2026-11-15] — BUILT on branch `openers` (not pushed, not released)
+Owner's decision (15 Nov). One conversation question per shared theme, shown under «يجمعكن …» on the website and in the
+app's details screen, only from owner-approved lines in qatar/api/src/lib/openers.js (empty: nothing shows yet). Drafts:
+qatar/ops/draft-openers.mjs (68 question/option pairs; Gemini gets questionnaire texts only) run by the manual workflow
+"Draft table openers" → artifact drafts.json. Waiting on the owner: (1) GEMINI_API_KEY as a GitHub repository secret,
+(2) run the workflow, (3) approve or reword each line (Arabic copy only in her wording), then the approved lines are
+copied into openers.js and released with her approval. Note: the app does not show the shared-themes line itself (the
+website does); the opener line shows alone there. Adding the themes line to the app is a separate decision.
+
 ## Repair phases after the arena analysis [2026-11-15] — PROPOSED to the owner
 Source: arena winner (.arena run 20261115-224436, not in git). Phases: 0 owner decisions (legal texts, Twilio account,
 payment provider, pattern a/b, backups) → 1 one full booking in production (Twilio secrets, real PSP adapter, publish legal,

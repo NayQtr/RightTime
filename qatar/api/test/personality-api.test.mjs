@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { chromium } from "playwright";
+import { OPENERS } from "../src/lib/openers.js";
 import { adminLogin, buildTemplate, checkoutUrlFor, client, payViaMock, signUp, startTestEnv } from "./helpers.mjs";
 
 const CHROME = process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
@@ -84,6 +85,7 @@ test("themes are stored, hidden before reveal, shown after in the member's langu
   const locked = (await call("GET", `/api/v1/bookings/${U[1].booking}/event-details`, { token: U[1].token })).body;
   assert.equal(locked.reveal.phase, "locked");
   assert.equal(locked.table.shared_themes, undefined, "nothing before reveal");
+  assert.equal(locked.table.opener, undefined);
   // time travel: move every session timestamp together so reveal_at was a minute ago
   const [ss] = await sql`SELECT reveal_at FROM app.event_sessions WHERE id = ${U.session}`;
   const shift = Date.now() - 60000 - new Date(ss.reveal_at).getTime();
@@ -98,6 +100,20 @@ test("themes are stored, hidden before reveal, shown after in the member's langu
   assert.deepEqual(ar.table.shared_themes, ["ألعاب إلكترونية", "موسيقى", "ضحك وألعاب"], "interests first, then the ideal evening");
   const en = (await call("GET", `/api/v1/bookings/${U[0].booking}/event-details`, { token: U[0].token, locale: "en" })).body;
   assert.deepEqual(en.table.shared_themes, ["Reading & culture", "Tech & innovation", "Deep conversation over coffee"]);
+  // table opener: nothing while the approved library is empty
+  assert.equal(ar.table.opener, null);
+  assert.equal(en.table.opener, null);
+  // with approved lines (stubbed in-process): the first theme that has one, in her language
+  Object.assign(OPENERS, { "Q05:music": { ar: "سطر عربي للموسيقى؟", en: "Music line?" }, "Q19:games": { ar: "سطر الألعاب؟", en: "Games line?" },
+    "Q19:deep_talk": { ar: "سطر الحوار؟", en: "Deep talk line?" } });
+  try {
+    const ar2 = (await call("GET", `/api/v1/bookings/${U[1].booking}/event-details`, { token: U[1].token })).body;
+    assert.equal(ar2.table.opener, "سطر عربي للموسيقى؟", "gaming has no line, so music (the next theme) gives it");
+    const en2 = (await call("GET", `/api/v1/bookings/${U[0].booking}/event-details`, { token: U[0].token, locale: "en" })).body;
+    assert.equal(en2.table.opener, "Deep talk line?");
+  } finally {
+    for (const k of Object.keys(OPENERS)) delete OPENERS[k];
+  }
   // the member's event screen shows the line
   const browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
   try {

@@ -149,6 +149,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 Text(t.yourTable, style: tt.titleLarge),
                 Text(t.confirmedCount(d.confirmedCount!)),
                 if (d.tablemates.isNotEmpty) Text('${t.tablemates}: ${d.tablemates.join('، ')}'),
+                // table opener (owner, 15 Nov): an approved conversation question for the shared themes; the line is the question
+                if (d.opener != null) ...[
+                  const SizedBox(height: HzSpace.s2),
+                  TestId('table-opener', child: Row(key: const Key('table-opener'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(Icons.chat_bubble_outline, size: 20, color: c.primary),
+                    const SizedBox(width: HzSpace.s2),
+                    Expanded(child: Text(d.opener!, style: const TextStyle(fontWeight: FontWeight.w500))),
+                  ])),
+                ],
                 // item 33 (provisional): another guest celebrates; never who
                 if (d.celebration != null) ...[
                   const SizedBox(height: HzSpace.s2),

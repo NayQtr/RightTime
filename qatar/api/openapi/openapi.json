@@ -4801,6 +4801,17 @@
                       "type": "string"
                     }
                   },
+                  "opener": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "After the reveal: one conversation question for the table's shared themes, from the owner-approved library only; null when none is approved"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "members": {
                     "type": "array",
                     "items": {
