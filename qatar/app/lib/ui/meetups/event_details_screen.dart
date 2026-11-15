@@ -112,7 +112,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               Semantics(
                 label: fmtWhen(d.startsAt, lang),
                 child: ExcludeSemantics(
-                  child: RiseIn(index: 0, child: Row(key: const Key('big-date'), crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  child: RiseIn(index: 0, once: 'details', child: Row(key: const Key('big-date'), crossAxisAlignment: CrossAxisAlignment.end, children: [
                     Text(fmtDay(d.startsAt), style: tt.displaySmall?.copyWith(fontSize: 112, height: 1, fontWeight: FontWeight.w800, color: c.primary)),
                     const SizedBox(width: HzSpace.s3),
                     Padding(

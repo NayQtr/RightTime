@@ -76,13 +76,22 @@ class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderSt
 /// Fades and lifts a list item into place, each [index] 30 ms after the one before (like the website's lists).
 /// One controller, no timers: the item at [index] simply starts later in the same 600 ms. Shown at once when the device
 /// asks for reduced motion. A page's own blocks arrive further apart ([gap], 120 ms on the website's welcome); the run
-/// then lasts as long as the last block needs.
+/// then lasts as long as the last block needs. With [once], the page named so rises in on her first visit in this run
+/// of the app only; later visits show it in place at once.
 class RiseIn extends StatefulWidget {
-  const RiseIn({super.key, required this.index, required this.child, this.gap = HzMotion.stagger});
+  const RiseIn({super.key, required this.index, required this.child, this.gap = HzMotion.stagger, this.once});
 
   final int index;
   final Widget child;
   final Duration gap;
+  final String? once;
+
+  /// Pages whose entrance has played in this run of the app.
+  static final Set<String> _played = {};
+
+  /// Tests start each run afresh.
+  @visibleForTesting
+  static void resetPlayed() => _played.clear();
 
   @override
   State<RiseIn> createState() => _RiseInState();
@@ -101,10 +110,14 @@ class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
     super.didChangeDependencies();
     if (_a != null) return;
     _a = CurvedAnimation(parent: _c, curve: Interval(_delay / _run, 1, curve: Curves.easeOutCubic));
-    if (MediaQuery.of(context).disableAnimations) {
+    final once = widget.once;
+    if (MediaQuery.of(context).disableAnimations || (once != null && RiseIn._played.contains(once))) {
       _c.value = 1;
     } else {
-      _c.forward();
+      // a page counts as seen once its entrance has run to the end (leaving it halfway lets it play again)
+      _c.forward().whenComplete(() {
+        if (once != null) RiseIn._played.add(once);
+      });
     }
   }
 

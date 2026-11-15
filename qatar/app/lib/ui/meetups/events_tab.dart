@@ -85,7 +85,7 @@ class _NextMeetupCard extends StatelessWidget {
     final soft = c.onPrimary.withValues(alpha: 0.88);
     void open() => pushFromCard(context, '/booking/${b.id}');
     // its lines arrive one after another, 60 ms apart (owner, 14 Nov: rounds 1-3)
-    Widget line(int i, Widget child) => RiseIn(index: i, gap: const Duration(milliseconds: 60), child: child);
+    Widget line(int i, Widget child) => RiseIn(index: i, once: 'events', gap: const Duration(milliseconds: 60), child: child);
     // a double frame: a faint band of the brand colour around the card
     return Container(
       padding: const EdgeInsets.all(6),
