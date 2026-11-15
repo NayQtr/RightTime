@@ -181,6 +181,8 @@ export const STRINGS = {
     plusOneLabel: "أضيفي مرافقة", payNeedAck: "ضعي علامة على إقرار الإلغاء المتأخر أعلاه.", payNeedPlusOk: "ضعي علامة على تأكيد مرافقتك أعلاه.",
     payNeedPlusName: "اكتبي اسم مرافقتك أعلاه.", womanRequired: "أكّدي أنكِ امرأة للمتابعة.", ageRequired: "أكّدي أن عمركِ 18 عامًا أو أكثر للمتابعة.",
     deleteKeep: "إبقاء حسابي", categoryRequired: "اختاري نوع المشكلة.",
+    // Design patterns (15 Nov 2026): written by the team, for the owner's review before release.
+    keyTaken: "مقعد محجوز", keyFree: "مقعد متاح", stepsLabel: "خطوات الحجز", stepReview: "المراجعة", stepPay: "الدفع", dayToday: "اليوم", dayYesterday: "أمس",
   },
   en: {
     brand: "HerZone", staging: "Staging", skip: "Skip to content", langToggle: "العربية", themeToDark: "Dark mode", themeToLight: "Light mode", back: "Back", next: "Next", continue: "Continue",
@@ -340,5 +342,6 @@ export const STRINGS = {
     plusOneLabel: "Bring a companion", payNeedAck: "Tick the late-cancellation box above.", payNeedPlusOk: "Tick the box about your companion above.",
     payNeedPlusName: "Write your companion's name above.", womanRequired: "Confirm you are a woman to continue.", ageRequired: "Confirm you are 18 or over to continue.",
     deleteKeep: "Keep my account", categoryRequired: "Choose what happened.",
+    keyTaken: "Taken seat", keyFree: "Free seat", stepsLabel: "Booking steps", stepReview: "Review", stepPay: "Payment", dayToday: "Today", dayYesterday: "Yesterday",
   },
 };
