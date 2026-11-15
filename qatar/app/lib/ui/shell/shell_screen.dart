@@ -10,7 +10,8 @@ import '../../domain/inbox_badge.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
-import '../auth/widgets.dart' show errorText;
+import '../auth/widgets.dart' show ErrorBanner;
+import '../common/busy_label.dart';
 import '../common/press.dart';
 import '../../domain/theme_controller.dart';
 import '../theme.dart' show hzColors;
@@ -187,21 +188,44 @@ class AccountTab extends StatelessWidget {
           _Row(key: const Key('cases'), label: t.casesTitle, onTap: () => context.push('/cases')),
         ]),
         const SizedBox(height: HzSpace.s6),
-        Press(child: FilledButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut))),
+        Press(child: OutlinedButton(key: const Key('signOut'), onPressed: session.signOut, child: Text(t.signOut))), // secondary, as on the website
         const SizedBox(height: HzSpace.s6),
-        Press(child: TextButton(
-          key: const Key('deleteAccount'),
-          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-          onPressed: () => _confirmDelete(context, session),
-          child: Text(t.deleteAccount),
-        )),
+        _DeleteAccount(session: session),
       ]),
     );
+  }
+}
+
+/// Delete the account: asks first; while the request runs the button waits, and a refusal is said right under it
+/// (not in a passing message at the bottom of the screen).
+class _DeleteAccount extends StatefulWidget {
+  const _DeleteAccount({required this.session});
+  final Session session;
+
+  @override
+  State<_DeleteAccount> createState() => _DeleteAccountState();
+}
+
+class _DeleteAccountState extends State<_DeleteAccount> {
+  bool busy = false;
+  ApiError? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Press(child: TextButton(
+        key: const Key('deleteAccount'),
+        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+        onPressed: busy ? null : () => _confirmDelete(context, widget.session),
+        child: BusyLabel(busy: busy, child: Text(t.deleteAccount)),
+      )),
+      if (error != null) ...[const SizedBox(height: HzSpace.s2), ErrorBanner(error!, key: const Key('delete-error'))],
+    ]);
   }
 
   Future<void> _confirmDelete(BuildContext context, Session session) async {
     final t = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final yes = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -217,11 +241,17 @@ class AccountTab extends StatelessWidget {
         ],
       ),
     );
-    if (yes != true) return;
+    if (yes != true || !mounted) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
     try {
       await session.deleteAccount();
     } on ApiError catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(errorText(t, e))));
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
     }
   }
 }
