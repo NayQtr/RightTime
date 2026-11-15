@@ -254,7 +254,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('لم تحجزي أي لقاء بعد.'), findsOneWidget, reason: 'the existing words stay');
     expect(find.descendant(of: find.byKey(const Key('ready')), matching: find.text('قبل لقائك الأول')), findsOneWidget);
-    expect(tester.widget<Text>(find.text('أجيبي عن أسئلة التعارف')).style?.decoration, TextDecoration.lineThrough);
+    // done: a tick, the words not struck through (owner, 15 Nov)
+    expect(tester.widget<Text>(find.text('أجيبي عن أسئلة التعارف')).style?.decoration, isNot(TextDecoration.lineThrough));
+    expect(find.descendant(of: find.byKey(const Key('ready-answers')), matching: find.byIcon(Icons.check_rounded)), findsOneWidget);
     expect(tester.widget<InkWell>(find.byKey(const Key('ready-answers'))).onTap, isNull);
     expect(find.text('اختاري موعدًا يناسبك'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ready-rules')));
@@ -293,15 +295,16 @@ void main() {
     expect(find.descendant(of: find.byKey(const Key('documents')), matching: find.byIcon(Icons.chevron_right)), findsOneWidget);
     expect(find.byIcon(Icons.chevron_left), findsNothing);
     Finder tick(String row) => find.descendant(of: find.byKey(Key(row)), matching: find.byIcon(Icons.check_rounded));
-    expect(tick('theme'), findsNothing);
-    await tester.tap(find.byKey(const Key('theme')));
+    // appearance is a switch now (owner, 15 Nov); the language row answers with a tick in its own row
+    expect(tick('lang'), findsNothing);
+    await tester.tap(find.byKey(const Key('lang')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(tick('theme'), findsOneWidget);
-    expect(tick('lang'), findsNothing, reason: 'only the row she changed');
+    expect(tick('lang'), findsOneWidget);
+    expect(tick('documents'), findsNothing, reason: 'only the row she changed');
     expect(find.byType(SnackBar), findsNothing);
     await tester.pumpAndSettle();
-    expect(tick('theme'), findsNothing);
+    expect(tick('lang'), findsNothing);
     await tester.tap(find.byKey(const Key('documents'))); // a row that leads somewhere keeps its arrow
     await tester.pump();
     expect(tick('documents'), findsNothing);

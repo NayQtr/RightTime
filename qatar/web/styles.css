@@ -944,7 +944,7 @@ body:has(main .book-dock) .toast { bottom: calc(var(--dock-h, 100px) + var(--s-1
   box-shadow: inset 0 0 0 1.5px var(--c-primary); }
 .msg.is-new::before { background: var(--c-primary); }
 .msg.is-new p { font-weight: 600; }
-/* my meetups, before a first booking: a getting-ready card (after Notion). A done row is struck through and its edge is
+/* my meetups, before a first booking: a getting-ready card (after Notion). A done row carries a tick and its edge is
    full, so the state is never told by colour alone. */
 .ready-card { position: relative; overflow: hidden; display: grid; gap: var(--s-1); margin-block: var(--s-4); padding: var(--s-5); border-radius: var(--r-md); background: var(--c-primarySubtle); }
 .ready-card .n { font-size: calc(var(--u) * 0.8125); color: var(--c-textMuted); }
@@ -953,6 +953,7 @@ body:has(main .book-dock) .toast { bottom: calc(var(--dock-h, 100px) + var(--s-1
 .ck-row { display: flex; align-items: center; min-height: 44px; padding: 0 var(--s-3); border-inline-start: 3px solid color-mix(in oklch, var(--c-primary) 28%, transparent);
   color: var(--c-text); text-decoration: none; font-size: calc(var(--u) * 0.9375); cursor: pointer; transition: border-color 250ms var(--m-ease), color 250ms var(--m-ease); }
 .ck-row.done { border-inline-start-color: var(--c-primary); color: var(--c-textMuted); }
+.ck-row.done svg { flex: none; width: 18px; height: 18px; margin-inline-end: var(--s-2); color: var(--c-primary); }
 summary.ck-row { list-style: none; }
 summary.ck-row::-webkit-details-marker { display: none; }
 .ready-card details p { margin: var(--s-2) 0 var(--s-3); padding: var(--s-3) var(--s-4); max-height: 46vh; overflow-y: auto; border-radius: var(--r-sm); background: var(--c-surface); color: var(--c-text); }

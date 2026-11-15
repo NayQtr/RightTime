@@ -226,7 +226,7 @@ test("account: labelled groups with icons; language, appearance and the data cop
   assert.equal(await page.evaluate(() => document.activeElement.id), "lng");
   assert.deepEqual(await page.locator(".section-label").allInnerTexts(), ["Profile", "Preferences", "Privacy", "Help"]);
   await page.waitForFunction(() => !document.querySelector("#lng .v.ok"));
-  assert.equal((await page.locator("#lng .v").innerText()).trim(), "العربية");
+  assert.equal((await page.locator("#lng .v").innerText()).trim(), "English"); // the current language (owner, 15 Nov)
   await noSideScroll(page, "account");
   assert.deepEqual(page.errors, []);
   await page.context().close();

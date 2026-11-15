@@ -117,15 +117,18 @@ void main() {
     await tester.tap(find.byKey(const Key('theme')));
     await tester.pumpAndSettle();
     expect(shown(), Brightness.dark);
-    expect(find.text('الوضع العادي'), findsOneWidget);
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('theme'))).value, isTrue, reason: 'the switch shows the mode that is on');
     await tester.tap(find.byKey(const Key('theme')));
     await tester.pumpAndSettle();
     expect(shown(), Brightness.light);
-    expect(find.text('الوضع الداكن'), findsOneWidget);
+    expect(tester.widget<SwitchListTile>(find.byKey(const Key('theme'))).value, isFalse);
+    // the language row names the language in use (owner, 15 Nov)
+    expect(find.descendant(of: find.byKey(const Key('lang')), matching: find.text('العربية')), findsOneWidget);
     // English switches the whole app to left to right
     await tester.tap(find.byKey(const Key('lang')));
     await tester.pumpAndSettle();
     expect(find.text('Account'), findsWidgets);
+    expect(find.descendant(of: find.byKey(const Key('lang')), matching: find.text('English')), findsOneWidget);
     // the account rows sit in three named groups now, so sign-out is one short scroll down on this small test screen
     await tester.drag(find.byKey(const Key('my-answers')), const Offset(0, -200));
     await tester.pumpAndSettle();

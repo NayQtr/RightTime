@@ -145,7 +145,8 @@ class _ReadyCard extends StatelessWidget {
             padding: const EdgeInsetsDirectional.only(start: HzSpace.s3),
             decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: done ? c.primary : c.primary.withValues(alpha: 0.28), width: 3))),
             child: Row(children: [
-              Expanded(child: Text(text, style: done ? TextStyle(color: c.textMuted, decoration: TextDecoration.lineThrough) : null)),
+              if (done) Padding(padding: const EdgeInsetsDirectional.only(end: HzSpace.s2), child: Icon(Icons.check_rounded, size: 18, color: c.primary)),
+              Expanded(child: Text(text, style: done ? TextStyle(color: c.textMuted) : null)), // done: a tick, no strike (owner, 15 Nov)
               if (!done) Icon(Icons.chevron_right, color: c.textMuted), // the icon mirrors itself in Arabic
             ]),
           ),

@@ -132,8 +132,10 @@ production), engine (JS + Python), consoles, website and app; merged on rightime
 RELEASED 15 Nov at the owner's request («ادفع» → «herzone.app الآن»): migration 026 applied by the owner in the SQL editor of staging and production (the connector's confirmation never reached the owner's app, five tries); herzone.app and staging serve herzone-web@fdb7ae160cfc (production dpl_3he3f2J6UpaLEWyYKN9Zd4Fxafii, staging dpl_GaDoRUSYqQBS3S5Kj8dYYSacKXpH); CI green, smoke checks passed on both, Sentry clean. OWNER 15 Nov: «اكتبي اسم مرافقتك.» approved; tablemates SEE the companion's name on the day (built 15 Nov: server members[].guest_name,
 website list, app tablemates; RELEASED 15 Nov: herzone.app and staging serve herzone-web@d70384713adc, production dpl_BTWDR8CEj6Hwbxxe6zs27h7HgxWY, smoke and Sentry clean); privacy lines approved and added to the draft 15 Nov; «Update it» (store app) → store accounts are still not open
 (NMX-45/46), so no store build can be uploaded; store screenshots regenerated 15 Nov. Open: companion confirmed by check box only. Supabase: migrations that drop/replace objects need the owner to run them in the SQL editor (the connector's confirmation does not reach the owner's app).
-Also open from the review of 14 Nov: account rows «اللغة»/«المظهر» show the target, not the current value (proposed fix, waiting);
-the done step in «قبل لقائك الأول» is struck through (✓ suggested, taste).
+From the review of 14 Nov, DECIDED 15 Nov (owner chose both proposals): the language row shows the language in use
+(website value; app: new lines languageLabel «اللغة» = the website's word, languageCurrent «العربية»/«English»), and the app's
+appearance row is now a switch «الوضع الداكن» like the website; done steps in «قبل لقائك الأول» carry a ✓ instead of a
+strike (website and app). Built on rightime-app, NOT released to production yet.
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
 on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
 reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's

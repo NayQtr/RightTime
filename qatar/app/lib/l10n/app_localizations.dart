@@ -374,6 +374,18 @@ abstract class AppLocalizations {
   /// **'English'**
   String get language;
 
+  /// No description provided for @languageLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اللغة'**
+  String get languageLabel;
+
+  /// No description provided for @languageCurrent.
+  ///
+  /// In ar, this message translates to:
+  /// **'العربية'**
+  String get languageCurrent;
+
   /// No description provided for @themeToDark.
   ///
   /// In ar, this message translates to:

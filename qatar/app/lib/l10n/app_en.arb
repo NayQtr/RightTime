@@ -46,6 +46,8 @@
   "offline": "You're offline.",
   "comingSoon": "This screen is being built in the app. Everything is available now on herzone.app.",
   "language": "العربية",
+  "languageLabel": "Language",
+  "languageCurrent": "English",
   "themeToDark": "Dark mode",
   "themeToLight": "Light mode",
   "sounds": "Sounds",

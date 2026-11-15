@@ -1883,7 +1883,7 @@ async function scrEvents() {
     const rows = [["readyAnswers", Boolean(state.q && state.q.submitted), `#/quiz/${INTERSTITIALS.start.length}`], ["readyPick", false, "#/home"], ["readyPush", pushOn, "#/notify?next=profile"]];
     const read = Boolean(store.get("rulesRead"));
     const total = rows.length + (rules ? 1 : 0), doneN = rows.filter((x) => x[1]).length + (rules && read ? 1 : 0);
-    const label = (k, ok) => (ok ? `<s>${esc(T(k))}</s>` : esc(T(k)));
+    const label = (k, ok) => (ok ? `${icon("check")}<span>${esc(T(k))}</span>` : esc(T(k))); // done: a tick, the words stay plain (owner, 15 Nov)
     ready = `<section class="ready-card" aria-labelledby="ready-h"><span class="n num" id="ready-n" data-total="${total}">${esc(T("qOf", { i: doneN, n: total }))}</span><h2 id="ready-h">${esc(T("readyFirst"))}</h2>
       <ul>${rows.map(([k, ok, href]) => `<li><a class="ck-row${ok ? " done" : ""}" href="${href}">${label(k, ok)}</a></li>`).join("")}
         ${rules ? `<li><details id="ready-rules"><summary class="ck-row${read ? " done" : ""}">${label("readyRules", read)}</summary><p class="caption legal-text">${esc(rules)}</p></details></li>` : ""}</ul>
@@ -1907,7 +1907,7 @@ async function scrEvents() {
     store.set("rulesRead", true);
     const row = rulesBox.querySelector("summary"), n = $("#ready-n");
     row.classList.add("done");
-    row.innerHTML = `<s>${esc(T("readyRules"))}</s>`;
+    row.innerHTML = `${icon("check")}<span>${esc(T("readyRules"))}</span>`;
     n.textContent = T("qOf", { i: $$(".ready-card .ck-row.done").length, n: Number(n.dataset.total) });
   });
 }
@@ -2320,7 +2320,7 @@ async function scrProfile() {
     <p class="section-label">${esc(T("secPrefs"))}</p>
     <ul class="settings">${row("a", "bell", "pushSettings", { href: "#/notify?next=profile" })}
       <li><div class="static"><span class="rl">${tile("map-pin")}<span>${esc(T("cityLabel"))}</span></span><span class="muted">${esc(T("cityFull"))}</span></div></li>
-      ${row("button", "languages", "language", { id: "lng", value: T("langToggle") })}
+      ${row("button", "languages", "language", { id: "lng", value: STRINGS[locale === "ar" ? "en" : "ar"].langToggle })}
       <li><button type="button" class="sw-row" id="thm" role="switch" aria-checked="${isDark()}" aria-label="${esc(T("themeToDark"))}"><span class="rl">${tile("moon")}<span>${esc(T("appearance"))}</span></span>
         <span class="sw-l" aria-hidden="true">${esc(T("themeToDark"))}</span><span class="sw" aria-hidden="true"><span class="sw-t">${icon("check")}</span></span></button></li></ul>
     <p class="section-label">${esc(T("secPrivacy"))}</p>
@@ -2335,7 +2335,7 @@ async function scrProfile() {
   const forget = () => { session.clear(); clearDeviceProgress(); state.me = null; state.q = null; state.qAnswers = null; state.quiz = null; renderTopbar(); go("#/welcome"); };
   // the language redraws the whole screen in the new language; the row confirms once it is back
   $("#lng").onclick = () => { state.rowOk = "lng"; setLocale(locale === "ar" ? "en" : "ar"); };
-  if (state.rowOk === "lng") { state.rowOk = null; rowOk("lng", () => T("langToggle")); $("#lng").focus({ preventScroll: true }); }
+  if (state.rowOk === "lng") { state.rowOk = null; rowOk("lng", () => STRINGS[locale === "ar" ? "en" : "ar"].langToggle); $("#lng").focus({ preventScroll: true }); }
   // appearance is a switch (dark mode on or off): the thumb moves to the other end and shows a tick when on; the state
   // is the control itself, so nothing else confirms it. Space and Enter both work (a native button).
   $("#thm").onclick = () => { const on = !isDark(); $("#thm").setAttribute("aria-checked", String(on)); setTheme(on ? "dark" : "light", $("#thm")); };

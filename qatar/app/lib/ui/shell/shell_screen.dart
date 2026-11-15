@@ -166,13 +166,17 @@ class AccountTab extends StatelessWidget {
         ]),
         const SizedBox(height: HzSpace.s4),
         _Group(title: t.groupPrefs, children: [
-          _Row(key: const Key('lang'), icon: Icons.translate, label: t.language, confirms: true, onTap: context.read<LocaleController>().toggle),
-          _Row(
+          // each row shows what is set now, not what a tap would choose (owner, 15 Nov)
+          _Row(key: const Key('lang'), icon: Icons.translate, label: t.languageLabel, value: t.languageCurrent, confirms: true, onTap: context.read<LocaleController>().toggle),
+          SwitchListTile(
             key: const Key('theme'),
-            icon: Theme.of(context).brightness == Brightness.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            label: Theme.of(context).brightness == Brightness.dark ? t.themeToLight : t.themeToDark,
-            confirms: true,
-            onTap: () => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
+            contentPadding: EdgeInsets.zero,
+            horizontalTitleGap: HzSpace.s3,
+            secondary: const _IconTile(Icons.dark_mode_outlined),
+            thumbIcon: WidgetStateProperty.resolveWith((st) => Icon(st.contains(WidgetState.selected) ? Icons.check_rounded : Icons.close_rounded)),
+            value: Theme.of(context).brightness == Brightness.dark,
+            onChanged: (_) => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
+            title: Text(t.themeToDark),
           ),
           // interface sounds (item 26): on by default, remembered on this device, quiet when the phone is on silent. A
           // screen reader hears the label, "switch" and on or off; on screen the thumb carries a tick or a cross, so the
@@ -314,10 +318,11 @@ class _IconTile extends StatelessWidget {
 /// One row: its icon tile, its label and the arrow toward where it leads, 56 px tall. A row that changes a setting on the spot
 /// ([confirms]) shows a tick in place of its arrow for a moment after the tap.
 class _Row extends StatefulWidget {
-  const _Row({super.key, required this.icon, required this.label, required this.onTap, this.confirms = false});
+  const _Row({super.key, required this.icon, required this.label, required this.onTap, this.value, this.confirms = false});
 
   final IconData icon;
   final String label;
+  final String? value;
   final VoidCallback onTap;
   final bool confirms;
 
@@ -349,6 +354,7 @@ class _RowState extends State<_Row> with SingleTickerProviderStateMixin {
           _IconTile(widget.icon),
           const SizedBox(width: HzSpace.s3),
           Expanded(child: Text(widget.label)),
+          if (widget.value != null) Text(widget.value!, style: TextStyle(color: c.textMuted)),
           AnimatedBuilder(
             animation: _ok,
             builder: (context, _) => AnimatedSwitcher(

@@ -207,10 +207,16 @@ void main() {
             await tester.scrollUntilVisible(find.byKey(const Key('sounds')), 100);
             final tile = tester.getRect(find.byKey(const Key('sounds')));
             final label = tester.getRect(find.text(lang == 'ar' ? 'الأصوات' : 'Sounds'));
-            final toggle = tester.getRect(find.byType(Switch));
+            final toggle = tester.getRect(find.descendant(of: find.byKey(const Key('sounds')), matching: find.byType(Switch)));
             expect(tile.left, greaterThanOrEqualTo(0));
             expect(tile.right, lessThanOrEqualTo(width));
             expect(label.overlaps(toggle), isFalse);
+            // the appearance switch beside it (owner, 15 Nov) fits too
+            final theme = tester.getRect(find.byKey(const Key('theme')));
+            final themeLabel = tester.getRect(find.text(lang == 'ar' ? 'الوضع الداكن' : 'Dark mode'));
+            final themeToggle = tester.getRect(find.descendant(of: find.byKey(const Key('theme')), matching: find.byType(Switch)));
+            expect(theme.right, lessThanOrEqualTo(width));
+            expect(themeLabel.overlaps(themeToggle), isFalse);
             expect(tester.takeException(), isNull);
           });
         }
