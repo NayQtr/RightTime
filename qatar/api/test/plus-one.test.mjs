@@ -273,7 +273,9 @@ test("matching and the consoles count the companion: three members and one compa
   assert.equal((await call("POST", `/api/admin/v1/sessions/${S}/venues`, { token: ops.token, body: { venue_id: venue.id, planned_guests: 6 } })).status, 200);
   const lead = await member("Lead");
   lead.booking = await bookAndPay(lead, S, { name: "Maryam" });
-  for (const n of ["Amal", "Badr"]) await bookAndPay(await member(n), S);
+  const amal = await member("Amal");
+  await bookAndPay(amal, S);
+  await bookAndPay(await member("Badr"), S);
   const hold = await member("Holder");
   assert.equal((await book(hold, S, { name: "Friend" })).status, 201);   // an unpaid two-seat hold
 
@@ -315,6 +317,12 @@ test("matching and the consoles count the companion: three members and one compa
   assert.equal((await call("POST", `/api/venue/v1/guests/${g.id}:arrived`, { token: venueToken })).status, 200);
   const board = (await call("GET", "/api/admin/v1/live/tonight", { token: owner.token })).body.tables.find((t) => t.session_id === S);
   assert.deepEqual([board.confirmed, board.checked_in], [4, 2]);
+  // her tablemates see the companion's name on the day, next to the member who brings her (owner, 15 Nov 2026)
+  await sql`UPDATE app.event_sessions SET check_in_opens_at = now() - interval '1 minute' WHERE id = ${S}`;   // the day-of phase
+  const [amalBooking] = await sql`SELECT id FROM app.bookings WHERE user_id = ${amal.userId} AND session_id = ${S}`;
+  const amalView = (await call("GET", `/api/v1/bookings/${amalBooking.id}/event-details`, { token: amal.token })).body;
+  const leadRow = (amalView.table.members || []).find((m) => m.display_name === "Lead");
+  assert.equal(leadRow && leadRow.guest_name, "Maryam", JSON.stringify(amalView.table));
 
 });
 

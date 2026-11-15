@@ -1844,7 +1844,7 @@ async function scrDetails(id) {
       ${e.table.shared_themes && e.table.shared_themes.length ? `<p class="shared-themes">${icon("sparkle")}<span>${esc(T("sharedThemes", { list: e.table.shared_themes.join(T("listSep")) }))}</span></p>` : ""}
       ${e.table.celebration ? `<p class="shared-themes" id="celebration">${icon(e.table.celebration === "birthday" ? "cake" : "sparkle")}<span>${esc(T(e.table.celebration === "birthday" ? "celebrationBirthday" : "celebrationOther"))}</span></p>` : ""}
       <p class="caption">${esc(T("introTip"))}</p>
-      ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.map((m) => m.display_name || T("unnamed")).join("، "))}</p>` : ""}</section>`
+      ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.flatMap((m) => [m.display_name || T("unnamed"), m.guest_name].filter(Boolean)).join("، "))}</p>` : ""}</section>`
       : ph === "forming" ? `<section class="card"><div class="table-figure">${tableSvg({ seats: 6 })}<p class="label">${esc(T("tableForming"))}</p></div></section>` : ""}
     ${!e.venue && ["forming", "locked"].includes(ph) ? `<div class="note note-primary"><span class="icon">${icon("lock")}</span><div>${esc(T("venueHidden", { reveal_at: fmtDate(e.reveal.reveal_at) }))}</div></div>` : ""}
     ${e.venue ? `<section class="place" id="place" aria-labelledby="place-h"><h2 id="place-h">${esc(e.venue.name)}</h2>

@@ -95,7 +95,7 @@ async function plusOneFor(sql, b) {
 
 async function tableMembers(sql, tableId) {
   return sql`
-    SELECT b.id AS booking_id, b.user_id, b.occasion, u.display_name FROM app.table_assignments a
+    SELECT b.id AS booking_id, b.user_id, b.occasion, b.guest_name, u.display_name FROM app.table_assignments a
       JOIN app.bookings b ON b.id = a.booking_id JOIN app.users u ON u.id = b.user_id
      WHERE a.table_id = ${tableId} AND a.is_current AND b.status IN ('paid_awaiting_group','group_locked','revealed','checked_in','completed')
      ORDER BY b.created_at`;
@@ -884,7 +884,8 @@ async function eventDetails(ctx) {
     }
     if (["day_of", "completed"].includes(phase) && !restricted) {
       const members = (await tableMembers(sql, t.id)).filter((m) => m.booking_id !== b.id);
-      out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null }));
+      // a tablemate's companion (+1) is named to the table on the day too (owner, 15 Nov 2026); '' after deletion -> null
+      out.table.members = members.map((m) => ({ seat: seatToken(keys, b.id, m.booking_id), display_name: m.display_name || null, guest_name: m.guest_name || null }));
     }
   }
   if (["revealed", "day_of", "completed"].includes(phase) && v && !restricted) {

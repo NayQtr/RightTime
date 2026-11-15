@@ -147,6 +147,15 @@ bool holdOn(WidgetTester tester) => tester.widget<FilledButton>(find.byKey(const
 String textOf(WidgetTester tester, String key) => tester.widget<Text>(find.byKey(Key(key))).data!;
 
 void main() {
+  test('tablemates on the day include a companion by name, after the member who brings her (owner, 15 Nov 2026)', () {
+    final d = EventDetails({'table': {'members': [
+      {'seat': 'a', 'display_name': 'Lead', 'guest_name': 'Maryam'},
+      {'seat': 'b', 'display_name': 'Amal'},
+      {'seat': 'c', 'display_name': 'Badr', 'guest_name': null},
+    ]}});
+    expect(d.tablemates, ['Lead', 'Maryam', 'Amal', 'Badr']);
+  });
+
   testWidgets('+1: off by default; on, it explains itself and asks for her companion\'s name and the confirmation', (tester) async {
     await openBook(tester, Fake());
     expect(toggle(tester).selected, isFalse);

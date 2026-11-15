@@ -127,7 +127,7 @@ class EventDetails {
   String? get foodBand => Money.fromJson(_s['food_price_band'])?.display;
   int? get confirmedCount => (_t?['confirmed_count'] as num?)?.toInt();
   String? get tableCode => _t?['code'] as String?;
-  List<String> get tablemates => ((_t?['members'] as List?) ?? const []).map((m) => ((m as Map)['display_name'] as String?) ?? '').where((n) => n.isNotEmpty).toList();
+  List<String> get tablemates => ((_t?['members'] as List?) ?? const []).expand((m) => [((m as Map)['display_name'] as String?) ?? '', (m['guest_name'] as String?) ?? '']).where((n) => n.isNotEmpty).toList();
 
   /// After the reveal: 'birthday' or 'other' when another woman at the table celebrates (never who); null otherwise.
   String? get celebration => _t?['celebration'] as String?;
