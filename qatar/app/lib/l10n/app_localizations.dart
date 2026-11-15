@@ -1811,13 +1811,13 @@ abstract class AppLocalizations {
   /// No description provided for @needGuestConfirm.
   ///
   /// In ar, this message translates to:
-  /// **'ضعي علامة على تأكيد مرافقتك.'**
+  /// **'ضعي علامة على تأكيد مرافقتك أعلاه.'**
   String get needGuestConfirm;
 
   /// No description provided for @needLateAck.
   ///
   /// In ar, this message translates to:
-  /// **'ضعي علامة على الإقرار أعلاه أولًا.'**
+  /// **'ضعي علامة على إقرار الإلغاء المتأخر أعلاه.'**
   String get needLateAck;
 }
 

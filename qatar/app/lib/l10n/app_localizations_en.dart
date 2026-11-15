@@ -969,8 +969,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get needGuestName => 'Please write your companion\'s name.';
 
   @override
-  String get needGuestConfirm => 'Tick the box to confirm your companion.';
+  String get needGuestConfirm => 'Tick the box about your companion above.';
 
   @override
-  String get needLateAck => 'Tick the acknowledgement above first.';
+  String get needLateAck => 'Tick the late-cancellation box above.';
 }

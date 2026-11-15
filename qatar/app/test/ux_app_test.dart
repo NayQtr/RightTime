@@ -186,9 +186,9 @@ void main() {
 
       expect(tester.widget<FilledButton>(find.byKey(const Key('pay'))).onPressed, isNull);
       expect(find.byKey(const Key('pay-reason')), findsOneWidget);
-      expect(find.text('ضعي علامة على الإقرار أعلاه أولًا.'), findsOneWidget);
+      expect(find.text('ضعي علامة على إقرار الإلغاء المتأخر أعلاه.'), findsOneWidget);
       expect(tester.getTopLeft(find.byKey(const Key('pay-reason'))).dy, greaterThan(tester.getTopLeft(find.byKey(const Key('pay'))).dy), reason: 'under the button');
-      expect(_node(tester, find.byKey(const Key('pay'))).hint, 'ضعي علامة على الإقرار أعلاه أولًا.', reason: 'and on the button for a screen reader');
+      expect(_node(tester, find.byKey(const Key('pay'))).hint, 'ضعي علامة على إقرار الإلغاء المتأخر أعلاه.', reason: 'and on the button for a screen reader');
 
       await tester.tap(find.byKey(const Key('ack')));
       await tester.pumpAndSettle();
@@ -215,8 +215,8 @@ void main() {
       expect(_node(tester, find.byKey(const Key('hold'))).hint, 'اكتبي اسم مرافقتك.');
       await tester.enterText(find.byKey(const Key('guest-name')), 'سارة');
       await tester.pump();
-      expect(find.text('ضعي علامة على تأكيد مرافقتك.'), findsOneWidget);
-      expect(_node(tester, find.byKey(const Key('hold'))).hint, 'ضعي علامة على تأكيد مرافقتك.');
+      expect(find.text('ضعي علامة على تأكيد مرافقتك أعلاه.'), findsOneWidget);
+      expect(_node(tester, find.byKey(const Key('hold'))).hint, 'ضعي علامة على تأكيد مرافقتك أعلاه.');
       await tester.tap(find.byKey(const Key('guest-confirm')));
       await tester.pump();
       expect(find.byKey(const Key('hold-reason')), findsNothing);

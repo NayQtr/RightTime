@@ -949,8 +949,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get needGuestName => 'اكتبي اسم مرافقتك.';
 
   @override
-  String get needGuestConfirm => 'ضعي علامة على تأكيد مرافقتك.';
+  String get needGuestConfirm => 'ضعي علامة على تأكيد مرافقتك أعلاه.';
 
   @override
-  String get needLateAck => 'ضعي علامة على الإقرار أعلاه أولًا.';
+  String get needLateAck => 'ضعي علامة على إقرار الإلغاء المتأخر أعلاه.';
 }

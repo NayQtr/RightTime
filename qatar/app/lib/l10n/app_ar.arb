@@ -451,8 +451,8 @@
   "unreadCount": "{n} غير مقروءة",
   "newTag": "جديد",
   "needGuestName": "اكتبي اسم مرافقتك.",
-  "needGuestConfirm": "ضعي علامة على تأكيد مرافقتك.",
-  "needLateAck": "ضعي علامة على الإقرار أعلاه أولًا.",
+  "needGuestConfirm": "ضعي علامة على تأكيد مرافقتك أعلاه.",
+  "needLateAck": "ضعي علامة على إقرار الإلغاء المتأخر أعلاه.",
   "@unreadCount": {
     "placeholders": {
       "n": {

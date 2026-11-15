@@ -351,6 +351,6 @@
   "unreadCount": "{n} unread",
   "newTag": "New",
   "needGuestName": "Please write your companion's name.",
-  "needGuestConfirm": "Tick the box to confirm your companion.",
-  "needLateAck": "Tick the acknowledgement above first."
+  "needGuestConfirm": "Tick the box about your companion above.",
+  "needLateAck": "Tick the late-cancellation box above."
 }
