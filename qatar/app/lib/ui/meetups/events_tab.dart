@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/card_origin.dart';
 import '../common/loader.dart';
 import '../common/motion.dart';
+import '../common/sufra_background.dart';
 import '../common/table_art.dart';
 import '../format.dart';
 import '../theme.dart';
@@ -36,7 +37,7 @@ class EventsTab extends StatelessWidget {
           // the soonest upcoming meetup is the one filled card; the rest stay a plain list
           final next = upcoming.isEmpty ? null : upcoming.first;
           final rest = [...upcoming.skip(1), ...past];
-          return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+          final list = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
             Text(t.tabEvents, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: HzSpace.s4),
             if (all.isEmpty) ...[
@@ -57,6 +58,8 @@ class EventsTab extends StatelessWidget {
                 onTap: () => pushFromCard(row, '/booking/${b.id}'),
               ))),
           ]);
+          // no meetup yet: the «سُفرة» seats pattern behind the empty state (owner, 15 Nov)
+          return all.isEmpty ? SufraBackground(child: list) : list;
         },
       ),
     );

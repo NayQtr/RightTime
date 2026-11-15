@@ -14,6 +14,7 @@ import '../common/busy_label.dart';
 import '../common/card_origin.dart';
 import '../common/loader.dart';
 import '../common/motion.dart';
+import '../common/sufra_background.dart';
 import '../format.dart';
 import '../theme.dart';
 import '../common/press.dart';
@@ -101,7 +102,7 @@ class _SessionListState extends State<_SessionList> {
     final later = [for (final s in shown) if (!weekKeys.contains(qatarDayKey(s.startsAt))) s];
     // the week heading carries its count: the week's meetups under the kind and area chosen (the strip picks the day)
     final weekN = [for (final s in all) if (weekKeys.contains(qatarDayKey(s.startsAt)) && (area == null || s.district == area) && (kind == null || s.experience == kind)) s].length;
-    return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+    final list = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
       Text(t.cityFull, style: Theme.of(context).textTheme.headlineMedium),
       const SizedBox(height: HzSpace.s4),
       if (all.isNotEmpty) ...[
@@ -174,6 +175,7 @@ class _SessionListState extends State<_SessionList> {
         else
           TestId('notify-me', child: Press(child: OutlinedButton.icon(
             key: const Key('notify-me'),
+            style: OutlinedButton.styleFrom(backgroundColor: c.bg), // solid over the seats pattern
             onPressed: busy ? null : _notifyMe,
             icon: const Icon(Icons.notifications_outlined),
             label: BusyLabel(busy: busy, child: Text(t.notifyMe)),
@@ -189,6 +191,8 @@ class _SessionListState extends State<_SessionList> {
       if (shown.isEmpty && all.isNotEmpty) Text(t.noFilterMatch, key: const Key('no-filter-match')),
       for (final (i, s) in later.indexed) RiseIn(index: i, once: 'home', child: _SessionCard(s)),
     ]);
+    // no meetups to show: the «سُفرة» seats pattern behind the empty state (owner, 15 Nov)
+    return all.isEmpty ? SufraBackground(child: list) : list;
   }
 }
 
