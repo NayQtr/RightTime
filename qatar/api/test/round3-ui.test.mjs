@@ -205,15 +205,13 @@ test("account: labelled groups with icons; language, appearance and the data cop
   assert.equal(await page.locator("ul.settings").count(), 3);
   assert.equal(await page.locator("ul.settings li").count(), await page.locator("ul.settings li .rl svg").count(), "every row starts with an icon");
   assert.deepEqual(await page.locator("ul.settings li .rl").allInnerTexts(), ["إجاباتي", "اشتراكات HerZone", "قرارات تخصّك", "إشعارات الجوال", "المدينة", "اللغة", "المظهر", "إشعار الخصوصية", "تنزيل نسخة من بياناتي"]);
-  // appearance: the theme changes, the row shows a check mark, then the next choice; the keyboard stays on the row
-  assert.equal((await page.locator("#thm .v").innerText()).trim(), "الوضع الداكن");
+  // appearance (design patterns, 15 Nov 2026): a switch; its own state confirms the change, the keyboard stays on it
+  assert.equal(await page.locator("#thm").getAttribute("aria-checked"), "false");
   await page.locator("#thm").focus();
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark");
-  assert.equal(await page.locator("#thm .v.ok svg").count(), 1, "confirmed in the row");
+  assert.equal(await page.locator("#thm").getAttribute("aria-checked"), "true", "confirmed on the switch");
   assert.equal(await page.evaluate(() => document.activeElement.id), "thm");
-  await page.waitForFunction(() => !document.querySelector("#thm .v.ok"));
-  assert.equal((await page.locator("#thm .v").innerText()).trim(), "الوضع العادي");
   assert.equal(await page.locator("#toast").innerText(), "");
   // the data copy: a file, a check mark in the row, and the words for a screen reader
   const [download] = await Promise.all([page.waitForEvent("download"), page.click("#mydata")]);
@@ -391,9 +389,10 @@ test("less motion: the thumb, the waitlist step and the row's check mark are in 
   assert.equal(await page.locator(".scale .thumb").evaluate((e) => getComputedStyle(e).transitionDuration), "0s");
   await page.context().close();
   const p2 = await open("#/profile", { reducedMotion: "reduce" });
+  // appearance is a switch now (design patterns, 15 Nov 2026): its thumb jumps, it does not slide
   await p2.click("#thm");
-  await p2.waitForSelector("#thm .v.ok");
-  assert.equal(await p2.locator("#thm .v.ok").evaluate((e) => getComputedStyle(e).animationName), "none");
+  await p2.waitForSelector("#thm[aria-checked=true]");
+  assert.equal(await p2.locator("#thm .sw-t").evaluate((e) => getComputedStyle(e).transitionDuration), "0s");
   await p2.goto(`${env.base}/#/sessions`); await ready(p2);
   await p2.waitForSelector(".sess");
   if (await p2.locator(".wait-step").count()) assert.equal(await p2.locator(".wait-step").first().evaluate((e) => getComputedStyle(e).animationName), "none");

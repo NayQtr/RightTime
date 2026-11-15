@@ -102,8 +102,8 @@ test("details: the date leads as one large numeral; a summary appears under the 
     assert.ok(info.fits && info.when.length > 4, "the full date and time stay in the heading for screen readers");
     assert.equal(info.colour, await asColour(page, "--c-primary"));
     // the summary: not there at the top, there after scrolling, gone again at the top
-    const pinState = () => page.evaluate(() => { const p = document.querySelector("#pin"), cs = getComputedStyle(p); return { on: p.classList.contains("on"), visibility: cs.visibility, hidden: p.getAttribute("aria-hidden") }; });
-    assert.deepEqual(await pinState(), { on: false, visibility: "hidden", hidden: "true" });
+    const pinState = () => page.evaluate(() => { const p = document.querySelector("#pin"), cs = getComputedStyle(p); return { on: p.classList.contains("on"), visibility: cs.visibility, hidden: [...p.children].filter((c) => c.tagName === "SPAN").every((c) => c.getAttribute("aria-hidden") === "true") }; });
+    assert.deepEqual(await pinState(), { on: false, visibility: "hidden", hidden: true });
     await page.evaluate(() => window.scrollTo(0, 420));
     await page.waitForFunction(() => document.querySelector("#pin").classList.contains("on"));
     await settle(page);
@@ -208,7 +208,8 @@ test("inbox: notifications sit on a rail under their day; the dot is filled whil
   const days = [...new Set(list.map((n) => new Date(new Date(n.created_at).getTime() + 3 * 3600000).toISOString().slice(0, 10)))];
   assert.equal(await page.locator(".rail-day").count(), days.length, "one heading for each day");
   const head = await page.locator(".rail-day").first().evaluate((h) => ({ text: h.textContent.trim(), position: getComputedStyle(h).position, labels: h.parentElement.getAttribute("aria-labelledby") === h.id }));
-  assert.equal(head.text, new Intl.DateTimeFormat("ar-QA-u-nu-latn", { timeZone: "Asia/Qatar", weekday: "long", day: "numeric", month: "long" }).format(new Date(list[0].created_at)));
+  // the newest notification is from today: its day reads «اليوم» (design patterns, 15 Nov 2026)
+  assert.equal(head.text, "اليوم");
   assert.equal(head.position, "sticky");
   assert.ok(head.labels, "each day is a labelled group");
   assert.equal(await page.locator(".rail .msg").count(), list.length);
