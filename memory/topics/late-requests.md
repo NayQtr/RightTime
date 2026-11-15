@@ -3,6 +3,19 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Legal documents [2026-11-15] — owner: publish privacy now, draft the rest
+Owner chose «الخصوصية الآن واكتب الباقي». privacy-qa-5 seed now carries the approved companion lines (ar/en); a one-file
+publish SQL was sent to the owner to run in both SQL editors (connector writes do not reach the owner). GAP found after
+sending: privacy-qa-5 does not mention Gemini (second opinion on a card-name mismatch, first names only) — a line was
+proposed to the owner before running the file. Drafts written for owner + lawyer (15f8219, not published):
+terms-qa-2, conduct-qa-2, cancellation-qa-2 in qatar/docs/legal (36 open questions). Contradictions found between product
+promises and code (to decide): launch-offer refund promised on the pay screen but no code refunds it; fee kept on proven
+breach only for card-name rejection (suspensions refund in full); suspensions never end automatically; no block button and
+blocks never lifted after a won appeal; table-cancel refunds wait for finance approval with no time limit vs «خلال 10 أيام
+عمل», and «لا تتحملين أي رسوم» after she paid; +1 decision record outdated (tablemates now see the name); not in code:
+coordinator ID request, hearing the reported member, sanction ladder, self-move «انقلني لموعد آخر», paid booking with no
+table; plans page shows a refund guarantee for unsold subscriptions; venue bill line in user.js reads masculine.
+
 ## Repair phases after the arena analysis [2026-11-15] — PROPOSED to the owner
 Source: arena winner (.arena run 20261115-224436, not in git). Phases: 0 owner decisions (legal texts, Twilio account,
 payment provider, pattern a/b, backups) → 1 one full booking in production (Twilio secrets, real PSP adapter, publish legal,
