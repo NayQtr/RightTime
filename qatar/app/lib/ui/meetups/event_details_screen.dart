@@ -352,7 +352,7 @@ class _Fact extends StatelessWidget {
       );
 }
 
-/// The one gentle highlight on the details: when the time first comes into view, a thin yellow line draws itself once
+/// The one gentle highlight on the details: when the time first comes into view, a thin mauve line (primary) draws itself once
 /// under it, from the start side. With reduced motion it is simply there. Decoration only: the words are unchanged.
 class _DrawnUnderline extends StatefulWidget {
   const _DrawnUnderline({required this.child});
@@ -413,7 +413,7 @@ class _DrawnUnderlineState extends State<_DrawnUnderline> with SingleTickerProvi
       animation: _draw,
       builder: (context, child) => CustomPaint(
         key: const Key('when-highlight'),
-        foregroundPainter: _UnderlinePainter(progress: _draw.value, color: c.accent, rtl: Directionality.of(context) == TextDirection.rtl),
+        foregroundPainter: _UnderlinePainter(progress: _draw.value, color: c.primary, rtl: Directionality.of(context) == TextDirection.rtl),
         child: child,
       ),
       child: Padding(padding: const EdgeInsets.only(bottom: 3), child: widget.child),
