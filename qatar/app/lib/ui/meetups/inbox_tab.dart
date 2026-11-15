@@ -127,24 +127,27 @@ class _Rail extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = hzColors(context);
     final line = c.primary.withValues(alpha: 0.3);
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        ExcludeSemantics(
-          child: SizedBox(
-            width: 26,
-            child: Stack(children: [
-              PositionedDirectional(start: 8, top: first ? 14 : 0, bottom: last ? null : 0, height: last ? 26 : null, child: Container(width: 1, color: line)),
-              if (dot)
-                PositionedDirectional(
-                  start: 3.5,
-                  top: 22,
-                  child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
-                ),
-            ]),
-          ),
+    // the rail is drawn beside the row at the row's own height (no intrinsic measuring, which came out shorter than a
+    // notice marked "New" and let the time under it run into the next day's header)
+    return Stack(children: [
+      Padding(padding: const EdgeInsetsDirectional.only(start: 26), child: child),
+      PositionedDirectional(
+        start: 0,
+        top: 0,
+        bottom: 0,
+        width: 26,
+        child: ExcludeSemantics(
+          child: Stack(children: [
+            PositionedDirectional(start: 8, top: first ? 14 : 0, bottom: last ? null : 0, height: last ? 26 : null, child: Container(width: 1, color: line)),
+            if (dot)
+              PositionedDirectional(
+                start: 3.5,
+                top: 22,
+                child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
+              ),
+          ]),
         ),
-        Expanded(child: child),
-      ]),
-    );
+      ),
+    ]);
   }
 }
