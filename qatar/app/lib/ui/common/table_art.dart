@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../design/herzone_tokens.dart';
+import '../../l10n/app_localizations.dart';
 import '../theme.dart';
 
 /// The HerZone table drawing (same as the web's welcome): a round table with [seats] chairs, [filled] of them taken
@@ -21,6 +23,58 @@ class TableArt extends StatelessWidget {
         child: CustomPaint(painter: _TablePainter(seats: seats, filled: filled, table: c.surfaceSunken, rim: c.border, seat: c.seat, open: c.borderStrong)),
       ),
     );
+  }
+}
+
+/// The key under a table drawing: a solid seat is taken, a dashed one is free, said in words beside each mark so it is
+/// never told by colour alone. Decoration like the drawing itself, so a screen reader skips both.
+class TableKey extends StatelessWidget {
+  const TableKey({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final c = hzColors(context);
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted);
+    Widget entry(int filled, String text, String id) => Row(key: Key(id), mainAxisSize: MainAxisSize.min, children: [
+          SizedBox.square(dimension: 12, child: CustomPaint(painter: _SeatPainter(filled: filled == 1, seat: c.seat, open: c.borderStrong))),
+          const SizedBox(width: HzSpace.s1),
+          Text(text, style: style),
+        ]);
+    return ExcludeSemantics(
+      child: Wrap(key: const Key('table-key'), spacing: HzSpace.s2, runSpacing: 2, children: [
+        entry(1, t.tableKeyTaken, 'table-key-taken'),
+        entry(0, t.tableKeyFree, 'table-key-free'),
+      ]),
+    );
+  }
+}
+
+class _SeatPainter extends CustomPainter {
+  _SeatPainter({required this.filled, required this.seat, required this.open});
+  final bool filled;
+  final Color seat, open;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.shortestSide / 2 - 1;
+    final center = size.center(Offset.zero);
+    if (filled) {
+      canvas.drawCircle(center, r, Paint()..color = seat);
+    } else {
+      _dashedCircle(canvas, center, r, Paint()..color = open..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SeatPainter old) => old.filled != filled || old.seat != seat || old.open != open;
+}
+
+void _dashedCircle(Canvas canvas, Offset c, double r, Paint paint) {
+  const dashes = 10;
+  for (var i = 0; i < dashes; i++) {
+    final start = i * 2 * math.pi / dashes;
+    canvas.drawArc(Rect.fromCircle(center: c, radius: r), start, math.pi / dashes, false, paint);
   }
 }
 
@@ -45,14 +99,6 @@ class _TablePainter extends CustomPainter {
       } else {
         _dashedCircle(canvas, p, seatR, Paint()..color = open..style = PaintingStyle.stroke..strokeWidth = s * 0.012);
       }
-    }
-  }
-
-  void _dashedCircle(Canvas canvas, Offset c, double r, Paint paint) {
-    const dashes = 10;
-    for (var i = 0; i < dashes; i++) {
-      final start = i * 2 * math.pi / dashes;
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r), start, math.pi / dashes, false, paint);
     }
   }
 
