@@ -1221,3 +1221,35 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
   .plus-btn[aria-pressed="true"] .plus-ok { animation: none; }
   .sw, .sw-t, .sw-t .i { transition: none; }
 }
+
+/* ---------- «سُفرة» seats pattern (owner decision 15 Nov 2026, option B): a quiet background layer in HerZone's own
+   identity. Single dashed seats only (r 4, stroke 1.25, dashes 3 / 2.5), never filled (a filled seat means "taken" in the
+   table drawing, motif.js) and no table rings (they would read as the logo). A staggered 64 px grid; layer 1 on every
+   seat in --c-borderStrong, layer 2 on one seat of each 192 px row group in --c-seat. The SVGs are masks (data: URIs,
+   allowed by the CSP's img-src) and the colour is the token behind them, so dark mode follows by itself. Static.
+   app.js puts the class on <body> on the welcome screen, the questionnaire interstitials and the empty states; the
+   /about page uses it on the bands between sections. Layer 2 is 0.15 in light (0.22 in the mockup): at 0.22, where it
+   crosses layer 1, muted text over a dash drops to 4.1:1; at 0.15 it keeps 4.5:1 (sufra-ui.test.mjs checks it). */
+:root { --sufra-o1: 0.30; --sufra-o2: 0.15; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sufra-o2: 0.22; } }
+:root[data-theme="dark"] { --sufra-o2: 0.22; }
+.sufra-bg { isolation: isolate; }
+.sufra-bg:not(body) { position: relative; }
+.sufra-bg::before, .sufra-bg::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  -webkit-mask-repeat: repeat; mask-repeat: repeat; -webkit-mask-position: 0 0; mask-position: 0 0; }
+body.sufra-bg::before, body.sufra-bg::after { position: fixed; }
+.sufra-bg::before { background: var(--c-borderStrong); opacity: var(--sufra-o1);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='none' stroke='currentColor' stroke-width='1.25' stroke-dasharray='3 2.5'%3E%3Ccircle cx='16' cy='16' r='4'/%3E%3Ccircle cx='48' cy='48' r='4'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='none' stroke='currentColor' stroke-width='1.25' stroke-dasharray='3 2.5'%3E%3Ccircle cx='16' cy='16' r='4'/%3E%3Ccircle cx='48' cy='48' r='4'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-size: 64px 64px; mask-size: 64px 64px; }
+.sufra-bg::after { background: var(--c-seat); opacity: var(--sufra-o2);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='64'%3E%3Cg fill='none' stroke='currentColor' stroke-width='1.25' stroke-dasharray='3 2.5'%3E%3Ccircle cx='16' cy='16' r='4'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='64'%3E%3Cg fill='none' stroke='currentColor' stroke-width='1.25' stroke-dasharray='3 2.5'%3E%3Ccircle cx='16' cy='16' r='4'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-size: 192px 64px; mask-size: 192px 64px; }
+/* cards and the photo already have solid surfaces; the outlined button gets the page colour, so no dash shows through it */
+.sufra-bg :where(.btn-secondary) { background: var(--c-bg); }
+/* /about: a band of seats between sections, in place of the plain gap */
+.sufra-break { display: block; height: 64px; }
+@media (prefers-contrast: more), (forced-colors: active) {
+  .sufra-bg::before, .sufra-bg::after { display: none; }
+}

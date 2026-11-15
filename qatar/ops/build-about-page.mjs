@@ -50,6 +50,8 @@ function picture({ name, sizes }, { sizesAttr, eager = false, cls = "about-photo
     + `<img src="${IMG}/${name}-${w}.jpg" srcset="${set("jpg")}" sizes="${sizesAttr}" width="${w}" height="${h}" alt="" ${load}></picture>`;
 }
 const figure = (pic, caption) => `<figure class="about-figure">${pic}<figcaption class="caption">${esc(caption)}</figcaption></figure>`;
+// the «سُفرة» seats pattern as the break between sections (owner decision, 15 Nov 2026; styles.css .sufra-bg)
+const BREAK = '<div class="sufra-bg sufra-break" aria-hidden="true"></div>';
 
 export function aboutPage(lang) {
   const S = STRINGS[lang];
@@ -113,34 +115,34 @@ export function aboutPage(lang) {
       </div>
       <figure class="about-figure">${picture(HERO, { sizesAttr: "(min-width: 1024px) 480px, 100vw", eager: true })}</figure>
     </section>
-
+    ${BREAK}
     <section aria-labelledby="how-title">
       <h2 id="how-title">${esc(T("howTitle"))}</h2>
       <ol class="steps">${["how1", "how2", "how3", "how4"].map((k, j) => `<li><span class="n" aria-hidden="true">${j + 1}</span><span>${esc(T(k))}</span></li>`).join("")}</ol>
     </section>
-
+    ${BREAK}
     <section aria-labelledby="safety-title">
       <h2 id="safety-title">${esc(T("safetyTitle"))}</h2>
       <ul class="benefits">${["safe1", "safe2", "safe3", "safe4"].map((k) => `<li><span class="bi">${icon("check")}</span><span>${esc(T(k))}</span></li>`).join("")}</ul>
     </section>
-
+    ${BREAK}
     <section aria-labelledby="venues-title">
       <h2 id="venues-title">${esc(T("wyg2t"))}</h2>
       <p class="pull">${esc(T("wyg2b"))}</p>
       <ul class="about-gallery">${GALLERY.map((g) => `<li>${picture(g, { sizesAttr: "(min-width: 1024px) 240px, 50vw" })}</li>`).join("")}</ul>
     </section>
-
+    ${BREAK}
     <section aria-labelledby="refund-title">
       <h2 id="refund-title">${esc(T("refundLabel"))}</h2>
       <div class="banner banner-info"><span class="icon">${icon("info")}</span><div>${esc(T("wygRefundGeneric"))}</div></div>
       <p class="caption">${esc(T("wygPriceNoFee"))}</p>
     </section>
-
+    ${BREAK}
     <section aria-labelledby="faq-title">
       <h2 id="faq-title">${esc(T("faqTitle"))}</h2>
       <div class="faq">${[1, 2, 3, 4].map((k) => `<details><summary>${esc(T(`faq${k}q`))}</summary><p class="muted">${esc(T(`faq${k}a`))}</p></details>`).join("")}</div>
     </section>
-
+    ${BREAK}
     <section class="about-closing" aria-labelledby="closing-title">
       <h2 id="closing-title">${esc(T("bookSeat"))}</h2>
       ${figure(picture(CLOSING, { sizesAttr: "(min-width: 1024px) 320px, 100vw" }), T("aboutCapSeat"))}

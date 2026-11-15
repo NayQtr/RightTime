@@ -110,8 +110,14 @@ function startEntrance() {
   main.classList.add(`enter-${navDir}`);
 }
 
+// The «سُفرة» seats pattern behind the page (owner decision, 15 Nov 2026, option B; styles.css .sufra-bg): only on the
+// screens that ask for it (welcome, the questionnaire interstitials, the empty states); every other screen, and every
+// screen while it loads, keeps the plain background.
+const sufraBg = (on) => document.body.classList.toggle("sufra-bg", Boolean(on));
 // opts.focus: a control that keeps the keyboard (a toggle that redrew the screen); the page then stays where it was.
+// opts.sufra: the seats pattern behind this screen.
 function view(title, html, opts = {}) {
+  sufraBg(opts.sufra);
   main.inert = false;
   main.removeAttribute("aria-busy");
   const y = window.scrollY;
@@ -145,6 +151,7 @@ function setBusy(el, on) { el.disabled = on; if (on) el.setAttribute("aria-busy"
 // Home reserves the places of its heading, tiles and first cards while it loads, so nothing jumps when they arrive
 // (round 3, after Apple); on a wide screen the places follow the wide layout.
 function loadingView(kind) {
+  sufraBg(false);
   if (kind === "home") {
     main.innerHTML = `<div class="skel skel-home" role="status" aria-busy="true" aria-label="${esc(T("loading"))}"><span class="skel-title"></span><span class="skel-line"></span>
       <span class="skel-h2"></span><span class="skel-tiles"><i></i><i></i><i></i></span><span class="skel-line count"></span><span class="skel-h2 small"></span><span class="skel-slots"><i></i><i></i><i></i></span></div>`;
@@ -369,7 +376,7 @@ function scrWelcome() {
         ${canResume ? "" : `<a class="btn btn-primary btn-block" id="start" href="#/quiz/0">${esc(T("getStarted"))}</a>`}
         <a class="btn btn-secondary btn-block" href="#/signin">${esc(T("haveAccount"))}</a>
       </div>
-    </section>`);
+    </section>`, { sufra: true });
   if (canResume) $("#over").onclick = () => { clearDeviceProgress(); state.quiz = null; go("#/quiz/0"); };
   // Design patterns (15 Nov 2026): the resume card says how long is left (the quiz's own time-left line), counted
   // from the step she stopped at; nothing is added when no question is left or the questions cannot be loaded.
@@ -879,7 +886,8 @@ function scrInter(id, i, back) {
       .map((k) => `<li><span class="bi">${icon("check")}</span><span>${esc(T(k))}</span></li>`).join("")}</ul>`,
   };
   view(T(id === "vibe" ? `vibe_${vibe}` : id === "energy" ? `energy_${energy}` : `${id}Title`), `${quizHead(back, "", null)}<section class="inter" data-inter="${id}">${screens[id]()}</section>
-    ${id === "ready" ? "" : `<div class="quiz-foot"><div><button class="btn btn-primary btn-block" id="nx">${esc(T("continue"))}</button></div></div>`}`);
+    ${id === "ready" ? "" : `<div class="quiz-foot"><div><button class="btn btn-primary btn-block" id="nx">${esc(T("continue"))}</button></div></div>`}`,
+    { sufra: id !== "data" }); // the pattern, except behind the privacy screen's longer text
   if (id === "ready") {
     state.quizReturn = i;
     $("#yes").onclick = done;
@@ -1787,7 +1795,7 @@ async function scrHome() {
     ${groups.length ? `${groups.map(([k, list], gi) => `<section class="week-group" aria-labelledby="wg-${k}"><h2 id="wg-${k}">${esc(T(k))}${weekCount(list.length)}</h2>${gi === 0 ? peekRow(list)
       : `<ul class="list">${list.map((x) => sessionCard(x)).join("")}</ul>`}</section>`).join("")}<p class="muted no-match" id="no-match" hidden>${esc(T("noMatch"))}</p>`
       : `<div class="empty">${tableSvg({ seats: 6 })}<p class="muted">${esc(T("noUpcoming"))}</p></div>`}
-    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`, { sufra: !groups.length });
   // The filter: one day (the week strip) and one kind (the dinner and coffee tiles), each cleared by a second tap. Cards
   // are hidden, never re-rendered, and the entrance does not play again when they come back (main.settled).
   // Back from a meetup brings the same filter back (route(): remembered for this history entry, this page load only)
@@ -1900,7 +1908,7 @@ async function scrEvents() {
       <li><a class="card card-link" href="#/booking/${b.id}"><div class="row between"><span>${esc(T(b.experience))} · ${esc(fmtDate(b.starts_at, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>${statusBadge(b)}</div>
       <span class="caption">${num(b.ref)} · ${esc(b.district)}${b.seats === 2 ? ` · ${plusTag(b)} · <span class="num">${esc(b.amount.display)}</span>` : ""}</span></a></li>`).join("")}</ul>` : ""}
     ${next ? `<a class="btn btn-secondary btn-block" href="#/home">${esc(T("bookAnother"))}</a>` : ""}
-    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
+    <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`, { sufra: !hero });
   const rulesBox = $("#ready-rules");
   if (rulesBox) rulesBox.addEventListener("toggle", () => {
     if (!rulesBox.open || store.get("rulesRead")) return;
