@@ -3,6 +3,15 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Website UX/accessibility fixes [2026-11-15] — BUILT on rightime-app (website only), NOT released
+Audit gaps fixed (fee1696, 0db24ae, f542f67, bfd86d8): focus above the tab bar, tab labels scale with text, Back keeps
+scroll and Home filter, entrance on first visit only, +1 visible label, pay-button reason, linked registration and report
+errors, inline errors instead of error toasts, in-page delete dialog, feedback sent once, appeal retry, dinner/coffee
+keeps focus. Waiting on the owner: review of the new lines (Claude's wording, strings.js, ar/en): plusOneLabel
+«أضيفي مرافقة», payNeedAck «ضعي علامة على إقرار الإلغاء المتأخر أعلاه.», payNeedPlusOk «ضعي علامة على تأكيد مرافقتك
+أعلاه.», payNeedPlusName «اكتبي اسم مرافقتك أعلاه.», womanRequired «أكّدي أنكِ امرأة للمتابعة.», ageRequired «أكّدي أن
+عمركِ 18 عامًا أو أكثر للمتابعة.», deleteKeep «إبقاء حسابي», categoryRequired «اختاري نوع المشكلة.»
+
 ## Owner's texts of 14 Nov and "+1" [2026-11-14] — BUILT on rightime-app (website and server), NOT released
 Owner approved on 14 Nov: (A1) three waitlist steps under a full session, (A2) the one-line refund text under the pay
 button and in the booking details, (A3) the fee page «ماذا يشمل رسم التنظيم؟» with five questions; and decided (B) «+1»: a
