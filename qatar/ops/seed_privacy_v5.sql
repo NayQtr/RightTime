@@ -20,6 +20,7 @@ HerZone تنظّم لقاءات عشاء وقهوة في الدوحة للنسا
   - بعض الأسئلة قد تُعدّ حساسة، مثل الحالة الاجتماعية والأطفال. أجيبي عنها فقط إن رغبتِ، ولكلٍّ منها خيار «أفضّل عدم الإجابة».
 - موافقاتكِ ونسخة كل وثيقة وافقتِ عليها.
 - حجوزاتكِ وحالة الدفع. يتم الدفع في صفحة مزوّد الدفع. لا نحفظ رقم بطاقتكِ؛ نحفظ نوع البطاقة وآخر 4 أرقام منها فقط.
+- اسم مرافقتكِ إن اخترتِ «+1» عند الحجز. نحفظ اسمها فقط، دون رقمها أو أي بيانات أخرى عنها.
 - طلبات التواصل بعد اللقاء: من أرسلتِ إليها طلبًا، ومن أرسلت إليكِ، وردّكِ.
 - الحضور، وتقييماتكِ الخاصة، والبلاغات إن قدّمتِ بلاغًا أو قُدّم بلاغ بشأنكِ.
 - جزء مختصر من عنوان IP (بدون الجزء الأخير): لمنع إساءة استخدام رموز التحقق ولتوثيق موافقاتكِ. لا نستخدمه لتتبعكِ أو للتعرف عليكِ.
@@ -54,6 +55,7 @@ HerZone تنظّم لقاءات عشاء وقهوة في الدوحة للنسا
 
 5. من يرى بياناتكِ
 - من على طاولتكِ يرين اسمكِ الأول فقط في يوم اللقاء. لا يرين رقمكِ ولا إجاباتكِ.
+- إن حضرت معكِ مرافقة، يرى من على طاولتكِ اسمها كما كتبتِه، في يوم اللقاء فقط.
 - قد تظهر للطاولة جملة عامة عمّا تشترك فيه نصف الطاولة على الأقل، مثل «يجمعكن: السفر، الحوارات العميقة».
   - لا تُنسب لأي واحدة منكن.
   - لا تُؤخذ أبدًا من الفئة العمرية أو الأطفال أو الحالة الاجتماعية أو مجال العمل.
@@ -75,6 +77,7 @@ HerZone تنظّم لقاءات عشاء وقهوة في الدوحة للنسا
 - إجاباتكِ السابقة بعد تحديثها: 30 يومًا.
 - رموز التحقق: 24 ساعة على الأكثر.
 - عند طلب حذف الحساب: مهلة 14 يومًا يمكنكِ خلالها التراجع، ثم إزالة رقمكِ واسمكِ خلال 30 يومًا.
+- يُحذف اسم مرافقتكِ مع حذف حسابكِ.
 
 8. حقوقكِ
 - تعديل إجاباتكِ من «حسابي» ثم «إجاباتي»، وترك أي سؤال اختياري دون إجابة.
@@ -95,6 +98,7 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
   - Some questions may be sensitive, such as marital status and children. Answer them only if you want to; each has "I prefer not to say".
 - Your consents and the version of each document you accepted.
 - Your bookings and payment status. Payment happens on the payment provider's page. We never store your card number, only the card brand and its last 4 digits.
+- Your companion's name, if you choose "+1" when booking. We keep her name only, not her number or anything else about her.
 - Contact requests after the meetup: whom you sent a request to, who sent you one, and your answer.
 - Attendance, your private ratings, and safety reports you make or that are made about you.
 - A shortened part of your IP address (without the last part): to stop misuse of verification codes and to record your consents. We do not use it to track or identify you.
@@ -129,6 +133,7 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
 
 5. Who sees your data
 - People at your table see only your first name, on the day of the event. They do not see your number or your answers.
+- If a companion comes with you, the people at your table see her name as you typed it, on the day of the event only.
 - The table may see a general line about what at least half of it has in common, for example "What you share: travel, deep conversations".
   - It is never attributed to any one of you.
   - It is never drawn from age range, children, marital status or field of work.
@@ -150,6 +155,7 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
 - Your earlier answers after you update them: 30 days.
 - Verification codes: 24 hours at most.
 - When you ask to delete your account: a 14-day period in which you can change your mind, then your number and name are removed within 30 days.
+- Your companion's name is deleted together with your account.
 
 8. Your rights
 - Edit your answers in Profile, then My answers, and leave any optional question unanswered.
