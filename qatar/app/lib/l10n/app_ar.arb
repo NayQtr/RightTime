@@ -447,5 +447,17 @@
         "type": "String"
       }
     }
+  },
+  "unreadCount": "{n} غير مقروءة",
+  "newTag": "جديد",
+  "needGuestName": "اكتبي اسم مرافقتك.",
+  "needGuestConfirm": "ضعي علامة على تأكيد مرافقتك.",
+  "needLateAck": "ضعي علامة على الإقرار أعلاه أولًا.",
+  "@unreadCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

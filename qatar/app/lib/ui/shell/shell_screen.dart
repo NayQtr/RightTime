@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_error.dart';
+import '../../core/device_unlock.dart';
 import '../../core/sounds.dart';
 import '../../design/herzone_tokens.dart';
+import '../../domain/inbox_badge.dart';
 import '../../domain/locale_controller.dart';
 import '../../domain/session.dart';
 import '../../l10n/app_localizations.dart';
@@ -13,23 +15,45 @@ import '../common/press.dart';
 import '../../domain/theme_controller.dart';
 import '../theme.dart' show hzColors;
 
-/// The four tabs of the web app: home, my meetups, notifications, account.
-class ShellScreen extends StatelessWidget {
+/// The four tabs of the web app: home, my meetups, notifications, account. The notifications tab carries the number of
+/// notifications new since her last visit to it (the website's rule, NMX-18).
+class ShellScreen extends StatefulWidget {
   const ShellScreen({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
 
   @override
+  State<ShellScreen> createState() => _ShellScreenState();
+}
+
+class _ShellScreenState extends State<ShellScreen> {
+  static const _inbox = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.shell.currentIndex != _inbox) context.read<InboxBadge>().refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final shell = widget.shell;
     return Scaffold(
       body: shell,
       bottomNavigationBar: _TabBar(
         selected: shell.currentIndex,
         onSelected: (i) {
           Sounds.instance.play(UiSound.tap);
+          final badge = context.read<InboxBadge>();
+          if (i == _inbox) {
+            badge.opened(clear: context.read<PrivacyLock>().unlocked);
+          } else {
+            badge.refresh();
+          }
           shell.goBranch(i, initialLocation: i == shell.currentIndex);
         },
+        badge: (_inbox, context.watch<InboxBadge>().unread),
         tabs: [
           (Icons.home_outlined, Icons.home, t.tabHome),
           (Icons.calendar_month_outlined, Icons.calendar_month, t.tabEvents),
@@ -45,17 +69,22 @@ class ShellScreen extends StatelessWidget {
 /// one (owner, 14 Nov: rounds 1-3) instead of fading out and in. It jumps at once when the device asks for reduced
 /// motion.
 class _TabBar extends StatelessWidget {
-  const _TabBar({required this.selected, required this.onSelected, required this.tabs});
+  const _TabBar({required this.selected, required this.onSelected, required this.tabs, this.badge = (-1, 0)});
 
   final int selected;
   final ValueChanged<int> onSelected;
   final List<(IconData, IconData, String)> tabs;
 
+  /// The tab that carries a count, and the count (none shown at 0).
+  final (int, int) badge;
+
   @override
   Widget build(BuildContext context) {
     final c = hzColors(context);
+    final t = AppLocalizations.of(context);
     final label = Theme.of(context).textTheme.labelMedium;
     final n = tabs.length;
+    final (badgeAt, count) = badge;
     return Material(
       color: c.surface,
       shape: Border(top: BorderSide(color: c.border)),
@@ -82,13 +111,24 @@ class _TabBar extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     selected: i == selected,
+                    // the count is read with the tab's name ("Notifications, 3 unread")
+                    label: i == badgeAt && count > 0 ? '$text، ${t.unreadCount(count)}' : null,
+                    excludeSemantics: i == badgeAt && count > 0,
+                    button: i == badgeAt && count > 0 ? true : null,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(HzRadius.md),
                       onTap: () => onSelected(i),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 52),
                         child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(i == selected ? iconOn : icon, color: i == selected ? c.primary : c.textMuted),
+                          Badge(
+                            key: i == badgeAt ? const Key('inbox-badge') : null,
+                            isLabelVisible: i == badgeAt && count > 0,
+                            label: Text(count > 9 ? '9+' : '$count'),
+                            backgroundColor: c.primary,
+                            textColor: c.onPrimary,
+                            child: Icon(i == selected ? iconOn : icon, color: i == selected ? c.primary : c.textMuted),
+                          ),
                           Text(text, maxLines: 1, overflow: TextOverflow.ellipsis,
                               style: label?.copyWith(color: i == selected ? c.primary : c.textMuted, fontWeight: i == selected ? FontWeight.w600 : null)),
                         ]),

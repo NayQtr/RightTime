@@ -936,4 +936,21 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get cancelBothSeats => 'الإلغاء يشمل مقعدك ومقعد مرافقتك.';
+
+  @override
+  String unreadCount(int n) {
+    return '$n غير مقروءة';
+  }
+
+  @override
+  String get newTag => 'جديد';
+
+  @override
+  String get needGuestName => 'اكتبي اسم مرافقتك.';
+
+  @override
+  String get needGuestConfirm => 'ضعي علامة على تأكيد مرافقتك.';
+
+  @override
+  String get needLateAck => 'ضعي علامة على الإقرار أعلاه أولًا.';
 }
