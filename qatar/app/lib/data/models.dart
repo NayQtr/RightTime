@@ -131,6 +131,13 @@ class EventDetails {
 
   /// After the reveal: 'birthday' or 'other' when another woman at the table celebrates (never who); null otherwise.
   String? get celebration => _t?['celebration'] as String?;
+
+  /// After the reveal: one conversation question for the table's shared themes, from the owner-approved library only
+  /// (server: lib/openers.js); null while none is approved.
+  String? get opener {
+    final s = _t?['opener'] as String?;
+    return s == null || s.trim().isEmpty ? null : s;
+  }
   Venue? get venue => _v == null
       ? null
       : Venue(

@@ -1972,6 +1972,7 @@ async function scrDetails(id) {
       <div><h2>${esc(T("yourTable"))}</h2><p class="label">${esc(T("confirmedCount", { n: e.table.confirmed_count }))}</p></div></div>
       ${seatKey()}
       ${e.table.shared_themes && e.table.shared_themes.length ? `<p class="shared-themes">${icon("sparkle")}<span>${esc(T("sharedThemes", { list: e.table.shared_themes.join(T("listSep")) }))}</span></p>` : ""}
+      ${e.table.opener ? `<p class="shared-themes" id="table-opener">${icon("message-circle")}<span>${esc(e.table.opener)}</span></p>` : ""}
       ${e.table.celebration ? `<p class="shared-themes" id="celebration">${icon(e.table.celebration === "birthday" ? "cake" : "sparkle")}<span>${esc(T(e.table.celebration === "birthday" ? "celebrationBirthday" : "celebrationOther"))}</span></p>` : ""}
       <p class="caption">${esc(T("introTip"))}</p>
       ${e.table.members ? `<h3 class="label">${esc(T("tablemates"))}</h3><p>${esc(e.table.members.flatMap((m) => [m.display_name || T("unnamed"), m.guest_name].filter(Boolean)).join("، "))}</p>` : ""}</section>`

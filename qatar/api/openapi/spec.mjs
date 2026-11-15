@@ -278,6 +278,7 @@ export const spec = {
         reveal: obj({ phase: ref("Phase"), lock_at: nullable(ts), reveal_at: nullable(ts), check_in_opens_at: nullable(ts) }),
         identity_check: str({ enum: ["pending"], description: "Present while the name on her payment card is reviewed: venue, table code and tablemates stay hidden until it is approved" }),
         table: nullable(obj({ confirmed_count: { type: "integer" }, capacity: { type: "integer" }, code: str(), shared_themes: { type: "array", items: str() },
+          opener: nullable(str({ description: "After the reveal: one conversation question for the table's shared themes, from the owner-approved library only; null when none is approved" })),
           members: { type: "array", items: obj({ seat: str(), display_name: nullable(str()) }) },
           celebration: nullable(str({ enum: ["birthday", "other"], description: "After the reveal (phases revealed and day_of): another woman at this table celebrates; never says who, and never shows her own occasion" })) },
           ["confirmed_count", "capacity"])),

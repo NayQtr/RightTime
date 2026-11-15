@@ -10,6 +10,7 @@ import { alertKind, pageWithin, raiseAlert } from "../services/coordinator_alert
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
 import { LOW_RATING_REASONS } from "../lib/feedback.js";
+import { openerFor } from "../lib/openers.js";
 import { isE164 } from "../lib/validate.js";
 import { issueTokens, refreshTokens } from "../services/auth.js";
 import { notificationText, notifySessionAlerts } from "../services/notifications.js";
@@ -875,6 +876,7 @@ async function eventDetails(ctx) {
     if (phase !== "locked" && !restricted) {
       out.table.code = t.table_code;
       out.table.shared_themes = (t.match_themes || []).map((th) => (locale === "en" ? th.en : th.ar));
+      out.table.opener = openerFor(t.match_themes, locale);   // owner-approved lines only (lib/openers.js)
     }
     // Item 33 (provisional): once the venue is revealed, the other women at the table see that one guest celebrates,
     // never who; only the kind leaves the server (birthday first when there are both). Her own occasion is not shown.

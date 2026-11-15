@@ -1,0 +1,37 @@
+# Drafts the table opener library with Gemini (owner's decision, 15 Nov 2026). Run by hand only. Gemini receives the
+# questionnaire's question and option texts, never member data. The drafts come back as a workflow artifact for the
+# owner to review; nothing is committed or pushed, and no line reaches members until it is approved and copied into
+# qatar/api/src/lib/openers.js. Needs the GEMINI_API_KEY repository secret (GEMINI_MODEL is optional).
+name: Draft table openers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: draft-openers
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Draft one opener per theme
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+        run: node qatar/ops/draft-openers.mjs
+      - name: Upload the drafts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opener-drafts
+          path: qatar/docs/openers/drafts.json
+          if-no-files-found: warn

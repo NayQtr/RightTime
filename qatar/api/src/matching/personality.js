@@ -41,7 +41,7 @@ export const FEATURES = [
 ];
 // Questions a member-facing "what you share" line may draw from (spec §6), in tie-break order.
 export const THEME_QUESTIONS = ["Q05", "Q19", "Q18", "Q20", "Q09", "Q13", "Q14", "Q15", "Q17"];
-const THEME_EXCLUDED_OPTIONS = new Set(["mix", "any", NO_PREF, NO_SAY]);
+export const THEME_EXCLUDED_OPTIONS = new Set(["mix", "any", NO_PREF, NO_SAY]);
 const MAX_THEMES = 3;
 
 export class PersonalityError extends Error {}

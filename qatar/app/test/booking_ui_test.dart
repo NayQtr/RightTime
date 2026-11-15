@@ -78,6 +78,27 @@ void main() {
     expect(find.byKey(const Key('celebration')), findsNothing);
   });
 
+  testWidgets('revealed table: an approved opener question shows in the table block, with its icon', (tester) async {
+    await openDetails(tester, withDetails((d) => (d['table'] as Map<String, dynamic>)['opener'] = 'سؤال تجريبي للطاولة؟'));
+    expect(find.byKey(const Key('table-opener')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('table-opener')), matching: find.text('سؤال تجريبي للطاولة؟')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('table-opener')), matching: find.byIcon(Icons.chat_bubble_outline)), findsOneWidget);
+    expect(tester.getTopLeft(find.byKey(const Key('table-opener'))).dy > tester.getTopLeft(find.text('طاولتك')).dy, true,
+        reason: 'inside the table block, under its title');
+  });
+
+  testWidgets('no approved opener (null): no line', (tester) async {
+    await openDetails(tester, withDetails((d) => d['table'] = <String, dynamic>{...(d['table'] as Map<String, dynamic>), 'opener': null}));
+    expect(find.byKey(const Key('venue')), findsOneWidget);
+    expect(find.byKey(const Key('table-opener')), findsNothing);
+  });
+
+  testWidgets('no opener field at all: no line', (tester) async {
+    await openDetails(tester, withDetails((d) {}));
+    expect(find.byKey(const Key('venue')), findsOneWidget);
+    expect(find.byKey(const Key('table-opener')), findsNothing);
+  });
+
   test('the generic error gets its next step (ours or the server\'s same words); other messages stay as they are', () {
     for (final (code, generic, next, other) in [
       ('ar', 'حدث خطأ. حاولي مرة أخرى.', 'إن تكرّر الخطأ، تواصلي معنا.', 'الرمز غير صحيح.'),
