@@ -3,6 +3,14 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## Production release of eb207d5 [2026-11-15] — DONE
+Owner: «انزل الكل وتأكد من كل شي» (15 Nov). Baseline checks recorded (eb207d5). CI green on eb207d5 → `release`
+fast-forwarded d703847 → eb207d5 → production dpl_2K7nubqsZefpzbmuRoUu7HaRedzv and staging
+dpl_BVVA9brYVUBSm5nDTKFDh244Szne. After: both serve herzone-web@eb207d5088fb; smoke checks pass on both; live welcome
+and sessions pages on both sites at 360 and 430 px, ar/en, light/dark: no page error, no sideways scroll; Sentry: no
+unresolved issue in the last hour. Contains: website and app UX/accessibility fixes and the 13 reference patterns. The
+app reaches members only through the stores (NMX-45/46 still open).
+
 ## App UX fixes and design patterns [2026-11-15] — owner: «انزل الكل وتأكد من كل شي» (15 Nov): all new lines approved as written, the rail fix kept, both seat-key wordings kept as they are; released (see below)
 Merged 72d7908 (patterns) and b6334b1 (accessibility); the time underline on the details is mauve (81aec05), never
 yellow. Store screenshots regenerated. Waiting on the owner: review of the new app lines (Claude's wording, app_ar.arb):
