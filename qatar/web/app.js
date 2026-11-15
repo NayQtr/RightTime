@@ -2239,6 +2239,8 @@ function renderTabbar(hash) {
 function placeTabMarker(jump) {
   const nav = document.getElementById("tabbar"), a = nav.querySelector('a[aria-current="page"]');
   if (nav.hidden || !a) return;
+  // its height, so focus and the last content are never under it (styles.css scroll-padding-bottom); it grows with the text
+  document.documentElement.style.setProperty("--tabbar-h", `${nav.offsetHeight}px`);
   if (jump) nav.classList.add("no-glide");
   nav.style.setProperty("--ind-x", `${a.offsetLeft}px`);
   nav.style.setProperty("--ind-w", `${a.offsetWidth}px`);
