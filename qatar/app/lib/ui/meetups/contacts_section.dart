@@ -26,6 +26,7 @@ class _ContactsSectionState extends State<ContactsSection> {
   Contacts? data;
   ApiError? error;
   String? note;
+  bool busy = false; // one answer at a time: the buttons wait while a request runs
 
   @override
   void initState() {
@@ -43,12 +44,19 @@ class _ContactsSectionState extends State<ContactsSection> {
   }
 
   Future<void> _act(Future<void> Function() f, String done) async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
     try {
       await f();
       note = done;
       await _load();
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => busy = false);
     }
   }
 
@@ -87,11 +95,11 @@ class _ContactsSectionState extends State<ContactsSection> {
                     )),
                   if (m.state == 'sent') Text(t.contactSent),
                   if (m.state == 'incoming' && m.requestId != null) ...[
-                    Press(child: TextButton(key: Key('decline-${m.seat}'), onPressed: () => _act(() => repo.answerContact(m.requestId!, accept: false), t.contactDeclined), child: Text(t.contactDecline))),
+                    Press(child: TextButton(key: Key('decline-${m.seat}'), onPressed: busy ? null : () => _act(() => repo.answerContact(m.requestId!, accept: false), t.contactDeclined), child: Text(t.contactDecline))),
                     Press(child: FilledButton(
                       key: Key('accept-${m.seat}'),
                       style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                      onPressed: () => _act(() => repo.answerContact(m.requestId!, accept: true), t.contactAccepted),
+                      onPressed: busy ? null : () => _act(() => repo.answerContact(m.requestId!, accept: true), t.contactAccepted),
                       child: Text(t.contactAccept),
                     )),
                   ],
@@ -99,7 +107,7 @@ class _ContactsSectionState extends State<ContactsSection> {
                     Press(child: OutlinedButton(
                       key: Key('ask-${m.seat}'),
                       style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
-                      onPressed: () => _act(() => repo.requestContact(widget.bookingId, m.seat), t.contactSent),
+                      onPressed: busy ? null : () => _act(() => repo.requestContact(widget.bookingId, m.seat), t.contactSent),
                       child: Text(t.contactSend),
                     )),
                 ]),

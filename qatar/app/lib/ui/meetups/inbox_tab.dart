@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/device_unlock.dart';
 import '../../data/meetups_repository.dart';
 import '../../data/models.dart';
+import '../../domain/inbox_badge.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
@@ -24,6 +25,7 @@ class InboxTab extends StatelessWidget {
     final repo = context.read<MeetupsRepository>();
     final lang = context.watch<LocaleController>().code;
     final lock = context.watch<PrivacyLock>();
+    final badge = context.watch<InboxBadge>();
     if (!lock.unlocked) {
       return SafeArea(
         child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
@@ -38,10 +40,17 @@ class InboxTab extends StatelessWidget {
       );
     }
     return SafeArea(
-      child: Loader<List<Notice>>(
-        key: ValueKey(lang),
-        load: repo.notifications,
-        builder: (context, list, _) => NewNoticeSound(newest: _newest(list), child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+      // fetched again on each visit to the tab; what is new since her last visit is marked, and from now on seen (the
+      // website's rule, NMX-18)
+      child: Loader<(List<Notice>, String?)>(
+        key: ValueKey('$lang-${badge.visit}'),
+        load: () async {
+          final list = await repo.notifications();
+          return (list, badge.markSeen(list));
+        },
+        builder: (context, data, _) {
+          final (list, seen) = data;
+          return NewNoticeSound(newest: _newest(list), child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
           Text(t.tabInbox, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: HzSpace.s4),
           if (list.isEmpty) ...[Text(t.noNotifications, style: Theme.of(context).textTheme.titleLarge), Text(t.inboxEmptyBody)],
@@ -58,17 +67,25 @@ class InboxTab extends StatelessWidget {
               ),
             _Rail(
               dot: true,
+              filled: InboxBadge.isNew(n, seen),
               last: i + 1 == list.length,
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(n.text),
+                // a new one: a filled dot, its words in bold and the word "New" (never colour alone), as on the website
+                title: InboxBadge.isNew(n, seen)
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(t.newTag, key: Key('new-${n.id}'), style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).primary, fontWeight: FontWeight.w700)),
+                        Text(n.text, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ])
+                    : Text(n.text),
                 subtitle: Text(fmtTime(n.createdAt, lang)),
                 shape: Border(bottom: BorderSide(color: hzColors(context).border)),
                 onTap: n.bookingId == null ? null : () => context.push('/booking/${n.bookingId}'),
               ),
             ),
           ],
-        ])),
+        ]));
+        },
       ),
     );
   }
@@ -89,9 +106,9 @@ class InboxTab extends StatelessWidget {
 
 /// One row of the dated rail: a thin line down the start side, with a ring where a notice hangs on it.
 class _Rail extends StatelessWidget {
-  const _Rail({required this.child, this.dot = false, this.first = false, this.last = false});
+  const _Rail({required this.child, this.dot = false, this.filled = false, this.first = false, this.last = false});
   final Widget child;
-  final bool dot, first, last;
+  final bool dot, filled, first, last;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +125,7 @@ class _Rail extends StatelessWidget {
                 PositionedDirectional(
                   start: 3.5,
                   top: 22,
-                  child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: c.bg, border: Border.all(color: c.primary, width: 1.5))),
+                  child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
                 ),
             ]),
           ),

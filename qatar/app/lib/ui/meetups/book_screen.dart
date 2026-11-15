@@ -135,12 +135,23 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     final tt = Theme.of(context).textTheme;
     final s = widget.session;
     final bk = b;
+    // the review has one heading, "Review your booking", at the top of the page as on the website; the app bar then
+    // carries no title of its own
+    final review = bk != null && !bk.paid && !bk.expired;
+    // a refused request is said just above the button it came from, and read out when it appears
+    final failed = [if (error != null) ...[ErrorBanner(error!, key: const Key('book-error')), const SizedBox(height: HzSpace.s3)]];
+    // a disabled button says what is still missing, under it and to a screen reader on the button itself
+    Widget reason(String? why, String id) => why == null
+        ? const SizedBox.shrink()
+        : Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(why, key: Key(id), style: tt.bodySmall?.copyWith(color: c.textMuted)));
     final children = <Widget>[
-      Text('${experienceName(t, s.experience)} · ${fmtWhen(s.startsAt, lang)}', style: tt.headlineMedium),
+      if (review) ...[Semantics(header: true, child: Text(t.reviewTitle, key: const Key('review-title'), style: tt.headlineMedium)), const SizedBox(height: HzSpace.s1)],
+      Text('${experienceName(t, s.experience)} · ${fmtWhen(s.startsAt, lang)}', style: review ? tt.titleMedium : tt.headlineMedium),
       const SizedBox(height: HzSpace.s1),
       Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
       const SizedBox(height: HzSpace.s4),
     ];
+    final holdWhy = busy || !(plusOne && _plusOneOpen) ? null : _guest.text.trim().isEmpty ? t.needGuestName : !guestOk ? t.needGuestConfirm : null;
     if (bk == null) {
       children.addAll([
         if (_occasionOpen) ...[
@@ -182,8 +193,11 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
               value: guestOk, onChanged: (v) => setState(() => guestOk = v!), title: Text(t.guestConfirm))),
         ],
         const SizedBox(height: HzSpace.s3),
+        ...failed,
         // with +1 on, the seat is held only once her companion is named and confirmed
-        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull || (plusOne && _plusOneOpen && !_guestReady) ? null : _hold, child: Text(t.bookSeat))),
+        Press(child: FilledButton(key: const Key('hold'), onPressed: busy || s.isFull || (plusOne && _plusOneOpen && !_guestReady) ? null : _hold,
+            child: Semantics(hint: holdWhy, child: Text(t.bookSeat)))),
+        reason(holdWhy, 'hold-reason'),
       ]);
     } else if (bk.paid) {
       children.addAll([
@@ -203,8 +217,8 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(ordinary ? t.refundLine(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
       );
+      final payWhy = !busy && bk.ackRequired && !ack ? t.needLateAck : null;
       children.addAll([
-        Text(t.reviewTitle, style: tt.titleLarge),
         // Item 41 (owner, 11 Nov): during the launch period the amount stays visible, struck through, beside the
         // owner's words, and a line explains that it is taken and refunded. Nothing about money is said before this step.
         // Read as a receipt before paying (owner, 14 Nov: rounds 1-3): what it is, the amount large, and the same
@@ -252,15 +266,16 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
         if (bk.paymentFailed) Padding(padding: const EdgeInsets.only(top: HzSpace.s2), child: Text(t.payFailed, style: TextStyle(color: c.danger))),
         const SizedBox(height: HzSpace.s4),
         if (waiting) ...[TestId('waiting', child: Text(t.waitingPayment, key: const Key('waiting'))), const SizedBox(height: HzSpace.s3)],
+        ...failed,
         Press(child: FilledButton(key: const Key('pay'), onPressed: busy || (bk.ackRequired && !ack) ? null : _pay,
-            child: BusyLabel(busy: busy, child: Text(bk.launchFree || bk.amount.isEmpty ? t.payNow : t.payAmount(bk.amount))))),
+            child: Semantics(hint: payWhy, child: BusyLabel(busy: busy, child: Text(bk.launchFree || bk.amount.isEmpty ? t.payNow : t.payAmount(bk.amount)))))),
+        reason(payWhy, 'pay-reason'),
         if (ordinary) ...[const SizedBox(height: HzSpace.s3), terms],
         if (waiting) Press(child: TextButton(key: const Key('check'), onPressed: _refresh, child: Text(t.checkPayment))),
       ]);
     }
-    if (error != null) children.addAll([const SizedBox(height: HzSpace.s3), ErrorBanner(error!)]);
     return Scaffold(
-      appBar: AppBar(title: Text(t.reviewTitle)),
+      appBar: AppBar(title: review ? null : Text(t.reviewTitle)),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: children)),
     );
   }

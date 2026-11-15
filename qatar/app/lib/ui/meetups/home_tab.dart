@@ -103,7 +103,7 @@ class _SessionListState extends State<_SessionList> {
       Text(t.cityFull, style: Theme.of(context).textTheme.headlineMedium),
       const SizedBox(height: HzSpace.s4),
       if (all.isNotEmpty) ...[
-        RiseIn(index: 0, child: _Tile(
+        RiseIn(index: 0, once: 'home', child: _Tile(
           color: c.surfaceSunken,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(t.thisWeek, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
@@ -121,7 +121,7 @@ class _SessionListState extends State<_SessionList> {
           ]),
         )),
         const SizedBox(height: HzSpace.s3),
-        RiseIn(index: 1, child: Row(children: [
+        RiseIn(index: 1, once: 'home', child: Row(children: [
           for (final (k, name, icon) in [('dinner', t.dinner, Icons.restaurant_outlined), ('coffee', t.coffee, Icons.coffee_outlined)]) ...[
             if (k == 'coffee') const SizedBox(width: HzSpace.s3),
             Expanded(child: _KindTile(
@@ -148,7 +148,7 @@ class _SessionListState extends State<_SessionList> {
                 for (final (i, s) in peek.indexed)
                   Padding(
                     padding: EdgeInsetsDirectional.only(end: i + 1 == peek.length ? 0 : HzSpace.s3),
-                    child: RiseIn(index: 2 + i, child: _PeekCard(s)),
+                    child: RiseIn(index: 2 + i, once: 'home', child: _PeekCard(s)),
                   ),
               ]),
             ),
@@ -177,7 +177,7 @@ class _SessionListState extends State<_SessionList> {
         const SizedBox(height: HzSpace.s4),
       ],
       if (shown.isEmpty && all.isNotEmpty) Text(t.noFilterMatch, key: const Key('no-filter-match')),
-      for (final (i, s) in later.indexed) RiseIn(index: i, child: _SessionCard(s)),
+      for (final (i, s) in later.indexed) RiseIn(index: i, once: 'home', child: _SessionCard(s)),
     ]);
   }
 }

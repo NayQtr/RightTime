@@ -956,4 +956,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cancelBothSeats =>
       'Cancelling covers your seat and your companion\'s seat.';
+
+  @override
+  String unreadCount(int n) {
+    return '$n unread';
+  }
+
+  @override
+  String get newTag => 'New';
+
+  @override
+  String get needGuestName => 'Please write your companion\'s name.';
+
+  @override
+  String get needGuestConfirm => 'Tick the box to confirm your companion.';
+
+  @override
+  String get needLateAck => 'Tick the acknowledgement above first.';
 }

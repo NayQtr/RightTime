@@ -1789,6 +1789,36 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'الإلغاء يشمل مقعدك ومقعد مرافقتك.'**
   String get cancelBothSeats;
+
+  /// No description provided for @unreadCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} غير مقروءة'**
+  String unreadCount(int n);
+
+  /// No description provided for @newTag.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديد'**
+  String get newTag;
+
+  /// No description provided for @needGuestName.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتبي اسم مرافقتك.'**
+  String get needGuestName;
+
+  /// No description provided for @needGuestConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'ضعي علامة على تأكيد مرافقتك.'**
+  String get needGuestConfirm;
+
+  /// No description provided for @needLateAck.
+  ///
+  /// In ar, this message translates to:
+  /// **'ضعي علامة على الإقرار أعلاه أولًا.'**
+  String get needLateAck;
 }
 
 class _AppLocalizationsDelegate

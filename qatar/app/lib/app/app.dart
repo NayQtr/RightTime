@@ -17,6 +17,7 @@ import '../data/auth_repository.dart';
 import '../data/meetups_repository.dart';
 import '../data/onboarding.dart';
 import '../data/trip_store.dart';
+import '../domain/inbox_badge.dart';
 import '../domain/locale_controller.dart';
 import '../domain/session.dart';
 import '../domain/theme_controller.dart';
@@ -62,6 +63,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
   late final MeetupsRepository meetups;
   late final OnboardingRepository onboarding;
   late final Session session;
+  late final InboxBadge inboxBadge;
   late final GoRouter router;
   late final QuizViewModel quiz;
   late final SignInViewModel signIn;
@@ -82,11 +84,13 @@ class _HerZoneAppState extends State<HerZoneApp> {
     auth = AuthRepository(api);
     meetups = MeetupsRepository(api, widget.trips);
     onboarding = OnboardingRepository(api);
+    inboxBadge = InboxBadge(meetups.notifications);
     // When a session ends, nothing of that person stays on the device: saved meetups and unsent quiz answers.
     session = Session(api, auth, clearDevice: () async {
       await meetups.forgetDevice();
       await widget.quizStore.clear();
       unawaited(sounds.forgetDevice()); // never holds up the sign-out
+      unawaited(inboxBadge.forget());
     }, onboarding: onboarding)..restore();
     router = buildRouter(session);
     quiz = QuizViewModel(onboarding, widget.quizStore, session);
@@ -121,6 +125,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
         ChangeNotifierProvider.value(value: updateGate),
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: privacyLock),
+        ChangeNotifierProvider.value(value: inboxBadge),
         Provider.value(value: widget.linkOpener),
         Provider.value(value: auth),
         Provider.value(value: meetups),

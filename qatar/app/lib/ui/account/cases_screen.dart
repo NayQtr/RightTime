@@ -7,7 +7,8 @@ import '../../data/models.dart';
 import '../../design/herzone_tokens.dart';
 import '../../domain/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
-import '../auth/widgets.dart' show errorText;
+import '../auth/widgets.dart' show ErrorBanner;
+import '../common/busy_label.dart';
 import '../common/loader.dart';
 import '../format.dart';
 import '../meetups/report_screen.dart' show categoryLabel;
@@ -84,13 +85,11 @@ class _CaseCardState extends State<_CaseCard> {
             const SizedBox(height: HzSpace.s3),
             Text(t.appealUntil(fmtWhen(c.appealUntil, widget.lang)), style: tt.bodySmall),
             const SizedBox(height: HzSpace.s2),
-            Press(child: OutlinedButton(key: Key('appeal-${c.ref}'), onPressed: busy ? null : _appeal, child: Text(t.appeal))),
+            Press(child: OutlinedButton(key: Key('appeal-${c.ref}'), onPressed: busy ? null : _appeal, child: BusyLabel(busy: busy, child: Text(t.appeal)))),
           ],
           if (sent) ...[const SizedBox(height: HzSpace.s3), Text(t.appealSent, key: const Key('appeal-sent'))],
-          if (error != null) ...[
-            const SizedBox(height: HzSpace.s3),
-            Text(errorText(t, error!), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
+          // read out when it appears, right under the appeal button
+          if (error != null) ...[const SizedBox(height: HzSpace.s3), ErrorBanner(error!, key: Key('appeal-error-${c.ref}'))],
         ]),
       ),
     );

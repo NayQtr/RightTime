@@ -12,6 +12,7 @@ import '../common/loader.dart';
 import '../format.dart';
 import '../theme.dart';
 import '../common/test_id.dart';
+import '../common/busy_label.dart';
 import '../common/press.dart';
 import '../../core/sounds.dart';
 
@@ -115,7 +116,7 @@ class _CancelFormState extends State<_CancelForm> {
         key: const Key('confirm-cancel'),
         style: FilledButton.styleFrom(backgroundColor: c.danger, foregroundColor: c.onDanger),
         onPressed: !d.canCancel || busy || widget.r.offlineSavedAt != null ? null : _confirm,
-        child: Text(t.confirmCancel),
+        child: BusyLabel(busy: busy, child: Text(t.confirmCancel)),
       )),
     ]);
   }
