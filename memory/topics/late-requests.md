@@ -135,7 +135,9 @@ website list, app tablemates; RELEASED 15 Nov: herzone.app and staging serve her
 From the review of 14 Nov, DECIDED 15 Nov (owner chose both proposals): the language row shows the language in use
 (website value; app: new lines languageLabel «اللغة» = the website's word, languageCurrent «العربية»/«English»), and the app's
 appearance row is now a switch «الوضع الداكن» like the website; done steps in «قبل لقائك الأول» carry a ✓ instead of a
-strike (website and app). Built on rightime-app, NOT released to production yet.
+strike (website and app). RELEASED 15 Nov with the owner's yes («نعم، أنزلها الآن»): herzone.app and staging serve
+herzone-web@10421c010bae (production dpl_9Jre7mZPhvCwyTigGZtqhEbKUjAJ, staging dpl_EFeDe6mo1Z6hM5LayH3QG5fUxVnC); baseline
+run recorded, CI green, smoke checks passed on both, Sentry no unresolved issue in the hour.
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
 on the owner: (1) the fee + FAQ page (the preview's answers were examples); (2) the reminders picker: the product stores no
 reminder preferences, so it was not built; (3) the three explanatory waitlist steps of the "full meetup" screen (the preview's
