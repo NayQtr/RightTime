@@ -7,6 +7,7 @@ import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
 import { esc } from "./esc.js";
 import { CFG, apiUrl } from "./api-url.js";
+import { askConfirm } from "./dialogs.js";
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem("q_" + k)); } catch { return null; } },
@@ -565,21 +566,45 @@ async function scrRegister() {
     <h1>${esc(T("regTitle"))}</h1>
     <form id="f" class="stack" novalidate>
       ${quizName ? "" : `<div class="field"><label class="label" for="name">${esc(T("nameLabel"))}</label>
-        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="nh" required><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
+        <input class="input" id="name" maxlength="30" autocomplete="given-name" aria-describedby="name-err nh" required><span id="name-err" class="error-text"></span><span id="nh" class="caption">${esc(T("nameHelp"))}</span></div>`}
       <fieldset class="card">
         <p class="caption">${esc(T("womenOnly"))}</p>
-        <label class="check"><input type="checkbox" id="woman" required><span>${esc(T("womanLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
-        <label class="check"><input type="checkbox" id="age" required><span>${esc(T("ageLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
+        <label class="check"><input type="checkbox" id="woman" required aria-describedby="woman-err"><span>${esc(T("womanLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
+        <span id="woman-err" class="error-text"></span>
+        <label class="check"><input type="checkbox" id="age" required aria-describedby="age-err"><span>${esc(T("ageLabel"))} <span class="caption">(${esc(T("required"))})</span></span></label>
+        <span id="age-err" class="error-text"></span>
         ${consent("terms", "termsLabel", true)}${consent("conduct", "conductLabel", true)}${consent("privacy_notice", "privacyLabel", true)}${consent("marketing", "marketingLabel", false)}
       </fieldset>
       <div id="err" role="alert"></div>
       <button class="btn btn-primary btn-block" type="submit" id="go">${esc(T("continue"))}</button>
     </form>`);
+  // each missing answer is told under its own field, which is marked invalid and described by it; the first one takes the
+  // focus. The server's answer about one of these fields lands there too; anything else in the banner under the form.
+  const FIELD_ERR = { display_name: ["name", "nameRequired"], woman_confirmed: ["woman", "womanRequired"], age_eligibility_confirmed: ["age", "ageRequired"] };
+  const markField = (id, msg) => {
+    const el = $(`#${id}`);
+    if (!el) return false;
+    $(`#${id}-err`).textContent = msg || "";
+    if (msg) el.setAttribute("aria-invalid", "true"); else el.removeAttribute("aria-invalid");
+    return Boolean(msg);
+  };
+  const showFieldErrors = (bad) => {
+    let first = null;
+    for (const [id] of Object.values(FIELD_ERR)) if (markField(id, bad[id]) && !first) first = $(`#${id}`);
+    if (first) first.focus();
+    return Boolean(first);
+  };
+  ["name", "woman", "age"].forEach((id) => { const el = $(`#${id}`); if (el) el.addEventListener(id === "name" ? "input" : "change", () => markField(id, "")); });
   $("#f").onsubmit = async (e) => {
     e.preventDefault();
     const checked = new Set($$("input[name=c]:checked").map((i) => i.value));
     const name = quizName || ($("#name") ? $("#name").value.trim() : "");
-    if (!name) { $("#err").innerHTML = `<div class="banner banner-danger" role="alert"><div>${esc(T("nameRequired"))}</div></div>`; $("#name").focus(); return; }
+    $("#err").innerHTML = "";
+    const bad = {};
+    if (!name) bad.name = T("nameRequired");
+    if (!$("#woman").checked) bad.woman = T("womanRequired");
+    if (!$("#age").checked) bad.age = T("ageRequired");
+    if (showFieldErrors(bad)) return;
     const body = {
       display_name: name, locale, age_eligibility_confirmed: $("#age").checked, woman_confirmed: $("#woman").checked,
       consents: Object.keys(L).filter((t) => ["terms", "conduct", "privacy_notice", "marketing"].includes(t))
@@ -588,7 +613,12 @@ async function scrRegister() {
     setBusy($("#go"), true);
     const r = await api("POST", "/api/v1/users/me/registration", body);
     setBusy($("#go"), false);
-    if (!r.ok) { $("#err").innerHTML = errorBanner(r.data); return; }
+    if (!r.ok) {
+      const onField = {};
+      for (const d of r.data.details || []) if (FIELD_ERR[d.field] && $(`#${FIELD_ERR[d.field][0]}`)) onField[FIELD_ERR[d.field][0]] = d.code === "REQUIRED" ? T(FIELD_ERR[d.field][1]) : withNext(r.data.message || T("errGeneric"));
+      if (!showFieldErrors(onField)) $("#err").innerHTML = errorBanner(r.data);
+      return;
+    }
     funnel("signup_done");
     state.me = r.data.user;
     store.del("quizName");
@@ -664,8 +694,14 @@ function timeLeftText(remaining) {
   return T(m === 0 ? "timeLeftUnder" : m === 1 ? "timeLeftOne" : m === 2 ? "timeLeftTwo" : "timeLeftFew");
 }
 
+// A failed submit of the quiz reopens it with the error on the page, under its head (not a toast that goes away).
+function quizErrOnce() {
+  const e = state.quizErr;
+  state.quizErr = null;
+  return e ? `<div id="quiz-err">${errorBanner(e)}</div>` : "";
+}
 function quizHead(back, section, progress) {
-  return `<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
+  return `${quizErrOnce()}<div class="quiz-head"><a class="icon-btn" href="${back}" aria-label="${esc(T("back"))}"><span aria-hidden="true">${arrowBack()}</span></a>
       <span class="section">${esc(section || "")}</span><span></span></div>
     ${progress ? `<div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${progress.n}" aria-valuenow="${progress.i}" aria-label="${esc(T("qOf", progress))}"><span data-w="${Math.round((progress.i / progress.n) * 100)}"></span></div>` : ""}`;
 }
@@ -882,7 +918,7 @@ async function finishQuiz() {
   if (!r.ok) {
     const miss = (r.data.details || []).find((d) => d.question_key);
     const idx = miss ? quiz.steps.findIndex((st) => st.kind === "q" && st.key === miss.question_key) : -1;
-    toast(withNext(r.data.message || T("errGeneric")));
+    state.quizErr = r.data;
     go(`#/quiz/${idx >= 0 ? idx : 0}`);
     return;
   }
@@ -1184,8 +1220,12 @@ async function scrSessions(preselect) {
     setBusy(b, true);
     const w = await api("POST", `/api/v1/sessions/${b.dataset.wait}/waitlist`);
     setBusy(b, false);
-    if (w.ok) b.parentElement.innerHTML = waitStep(w.data.position) + waitSteps(true);
-    else toast(withNext(w.data.message || T("errGeneric")));
+    const box = b.parentElement;
+    if (w.ok) { box.innerHTML = waitStep(w.data.position) + waitSteps(true); return; }
+    // the error stays beside the button she pressed (one at a time), and the button is there to try again
+    const old = box.querySelector(".wait-err");
+    if (old) old.remove();
+    b.insertAdjacentHTML("afterend", `<div class="wait-err">${errorBanner(w.data)}</div>`);
   }));
   const radios = $$("input[name=s]");
   // Item 32 (provisional): a celebration needs notice (server: CELEBRATION_NOTICE_HOURS); for a sooner session the
@@ -1224,7 +1264,18 @@ async function scrSessions(preselect) {
     if (!r2.ok) {
       $("#err").innerHTML = errorBanner(r2.data) + (r2.data.waitlist_href ? `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>` : "");
       const wl = $("#wl");
-      if (wl) wl.onclick = async () => { setBusy(wl, true); const w = await api("POST", r2.data.waitlist_href); setBusy(wl, false); toast(w.ok ? T("onWaitlist", { n: w.data.position }) : w.data.message); };
+      // joined: a short confirmation; not joined: the error beside the button, which stays for another try
+      const joinWl = async (btn) => {
+        setBusy(btn, true);
+        const w = await api("POST", r2.data.waitlist_href);
+        setBusy(btn, false);
+        if (w.ok) { toast(T("onWaitlist", { n: w.data.position })); return; }
+        $("#err").innerHTML = errorBanner(w.data) + `<button class="btn btn-secondary" id="wl">${esc(T("joinWaitlist"))}</button>`;
+        const again = $("#wl");
+        again.onclick = () => joinWl(again);
+        again.focus();
+      };
+      if (wl) wl.onclick = () => joinWl(wl);
       return;
     }
     go(`#/booking/${r2.data.booking_id}/review`);
@@ -1275,7 +1326,8 @@ async function scrReview(id) {
       <div class="kv due" id="due-row"><span>${esc(T("dueNow"))}</span><strong class="num" id="due-amt">${esc(total())}</strong></div>
     </section>
     ${expired ? "" : `<section class="plus" id="plus">
-      <div class="row between"><button type="button" class="plus-btn" id="plus-btn" aria-pressed="${plus.on}" aria-controls="plus-panel" ${canPlus ? "" : 'disabled aria-describedby="plus-none"'}>${plusMark}</button>
+      <div class="row between"><button type="button" class="plus-btn" id="plus-btn" aria-pressed="${plus.on}" aria-controls="plus-panel" ${canPlus ? 'aria-describedby="plus-lbl"' : 'disabled aria-describedby="plus-none"'}>${plusMark}</button>
+        <span class="plus-lbl" id="plus-lbl">${esc(T("plusOneLabel"))}</span>
         ${canPlus ? "" : `<p class="caption" id="plus-none">${esc(T("plusOneNone"))}</p>`}</div>
       <div class="stack" id="plus-panel" ${plus.on ? "" : "hidden"}>
         <p class="caption" id="plus-exp">${esc(T("plusOneExplain"))}</p>
@@ -1290,7 +1342,8 @@ async function scrReview(id) {
     <p class="sr-only" aria-live="polite" id="holdlive"></p>
     <div id="err" role="alert">${expired ? errorBanner({ message: T("holdExpired") }) : ""}</div>
     ${expired ? `<a class="btn btn-primary btn-block" href="#/sessions">${esc(T("chooseAgain"))}</a>`
-      : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? "disabled" : ""}>${esc(T("pay", { fee: total() }))}</button>`}
+      : `<button class="btn btn-primary btn-block" id="pay" ${needAck ? 'disabled aria-describedby="pay-why"' : ""}>${esc(T("pay", { fee: total() }))}</button>
+        <p class="caption pay-why" id="pay-why"${needAck ? "" : " hidden"}>${needAck ? esc(T("payNeedAck")) : ""}</p>`}
     ${refundOpen ? `<p class="caption rc-under" id="rc-policy">${esc(refundLine)}</p>` : ""}
     <button class="link-btn" id="change">${esc(T("changeSession"))}</button>`);
   if (!expired) {
@@ -1316,12 +1369,18 @@ async function scrReview(id) {
       for (const sel of ["#rc-total", "#fee-amt", "#due-amt"]) if ($(sel)) $(sel).textContent = total();
       $("#pay").textContent = T("pay", { fee: total() });
       $("#pay").disabled = !ready();
+      // a pay button that waits says what for, right under it (and to screen readers, as its description)
+      const why = $("#pay").disabled ? [needAck && !$("#ack").checked && "payNeedAck", plus.on && !plus.name.trim() && "payNeedPlusName",
+        plus.on && !$("#plus-ok").checked && "payNeedPlusOk"].filter(Boolean) : [];
+      $("#pay-why").innerHTML = why.map((k) => `<span>${esc(T(k))}</span>`).join("<br>");
+      $("#pay-why").hidden = !why.length;
+      if (why.length) $("#pay").setAttribute("aria-describedby", "pay-why"); else $("#pay").removeAttribute("aria-describedby");
     };
     if (needAck) $("#ack").onchange = sync;
     const nameErr = (msg) => { $("#plus-err").textContent = msg; if (msg) $("#plus-name").setAttribute("aria-invalid", "true"); else $("#plus-name").removeAttribute("aria-invalid"); };
     if (canPlus) {
       $("#plus-btn").onclick = () => { plus.on = !plus.on; if (!plus.on) nameErr(""); sync(); if (plus.on) $("#plus-name").focus(); };
-      $("#plus-name").oninput = () => { plus.name = $("#plus-name").value; if (plus.name.trim()) nameErr(""); $("#plus-who").textContent = plus.name.trim(); };
+      $("#plus-name").oninput = () => { plus.name = $("#plus-name").value; if (plus.name.trim()) nameErr(""); sync(); };
       $("#plus-ok").onchange = sync;
     }
     sync();
@@ -2049,9 +2108,11 @@ async function scrFeedback(id) {
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
     const reasons = $$("input[name=reason]:checked").map((r) => r.value);
+    if ($("#go").disabled) return;   // already sending: one answer only
+    setBusy($("#go"), true);
     const c = await api("POST", `/api/v1/bookings/${id}/feedback`, { overall_rating: val("overall"), comfort_rating: val("comfort"), venue_rating: val("venue"),
       would_book_again: $("#again").checked, comment: $("#cm").value.trim() || null, ...(reasons.length ? { low_rating_reasons: reasons } : {}) });
-    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); return; }
+    if (!c.ok) { $("#err").innerHTML = errorBanner(c.data); setBusy($("#go"), false); return; }
     const sent = [["overall", val("overall")], ["comfort", val("comfort")], ["venueRating", val("venue")]].filter(([, v]) => v !== null).map(([k, v]) => [T(k), outOf(v)]);
     if (reasons.length) sent.push([T("fbReasonsLegend"), reasonNames().join(T("listSep"))]);
     view(T("fbThanks"), `<div class="center"><div class="success-check">${icon("check")}</div><h1>${esc(T("fbThanks"))}</h1>
@@ -2087,8 +2148,9 @@ async function scrReport(id) {
     <p class="muted">${esc(T("reportIntro"))}</p>
     <form id="f" class="stack" novalidate>
       <label class="option" data-u="bdanger"><input type="checkbox" id="danger"><span class="tick" aria-hidden="true"></span><strong>${esc(T("dangerLabel"))}</strong></label>
-      <fieldset><legend class="label">${esc(T("category"))}</legend><div class="options">
-        ${cats.map(([v, k]) => `<label class="option radio"><input type="radio" name="cat" value="${v}" required><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span></label>`).join("")}</div></fieldset>
+      <fieldset id="cat-set" aria-describedby="cat-err"><legend class="label">${esc(T("category"))}</legend><div class="options">
+        ${cats.map(([v, k]) => `<label class="option radio"><input type="radio" name="cat" value="${v}" required aria-describedby="cat-err"><span class="tick" aria-hidden="true"></span><span>${esc(T(k))}</span></label>`).join("")}</div>
+        <p class="error-text" id="cat-err"></p></fieldset>
       <fieldset><legend class="label">${esc(T("whenLegend"))}</legend><div class="options">
         <label class="option radio"><input type="radio" name="when" value="during" ${ph === "day_of" ? "checked" : ""}><span class="tick" aria-hidden="true"></span><span>${esc(T("during"))}</span></label>
         <label class="option radio"><input type="radio" name="when" value="after" ${ph !== "day_of" ? "checked" : ""}><span class="tick" aria-hidden="true"></span><span>${esc(T("afterEv"))}</span></label></div></fieldset>
@@ -2098,11 +2160,18 @@ async function scrReport(id) {
       <div id="err" role="alert"></div>
       <button class="btn btn-danger-solid btn-block" type="submit" id="go">${esc(T("submitReport"))}</button>
     </form>`);
+  $$("input[name=cat]").forEach((x) => x.addEventListener("change", () => { $("#cat-err").textContent = ""; $$("input[name=cat]").forEach((y) => y.removeAttribute("aria-invalid")); }));
   $("#danger").onchange = () => { if ($("#danger").checked) emergencyScreen(() => $("#danger").focus()); };
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();
     const cat = $$("input[name=cat]:checked")[0];
-    if (!cat) { $("#err").innerHTML = errorBanner({ message: T("category") }); return; }
+    // no category: said under the question, which is marked invalid, and the keyboard goes to its first choice
+    if (!cat) {
+      $("#cat-err").textContent = T("categoryRequired");
+      $$("input[name=cat]").forEach((x) => x.setAttribute("aria-invalid", "true"));
+      $("input[name=cat]").focus();
+      return;
+    }
     setBusy($("#go"), true);
     const who = $("#who");
     const c = await api("POST", "/api/v1/reports", { booking_id: id, category: cat.value, timing: $$("input[name=when]:checked")[0].value,
@@ -2165,6 +2234,7 @@ async function scrProfile() {
       ${row("button", "languages", "language", { id: "lng", value: T("langToggle") })}${row("button", "moon", "appearance", { id: "thm", value: themeNext() })}</ul>
     <p class="section-label">${esc(T("secPrivacy"))}</p>
     <ul class="settings">${row("a", "lock", "privacyTitle", { href: "#/privacy" })}${row("button", "shield-check", "myData", { id: "mydata", value: "" })}</ul>
+    <div id="mydata-err" class="row-err"></div>
     <p class="sr-only" role="status" id="row-live"></p>
     <p class="section-label">${esc(T("secHelp"))}</p>
     <section class="stack"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>
@@ -2181,7 +2251,8 @@ async function scrProfile() {
     setBusy($("#mydata"), true);
     const r = await api("GET", "/api/v1/users/me/export");
     setBusy($("#mydata"), false);
-    if (!r.ok) return toast(withNext((r.data && r.data.message) || T("errGeneric")));
+    if (!r.ok) { $("#mydata-err").innerHTML = errorBanner(r.data); return; }
+    $("#mydata-err").innerHTML = "";
     const url = URL.createObjectURL(new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `herzone-my-data-${(r.data.exported_at || "").slice(0, 10)}.json` });
     document.body.append(a); a.click(); a.remove();
@@ -2190,7 +2261,14 @@ async function scrProfile() {
     $("#row-live").textContent = T("myDataDone");
   };
   $("#out").onclick = async () => { setBusy($("#out"), true); const t = store.get("tokens"); await disablePush(); await api("POST", "/api/v1/auth/logout", { refresh_token: t && t.refresh_token }); forget(); };
-  $("#del").onclick = async () => { if (!confirm(T("deleteConfirm"))) return; setBusy($("#del"), true); await disablePush(); await api("DELETE", "/api/v1/users/me"); forget(); };
+  // asked in the page, in her language, with buttons named for what they do (dialogs.js); Escape keeps the account
+  $("#del").onclick = async () => {
+    if (!(await askConfirm({ question: T("deleteConfirm"), confirm: T("deleteAccount"), cancel: T("deleteKeep") }))) return;
+    setBusy($("#del"), true);
+    await disablePush();
+    await api("DELETE", "/api/v1/users/me");
+    forget();
+  };
 }
 
 // report categories and their labels (report form and "Decisions about you")
@@ -2208,9 +2286,11 @@ async function scrCases() {
     ${c.can_appeal ? `<p class="caption">${esc(T("appealUntil", { date: fmtDate(c.appeal_until) }))}</p><button class="btn btn-secondary" data-ref="${esc(c.case_ref)}">${esc(T("appeal"))}</button>` : ""}</li>`).join("")}</ul>`
     : `<p class="muted" id="no-cases">${esc(T("noCases"))}</p>`}<div id="msg" role="status"></div>`);
   $$("[data-ref]").forEach((b) => (b.onclick = async () => {
-    b.disabled = true;
+    setBusy(b, true);
     const a = await api("POST", `/api/v1/cases/${encodeURIComponent(b.dataset.ref)}/appeal`);
     $("#msg").innerHTML = a.ok ? `<div class="banner banner-success pulse"><div>${esc(T("appealSent"))}</div></div>` : errorBanner(a.data);
+    // sent: the button stays off; not sent: it comes back for another try
+    if (a.ok) b.removeAttribute("aria-busy"); else setBusy(b, false);
   }));
 }
 

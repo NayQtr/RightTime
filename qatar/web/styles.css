@@ -1126,6 +1126,12 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 .plus-btn:disabled { color: var(--c-textDisabled); cursor: not-allowed; }
 .plus-btn:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 .plus #plus-none { margin: 0; }
+.plus-lbl { font-weight: 600; }
+/* an error shown beside the action that failed (waitlist, a copy of my data) */
+.wait-err, .row-err:not(:empty) { margin-block-start: var(--s-3); }
+/* what a waiting pay button needs, right under it */
+.pay-why { margin: var(--s-2) 0 0; color: var(--c-textMuted); text-align: center; }
+.pay-why[hidden] { display: none; }
 #plus-panel { margin-block-start: var(--s-3); animation: enter-fade 200ms var(--m-ease) backwards; }
 #plus-panel[hidden] { display: none; }
 #plus-panel > p { margin: 0; }

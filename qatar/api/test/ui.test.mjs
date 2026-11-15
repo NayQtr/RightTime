@@ -201,8 +201,10 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.check("#age");
   for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
   await page.click("#go");
-  await page.waitForSelector("#err .banner");
-  assert.ok((await page.locator("#err").innerText()).includes("للنساء فقط"), "the women-only confirmation is required");
+  // the women-only confirmation is required: said under its own box, which is marked invalid and takes the focus
+  await page.waitForFunction(() => document.querySelector("#woman-err").textContent);
+  assert.equal((await page.locator("#woman-err").innerText()).trim(), "أكّدي أنكِ امرأة للمتابعة.");
+  assert.deepEqual(await page.evaluate(() => [document.activeElement.id, document.querySelector("#woman").getAttribute("aria-invalid"), document.querySelector("#woman").getAttribute("aria-describedby")]), ["woman", "true", "woman-err"]);
   await page.check("#woman");
   for (const t of ["terms", "conduct", "privacy_notice"]) await page.check(`input[name=c][value=${t}]`);
   await page.click("#go");
@@ -401,8 +403,8 @@ test("user journey in Arabic (RTL, 360px): quiz first, sign-up, what you get, bo
   await page.waitForFunction(() => document.documentElement.dir === "ltr");
   await page.waitForSelector("text=Account");
   await page.screenshot({ path: `${SHOTS}/13-profile-en.png`, fullPage: true });
-  assert.equal(errors.filter((e) => e.includes("status of 422")).length, 1, "the sign-up refused without the women-only confirmation");
-  assert.deepEqual(errors.filter((e) => !e.includes("status of 422")), []);
+  // the women-only confirmation is now asked for on the page, before any request is sent
+  assert.deepEqual(errors, []);
 });
 
 test("existing user with answers from the old questionnaire is not blocked and is invited to complete the card", async () => {

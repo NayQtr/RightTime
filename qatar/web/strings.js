@@ -177,6 +177,10 @@ export const STRINGS = {
     plusOne: "+1", plusOneExplain: "هذا الخيار يتيح لكِ الحضور برفقة من تودّين حضورها.", plusOneName: "اسم مرافقتك",
     plusOneConfirm: "أؤكد أن مرافقتي امرأة وعمرها 18 سنة أو أكثر.", plusOneSeats: "مقعدان", plusOneFee: "رسم التنظيم × 2",
     plusOneNone: "لا يتوفر مقعدان في هذا الموعد.", plusOneCancel: "الإلغاء يشمل مقعدك ومقعد مرافقتك.", plusOneNameErr: "اكتبي اسم مرافقتك.",
+    // Accessibility fixes (15 Nov 2026): written by the team, for the owner's review before release.
+    plusOneLabel: "أضيفي مرافقة", payNeedAck: "ضعي علامة على إقرار الإلغاء المتأخر أعلاه.", payNeedPlusOk: "ضعي علامة على تأكيد مرافقتك أعلاه.",
+    payNeedPlusName: "اكتبي اسم مرافقتك أعلاه.", womanRequired: "أكّدي أنكِ امرأة للمتابعة.", ageRequired: "أكّدي أن عمركِ 18 عامًا أو أكثر للمتابعة.",
+    deleteKeep: "إبقاء حسابي", categoryRequired: "اختاري نوع المشكلة.",
   },
   en: {
     brand: "HerZone", staging: "Staging", skip: "Skip to content", langToggle: "العربية", themeToDark: "Dark mode", themeToLight: "Light mode", back: "Back", next: "Next", continue: "Continue",
@@ -333,5 +337,8 @@ export const STRINGS = {
     plusOne: "+1", plusOneExplain: "This option lets you come with the person you would like to bring.", plusOneName: "Your companion's name",
     plusOneConfirm: "I confirm that my companion is a woman aged 18 or over.", plusOneSeats: "Two seats", plusOneFee: "Organising fee × 2",
     plusOneNone: "Two seats are not available for this session.", plusOneCancel: "Cancelling covers your seat and your companion's seat.", plusOneNameErr: "Please write your companion's name.",
+    plusOneLabel: "Bring a companion", payNeedAck: "Tick the late-cancellation box above.", payNeedPlusOk: "Tick the box about your companion above.",
+    payNeedPlusName: "Write your companion's name above.", womanRequired: "Confirm you are a woman to continue.", ageRequired: "Confirm you are 18 or over to continue.",
+    deleteKeep: "Keep my account", categoryRequired: "Choose what happened.",
   },
 };
