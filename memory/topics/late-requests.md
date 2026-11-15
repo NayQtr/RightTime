@@ -93,8 +93,7 @@ code also swapped it by hand, so it flipped twice). RELEASED 14 Nov with the own
 wording, cancel both seats together, amount doubles). Built on server (migration 026_plus_one.sql, NOT applied to staging or
 production), engine (JS + Python), consoles, website and app; merged on rightime-app; 358 API/db/browser tests, 219 app tests.
 RELEASED 15 Nov at the owner's request («ادفع» → «herzone.app الآن»): migration 026 applied by the owner in the SQL editor of staging and production (the connector's confirmation never reached the owner's app, five tries); herzone.app and staging serve herzone-web@fdb7ae160cfc (production dpl_3he3f2J6UpaLEWyYKN9Zd4Fxafii, staging dpl_GaDoRUSYqQBS3S5Kj8dYYSacKXpH); CI green, smoke checks passed on both, Sentry clean. OWNER 15 Nov: «اكتبي اسم مرافقتك.» approved; tablemates SEE the companion's name on the day (built 15 Nov: server members[].guest_name,
-website list, app tablemates; not yet released); privacy-notice lines «Write it» → proposed in chat, waiting for the owner's yes
-before they go into qatar/docs/legal/privacy-qa-5-draft.md; «Update it» (store app) → store accounts are still not open
+website list, app tablemates; RELEASED 15 Nov: herzone.app and staging serve herzone-web@d70384713adc, production dpl_BTWDR8CEj6Hwbxxe6zs27h7HgxWY, smoke and Sentry clean); privacy lines approved and added to the draft 15 Nov; «Update it» (store app) → store accounts are still not open
 (NMX-45/46), so no store build can be uploaded; store screenshots regenerated 15 Nov. Open: companion confirmed by check box only. Supabase: migrations that drop/replace objects need the owner to run them in the SQL editor (the connector's confirmation does not reach the owner's app).
 Also open from the review of 14 Nov: account rows «اللغة»/«المظهر» show the target, not the current value (proposed fix, waiting);
 the done step in «قبل لقائك الأول» is struck through (✓ suggested, taste).
