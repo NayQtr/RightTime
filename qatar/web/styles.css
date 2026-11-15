@@ -663,6 +663,8 @@ button.tile:not(:disabled):active { transform: scale(0.97); transition-duration:
 @media (max-width: 380px) { .peek { margin-inline: calc(-1 * var(--s-4)); padding-inline: var(--s-4); scroll-padding-inline: var(--s-4); } }
 .event-card.photo-card { grid-template-columns: 60px 1fr; gap: var(--s-3); padding: 0 var(--s-4) var(--s-4); overflow: hidden; height: 100%; align-content: start; }
 .photo-card .shot { grid-column: 1 / -1; display: block; margin-inline: calc(-1 * var(--s-4)); background: var(--c-surfaceSunken); }
+.photo-card .shot-box { grid-column: 1 / -1; position: relative; display: block; margin-inline: calc(-1 * var(--s-4)); }
+.photo-card .shot-box .shot { margin-inline: 0; }
 .photo-card .shot img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3.3; object-fit: cover; }
 .next-card { display: grid; gap: var(--s-2); padding: var(--s-4) var(--s-5); border-radius: var(--r-xl); background: var(--c-primarySubtle); text-decoration: none; color: inherit; }
 .next-card .when { font-family: var(--font-display); font-weight: 800; font-size: calc(var(--u) * 1.3750); line-height: 1.3; }
@@ -903,9 +905,20 @@ html:has(main .pin-bar) { scroll-padding-top: 136px; }
   font-size: var(--t-caption-size); line-height: var(--t-caption-lh); animation: dock-in 300ms var(--m-ease) both; }
 .dock-note:empty { display: none; }
 @keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
-body:has(main .dock-note:not(:empty)) main { padding-bottom: calc(232px + env(safe-area-inset-bottom)); }
-html:has(main .dock-note:not(:empty)) { scroll-padding-bottom: calc(232px + env(safe-area-inset-bottom)); }
-body:has(main .dock-note:not(:empty)) .toast { bottom: calc(204px + env(safe-area-inset-bottom)); }
+/* design patterns (15 Nov 2026): the pill names what she picked (date · time · kind), or why the button waits. The bar's
+   measured height (app.js --dock-h, which includes the safe area) sets the room kept under the form. */
+.dock-sum { flex: 1 1 168px; min-width: 0; display: grid; gap: 2px; }
+/* a long button (English) leaves too little room beside it on a narrow phone: the pick line then sits above it */
+.book-pill:has(.dock-sum) { flex-wrap: wrap; row-gap: var(--s-2); }
+.book-pill:has(.dock-sum) .btn { flex: 1 0 auto; }
+.dock-pick { margin: 0; font-size: var(--t-caption-size); line-height: var(--t-caption-lh); color: var(--c-textMuted); }
+.dock-pick.picked { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 0.9375); color: var(--c-text); }
+.book-pill .dock-sum .caption { flex: none; }
+.dock-pick .nw { white-space: nowrap; }
+.book-pill .dock-sum a.fee-link { min-height: 24px; }
+body:has(main .book-dock) main { padding-bottom: calc(var(--dock-h, 128px) + var(--s-4)); }
+html:has(main .book-dock) { scroll-padding-bottom: calc(var(--dock-h, 128px) + var(--s-4)); }
+body:has(main .book-dock) .toast { bottom: calc(var(--dock-h, 100px) + var(--s-1)); }
 /* review: a receipt (after Stripe): what it is, the amount large, then the lines on hairlines, the last one what is due */
 .rc-name { margin: 0; color: var(--c-textMuted); font-size: calc(var(--u) * 0.8750); }
 .rc-total { margin: 0 0 var(--s-3); font-family: var(--font-display); font-weight: 600; font-size: calc(var(--u) * 1.7500); line-height: 1.3; }
@@ -1146,3 +1159,64 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 #cancel-both { margin: 0 0 var(--s-3); }
 @media (prefers-reduced-motion: reduce) { .wait-steps li::before, .plus-btn { transition: none; } #plus-panel { animation: none; } }
 .kv[hidden] { display: none; }
+
+/* ---- design patterns (15 Nov 2026): HerZone's own look, the principle of each reference only ---- */
+/* the table drawing's key: a filled mauve seat is taken, a dashed ring is free (said in words too) */
+.seat-key { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); font-size: var(--t-caption-size); color: var(--c-textMuted); }
+.seat-key li { display: inline-flex; align-items: center; gap: var(--s-2); }
+.seat-key .key-dot { width: 16px; height: 16px; flex: none; }
+/* review: three steps; done = a mauve fill with a tick, current = a mauve outline (aria-current), next = a quiet outline */
+.steps3 { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: flex; gap: 6px; }
+.steps3 li { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 32px; padding: 4px var(--s-2);
+  border-radius: var(--r-pill); box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); color: var(--c-textMuted); font-size: var(--t-caption-size); line-height: 1.3; text-align: center; }
+.steps3 li span { min-width: 0; overflow-wrap: anywhere; }
+.steps3 li.done { background: var(--c-primary); color: var(--c-onPrimary); box-shadow: none; }
+.steps3 li.current { box-shadow: inset 0 0 0 1.5px var(--c-primary); color: var(--c-primary); font-weight: 700; }
+.steps3 li .i { width: 14px; height: 14px; stroke-width: 3; }
+/* "+1": a tick joins the mark while it is on (the state is not told by the fill alone) */
+.plus-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.plus-btn .plus-ok { display: none; }
+.plus-btn[aria-pressed="true"] .plus-ok { display: inline-flex; animation: tick-pop 220ms var(--m-ease) backwards; }
+.plus-btn .plus-ok .i { width: 16px; height: 16px; stroke-width: 3; }
+@keyframes tick-pop { from { opacity: 0; transform: scale(0.5); } }
+/* account: each row's icon on a 40 px neutral tile */
+.settings .ri { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surfaceSunken); }
+.settings .ri .i { width: 20px; height: 20px; }
+/* appearance: a switch; the thumb moves to the end and carries a tick when on */
+.settings .sw-row { justify-content: flex-start; }
+.settings .sw-row .sw-l { margin-inline-start: auto; font-size: var(--t-caption-size); color: var(--c-textMuted); text-align: end; }
+.sw { position: relative; flex: none; width: 52px; height: 32px; border-radius: var(--r-pill); background: var(--c-surfaceSunken); box-shadow: inset 0 0 0 1.5px var(--c-borderStrong);
+  transition: background-color var(--m-fast) var(--m-ease); }
+.sw-t { position: absolute; top: 4px; inset-inline-start: 4px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--c-surface);
+  box-shadow: 0 0 0 1.5px var(--c-borderStrong); color: var(--c-onPrimary); transition: transform var(--m-base) var(--m-ease); }
+.sw-t .i { width: 14px; height: 14px; stroke-width: 3; opacity: 0; transition: opacity var(--m-fast) var(--m-ease); }
+[aria-checked="true"] > .sw { background: var(--c-primary); box-shadow: none; }
+[aria-checked="true"] > .sw .sw-t { transform: translateX(20px); background: var(--c-surface); box-shadow: none; color: var(--c-primary); }
+:root[dir="rtl"] [aria-checked="true"] > .sw .sw-t { transform: translateX(-20px); }
+[aria-checked="true"] > .sw .sw-t .i { opacity: 1; }
+/* details: the time and the place underline once in mauve as they come into view (app.js .hl-on); off with less motion */
+.hl { position: relative; display: inline-block; }
+.hl::after { content: ""; position: absolute; inset-inline: 0; bottom: -3px; height: 2px; border-radius: 1px; background: var(--c-primary);
+  transform: scaleX(0); transform-origin: left; }
+:root[dir="rtl"] .hl::after { transform-origin: right; }
+.hl-on .hl::after { transform: scaleX(1); transition: transform 700ms var(--m-ease) 150ms; }
+/* details, meetup day: the contact sheet from the pinned summary */
+.pin-bar.has-help { padding-inline-end: 0; }
+.pin-bar .pin-help { pointer-events: auto; color: var(--c-primary); }
+.pin-bar .pin-help .i { width: 22px; height: 22px; }
+/* this week's photo cards: the status sits on the photo, a chevron says the card opens; the fill is the surface,
+   slightly see-through, solid when less transparency is asked for */
+.shot-pill, .shot-go { position: absolute; background: color-mix(in oklch, var(--c-surface) 90%, transparent); color: var(--c-text);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.shot-pill { inset-block-start: var(--s-2); inset-inline-start: var(--s-2); padding: 4px 10px; border-radius: var(--r-pill); font-size: var(--t-caption-size); font-weight: 600; line-height: 1.3; }
+.shot-pill.full { color: var(--c-danger); } .shot-pill.mine { color: var(--c-success); }
+.shot-go { inset-block-end: var(--s-2); inset-inline-end: var(--s-2); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; }
+.shot-go .i { width: 18px; height: 18px; }
+@media (prefers-reduced-transparency: reduce) { .shot-pill, .shot-go { background: var(--c-surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* week headings: the count after the words, in the same quiet tone */
+.week-group > h2 .num { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .hl::after { display: none; }
+  .plus-btn[aria-pressed="true"] .plus-ok { animation: none; }
+  .sw, .sw-t, .sw-t .i { transition: none; }
+}
