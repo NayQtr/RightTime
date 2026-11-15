@@ -70,7 +70,10 @@ async function open(hash, { who = member, locale = "ar", ...opts } = {}) {
   const tokens = await signInAgain(call, env.sql, who.phone);
   await page.evaluate(([t, l]) => { localStorage.setItem("q_tokens", JSON.stringify(t)); localStorage.setItem("q_locale", JSON.stringify(l)); }, [tokens, locale]);
   await page.reload(); await ready(page);
-  await page.goto(env.base + "/" + hash); await ready(page);
+  await page.goto(env.base + "/" + hash);
+  // Home is then the first screen of the session again, with its entrance (a later visit is drawn at rest)
+  if (hash === "#/home") await page.reload();
+  await ready(page);
   return page;
 }
 const noSideScroll = async (page, what) => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${what}: the page scrolls sideways`);
@@ -236,7 +239,8 @@ test("home and my events: cards rise in once (16 px, 600 ms, 120 ms apart); the 
     assert.equal(layers.length, 2, card.shadow);
     assert.match(layers[0], /0px 0px 0px 6px$/, "the outer band is 6 px");
     assert.match(layers[1], /0px 0px 0px 1px inset$/, "the inner edge is a hairline");
-    assert.deepEqual(card.rows, ["sharpen 0.28s 0.2s", "sharpen 0.28s 0.26s", "sharpen 0.28s 0.32s", "sharpen 0.28s 0.38s", "sharpen 0.28s 0.44s"].slice(0, rows));
+    // the main button (My events' fifth row) is there at once, never after the rows
+    assert.deepEqual(card.rows, ["sharpen 0.28s 0.2s", "sharpen 0.28s 0.26s", "sharpen 0.28s 0.32s", "sharpen 0.28s 0.38s", "none 0s 0s"].slice(0, rows));
     await noSideScroll(p, hash);
     await p.context().close();
   }

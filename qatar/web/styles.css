@@ -130,7 +130,7 @@ main.enter-forward > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.st
 main.enter-forward > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-end 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 main.enter-back > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.sticky-bar),
 main.enter-back > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-start 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-main.enter-fade > :not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)) { animation: enter-fade 180ms var(--m-ease) backwards; }
+main.enter-fade > :not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)):not(.btn-primary) { animation: enter-fade 180ms var(--m-ease) backwards; }
 /* the main block arrives first; the details after it settle 30 ms apart */
 main.enter-fade > :nth-child(2) { animation-delay: calc(var(--m-stagger) * 1); } main.enter-fade > :nth-child(3) { animation-delay: calc(var(--m-stagger) * 2); }
 main.enter-fade > :nth-child(4) { animation-delay: calc(var(--m-stagger) * 3); } main.enter-fade > :nth-child(n+5) { animation-delay: calc(var(--m-stagger) * 4); }
@@ -686,6 +686,8 @@ main > .next-card, main > .card.hero { margin: calc(var(--s-3) + 6px) 6px;
 :is(.next-card, .card.hero) > :nth-child(2) { animation-delay: 260ms; } :is(.next-card, .card.hero) > :nth-child(3) { animation-delay: 320ms; }
 :is(.next-card, .card.hero) > :nth-child(4) { animation-delay: 380ms; } :is(.next-card, .card.hero) > :nth-child(n+5) { animation-delay: 440ms; }
 main.settled :is(.next-card, .card.hero) > * { animation: none; }
+/* the main button is there at once, never after its card's rows */
+:is(.next-card, .card.hero) > .btn { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.next-card, .card.hero) > * { animation: none; } }
 /* lists arrive one after another (not all at once); nothing moves when the reader asks for less motion */
 /* Rounds 1-3 study (14 Nov 2026, after Apple): headings and cards rise 16 px and fade in over 600 ms, 120 ms apart; the
@@ -703,6 +705,10 @@ main.settled :is(.list, .peek) > li, main.settled .week-group > h2 { animation: 
   main .home-head .display-title { animation: rise-in 600ms var(--m-ease) backwards; }
 }
 @media (prefers-reduced-motion: reduce) { main :is(.list, .peek) > li, main .week-group > h2 { animation: none; } }
+/* the entrance plays on the first visit of each screen in a session; a later visit (Back included) is drawn at rest
+   (app.js: main.still, with main.settled for the lists and the framed card) */
+main.still > h1, main.still .quiz-q h1, main.still .inter h1, main.still .hero-welcome h1, main.still .display-title,
+main.still .bigdate b, main.still .welcome-photo img { animation: none; }
 
 /* details header */
 .det-head { display: grid; gap: var(--s-1); justify-items: start; }

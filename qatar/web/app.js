@@ -99,22 +99,31 @@ document.addEventListener("click", (e) => {
   zoomFrom = { x: Math.round(r.left + r.width / 2 - m.left), y: Math.round(r.top + r.height / 2 - m.top), at: Date.now() };
 });
 // The entrance starts on whatever shows first (the loading skeleton or the screen) and is not restarted by the next render.
+// It plays on the first visit of each screen in this session; a later visit, Back included, is drawn at rest (still).
+// Quiz steps keep their sideways step, and a meetup opened from its card keeps its zoom: those show the way she went.
+let stillView = false;
 function startEntrance() {
   if (navDir === "zoom" && main.classList.contains("enter-zoom")) return;
-  main.classList.remove(...ENTER, "settled");
+  main.classList.remove(...ENTER, "settled", "still");
+  if (stillView) { main.classList.add("still", "settled"); return; }
   void main.offsetWidth; // restart the entrance animation
   main.classList.add(`enter-${navDir}`);
 }
 
-function view(title, html) {
+// opts.focus: a control that keeps the keyboard (a toggle that redrew the screen); the page then stays where it was.
+function view(title, html, opts = {}) {
   main.inert = false;
   main.removeAttribute("aria-busy");
+  const y = window.scrollY;
   main.innerHTML = html;
+  if (opts.focus) stillView = true;
   startEntrance();
   document.title = `${title} · ${T("brand")}`;
+  const keep = opts.focus && main.querySelector(opts.focus);
+  if (keep) { keep.focus({ preventScroll: true }); window.scrollTo(0, y); return; }
   const h = main.querySelector("h1");
-  if (h) { h.tabIndex = -1; h.focus({ preventScroll: false }); }
-  window.scrollTo(0, 0);
+  if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  window.scrollTo(0, restoreTo ? restoreTo.y || 0 : 0);
 }
 
 // The generic error (ours or the server's INTERNAL, same words) gets a next step (provisional, 13d-2).
@@ -1137,9 +1146,10 @@ const plusTag = (b) => (b && b.seats === 2 ? `<span class="plus-tag">${plusMark}
 // the server's money text (lib/http.js money()), for a total shown before the server has it
 const moneyText = (minor) => { const v = minor / 100, n = Number.isInteger(v) ? String(v) : v.toFixed(2); return locale === "en" ? `QAR ${n}` : `${n} ر.ق`; };
 
-async function scrSessions(preselect) {
+async function scrSessions(preselect, keepFocus = null) {
   if (!(await guard())) return;
-  loadingView();
+  if (keepFocus) $$("[data-exp]").forEach((x) => x.setAttribute("aria-pressed", String(x.matches(keepFocus))));
+  else loadingView();
   funnel("booking_sessions");
   const r = await api("GET", "/api/v1/sessions");
   if (!r.ok) { view(T("sessionsTitle"), `<h1>${esc(T("sessionsTitle"))}</h1>${errorBanner(r.data)}`); return; }
@@ -1192,7 +1202,7 @@ async function scrSessions(preselect) {
     <div class="sticky-bar book-dock"><div>
       <p class="dock-note" id="dock-note" role="status"></p>
       <div class="book-pill">${(ok[0] || all[0] || {}).launch_free ? "" : `<a class="caption fee-link" href="#/fee">${esc(T("priceStrip", { fee: (ok[0] || all[0] || { price: { display: "" } }).price.display }))}</a>`}
-        <button class="btn btn-primary" id="go" disabled>${esc(T("continueToPay"))}</button></div></div></div>`);
+        <button class="btn btn-primary" id="go" disabled>${esc(T("continueToPay"))}</button></div></div></div>`, { focus: keepFocus });
   // Round 2 (after Airbnb): the bar floats as one pill, and the chosen session's own cancellation line (the product's
   // text and that session's real deadline) docks above it. A session whose full-refund time has passed shows no line
   // here; the review screen then carries the late-cancellation warning.
@@ -1200,7 +1210,8 @@ async function scrSessions(preselect) {
     const open = Boolean(s && s.full_refund_until && new Date(s.full_refund_until) > new Date());
     $("#dock-note").textContent = open ? T("policyBox", { deadline: fmtDate(s.full_refund_until) }) : "";
   };
-  $$("[data-exp]").forEach((b) => (b.onclick = () => { store.set("exp", b.dataset.exp); scrSessions(); }));
+  // dinner or coffee: the list is drawn again in place, and the keyboard stays on the pressed button
+  $$("[data-exp]").forEach((b) => (b.onclick = () => { if (b.getAttribute("aria-pressed") === "true") return; store.set("exp", b.dataset.exp); scrSessions(undefined, `[data-exp="${b.dataset.exp}"]`); }));
   wireNotifyMe();
   // filters hide whole rows; a chosen session that gets hidden is let go, so "Continue" never books one she cannot see
   $$("#filters input").forEach((x) => (x.onchange = () => {
@@ -1734,9 +1745,13 @@ async function scrHome() {
     <section class="stack" data-u="mt8"><p class="caption">${esc(T("help"))}</p>${contactButtons(contact)}</section>`);
   // The filter: one day (the week strip) and one kind (the dinner and coffee tiles), each cleared by a second tap. Cards
   // are hidden, never re-rendered, and the entrance does not play again when they come back (main.settled).
-  let day = null, kind = null;
+  // Back from a meetup brings the same filter back (route(): remembered for this history entry, this page load only)
+  const kept = restoreTo && restoreTo.home ? restoreTo.home : {};
+  let day = kept.day && $(`.week button[data-day="${kept.day}"]:not(:disabled)`) ? kept.day : null;
+  let kind = kept.kind && $(`.tile[data-kind="${kept.kind}"]:not(:disabled)`) ? kept.kind : null;
   const paint = () => {
     main.classList.add("settled");
+    visit().home = { day, kind };
     let n = 0;
     $$(".event-card[data-session]").forEach((a) => {
       const ok = (!day || a.dataset.day === day) && (!kind || a.dataset.exp === kind);
@@ -1752,6 +1767,7 @@ async function scrHome() {
   };
   $$(".week button[data-day]").forEach((b) => (b.onclick = () => { day = day === b.dataset.day ? null : b.dataset.day; paint(); }));
   $$(".tile[data-kind]").forEach((b) => (b.onclick = () => { kind = kind === b.dataset.kind ? null : b.dataset.kind; paint(); }));
+  if (day || kind) paint();
   if (askWoman) {
     $("#woman-ok").onclick = async () => {
       setBusy($("#woman-ok"), true);
@@ -2360,9 +2376,31 @@ const ROUTES = [
   [/^#\/booking\/([\w-]+)$/, scrDetails], [/^#\/report\/([\w-]+)$/, scrReport], [/^#\/inbox$/, scrInbox], [/^#\/profile$/, scrProfile], [/^#\/cases$/, scrCases], [/^#\/privacy$/, scrPrivacy], [/^#\/plans$/, scrPlans], [/^#\/notify(?:\?next=(\w+))?$/, scrNotify],
 ];
 
+// Back (and Forward) return her to where she was: each history entry gets an id (history.state.hz), and this page load
+// remembers, in memory only, how far she had scrolled on it and, on Home, the chosen day and kind. A new navigation
+// has no id yet and starts at the top. The browser's own restoring is off: screens are drawn after their data arrives.
+const visits = new Map();
+let entryKey = null, restoreTo = null, entrySeq = 0;
+const seenScreens = new Set();
+try { history.scrollRestoration = "manual"; } catch { /* old browser */ }
+function historyEntry() {
+  const st = history.state;
+  if (st && st.hz) return { key: st.hz, fresh: false };
+  const key = `${Date.now().toString(36)}.${++entrySeq}`;
+  try { history.replaceState({ ...(st && typeof st === "object" ? st : {}), hz: key }, ""); } catch { /* sandboxed */ }
+  return { key, fresh: true };
+}
+const visit = () => (entryKey && visits.get(entryKey)) || {};
+window.addEventListener("scroll", () => { if (entryKey && !main.inert && visits.has(entryKey)) visits.get(entryKey).y = window.scrollY; }, { passive: true });
+
 async function route() {
   clearTimers();
   toastOnNavigate();
+  const entry = historyEntry();
+  const returning = !entry.fresh && entry.key !== entryKey && visits.has(entry.key);
+  restoreTo = returning ? visits.get(entry.key) : null;
+  if (!returning && entry.key !== entryKey) visits.set(entry.key, { y: 0 });
+  entryKey = entry.key;
   const hash = location.hash || (store.get("tokens") ? "#/home" : "#/welcome");
   const quizStep = (h) => { const m = /^#\/quiz\/(\d+)$/.exec(h || ""); return m ? Number(m[1]) : null; };
   const from = quizStep(lastHash), to = quizStep(hash);
@@ -2381,7 +2419,13 @@ async function route() {
   for (const [re, fn] of ROUTES) {
     const m = re.exec(hash);
     if (m) {
+      stillView = seenScreens.has(re) && navDir === "fade";
+      seenScreens.add(re);
+      const key = entry.key;
       try { await fn(...m.slice(1)); } catch (e) { view(T("errGeneric"), `<h1>${esc(T("errGeneric"))}</h1>${errorBanner(e)}`); }
+      // the screen may have shortened while it filled in (a remembered filter): place the page once more
+      if (restoreTo && entryKey === key) window.scrollTo(0, restoreTo.y || 0);
+      if (entryKey === key) restoreTo = null;
       return;
     }
   }
