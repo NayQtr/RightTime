@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../common/motion.dart';
 import '../theme.dart';
 import '../common/press.dart';
+import '../common/sufra_background.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -24,8 +25,9 @@ class WelcomeScreen extends StatelessWidget {
     final em = t.welcomeHeroEm;
     final at = hero.lastIndexOf(em);
     final arabic = Localizations.localeOf(context).languageCode == 'ar';
+    // the «سُفرة» seats pattern behind the page (owner, 15 Nov); the photo and the buttons stay solid over it
     return Scaffold(
-      body: SafeArea(
+      body: SufraBackground(child: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) {
             // The Arabic welcome line reads as one line (owner, 12 Nov). At the full 32 pt it needs more width than a
@@ -77,7 +79,8 @@ class WelcomeScreen extends StatelessWidget {
                       rise(3, Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         Press(child: FilledButton(key: const Key('start'), onPressed: () => context.go('/quiz'), child: Text(t.getStarted))),
                         const SizedBox(height: HzSpace.s2),
-                        Press(child: OutlinedButton(key: const Key('have-account'), onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
+                        Press(child: OutlinedButton(key: const Key('have-account'), style: OutlinedButton.styleFrom(backgroundColor: c.bg),
+                            onPressed: () => context.go('/sign-in'), child: Text(t.haveAccount))),
                       ])),
                     ]),
                   ),
@@ -91,7 +94,7 @@ class WelcomeScreen extends StatelessWidget {
             ]);
           },
         ),
-      ),
+      )),
     );
   }
 }

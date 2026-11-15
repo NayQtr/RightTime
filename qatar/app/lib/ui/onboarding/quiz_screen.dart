@@ -12,6 +12,7 @@ import '../common/table_art.dart';
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/sufra_background.dart';
 
 /// The owner's wording (11 Nov): one minute, two minutes, then "a few minutes". The longest questionnaire is about
 /// four minutes, so no larger number is reached. The website says the same (timeLeftText in web/app.js).
@@ -77,7 +78,8 @@ class _QuizScreenState extends State<QuizScreen> {
         Press(child: OutlinedButton(key: const Key('retry'), onPressed: vm.load, child: Text(t.retry))),
       ]);
     } else if (vm.done && !vm.signedIn) {
-      body = ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
+      // the end of the questions (the app's interstitial) has the «سُفرة» seats pattern behind it (owner, 15 Nov)
+      body = SufraBackground(child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
         // the end of the questions: the table drawing with every seat taken (as on the website's last screen)
         const Align(alignment: AlignmentDirectional.centerStart, child: TableArt(key: Key('done-table'), filled: 6, size: 132)),
         const SizedBox(height: HzSpace.s4),
@@ -86,7 +88,7 @@ class _QuizScreenState extends State<QuizScreen> {
         Text(t.quizDoneBody),
         const SizedBox(height: HzSpace.s6),
         Press(child: FilledButton(key: const Key('save-answers'), onPressed: () => context.go('/sign-in'), child: Text(t.saveAnswers))),
-      ]);
+      ]));
     } else if (q == null) {
       body = const Center(child: CircularProgressIndicator());
     } else {
