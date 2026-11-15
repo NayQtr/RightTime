@@ -9,7 +9,9 @@ fast-forwarded d703847 → eb207d5 → production dpl_2K7nubqsZefpzbmuRoUu7HaRed
 dpl_BVVA9brYVUBSm5nDTKFDh244Szne. After: both serve herzone-web@eb207d5088fb; smoke checks pass on both; live welcome
 and sessions pages on both sites at 360 and 430 px, ar/en, light/dark: no page error, no sideways scroll; Sentry: no
 unresolved issue in the last hour. Contains: website and app UX/accessibility fixes and the 13 reference patterns. The
-app reaches members only through the stores (NMX-45/46 still open).
+app reaches members only through the stores (NMX-45/46 still open). Signed-in check on live staging after the release
+(new test members, ar/en, light/dark): home, sessions, notifications and account open with no page error and no sideways
+scroll; home takes about 6 s on a cold API (seven calls); staging has no open session, so review/pay were not reached live.
 
 ## App UX fixes and design patterns [2026-11-15] — owner: «انزل الكل وتأكد من كل شي» (15 Nov): all new lines approved as written, the rail fix kept, both seat-key wordings kept as they are; released (see below)
 Merged 72d7908 (patterns) and b6334b1 (accessibility); the time underline on the details is mauve (81aec05), never
@@ -38,7 +40,7 @@ keeps focus. Waiting on the owner: review of the new lines (Claude's wording, st
 أعلاه.», payNeedPlusName «اكتبي اسم مرافقتك أعلاه.», womanRequired «أكّدي أنكِ امرأة للمتابعة.», ageRequired «أكّدي أن
 عمركِ 18 عامًا أو أكثر للمتابعة.», deleteKeep «إبقاء حسابي», categoryRequired «اختاري نوع المشكلة.»
 
-## Owner's texts of 14 Nov and "+1" [2026-11-14] — BUILT on rightime-app (website and server), NOT released
+## Owner's texts of 14 Nov and "+1" [2026-11-14] — RELEASED 15 Nov (fdb7ae1; see the round-2 entry below); text kept as the record of 14 Nov
 Owner approved on 14 Nov: (A1) three waitlist steps under a full session, (A2) the one-line refund text under the pay
 button and in the booking details, (A3) the fee page «ماذا يشمل رسم التنظيم؟» with five questions; and decided (B) «+1»: a
 member brings one companion (name only, amount doubles, same table, both seats cancel together, one refund).
