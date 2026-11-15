@@ -16,7 +16,7 @@ blocks never lifted after a won appeal; table-cancel refunds wait for finance ap
 coordinator ID request, hearing the reported member, sanction ladder, self-move «انقلني لموعد آخر», paid booking with no
 table; plans page shows a refund guarantee for unsold subscriptions; venue bill line in user.js reads masculine.
 
-## Table opener library [2026-11-15] — BUILT on branch `openers` (not pushed, not released)
+## Table opener library [2026-11-15] — merged on rightime-app (not released; library empty)
 Owner's decision (15 Nov). One conversation question per shared theme, shown under «يجمعكن …» on the website and in the
 app's details screen, only from owner-approved lines in qatar/api/src/lib/openers.js (empty: nothing shows yet). Drafts:
 qatar/ops/draft-openers.mjs (68 question/option pairs; Gemini gets questionnaire texts only) run by the manual workflow
