@@ -459,5 +459,25 @@
         "type": "int"
       }
     }
-  }
+  },
+  "yourPick": "اختيارك",
+  "bookTwoSeats": "احجزي مقعدين",
+  "tableKeyTaken": "محجوز",
+  "tableKeyFree": "متاح",
+  "bookStepDate": "الموعد",
+  "bookStepReview": "المراجعة",
+  "bookStepPay": "الدفع",
+  "bookStepOf": "الخطوة {n} من {total}",
+  "@bookStepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sendRating": "أرسلي التقييم",
+  "dayYesterday": "أمس"
 }

@@ -973,4 +973,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get needLateAck => 'Tick the late-cancellation box above.';
+
+  @override
+  String get yourPick => 'Your pick';
+
+  @override
+  String get bookTwoSeats => 'Book two seats';
+
+  @override
+  String get tableKeyTaken => 'Taken';
+
+  @override
+  String get tableKeyFree => 'Free';
+
+  @override
+  String get bookStepDate => 'Date';
+
+  @override
+  String get bookStepReview => 'Review';
+
+  @override
+  String get bookStepPay => 'Payment';
+
+  @override
+  String bookStepOf(int n, int total) {
+    return 'Step $n of $total';
+  }
+
+  @override
+  String get sendRating => 'Send rating';
+
+  @override
+  String get dayYesterday => 'Yesterday';
 }

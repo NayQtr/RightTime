@@ -953,4 +953,36 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get needLateAck => 'ضعي علامة على إقرار الإلغاء المتأخر أعلاه.';
+
+  @override
+  String get yourPick => 'اختيارك';
+
+  @override
+  String get bookTwoSeats => 'احجزي مقعدين';
+
+  @override
+  String get tableKeyTaken => 'محجوز';
+
+  @override
+  String get tableKeyFree => 'متاح';
+
+  @override
+  String get bookStepDate => 'الموعد';
+
+  @override
+  String get bookStepReview => 'المراجعة';
+
+  @override
+  String get bookStepPay => 'الدفع';
+
+  @override
+  String bookStepOf(int n, int total) {
+    return 'الخطوة $n من $total';
+  }
+
+  @override
+  String get sendRating => 'أرسلي التقييم';
+
+  @override
+  String get dayYesterday => 'أمس';
 }
