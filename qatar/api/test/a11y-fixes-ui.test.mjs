@@ -363,6 +363,8 @@ test("dinner / coffee on the session list: the keyboard stays on the pressed but
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector("[data-exp=coffee]").getAttribute("aria-pressed") === "true" && document.querySelector("#go"));
   await ready(page);
+  // the list re-renders after the press; wait (up to 5 s) for focus to come back before reading it
+  await page.waitForFunction(() => document.activeElement?.dataset.exp === "coffee", null, { timeout: 5000 }).catch(() => {});
   assert.equal(await active(page), "coffee");
   assert.ok((await page.locator(".sess").count()) > 0);
   await page.keyboard.press("Shift+Tab");
@@ -370,6 +372,7 @@ test("dinner / coffee on the session list: the keyboard stays on the pressed but
   await page.keyboard.press("Space");
   await page.waitForFunction(() => document.querySelector("[data-exp=dinner]").getAttribute("aria-pressed") === "true");
   await ready(page);
+  await page.waitForFunction(() => document.activeElement?.dataset.exp === "dinner", null, { timeout: 5000 }).catch(() => {});
   assert.equal(await active(page), "dinner");
   assert.deepEqual(page.errors, []);
   await page.context().close();

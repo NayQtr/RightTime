@@ -3,6 +3,15 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## App UX fixes and design patterns [2026-11-15] — BUILT on rightime-app (Flutter app), NOT released
+Merged 72d7908 (patterns) and b6334b1 (accessibility); the time underline on the details is mauve (81aec05), never
+yellow. Store screenshots regenerated. Waiting on the owner: review of the new app lines (Claude's wording, app_ar.arb):
+unreadCount «{n} غير مقروءة», newTag «جديد», yourPick «اختيارك», bookTwoSeats «احجزي مقعدين», tableKeyTaken «محجوز»,
+tableKeyFree «متاح», bookStepDate «الموعد», bookStepReview «المراجعة», bookStepPay «الدفع», bookStepOf «الخطوة {n} من
+{total}», sendRating «أرسلي التقييم», dayYesterday «أمس». Open: the app's seat key says «محجوز / متاح» while the website
+says «مقعد محجوز / مقعد متاح»: the owner picks one for both. Also open: keep the app's unrequested fix to the
+notifications rail overlap (cfa93de)?
+
 ## Website design patterns, items 1–13 [2026-11-15] — BUILT on rightime-app (website only), NOT released
 Built (14c5516, e09e69a, 1286acf): booking bar with her pick and the reason Continue waits, seat key, three-step row on
 review, pay-again with amount, +1 tick, appearance switch, notifications by Today/Yesterday, mauve underline on where and
