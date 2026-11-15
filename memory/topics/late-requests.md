@@ -92,9 +92,9 @@ code also swapped it by hand, so it flipped twice). RELEASED 14 Nov with the own
 +1 AND THE THREE TEXTS (owner 14 Nov: waitlist steps «أ» direct, refund «٢أ», fee+FAQ page as proposed, +1 = name only, feminine
 wording, cancel both seats together, amount doubles). Built on server (migration 026_plus_one.sql, NOT applied to staging or
 production), engine (JS + Python), consoles, website and app; merged on rightime-app; 358 API/db/browser tests, 219 app tests.
-NOT released. Waiting on the owner: (1) the line «اكتبي اسم مرافقتك.» (name-missing error, not the owner's wording); (2) the
+RELEASED 15 Nov at the owner's request («ادفع» → «herzone.app الآن»): migration 026 applied by the owner in the SQL editor of staging and production (the connector's confirmation never reached the owner's app, five tries); herzone.app and staging serve herzone-web@fdb7ae160cfc (production dpl_3he3f2J6UpaLEWyYKN9Zd4Fxafii, staging dpl_GaDoRUSYqQBS3S5Kj8dYYSacKXpH); CI green, smoke checks passed on both, Sentry clean. Still waiting on the owner: (1) the line «اكتبي اسم مرافقتك.» (name-missing error, not the owner's wording); (2) the
 privacy notice has no line about the companion's name (needed before release: it is personal data); (3) should tablemates see
-the companion's name on the day (today only counted); (4) companion confirmed by check box only, no card check; (5) release yes.
+the companion's name on the day (today only counted); (4) companion confirmed by check box only, no card check. Supabase: migrations that drop/replace objects need the owner to run them in the SQL editor (the connector's confirmation does not reach the owner's app).
 Also open from the review of 14 Nov: account rows «اللغة»/«المظهر» show the target, not the current value (proposed fix, waiting);
 the done step in «قبل لقائك الأول» is struck through (✓ suggested, taste).
 Website batches 2 and 3 built 14 Nov (rounds 2 and 3; tests qatar/api/test/round2-ui.test.mjs and round3-ui.test.mjs). Waiting
