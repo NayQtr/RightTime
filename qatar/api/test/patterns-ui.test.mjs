@@ -91,6 +91,9 @@ test("1. the booking bar says why Continue waits, then names her pick (date · t
     assert.equal(await page.locator("#go").getAttribute("aria-describedby"), null);
     assert.equal((await page.locator("#go").innerText()).trim(), L.continueToPay, "the button names the action");
     // the room under the form follows the bar's real height, and focus never lands under it
+    // the bar grows when her pick fills it; a ResizeObserver then resizes the room, a frame later: wait for it (up to 3 s)
+    await page.waitForFunction(() => { const bar = document.querySelector(".book-dock").getBoundingClientRect().height;
+      return parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) >= bar && parseFloat(getComputedStyle(document.querySelector("main")).paddingBottom) >= bar; }, null, { timeout: 3000 }).catch(() => {});
     const room = await page.evaluate(() => ({ pad: parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom), bar: document.querySelector(".book-dock").getBoundingClientRect().height,
       mainPad: parseFloat(getComputedStyle(document.querySelector("main")).paddingBottom) }));
     assert.ok(room.pad >= room.bar && room.mainPad >= room.bar, JSON.stringify(room));
