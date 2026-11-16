@@ -3,6 +3,13 @@
 When the owner says «الطلبات المتأخرة» or «الطلبات المؤجلة» (same list, 5 Nov), list these items, with what is done and what is still open.
 Claude's own open questions to the owner go here too (owner's rule of 5 Nov).
 
+## «سُفرة» seats pattern, option B [2026-11-16] — merged on rightime-app, NOT released
+Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed seats only, borderStrong 0.30 + seat layer
+(light 0.15 instead of 0.22: 0.22 failed 4.5:1 for muted text over a dash; dark 0.22). Shows on welcome, interstitials
+(not the privacy one), empty home and my meetups, /about section bands; hidden on sign-in, account, payment, details,
+high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
+the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
+
 ## Legal documents [2026-11-15] — owner: publish privacy now, draft the rest
 Owner chose «الخصوصية الآن واكتب الباقي». privacy-qa-5 seed now carries the approved companion lines (ar/en); a one-file
 publish SQL was sent to the owner to run in both SQL editors (connector writes do not reach the owner). GAP found after
