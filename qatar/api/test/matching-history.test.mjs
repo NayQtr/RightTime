@@ -183,6 +183,9 @@ test("admin console: a low-match table shows the marker on the session page and 
     await page.goto(`${env.base}/admin/#/sessions/${W.B}`);
     const card = page.locator("section.card", { hasText: W.tableB.code }).first();
     await card.locator(".badge", { hasText: "Low match" }).waitFor();
+    // same document, new hash: the old session's form stays on screen until the new page renders, so drop it first and
+    // wait for session C's own form (the dry run went to the old session when CI was quick enough to click it)
+    await page.evaluate(() => document.querySelector("#mf")?.remove());
     await page.goto(`${env.base}/admin/#/sessions/${C}`);
     await page.waitForSelector("#mf");
     await page.selectOption("#mf select[name=rule_version]", "r1-interest");
