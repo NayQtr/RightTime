@@ -100,6 +100,9 @@ both now keep their previous sizes (e41e896, CSS only, made after the recorded b
 dpl_GEziAnLnS6EaMJV7eVBeXaJskDA2 (the owner allowed both). After: both serve herzone-web@e41e896355fd; smoke checks pass
 on both; live herzone.app phone field shows the flag picture, 227 countries, no page error; questionnaire 200.
 Open: watch the two admin tests; if either fails in CI again, treat it as real and find the cause.
+FOUND 16 Nov: the low-match marker test failed in CI again. Cause: it opened the next session by changing only the URL hash, so
+the old session's form was still on screen and a quick click dry-ran the old session. Test fixed (14a40d1), CI green. The same
+pattern may explain the alerts-screen timeout; not yet seen again. Also fixed: booking-bar test read the room a frame early (d6483e8).
 
 ## Reference-sites study, round 2 [2026-11-14] — IN PROGRESS
 Owner (14 Nov): browse the 10 sites for real, take an idea from EACH, no general verdicts; the current site is «خالي من
