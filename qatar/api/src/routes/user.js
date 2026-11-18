@@ -894,7 +894,7 @@ async function eventDetails(ctx) {
     out.venue = { name: v.name, address: v.address_line, district: locale === "en" ? v.district_en : v.district_ar,
       location: { lat: Number(v.lat), lng: Number(v.lng) }, map_url: `https://maps.google.com/?q=${Number(v.lat)},${Number(v.lng)}`,
       arrival_instructions: (locale === "en" ? v.arrival_instructions_en : v.arrival_instructions_ar).replace("{code}", t.table_code),
-      bill_policy: locale === "en" ? "Everyone pays the venue directly for their own food and drinks. No minimum order from us." : "تدفع طعامك وشرابك للمكان مباشرة. لا يوجد حد أدنى للطلب من جهتنا." };
+      bill_policy: locale === "en" ? "Everyone pays the venue directly for their own food and drinks. No minimum order from us." : "تدفعين طعامك وشرابك للمكان مباشرة. لا يوجد حد أدنى للطلب من جهتنا." /* feminine form, like every member-facing line (found 15 Nov) */ };
   }
   if (cancellable) out.actions.push({ type: "cancel", method: "POST", href: `/api/v1/bookings/${b.id}/cancel` });
   if (phase === "pending_payment") out.actions.push({ type: "pay", method: "POST", href: `/api/v1/bookings/${b.id}/checkout` });

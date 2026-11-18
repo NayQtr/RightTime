@@ -10,11 +10,19 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
+## «عالج وطور» batch [2026-11-16] — on rightime-app, NOT released
+Suspensions now end on their own: the every-minute dispatcher lifts a suspension whose recorded end has passed; an S1
+report still under review never auto-lifts (services/suspensions.js + 2 tests). The venue bill line reads «تدفعين»
+instead of «تدفع» (user.js; new wording for the owner's list). Staging redeployed so the owner can see the «سُفرة»
+pattern live; production waits for the owner's yes and the two pattern answers (mauve 1-in-6 or 1-in-3; below «ابدئي»).
+
 ## Legal documents [2026-11-15] — owner: publish privacy now, draft the rest
 Owner chose «الخصوصية الآن واكتب الباقي». privacy-qa-5 seed now carries the approved companion lines (ar/en); a one-file
 publish SQL was sent to the owner to run in both SQL editors (connector writes do not reach the owner). GAP found after
 sending: privacy-qa-5 does not mention Gemini (second opinion on a card-name mismatch, first names only) — a line was
-proposed to the owner before running the file. Drafts written for owner + lawyer (15f8219, not published):
+proposed to the owner before running the file. 16 Nov, owner «عالج وطور»: the Gemini line (Claude's wording) is now in the
+seed and the draft, ar/en; a fresh publish file was sent, verified twice on a scratch database (idempotent; a published
+notice is never rewritten). The owner can still change the wording before running it. Drafts written for owner + lawyer (15f8219, not published):
 terms-qa-2, conduct-qa-2, cancellation-qa-2 in qatar/docs/legal (36 open questions). Contradictions found between product
 promises and code (to decide): launch-offer refund promised on the pay screen but no code refunds it; fee kept on proven
 breach only for card-name rejection (suspensions refund in full); suspensions never end automatically; no block button and

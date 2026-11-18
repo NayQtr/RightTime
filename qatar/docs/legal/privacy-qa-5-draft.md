@@ -87,6 +87,7 @@ HerZone تنظّم لقاءات عشاء وقهوة في الدوحة للنسا
   - مزوّد الرسائل النصية: لرمز التحقق.
   - الاستضافة: Supabase لقاعدة البيانات، وVercel للموقع.
   - Sentry: لتقارير الأعطال.
+  - Google Gemini: عند اختلاف اسمكِ الأول عن الاسم على بطاقة الدفع، نرسل الاسمين الأولين فقط لرأي ثانٍ. لا يُرسل رقمكِ ولا أي بيانات أخرى، ولا يرفض أحدًا؛ القرار لفريقنا.
 
 **6. أين تُحفظ بياناتكِ**
 - قاعدة البيانات في مركز بيانات في الهند (مومباي).
@@ -170,6 +171,7 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
   - The SMS provider: verification codes.
   - Hosting: Supabase for the database, Vercel for the website.
   - Sentry: error reports.
+  - Google Gemini: when your first name differs from the name on your payment card, we send the two first names only for a second opinion. Your number and other data are not sent, and it never rejects anyone; our team decides.
 
 **6. Where your data is kept**
 - The database is in a data centre in India (Mumbai).

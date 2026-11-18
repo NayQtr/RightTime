@@ -6,6 +6,7 @@ import { fail, json, qa, requireUuid } from "../lib/http.js";
 import { audit } from "../services/common.js";
 import { coordinatorAlertsTick } from "../services/coordinator_alerts.js";
 import { refundsTick } from "../services/payments.js";
+import { suspensionsTick } from "../services/suspensions.js";
 import { reportError, sentryEnv } from "../lib/sentry.js";
 import { resetVapidCache, sendPush, validSubscription, vapidKeys } from "../services/webpush.js";
 import { notificationText } from "../services/notifications.js";
@@ -159,7 +160,10 @@ async function dispatch(ctx) {
   // Refunds (B1/B2) ride on it too, also on their own: a missed refund is sent, a refused or unanswered one reported.
   const refunds = await refundsTick(ctx.sql, ctx.psp, { report: (e) => reportError(sentryEnv(ctx.getEnv, ctx.cfg), e, { route: "refunds tick" }) })
     .catch((e) => { console.error("refunds tick failed:", e && e.message); return { error: true }; });
-  return json(200, { ...(await dispatchPush(ctx.sql, ctx.getEnv)), coordinator_alerts: alerts, refunds });
+  // Suspensions whose recorded end has passed lift themselves here too (see services/suspensions.js).
+  const suspensions = await suspensionsTick(ctx.sql)
+    .catch((e) => { console.error("suspensions tick failed:", e && e.message); return { error: true }; });
+  return json(200, { ...(await dispatchPush(ctx.sql, ctx.getEnv)), coordinator_alerts: alerts, refunds, suspensions });
 }
 
 export const pushRoutes = [

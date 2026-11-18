@@ -2,7 +2,7 @@
 -- qatar/docs/legal/privacy-qa-5-draft.md. Loaded UNPUBLISHED (published_at NULL), so no member sees it and nobody is
 -- asked to accept it. After the lawyer approves (and the text is updated here if needed), publish it with:
 --   UPDATE app.legal_documents SET published_at = now() WHERE version = 'privacy-qa-5' AND published_at IS NULL;
--- Re-running this file is a no-op.
+-- Re-running this file refreshes the draft text while it is unpublished; a published notice is never rewritten.
 SET search_path = app, public;
 
 INSERT INTO legal_documents (version, type, text_ar, text_en, published_at) VALUES ('privacy-qa-5', 'privacy',
@@ -66,6 +66,7 @@ HerZone تنظّم لقاءات عشاء وقهوة في الدوحة للنسا
   - مزوّد الرسائل النصية: لرمز التحقق.
   - الاستضافة: Supabase لقاعدة البيانات، وVercel للموقع.
   - Sentry: لتقارير الأعطال.
+  - Google Gemini: عند اختلاف اسمكِ الأول عن الاسم على بطاقة الدفع، نرسل الاسمين الأولين فقط لرأي ثانٍ. لا يُرسل رقمكِ ولا أي بيانات أخرى، ولا يرفض أحدًا؛ القرار لفريقنا.
 
 6. أين تُحفظ بياناتكِ
 - قاعدة البيانات في مركز بيانات في الهند (مومباي).
@@ -144,6 +145,7 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
   - The SMS provider: verification codes.
   - Hosting: Supabase for the database, Vercel for the website.
   - Sentry: error reports.
+  - Google Gemini: when your first name differs from the name on your payment card, we send the two first names only for a second opinion. Your number and other data are not sent, and it never rejects anyone; our team decides.
 
 6. Where your data is kept
 - The database is in a data centre in India (Mumbai).
@@ -163,4 +165,5 @@ HerZone organises dinners and coffees in Doha for women only, in groups of 4 to 
 - Delete your account in Profile.
 - Withdraw marketing consent, ask for a copy of your data, or object to its use, through the coordinator on duty, from the Help section of the app.$en$,
 NULL)
-ON CONFLICT (version) DO NOTHING;
+ON CONFLICT (version) DO UPDATE SET text_ar = EXCLUDED.text_ar, text_en = EXCLUDED.text_en, updated_at = now()
+  WHERE legal_documents.published_at IS NULL;
