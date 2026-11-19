@@ -63,7 +63,7 @@ test("HzMotion durations and curves match tokens.json", () => {
 
 test("the website's motion variables match tokens.json", () => {
   const css = readFileSync(new URL("../../web/tokens.css", import.meta.url), "utf8");
-  const cssName = { fast: "fast", base: "base", slow: "slow", stagger: "stagger", easing: "ease", easingIn: "ease-in", easingInOut: "ease-in-out" };
+  const cssName = { fast: "fast", base: "base", slow: "slow", stagger: "stagger", easing: "ease", easingIn: "ease-in", easingInOut: "ease-in-out", spring: "spring" };
   for (const [k, v] of [...durations, ...curves]) {
     assert.ok(cssName[k], `motion.${k} has a CSS name`);
     const want = v.$type === "duration" ? v.$value : `cubic-bezier(${v.$value.join(", ")})`;
