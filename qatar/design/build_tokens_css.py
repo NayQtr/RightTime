@@ -60,6 +60,7 @@ css = f"""/* GENERATED from qatar/design/tokens.json by build_tokens_css.py — 
   --m-ease: {ease};
   --m-ease-in: {bez("easingIn")};
   --m-ease-in-out: {bez("easingInOut")};
+  --m-spring: {bez("spring")};
   color-scheme: light dark;
 }}
 @media (prefers-color-scheme: dark) {{

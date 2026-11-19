@@ -123,6 +123,8 @@ lines += [
     "  static const Curve easingIn = Cubic(" + ", ".join(num(x) for x in m["easingIn"]["$value"]) + ");",
     "  /// Ease-in-out for movement across the screen.",
     "  static const Curve easingInOut = Cubic(" + ", ".join(num(x) for x in m["easingInOut"]["$value"]) + ");",
+    "  /// " + m["spring"]["$description"] + ".",
+    "  static const Curve spring = Cubic(" + ", ".join(num(x) for x in m["spring"]["$value"]) + ");",
     "}",
     "",
     "/// Text styles per language. Arabic uses taller lines; English display sizes are tighter.",
