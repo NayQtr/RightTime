@@ -25,6 +25,7 @@ import '../common/busy_label.dart';
 import '../common/motion.dart' show Pulse, RiseIn;
 import '../common/press.dart';
 import '../common/sound_on_show.dart';
+import '../common/table_art.dart';
 import '../../core/sounds.dart';
 
 /// One meetup. The server decides what is visible when (venue after the reveal, names on the day); this screen shows
@@ -148,6 +149,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 const SizedBox(height: HzSpace.s4),
                 Text(t.yourTable, style: tt.titleLarge),
                 Text(t.confirmedCount(d.confirmedCount!)),
+                // her table as the drawing: the confirmed seats pop in one after another the first time it appears
+                // (the peak of the wait); a forming, all-dashed table and reduced motion show it still and complete
+                const SizedBox(height: HzSpace.s2),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TableArt(key: const Key('details-table'), filled: d.confirmedCount!, size: 96, popIn: true, once: 'details-table-$bookingId'),
+                ),
                 if (d.tablemates.isNotEmpty) Text('${t.tablemates}: ${d.tablemates.join('، ')}'),
                 // table opener (owner, 15 Nov): an approved conversation question for the shared themes; the line is the question
                 if (d.opener != null) ...[
@@ -372,7 +380,7 @@ class _DrawnUnderline extends StatefulWidget {
 }
 
 class _DrawnUnderlineState extends State<_DrawnUnderline> with SingleTickerProviderStateMixin {
-  late final AnimationController _draw = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+  late final AnimationController _draw = AnimationController(vsync: this, duration: HzMotion.slow);
   ScrollPosition? _position;
 
   @override

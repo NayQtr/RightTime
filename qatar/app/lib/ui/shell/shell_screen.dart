@@ -98,7 +98,7 @@ class _TabBar extends StatelessWidget {
               child: AnimatedAlign(
                 key: const Key('tab-indicator'),
                 alignment: AlignmentDirectional(-1 + 2 * selected / (n - 1), 0),
-                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 400),
+                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : HzMotion.slow,
                 curve: const Cubic(0.16, 1, 0.3, 1),
                 child: FractionallySizedBox(
                   widthFactor: 1 / n,

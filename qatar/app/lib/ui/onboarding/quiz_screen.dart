@@ -251,7 +251,7 @@ class _Reply extends StatefulWidget {
 }
 
 class _ReplyState extends State<_Reply> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  late final AnimationController _c = AnimationController(vsync: this, duration: HzMotion.slow);
   late final Animation<double> _seat = CurvedAnimation(parent: _c, curve: const Interval(0.25, 1, curve: HzMotion.easing));
   bool _started = false;
 

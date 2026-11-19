@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import '../../core/sounds.dart';
 import '../../design/herzone_tokens.dart';
 
-/// Press feedback for a button: on touch-down it shrinks to 0.97 at once (like a physical key), and on release it eases
-/// back over 220 ms. Same as the website's `.btn:active`. Disabled buttons and reduced motion stay still. Only listens
+/// Press feedback for a button: on touch-down it shrinks to 0.97 at once (like a physical key), and on release it
+/// springs back (HzMotion.spring: a little past 1, then settled, in HzMotion.fast). Same as the website's
+/// `.btn:active`. Disabled buttons and reduced motion stay still. Only listens
 /// to the pointer, so taps, long presses, focus and semantics belong to the button as before. Releasing an enabled
 /// button also plays the tap sound (when her Sounds switch is on). A finger that moves further than the touch slop
 /// (a scroll or a drag that started on the button) is no longer a press: the button eases back and stays silent.
@@ -68,8 +69,8 @@ class _PressState extends State<Press> {
             )
           : AnimatedScale(
               scale: pressed ? 0.97 : 1,
-              duration: pressed ? Duration.zero : const Duration(milliseconds: 220),
-              curve: HzMotion.easing,
+              duration: pressed ? Duration.zero : HzMotion.fast,
+              curve: pressed ? HzMotion.easing : HzMotion.spring,
               child: widget.child,
             ),
     );

@@ -19,6 +19,7 @@ import 'home_tab.dart' show experienceName;
 import '../common/test_id.dart';
 import '../common/busy_label.dart';
 import '../common/press.dart';
+import '../common/motion.dart' show Pulse;
 import '../common/sound_on_show.dart';
 
 /// Booking: hold the seat, review (fee, refund terms, and the no-refund acknowledgement close to the date), pay on the
@@ -238,13 +239,17 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
-        if (bk.launchFree)
-          Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: HzSpace.s2, children: [
-            Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium?.copyWith(color: c.textMuted, decoration: TextDecoration.lineThrough)),
-            Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
-          ])
-        else
-          Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium),
+        // with "+1" the amount arrives doubled: it pulses once (a spring to 1.03 and back over HzMotion.base), the
+        // secondary action that answers the toggle; still with reduced motion, and never for a single seat
+        _PulseIfTwo(
+          seats: bk.seats,
+          child: bk.launchFree
+              ? Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: HzSpace.s2, children: [
+                  Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium?.copyWith(color: c.textMuted, decoration: TextDecoration.lineThrough)),
+                  Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
+                ])
+              : Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium),
+        ),
         // "+1": two seats, with her companion's name; the amount above and on the button is the total for both
         if (bk.seats == 2) ...[
           const SizedBox(height: HzSpace.s1),
@@ -303,6 +308,19 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
       bottomNavigationBar: bar,
     );
   }
+}
+
+/// The amount on the review: for two seats (the «+1» doubled total) it pulses once as it appears — 1 to 1.03 and back
+/// with HzMotion.spring over HzMotion.base, the secondary action beside the toggle's own change. A single seat, and
+/// reduced motion (inside [Pulse]), show it still.
+class _PulseIfTwo extends StatelessWidget {
+  const _PulseIfTwo({required this.seats, required this.child});
+  final int seats;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      seats == 2 ? Pulse(key: const Key('amount-pulse'), duration: HzMotion.base, curve: HzMotion.spring, lead: false, child: child) : child;
 }
 
 /// The three steps of booking: the date, the review, then paying. Done steps carry a tick and the current one is bold in

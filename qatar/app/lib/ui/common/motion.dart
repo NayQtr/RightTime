@@ -74,7 +74,8 @@ class _SkeletonListState extends State<SkeletonList> with SingleTickerProviderSt
 }
 
 /// Fades and lifts a list item into place, each [index] 30 ms after the one before (like the website's lists).
-/// One controller, no timers: the item at [index] simply starts later in the same 600 ms. Shown at once when the device
+/// One controller, no timers: the item at [index] simply starts later in the same run, and each rises over
+/// HzMotion.slow. Shown at once when the device
 /// asks for reduced motion. A page's own blocks arrive further apart ([gap], 120 ms on the website's welcome); the run
 /// then lasts as long as the last block needs. With [once], the page named so rises in on her first visit in this run
 /// of the app only; later visits show it in place at once.
@@ -98,10 +99,10 @@ class RiseIn extends StatefulWidget {
 }
 
 class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
-  // 30 ms between rows (HzMotion.stagger) inside the 600 ms run; a wider gap lengthens the run instead of squeezing
-  // the last block
+  // 30 ms between rows (HzMotion.stagger); each row rises over HzMotion.slow, so a wider gap lengthens the run
+  // instead of squeezing the last block
   late final int _delay = widget.index.clamp(0, 5) * widget.gap.inMilliseconds;
-  late final int _run = _delay + 480 > 600 ? _delay + 480 : 600;
+  late final int _run = _delay + HzMotion.slow.inMilliseconds;
   late final AnimationController _c = AnimationController(vsync: this, duration: Duration(milliseconds: _run));
   Animation<double>? _a;
 
@@ -134,23 +135,30 @@ class _RiseInState extends State<RiseIn> with SingleTickerProviderStateMixin {
       );
 }
 
-/// A small pulse (to 1.03 and back, ease-in-out) once an action has gone through, so the confirmation is felt as well as
-/// read. Still when the device asks for reduced motion. Same as the website's `.pulse`.
+/// A small pulse (to 1.03 and back) once an action has gone through, so the confirmation is felt as well as
+/// read. Still when the device asks for reduced motion. Same as the website's `.pulse`: a beat, then ease-in-out over
+/// HzMotion.slow. A secondary action pulses at once ([lead] false), e.g. with [curve] HzMotion.spring over
+/// HzMotion.base when the «+1» total appears.
 class Pulse extends StatefulWidget {
-  const Pulse({super.key, required this.child});
+  const Pulse({super.key, required this.child, this.duration = HzMotion.slow, this.curve = HzMotion.easingInOut, this.lead = true});
 
   final Widget child;
+  final Duration duration;
+  final Curve curve;
+
+  /// A short beat (a quarter of [duration]) before the pulse starts.
+  final bool lead;
 
   @override
   State<Pulse> createState() => _PulseState();
 }
 
 class _PulseState extends State<Pulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+  late final AnimationController _c = AnimationController(vsync: this, duration: widget.duration);
   late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(tween: ConstantTween(1), weight: 120),
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.03).chain(CurveTween(curve: HzMotion.easingInOut)), weight: 180),
-    TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0).chain(CurveTween(curve: HzMotion.easingInOut)), weight: 180),
+    if (widget.lead) TweenSequenceItem(tween: ConstantTween(1), weight: 2),
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.03).chain(CurveTween(curve: widget.curve)), weight: 3),
+    TweenSequenceItem(tween: Tween(begin: 1.03, end: 1.0).chain(CurveTween(curve: widget.curve)), weight: 3),
   ]).animate(_c);
   bool _started = false;
 

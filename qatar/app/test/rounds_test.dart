@@ -14,6 +14,7 @@ import 'package:herzone/core/device_unlock.dart';
 import 'package:herzone/core/token_store.dart';
 import 'package:herzone/data/onboarding.dart';
 import 'package:herzone/data/trip_store.dart';
+import 'package:herzone/design/herzone_tokens.dart';
 import 'package:herzone/domain/locale_controller.dart';
 import 'package:herzone/ui/common/press.dart';
 import 'package:herzone/ui/common/table_art.dart';
@@ -317,7 +318,7 @@ void main() {
     await tester.pumpAndSettle();
     AnimatedAlign bar() => tester.widget<AnimatedAlign>(find.byKey(const Key('tab-indicator')));
     expect(bar().alignment, const AlignmentDirectional(-1, 0));
-    expect(bar().duration, const Duration(milliseconds: 400));
+    expect(bar().duration, HzMotion.slow);
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();
     expect(bar().alignment, const AlignmentDirectional(1, 0));
