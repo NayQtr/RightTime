@@ -30,6 +30,17 @@ import '../ui/onboarding/quiz_view_model.dart';
 import '../ui/theme.dart';
 import 'router.dart';
 
+/// Rubber banding: every list springs back on over-scroll, on Android as on iOS (the finger is answered, never walled).
+/// With reduced motion the spring-back goes: over-scroll simply stops at the edge.
+class _HzScrollBehavior extends MaterialScrollBehavior {
+  const _HzScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => (MediaQuery.maybeDisableAnimationsOf(context) ?? false)
+      ? const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+      : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+}
+
 /// Dependency wiring: one ApiClient, repositories over it, app-wide state as ChangeNotifiers (provider). Tests pass a
 /// fake http client and an in-memory token store through the same constructor.
 class HerZoneApp extends StatefulWidget {
@@ -150,6 +161,7 @@ class _HerZoneAppState extends State<HerZoneApp> {
           darkTheme: herZoneTheme(Brightness.dark, locale.code),
           themeMode: theme.mode,
           themeAnimationCurve: HzMotion.easingInOut, // a colour change, not an arrival
+          scrollBehavior: const _HzScrollBehavior(),
           routerConfig: router,
           // a required update replaces everything (NMX-61)
           builder: (context, child) => PrivacyCover(
