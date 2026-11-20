@@ -1,8 +1,8 @@
 /* GENERATED from qatar/design/tokens.json by build_tokens_css.py — do not edit by hand. */
 :root {
-  --c-bg: #F7EDE3;
-  --c-surface: #FFFAF4;
-  --c-surfaceSunken: #EDDCC9;
+  --c-bg: #F3E6DE;
+  --c-surface: #FBF2EE;
+  --c-surfaceSunken: #E9D5C5;
   --c-text: #2B1A24;
   --c-textMuted: #5E4150;
   --c-textDisabled: #8B7280;
@@ -10,8 +10,8 @@
   --c-primaryHover: #74264F;
   --c-primarySubtle: #F3DCE8;
   --c-onPrimary: #FFFAF4;
-  --c-border: #E0CBB4;
-  --c-borderStrong: #8A7262;
+  --c-border: #DBC2AE;
+  --c-borderStrong: #8A7062;
   --c-focus: #2B1A24;
   --c-success: #1F6B3A;
   --c-warning: #7A4E00;
