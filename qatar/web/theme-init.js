@@ -4,6 +4,6 @@
     var t = JSON.parse(localStorage.getItem("q_theme"));
     if (t !== "light" && t !== "dark") return;
     document.documentElement.setAttribute("data-theme", t);
-    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#241620" : "#F7EDE3"); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#241620" : "#F3E6DE"); });
   } catch (e) { /* private mode: the device setting applies */ }
 })();
