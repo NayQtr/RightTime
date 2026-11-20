@@ -10,6 +10,15 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
+## Motion principles + release of everything [2026-11-20] — owner: «خلص وأدمج وارفع وشيك وانشر» and «انزل الكل على herzone.app»
+The 19-principle motion brief applied to web and app in HerZone's own identity: spring (back-out) release on every pressed
+control, slow token 320→280ms, 29 hardcoded durations moved to tokens, arc-tilted toast, dialogs grow from the click point,
+booking-bar pick settles, «+1» amount pulses once, all-set and details seats pop in one by one (details: exactly
+confirmed_count; the app details gained a small table drawing for it — flagged to the owner), app-wide rubber-band scroll,
+desktop hover lift. All new motion ≤300ms, transform/opacity only, dead under reduced motion. Owner's «انزل الكل» covers the
+sufra pattern as built (mauve 1-in-6; background continues under «ابدئي»), the suspension auto-expiry, the feminine bill
+line and the dormant opener plumbing. Release this run: see baseline-checks 2026-11-20.
+
 ## «عالج وطور» batch [2026-11-16] — on rightime-app, NOT released
 Suspensions now end on their own: the every-minute dispatcher lifts a suspension whose recorded end has passed; an S1
 report still under review never auto-lifts (services/suspensions.js + 2 tests). The venue bill line reads «تدفعين»
