@@ -73,7 +73,9 @@ String? _plusOneLine(AppLocalizations t, BookingSummary b, String lang) {
   return ltrPlusOne([b.guestName == null ? t.plusOne : t.plusOneGuest(b.guestName!), ?total].join(' · '));
 }
 
-/// "Your next event": the one filled card on this screen, in the brand colour with the on-colour text (as on the website).
+/// "Your next event": the first card on this screen. Since the 60-30-10 rule (owner, 20 Nov 2026) it is a light surface
+/// card with its hairline edge and ordinary text colours, like every other container; its one filled button is the
+/// screen's primary action.
 class _NextMeetupCard extends StatelessWidget {
   const _NextMeetupCard({required this.b, required this.lang});
 
@@ -85,38 +87,33 @@ class _NextMeetupCard extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final c = hzColors(context);
     final tt = Theme.of(context).textTheme;
-    final soft = c.onPrimary.withValues(alpha: 0.88);
     void open() => pushFromCard(context, '/booking/${b.id}');
     // its lines arrive one after another, 60 ms apart (owner, 14 Nov: rounds 1-3)
     Widget line(int i, Widget child) => RiseIn(index: i, once: 'events', gap: const Duration(milliseconds: 60), child: child);
-    // a double frame: a faint band of the brand colour around the card
-    return Container(
+    // the 6 px around the card stay (the double frame's room), now without the band of colour
+    return Padding(
       padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(color: c.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(HzRadius.xl + 6)),
       child: TestId('booking-${b.id}', child: Material(
       key: Key('booking-${b.id}'),
-      color: c.primary,
-      borderRadius: BorderRadius.circular(HzRadius.xl),
+      color: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.xl), side: BorderSide(color: c.border)),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(HzRadius.xl),
         onTap: open,
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.s5),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(t.nextEvent, style: tt.labelMedium?.copyWith(color: soft)),
+            Text(t.nextEvent, style: tt.labelMedium?.copyWith(color: c.textMuted)),
             const SizedBox(height: HzSpace.s2),
-            line(1, Text(experienceName(t, b.experience), style: tt.headlineSmall?.copyWith(color: c.onPrimary))),
-            line(2, Text(fmtWhen(b.startsAt, lang), style: tt.titleMedium?.copyWith(color: c.onPrimary))),
+            line(1, Text(experienceName(t, b.experience), style: tt.headlineSmall?.copyWith(color: c.text))),
+            line(2, Text(fmtWhen(b.startsAt, lang), style: tt.titleMedium?.copyWith(color: c.text))),
             const SizedBox(height: HzSpace.s1),
-            line(3, Text('${b.district} · ${t.bookingRef} ${b.ref}', style: tt.bodyMedium?.copyWith(color: soft))),
+            line(3, Text('${b.district} · ${t.bookingRef} ${b.ref}', style: tt.bodyMedium?.copyWith(color: c.textMuted))),
             if (_plusOneLine(t, b, lang) != null)
-              line(4, Text(_plusOneLine(t, b, lang)!, key: const Key('plus-one-card'), style: tt.bodyMedium?.copyWith(color: soft))),
+              line(4, Text(_plusOneLine(t, b, lang)!, key: const Key('plus-one-card'), style: tt.bodyMedium?.copyWith(color: c.textMuted))),
             const SizedBox(height: HzSpace.s4),
-            Press(child: FilledButton(
-              onPressed: open,
-              style: FilledButton.styleFrom(backgroundColor: c.onPrimary, foregroundColor: c.primary),
-              child: Text(t.viewDetails),
-            )),
+            Press(child: FilledButton(onPressed: open, child: Text(t.viewDetails))), // the screen's primary action
           ]),
         ),
       ),
@@ -125,8 +122,8 @@ class _NextMeetupCard extends StatelessWidget {
 }
 
 /// With no meetup yet, "my meetups" is not an empty page: a getting-ready card (owner, 14 Nov: rounds 1-3). The
-/// questions are behind her (she cannot be here without them), so that step is struck through; the other two lead to
-/// the dates and to the rules.
+/// questions are behind her (she cannot be here without them), so that step carries a tick and a quiet edge; the other
+/// two, in ink with an ink edge, lead to the dates and to the rules. No mauve: the table's seats are the accent here.
 class _ReadyCard extends StatelessWidget {
   const _ReadyCard();
 
@@ -146,9 +143,9 @@ class _ReadyCard extends StatelessWidget {
           child: Container(
             constraints: const BoxConstraints(minHeight: HzSpace.touchTarget),
             padding: const EdgeInsetsDirectional.only(start: HzSpace.s3),
-            decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: done ? c.primary : c.primary.withValues(alpha: 0.28), width: 3))),
+            decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: done ? c.borderStrong : c.text, width: 3))),
             child: Row(children: [
-              if (done) Padding(padding: const EdgeInsetsDirectional.only(end: HzSpace.s2), child: Icon(Icons.check_rounded, size: 18, color: c.primary)),
+              if (done) Padding(padding: const EdgeInsetsDirectional.only(end: HzSpace.s2), child: Icon(Icons.check_rounded, size: 18, color: c.textMuted)),
               Expanded(child: Text(text, style: done ? TextStyle(color: c.textMuted) : null)), // done: a tick, no strike (owner, 15 Nov)
               if (!done) Icon(Icons.chevron_right, color: c.textMuted), // the icon mirrors itself in Arabic
             ]),
@@ -159,8 +156,8 @@ class _ReadyCard extends StatelessWidget {
 
     return Container(
       key: const Key('ready'),
-      padding: const EdgeInsets.all(HzSpace.s5),
-      decoration: BoxDecoration(color: c.primarySubtle, borderRadius: BorderRadius.circular(HzRadius.md)),
+      padding: const EdgeInsets.all(HzSpace.s5 - 1), // the hairline edge takes the pixel
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.md), border: Border.all(color: c.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(child: Text(t.readyTitle, style: tt.titleLarge)),

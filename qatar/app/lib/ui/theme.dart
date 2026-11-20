@@ -50,6 +50,29 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), shape: shape, foregroundColor: c.text, disabledForegroundColor: c.textDisabled, side: BorderSide(color: c.borderStrong)),
     ),
+    // 60-30-10 (owner, 20 Nov 2026): mauve belongs to the one primary action, the current tab and the table's seats. A
+    // text button is a link: ink-coloured and underlined, never mauve
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: c.text,
+        disabledForegroundColor: c.textDisabled,
+        textStyle: base.textTheme.labelLarge?.copyWith(decoration: TextDecoration.underline),
+      ),
+    ),
+    // a chosen box, radio or switch is told by the ink colour and its mark (tick, dot, thumb icon), not by mauve
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? (s.contains(WidgetState.disabled) ? c.textDisabled : c.text) : null),
+      checkColor: WidgetStatePropertyAll(c.surface),
+      side: WidgetStateBorderSide.resolveWith((s) => BorderSide(color: s.contains(WidgetState.disabled) ? c.textDisabled : s.contains(WidgetState.selected) ? c.text : c.borderStrong, width: 2)),
+    ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.disabled) ? c.textDisabled : s.contains(WidgetState.selected) ? c.text : c.borderStrong),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.text : c.borderStrong),
+      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.surface : c.surfaceSunken),
+      trackOutlineColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.text : c.borderStrong),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.surface,
@@ -59,8 +82,9 @@ ThemeData herZoneTheme(Brightness brightness, String lang) {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.borderStrong, width: 1.5)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(HzRadius.md), borderSide: BorderSide(color: c.focus, width: 2)),
     ),
-    // cards as on the web (.card): a sunken fill, no border and no shadow
-    cardTheme: CardThemeData(color: c.surfaceSunken, elevation: 0, surfaceTintColor: Colors.transparent, shadowColor: Colors.transparent, shape: shape),
+    // cards are the one container family (60-30-10, 20 Nov 2026): the light surface with its hairline edge, no shadow
+    cardTheme: CardThemeData(color: c.surface, elevation: 0, surfaceTintColor: Colors.transparent, shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.md), side: BorderSide(color: c.border))),
     appBarTheme: AppBarTheme(backgroundColor: c.bg, foregroundColor: c.text, elevation: 0, scrolledUnderElevation: 0, centerTitle: false),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: c.surface,

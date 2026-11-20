@@ -65,7 +65,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         Press(child: IconButton(
           key: Key('$key-$i'),
           tooltip: '$i/5',
-          icon: Icon(value != null && i <= value ? Icons.star : Icons.star_border, color: c.primary),
+          icon: Icon(value != null && i <= value ? Icons.star : Icons.star_border, color: c.text), // filled or outlined, in ink (60-30-10)
           onPressed: () => onChanged(i),
         )),
     ]);
@@ -94,11 +94,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
           key: Key('reason-$k'),
           label: Text(label[k]!),
           selected: reasons.contains(k),
-          showCheckmark: false,
-          selectedColor: c.primary,
-          backgroundColor: c.surfaceSunken,
-          labelStyle: TextStyle(color: reasons.contains(k) ? c.onPrimary : c.text),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: reasons.contains(k) ? c.primary : c.borderStrong)),
+          // chosen: an ink ring and a tick on the light surface (60-30-10)
+          showCheckmark: true,
+          checkmarkColor: c.text,
+          selectedColor: c.surface,
+          backgroundColor: c.surface,
+          labelStyle: TextStyle(color: c.text, fontWeight: reasons.contains(k) ? FontWeight.w600 : null),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill),
+              side: BorderSide(color: reasons.contains(k) ? c.text : c.borderStrong, width: reasons.contains(k) ? 2 : 1)),
           onSelected: (on) => setState(() => on ? reasons.add(k) : reasons.remove(k)),
         )),
     ]);

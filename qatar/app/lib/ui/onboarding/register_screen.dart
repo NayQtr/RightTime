@@ -105,7 +105,7 @@ class _RegisterFormState extends State<_RegisterForm> {
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
       TestId('name', child: TextField(key: const Key('name'), controller: _name, maxLength: 30, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: t.nameLabel, helperText: t.nameHelp))),
       const SizedBox(height: HzSpace.s4),
-      Text(t.womenOnly, style: TextStyle(color: c.primary, fontWeight: FontWeight.w600)),
+      Text(t.womenOnly, style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
       TestId('woman', child: CheckboxListTile(key: const Key('woman'), contentPadding: EdgeInsets.zero, value: woman, onChanged: (v) => setState(() => woman = v!), title: Text(t.womanLabel))),
       TestId('adult', child: CheckboxListTile(key: const Key('adult'), contentPadding: EdgeInsets.zero, value: adult, onChanged: (v) => setState(() => adult = v!), title: Text(t.ageLabel))),
       const Divider(),

@@ -107,7 +107,6 @@ class _SessionListState extends State<_SessionList> {
       const SizedBox(height: HzSpace.s4),
       if (all.isNotEmpty) ...[
         RiseIn(index: 0, once: 'home', child: _Tile(
-          color: c.surfaceSunken,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Semantics(
               header: true,
@@ -196,10 +195,10 @@ class _SessionListState extends State<_SessionList> {
   }
 }
 
-/// One tinted tile of the home header.
+/// One tile of the home header: the light surface with its hairline edge, the one container family (60-30-10, 20 Nov
+/// 2026). Chosen, the edge turns ink and thickens; the padding gives back the extra pixel, so nothing moves.
 class _Tile extends StatelessWidget {
-  const _Tile({required this.color, required this.child, this.selected = false});
-  final Color color;
+  const _Tile({required this.child, this.selected = false});
   final Widget child;
   final bool selected;
 
@@ -209,11 +208,11 @@ class _Tile extends StatelessWidget {
     return AnimatedContainer(
       duration: MediaQuery.of(context).disableAnimations ? Duration.zero : HzMotion.base,
       curve: HzMotion.easing,
-      padding: const EdgeInsets.all(HzSpace.s3),
+      padding: EdgeInsets.all(HzSpace.s3 + (selected ? 0 : 1)),
       decoration: BoxDecoration(
-        color: color,
+        color: c.surface,
         borderRadius: BorderRadius.circular(HzRadius.md),
-        border: Border.all(color: selected ? c.primary : color, width: 2),
+        border: Border.all(color: selected ? c.text : c.border, width: selected ? 2 : 1),
       ),
       child: child,
     );
@@ -221,7 +220,8 @@ class _Tile extends StatelessWidget {
 }
 
 /// One day of the week strip: the weekday, the day of the month, and a dot when a meetup falls on it. A day without a
-/// meetup is faded and cannot be chosen; tapping the chosen day again shows the whole week.
+/// meetup is faded and cannot be chosen; tapping the chosen day again shows the whole week. The chosen day is told by
+/// an ink outline and its weekday in ink and bold, never by colour alone and never in mauve (60-30-10).
 class _WeekDay extends StatelessWidget {
   const _WeekDay({required this.date, required this.lang, required this.has, required this.selected, required this.onTap});
   final DateTime date;
@@ -252,15 +252,16 @@ class _WeekDay extends StatelessWidget {
               height: 60,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(HzRadius.md),
-                border: Border.all(color: selected ? c.primary : c.primary.withValues(alpha: 0), width: 2),
+                border: Border.all(color: selected ? c.text : c.text.withValues(alpha: 0), width: 2),
               ),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: FittedBox(fit: BoxFit.scaleDown, child: Text(DateFormat('EEE', lang).format(date), maxLines: 1, style: tt.labelSmall?.copyWith(fontSize: 11, height: 1.3, color: c.textMuted))),
+                  child: FittedBox(fit: BoxFit.scaleDown, child: Text(DateFormat('EEE', lang).format(date), maxLines: 1, style: tt.labelSmall?.copyWith(fontSize: 11, height: 1.3,
+                      color: selected ? c.text : c.textMuted, fontWeight: selected ? FontWeight.w700 : null))),
                 ),
                 Text('${date.day}', style: tt.titleLarge?.copyWith(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, color: c.text)),
-                Container(width: 5, height: 5, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? c.primary : c.primary.withValues(alpha: 0))),
+                Container(width: 5, height: 5, decoration: BoxDecoration(shape: BoxShape.circle, color: has ? c.text : c.text.withValues(alpha: 0))),
               ]),
             ),
           ),
@@ -270,7 +271,7 @@ class _WeekDay extends StatelessWidget {
   }
 }
 
-/// Dinner or coffee: a tinted tile that narrows the meetups to that kind; tapping it again shows both.
+/// Dinner or coffee: a tile that narrows the meetups to that kind; tapping it again shows both.
 class _KindTile extends StatelessWidget {
   const _KindTile({required this.id, required this.name, required this.icon, required this.enabled, required this.selected, required this.onTap});
   final String id, name;
@@ -292,14 +293,13 @@ class _KindTile extends StatelessWidget {
         child: Opacity(
           opacity: enabled ? 1 : 0.45,
           child: _Tile(
-            color: c.primarySubtle,
             selected: selected,
             child: Row(children: [
               Expanded(child: Text(name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 17))),
-              // the one small yellow mark: a dot beside the drawing
-              Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: c.accent)),
+              // the small yellow dot that stood here is gone: yellow is welcome's alone (60-30-10); its room stays
+              const SizedBox(width: 6, height: 6),
               const SizedBox(width: HzSpace.s1),
-              Icon(icon, size: 30, color: c.primary),
+              Icon(icon, size: 30, color: c.text),
             ]),
           ),
         ),
@@ -323,15 +323,17 @@ class _ChipRow extends StatelessWidget {
       final on = selected == value;
       return Padding(
         padding: const EdgeInsetsDirectional.only(end: HzSpace.s2),
+        // chosen: an ink ring and a tick on the light surface, not a mauve fill (60-30-10)
         child: TestId('$id-${value ?? 'all'}', child: ChoiceChip(
           key: Key('$id-${value ?? 'all'}'),
           label: Text(text),
           selected: on,
-          showCheckmark: false,
-          selectedColor: c.primary,
-          backgroundColor: c.surfaceSunken,
-          labelStyle: TextStyle(color: on ? c.onPrimary : c.text),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: on ? c.primary : c.borderStrong)),
+          showCheckmark: true,
+          checkmarkColor: c.text,
+          selectedColor: c.surface,
+          backgroundColor: c.surface,
+          labelStyle: TextStyle(color: c.text, fontWeight: on ? FontWeight.w600 : null),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: on ? c.text : c.borderStrong, width: on ? 2 : 1)),
           onSelected: (_) => onSelected(value),
         )),
       );
@@ -378,7 +380,7 @@ class _WaitlistSteps extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(top: i == 0 ? 0 : HzSpace.s1),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: HzSpace.s5, child: Text('${i + 1}', style: small?.copyWith(color: c.primary, fontWeight: FontWeight.w700))),
+            SizedBox(width: HzSpace.s5, child: Text('${i + 1}', style: small?.copyWith(color: c.text, fontWeight: FontWeight.w700))),
             Expanded(child: Text(step, style: small?.copyWith(color: c.textMuted))),
           ]),
         ),
@@ -386,7 +388,8 @@ class _WaitlistSteps extends StatelessWidget {
   }
 }
 
-/// The date as a calendar leaf, as on the website (decoration: the date line beside it says the same).
+/// The date as a calendar leaf, as on the website (decoration: the date line beside it says the same): a small sunken
+/// tile with the day in ink, not a mauve block (60-30-10).
 class _Leaf extends StatelessWidget {
   const _Leaf(this.startsAt, {this.width = 60});
   final String startsAt;
@@ -400,10 +403,10 @@ class _Leaf extends StatelessWidget {
       child: Container(
         width: width,
         padding: const EdgeInsets.symmetric(vertical: HzSpace.s2),
-        decoration: BoxDecoration(color: c.primarySubtle, borderRadius: BorderRadius.circular(HzRadius.md)),
+        decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(HzRadius.md)),
         child: Column(children: [
-          Text(fmtDay(startsAt), style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: c.primary, fontWeight: FontWeight.w800, height: 1.05)),
-          Text(fmtWeekday(startsAt, lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.primary)),
+          Text(fmtDay(startsAt), style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: c.text, fontWeight: FontWeight.w800, height: 1.05)),
+          Text(fmtWeekday(startsAt, lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.textMuted)),
         ]),
       ),
     );
@@ -527,7 +530,7 @@ class _SessionCard extends StatelessWidget {
                 Text('${s.district} · ${s.language == 'ar' ? t.langAr : t.langEn}'),
                 if (status.isNotEmpty) ...[
                   const SizedBox(height: HzSpace.s2),
-                  Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.primary, fontWeight: FontWeight.w600)),
+                  Text(status, style: TextStyle(color: s.isFull && s.myBookingId == null ? c.danger : c.text, fontWeight: FontWeight.w600)),
                 ],
               ]),
             ),

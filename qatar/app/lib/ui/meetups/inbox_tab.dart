@@ -82,7 +82,7 @@ class InboxTab extends StatelessWidget {
                 // a new one: a filled dot, its words in bold and the word "New" (never colour alone), as on the website
                 title: InboxBadge.isNew(n, seen)
                     ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(t.newTag, key: Key('new-${n.id}'), style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).primary, fontWeight: FontWeight.w700)),
+                        Text(t.newTag, key: Key('new-${n.id}'), style: Theme.of(context).textTheme.labelMedium?.copyWith(color: hzColors(context).text, fontWeight: FontWeight.w700)),
                         Text(n.text, style: const TextStyle(fontWeight: FontWeight.w600)),
                       ])
                     : Text(n.text),
@@ -117,7 +117,8 @@ class InboxTab extends StatelessWidget {
   }
 }
 
-/// One row of the dated rail: a thin line down the start side, with a ring where a notice hangs on it.
+/// One row of the dated rail: a thin line down the start side, with a ring where a notice hangs on it (a filled ink dot
+/// for a new one). Neutral since the 60-30-10 rule (20 Nov 2026): the current tab is this screen's accent.
 class _Rail extends StatelessWidget {
   const _Rail({required this.child, this.dot = false, this.filled = false, this.first = false, this.last = false});
   final Widget child;
@@ -126,7 +127,7 @@ class _Rail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = hzColors(context);
-    final line = c.primary.withValues(alpha: 0.3);
+    final line = c.border;
     // the rail is drawn beside the row at the row's own height (no intrinsic measuring, which came out shorter than a
     // notice marked "New" and let the time under it run into the next day's header)
     return Stack(children: [
@@ -143,7 +144,7 @@ class _Rail extends StatelessWidget {
               PositionedDirectional(
                 start: 3.5,
                 top: 22,
-                child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.primary : c.bg, border: Border.all(color: c.primary, width: 1.5))),
+                child: Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? c.text : c.bg, border: Border.all(color: filled ? c.text : c.borderStrong, width: 1.5))),
               ),
           ]),
         ),

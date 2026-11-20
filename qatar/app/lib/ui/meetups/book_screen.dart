@@ -209,10 +209,13 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
     } else {
       final ordinary = bk.refundWindowOpen && bk.fullRefundUntil != null;
       final terms = Container(
-        padding: const EdgeInsets.all(HzSpace.s3),
-        // The ordinary refund note sits on the sunken surface, as the same note does on the website; only the late
-        // warning is tinted. "info" is a steel blue and washed out grey over the warm background of identity v0.5.
-        decoration: BoxDecoration(color: bk.refundWindowOpen ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
+        padding: EdgeInsets.all(HzSpace.s3 - (bk.refundWindowOpen ? 1 : 0)), // the hairline edge takes the pixel
+        // The ordinary refund note sits in the one container family, the light surface with its hairline edge (60-30-10,
+        // 20 Nov 2026); only the late warning is tinted. "info" is a steel blue and washed out grey over the warm
+        // background of identity v0.5.
+        decoration: bk.refundWindowOpen
+            ? BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.sm), border: Border.all(color: c.border))
+            : BoxDecoration(color: c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(ordinary ? t.refundLine(fmtWhen(bk.fullRefundUntil!, lang)) : t.lateWarning, key: const Key('terms')),
       );
       final payWhy = !busy && bk.ackRequired && !ack ? t.needLateAck : null;
@@ -246,7 +249,7 @@ class _BookScreenState extends State<BookScreen> with WidgetsBindingObserver {
           child: bk.launchFree
               ? Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: HzSpace.s2, children: [
                   Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium?.copyWith(color: c.textMuted, decoration: TextDecoration.lineThrough)),
-                  Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.primary)),
+                  Text(t.feeLaunchFree, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
                 ])
               : Text(bk.amount, key: const Key('amount'), style: tt.headlineMedium),
         ),
@@ -323,8 +326,9 @@ class _PulseIfTwo extends StatelessWidget {
       seats == 2 ? Pulse(key: const Key('amount-pulse'), duration: HzMotion.base, curve: HzMotion.spring, lead: false, child: child) : child;
 }
 
-/// The three steps of booking: the date, the review, then paying. Done steps carry a tick and the current one is bold in
-/// the brand colour (not colour alone); a screen reader hears the current step and its place ("Review, step 2 of 3").
+/// The three steps of booking: the date, the review, then paying. Done steps are quiet with a tick, the current one is in
+/// ink and bold over an ink bar, the next ones muted (not colour alone, and no mauve: 60-30-10); a screen reader hears
+/// the current step and its place ("Review, step 2 of 3").
 class _BookSteps extends StatelessWidget {
   const _BookSteps({required this.current});
   final int current;
@@ -342,19 +346,19 @@ class _BookSteps extends StatelessWidget {
             label: i == current ? '${steps[i]}، ${t.bookStepOf(i + 1, steps.length)}' : steps[i],
             excludeSemantics: true,
             child: Column(key: Key('book-step-$i'), children: [
-              Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i <= current ? c.primary : c.border),
+              Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i == current ? c.text : i < current ? c.borderStrong : c.border),
               const SizedBox(height: HzSpace.s1),
               Text.rich(
                 TextSpan(children: [
                   if (i < current) ...[
-                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.primary)),
+                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.textMuted)),
                     const TextSpan(text: ' '),
                   ],
                   TextSpan(text: steps[i]),
                 ]),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, fontWeight: i == current ? FontWeight.w700 : FontWeight.w400,
-                    color: i == current ? c.primary : i < current ? c.text : c.textMuted),
+                    color: i == current ? c.text : c.textMuted),
               ),
             ]),
           ),
@@ -363,8 +367,9 @@ class _BookSteps extends StatelessWidget {
   }
 }
 
-/// The "+1" control: off by default; on, it takes the brand edge and a tick. A session that cannot seat two leaves it
-/// faded and untappable. A screen reader hears a button and whether it is chosen.
+/// The "+1" control: off by default, a light surface tile with its hairline edge; on, it takes a thicker ink edge and a
+/// tick (60-30-10: no mauve). A session that cannot seat two leaves it faded and untappable. A screen reader hears a
+/// button and whether it is chosen.
 class _PlusOneToggle extends StatelessWidget {
   const _PlusOneToggle({required this.on, required this.onTap});
   final bool on;
@@ -389,15 +394,15 @@ class _PlusOneToggle extends StatelessWidget {
             duration: MediaQuery.of(context).disableAnimations ? Duration.zero : HzMotion.base,
             curve: HzMotion.easing,
             constraints: const BoxConstraints(minHeight: 56),
-            padding: const EdgeInsets.symmetric(horizontal: HzSpace.s4),
+            padding: EdgeInsets.symmetric(horizontal: HzSpace.s4 + (on ? 0 : 1)), // the thinner edge gives back its pixel
             decoration: BoxDecoration(
-              color: c.primarySubtle,
+              color: c.surface,
               borderRadius: BorderRadius.circular(HzRadius.md),
-              border: Border.all(color: on ? c.primary : c.primarySubtle, width: 2),
+              border: Border.all(color: on ? c.text : c.border, width: on ? 2 : 1),
             ),
             child: Row(children: [
               Expanded(child: Text(ltrPlusOne(t.plusOne), style: Theme.of(context).textTheme.titleLarge)),
-              Icon(on ? Icons.check_circle : Icons.add_circle_outline, color: on ? c.primary : c.textMuted),
+              Icon(on ? Icons.check_circle : Icons.add_circle_outline, color: on ? c.text : c.textMuted),
             ]),
           ),
         ),

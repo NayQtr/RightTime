@@ -320,7 +320,7 @@ class _CountryListState extends State<_CountryList> with SingleTickerProviderSta
 
   Widget _row(BuildContext context, Country c, HzColors colors) {
     final chosen = c.iso == widget.selected.iso;
-    final ink = chosen ? colors.primary : colors.text;
+    final ink = colors.text;
     return Semantics(
       selected: chosen,
       button: true,
@@ -331,17 +331,20 @@ class _CountryListState extends State<_CountryList> with SingleTickerProviderSta
         onTap: () => widget.onChoose(c),
         borderRadius: BorderRadius.circular(HzRadius.sm),
         child: Ink(
-          decoration: BoxDecoration(color: chosen ? colors.primarySubtle : null, borderRadius: BorderRadius.circular(HzRadius.sm)),
-          padding: const EdgeInsets.symmetric(horizontal: HzSpace.s3),
+          // chosen: an ink ring, bold words and a tick on the surface, not a mauve tint (60-30-10, 20 Nov 2026); the ring is
+          // always there, see-through when not chosen, and the padding gives back its width
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(HzRadius.sm),
+              border: Border.all(color: chosen ? colors.text : colors.text.withValues(alpha: 0), width: 1.5)),
+          padding: const EdgeInsets.symmetric(horizontal: HzSpace.s3 - 1.5),
           child: Row(children: [
             FlagImage(c.iso),
             const SizedBox(width: HzSpace.s3),
             Expanded(child: Text(c.name(widget.lang), maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: ink, fontWeight: chosen ? FontWeight.w600 : null))),
             const SizedBox(width: HzSpace.s2),
-            Ltr(Text('+${c.dial}', style: TextStyle(color: chosen ? colors.primary : colors.textMuted, fontFeatures: const [FontFeature.tabularFigures()]))),
+            Ltr(Text('+${c.dial}', style: TextStyle(color: chosen ? colors.text : colors.textMuted, fontFeatures: const [FontFeature.tabularFigures()]))),
             const SizedBox(width: HzSpace.s2),
-            SizedBox(width: 18, child: chosen ? Icon(Icons.check, size: 18, color: colors.primary) : null),
+            SizedBox(width: 18, child: chosen ? Icon(Icons.check, size: 18, color: colors.text) : null),
           ]),
         ),
       ),

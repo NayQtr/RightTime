@@ -88,9 +88,12 @@ class _CancelFormState extends State<_CancelForm> {
     return ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
       TestId('refund-outcome', child: Container(
         key: const Key('refund-outcome'),
-        padding: const EdgeInsets.all(HzSpace.s3),
-        // same as the booking review: a full refund reads on the sunken surface, a partial one keeps the warning tint
-        decoration: BoxDecoration(color: full ? c.surfaceSunken : c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
+        padding: EdgeInsets.all(HzSpace.s3 - (full ? 1 : 0)), // the hairline edge takes the pixel
+        // same as the booking review: a full refund reads on the light surface with its hairline edge (60-30-10), a
+        // partial one keeps the warning tint
+        decoration: full
+            ? BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.sm), border: Border.all(color: c.border))
+            : BoxDecoration(color: c.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(HzRadius.sm)),
         child: Text(outcome),
       )),
       // "+1": cancelling ends both seats, with one refund of the whole amount
