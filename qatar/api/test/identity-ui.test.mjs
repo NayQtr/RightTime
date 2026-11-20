@@ -84,7 +84,7 @@ test("fields and buttons are 56 px with 16 px corners; the field in use has the 
   await page.context().close();
 });
 
-test("answers are light outlined cards; the chosen one is tinted with a mauve edge", async () => {
+test("answers are light outlined cards; the chosen one keeps the surface, with an ink edge (60-30-10: never pink or mauve)", async () => {
   const { page, errors } = await page_();
   await page.goto(`${env.base}/#/welcome`);
   await page.click("#start");
@@ -92,14 +92,16 @@ test("answers are light outlined cards; the chosen one is tinted with a mauve ed
   await page.waitForTimeout(800);
   await page.goto(`${env.base}/#/quiz/2`);
   await page.waitForSelector("label.option");
-  const [surface, subtle, primary] = [await token(page, "--c-surface"), await token(page, "--c-primarySubtle"), await token(page, "--c-primary")];
+  const [surface, text] = [await token(page, "--c-surface"), await token(page, "--c-text")];
   const bg = (i) => page.locator("label.option").nth(i).evaluate((el) => getComputedStyle(el).backgroundColor);
   assert.equal(await bg(1), surface, "an answer not chosen is light");
   await page.locator("label.option").nth(0).click();
   await page.mouse.move(0, 0);
-  await page.waitForTimeout(400);   // the tint fades in (120 ms)
-  assert.equal(await bg(0), subtle, "the chosen one is tinted");
-  assert.equal(await page.locator("label.option").nth(0).evaluate((el) => getComputedStyle(el).color), primary);
+  await page.waitForTimeout(400);   // the edge fades in (120 ms)
+  assert.equal(await bg(0), surface, "the chosen one keeps the surface");
+  const chosen = await page.locator("label.option").nth(0).evaluate((el) => { const cs = getComputedStyle(el); return { colour: cs.color, edge: cs.boxShadow }; });
+  assert.equal(chosen.colour, text);
+  assert.ok(chosen.edge.startsWith(text) && chosen.edge.includes("2px inset"), `an ink edge, not a colour: ${chosen.edge}`);
   assert.deepEqual(errors, []);
   await page.context().close();
 });

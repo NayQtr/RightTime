@@ -1,7 +1,7 @@
 // Website: design patterns of 15 Nov 2026 (owner's list, items 1-13; sources in docs/design/taste-2026-11-15).
 // 1 the booking bar names her pick or why it waits  2 a key under the table drawing  3 three steps on review
 // 4 pay buttons carry the amount  5 confirmation on the control  6 appearance is a real switch  7 notifications by day
-// 8 one mauve underline on where and when  9 the contact sheet in the pinned bar on the meetup day
+// 8 one ink underline on where and when (60-30-10, 20 Nov 2026: it was mauve)  9 the contact sheet in the pinned bar on the meetup day
 // 10 status and chevron on this week's photos  11 time left on the resume card  12 icon tiles on account rows
 // 13 week headings carry their count
 import { after, before, test } from "node:test";
@@ -124,7 +124,7 @@ test("3-5. review: three steps (done, current, next), the pay button carries the
       fits: l.scrollWidth <= l.clientWidth + 1 && l.getBoundingClientRect().right <= innerWidth && l.getBoundingClientRect().left >= 0, bg: getComputedStyle(l).backgroundColor })));
     assert.deepEqual(steps.map((s) => [s.text, s.cls, s.cur, s.tick]), [[L.dateTime, "done", null, true], [L.stepReview, "current", "step", false], [L.stepPay, "", null, false]]);
     assert.ok(steps.every((s) => s.fits), "the row fits a 360 px phone");
-    assert.equal(steps[0].bg, await asColour(page, "--c-primary"));
+    assert.equal(steps[0].bg, await asColour(page, "--c-surfaceSunken"), "done: a neutral fill with its tick (60-30-10)");
     const fee = locale === "en" ? `QAR ${amount.match(/[\d.]+/)[0]}` : amount;
     assert.equal((await page.locator("#pay").innerText()).trim(), L.pay.replace("{fee}", fee));
     // +1: the tick joins the mark while it is on; no pop-up message
@@ -192,7 +192,7 @@ test("7. notifications: «اليوم», «أمس», then weekday and date; the n
   }
 });
 
-test("8. details: where and when underline once in mauve as they come into view; nothing under less motion", async () => {
+test("8. details: where and when underline once in ink as they come into view; nothing under less motion", async () => {
   const venue = (j) => { j.reveal.phase = "revealed"; j.table = { capacity: 6, confirmed_count: 5, code: "B7", members: null, shared_themes: [] };
     j.venue = { name: "Café Rose", address: "Street 1", district: "Lusail", map_url: "https://maps.example/x", arrival_instructions: "Ask at the desk", bill_policy: "Each pays her own" }; };
   const page = await open(`#/booking/${S.myBooking}`, { height: 640, routes: [[/\/event-details$/, venue]] });
@@ -203,7 +203,7 @@ test("8. details: where and when underline once in mauve as they come into view;
   await page.waitForFunction(() => document.querySelector("#place").classList.contains("hl-on"));
   await page.waitForTimeout(1000);
   const line = await page.locator("#place .hl").first().evaluate((h) => { const s = getComputedStyle(h, "::after"); return { bg: s.backgroundColor, t: s.transform, h: s.height }; });
-  assert.equal(line.bg, await asColour(page, "--c-primary"), "mauve, never yellow");
+  assert.equal(line.bg, await asColour(page, "--c-text"), "ink (60-30-10), never yellow");
   assert.equal(line.h, "2px");
   assert.ok(["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(line.t), line.t);
   await page.context().close();
