@@ -124,13 +124,13 @@ main > h1, main .quiz-q h1, main .inter h1, main .hero-welcome h1, main .display
 @keyframes enter-fade { from { opacity: 0; } }
 /* a meetup opened from its card grows out of that card (app.js zoomFrom); main has no fixed bars on these screens */
 @keyframes enter-zoom { from { opacity: 0; transform: scale(0.94); } }
-main.enter-zoom { transform-origin: var(--zx, 50%) var(--zy, 0); animation: enter-zoom 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+main.enter-zoom { transform-origin: var(--zx, 50%) var(--zy, 0); animation: enter-zoom var(--m-slow) cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 @media (prefers-reduced-motion: reduce) { main.enter-zoom { animation: none; } }
 main.enter-forward > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.sticky-bar),
-main.enter-forward > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-end 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+main.enter-forward > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-end var(--m-slow) cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 main.enter-back > :not(:has(.quiz-foot, .sticky-bar)):not(.quiz-foot):not(.sticky-bar),
-main.enter-back > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-start 300ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-main.enter-fade > :not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)):not(.btn-primary) { animation: enter-fade 180ms var(--m-ease) backwards; }
+main.enter-back > :has(.quiz-foot, .sticky-bar) > :not(.quiz-foot):not(.sticky-bar) { animation: enter-from-start var(--m-slow) cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+main.enter-fade > :not(.quiz-foot):not(.sticky-bar):not(:has(.quiz-foot, .sticky-bar)):not(.btn-primary) { animation: enter-fade var(--m-base) var(--m-ease) backwards; }
 /* the main block arrives first; the details after it settle 30 ms apart */
 main.enter-fade > :nth-child(2) { animation-delay: calc(var(--m-stagger) * 1); } main.enter-fade > :nth-child(3) { animation-delay: calc(var(--m-stagger) * 2); }
 main.enter-fade > :nth-child(4) { animation-delay: calc(var(--m-stagger) * 3); } main.enter-fade > :nth-child(n+5) { animation-delay: calc(var(--m-stagger) * 4); }
@@ -144,7 +144,7 @@ main.enter-forward h1, main.enter-back h1 { animation: none; }
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 :root.theme-reveal::view-transition-new(root) { animation: theme-reveal 420ms var(--m-ease-in-out); }
 @keyframes theme-reveal { from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0)); } to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 0)); } }
-.icon-swap .i { animation: icon-swap 200ms var(--m-ease); transform-origin: center; }
+.icon-swap .i { animation: icon-swap var(--m-base) var(--m-ease); transform-origin: center; }
 @keyframes icon-swap { from { opacity: 0; transform: scale(0.6); filter: blur(4px); } }
 @media (prefers-reduced-motion: reduce) { .icon-swap .i { animation: none; } }
 
@@ -167,8 +167,9 @@ p { margin: 0 0 var(--s-3); text-wrap: pretty; }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
   min-height: 56px; padding: 0 var(--s-5); border-radius: var(--r-md); border: 0;
   font: inherit; font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 1); cursor: pointer; text-decoration: none; letter-spacing: 0;
-  transition: background-color var(--m-fast) var(--m-ease), transform var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
+  transition: background-color var(--m-fast) var(--m-ease), transform var(--m-fast) var(--m-spring), box-shadow var(--m-fast) var(--m-ease);
 }
+/* squash & stretch: the press is the wind-up (instant, below); letting go springs back past 1 and settles (--m-spring) */
 .btn:active { transform: scale(0.97); }
 .btn-primary { background: var(--c-primary); color: var(--c-onPrimary); }
 @media (hover: hover) { .btn-primary:hover { background: var(--c-primaryHover); } }
@@ -397,13 +398,16 @@ fieldset.card .check + .check { border-block-start: 1px solid var(--c-border); }
 .toast { position: fixed; inset-inline: var(--s-4); bottom: calc(var(--s-4) + env(safe-area-inset-bottom)); z-index: 60; max-width: 480px; margin: 0 auto; width: fit-content;
   background: var(--c-text); color: var(--c-bg); padding: var(--s-3) var(--s-5); border-radius: var(--r-pill); font-weight: 500; cursor: pointer; text-align: center; }
 .toast:empty { display: none; }
-.pulse { animation: pulse 360ms var(--m-ease-in-out) 120ms; }
+.pulse { animation: pulse var(--m-slow) var(--m-ease-in-out) 120ms; }
 @keyframes pulse { 50% { transform: scale(1.03); } }
-@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+/* secondary action: the due-now amount pulses once when «+1» flips (app.js removes the class on animationend) */
+.pulse-once { animation: pulse var(--m-base) var(--m-ease-in-out); }
+@media (prefers-reduced-motion: reduce) { .pulse, .pulse-once { animation: none; } }
 .toast:not(:empty) { animation: toast-in 220ms var(--m-ease); }
 .toast.out { animation: toast-out 176ms var(--m-ease-in) forwards; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.95); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.95); } }
+/* arc path: the toast swings in on a slight direction-aware tilt (RTL mirrors through --dir) and settles straight */
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.95) rotate(calc(2deg * var(--dir))); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.95) rotate(calc(2deg * var(--dir))); } }
 @media (prefers-reduced-motion: reduce) { .toast:not(:empty), .toast.out { animation: none; } }
 body:has(.tabbar:not([hidden])) .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
 body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: calc(100px + env(safe-area-inset-bottom)); }
@@ -436,7 +440,7 @@ body:has(main .quiz-foot) .toast, body:has(main .sticky-bar) .toast { bottom: ca
 }
 
 /* app busy between screens (audit F7): the previous view is inert until the next one renders */
-main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.15s ease-in; }
+main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity var(--m-fast) var(--m-ease-in); }
 @media (prefers-reduced-motion: reduce) { main[aria-busy="true"] { transition: none; } }
 /* "Request contact": the page behind blurs; two options stand one above the other */
 .contact-sheet { border: 0; padding: var(--s-5); background: transparent; color: var(--c-text); overflow: visible; }
@@ -446,8 +450,8 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .contact-sheet.closing { animation: sheet-out 176ms var(--m-ease-in) forwards; pointer-events: none; }
 .contact-sheet.closing::backdrop { animation: fade-out 176ms var(--m-ease-in) forwards; }
 /* a new level fades in over the old one's place */
-.contact-sheet.level-in > * { animation: enter-fade 150ms var(--m-ease) backwards; }
-.contact-sheet.level-in > .pulse { animation: enter-fade 150ms var(--m-ease) backwards, pulse 360ms var(--m-ease-in-out) 150ms; }
+.contact-sheet.level-in > * { animation: enter-fade var(--m-fast) var(--m-ease) backwards; }
+.contact-sheet.level-in > .pulse { animation: enter-fade var(--m-fast) var(--m-ease) backwards, pulse var(--m-slow) var(--m-ease-in-out) 150ms; }
 .contact-sheet .btn { width: 100%; align-self: start; height: auto; flex-wrap: wrap; row-gap: 2px; padding-block: var(--s-3); }
 .contact-sheet .cs-group { display: grid; gap: var(--s-2); }
 .contact-sheet .cs-hint { margin: 0; padding-inline: var(--s-3); font-size: var(--t-caption-size); line-height: 1.5; color: var(--c-textMuted); text-align: center; }
@@ -475,8 +479,11 @@ main[aria-busy="true"] { opacity: 0.6; cursor: progress; transition: opacity 0.1
 .confirm-dialog textarea { resize: vertical; }
 .confirm-dialog .cd-actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .confirm-dialog .cd-actions .btn { flex: 1 1 9rem; }
-.confirm-dialog[open] { animation: sheet-in 160ms var(--m-ease); }
+.confirm-dialog[open] { animation: sheet-in var(--m-base) var(--m-ease); }
 @media (prefers-reduced-motion: reduce) { .confirm-dialog[open] { animation: none; } }
+/* anchor to the origin: both dialogs grow from where she pressed (app.js / dialogs.js set --pop-x/--pop-y from the last
+   pointerdown); a keyboard open keeps the centre default */
+.contact-sheet[open], .confirm-dialog[open] { transform-origin: var(--pop-x, 50%) var(--pop-y, 50%); }
 
 /* ---------- table motif */
 .table .top { fill: var(--c-surfaceSunken); stroke: var(--c-border); stroke-width: 1.5; }
@@ -618,7 +625,7 @@ a.option { text-decoration: none; color: inherit; }
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-block-end: var(--s-2); }
 .tile { position: relative; display: grid; gap: 2px; align-content: start; min-height: 92px; padding: var(--s-3) var(--s-4); border: 0; border-radius: var(--r-md);
   background: var(--c-primarySubtle); color: var(--c-text); font: inherit; text-align: start; cursor: pointer; overflow: hidden;
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--m-fast) var(--m-ease); }
+  transition: transform var(--m-fast) var(--m-spring), box-shadow var(--m-fast) var(--m-ease); }
 .tile.wide { grid-column: 1 / -1; min-height: 0; padding: var(--s-3) var(--s-1) var(--s-1); background: var(--c-surfaceSunken); cursor: default; }
 .tile .e { font-size: calc(var(--u) * 0.7500); font-weight: 600; color: var(--c-textMuted); }
 .tile.wide .e { padding-inline: var(--s-3); }
@@ -763,10 +770,22 @@ main.still .bigdate b, main.still .welcome-photo img { animation: none; }
 .benefits strong { font-family: var(--font-display); font-weight: 700; }
 #plan .label { font-size: calc(var(--u) * 0.9375); color: var(--c-textMuted); margin-block-end: var(--s-4); }
 
+/* depth on desktop (hover: hover): cards lift 2 px with a slightly deeper shadow (values already used on this page:
+   the raised card's and the booking pill's). The press rules below win while she holds. Dark mode keeps its flat look
+   (its own, more specific, surface rules). A photo card sits in the week row's scroll-snap (.peek): transforming a
+   snap item makes Chromium re-snap and jump the page scroll (seen in the Back-restore test), so those cards keep the
+   deeper shadow and skip the lift. */
+@media (hover: hover) {
+  .event-card:not(.photo-card):hover, .card-link:hover, .next-card:hover { transform: translateY(-2px); }
+  .event-card:hover { box-shadow: 0 0 0 1px var(--c-border), 0 12px 28px -14px color-mix(in oklch, var(--c-text) 60%, transparent); }
+  .card-link:hover, .next-card:hover { box-shadow: 0 10px 24px -18px color-mix(in oklch, var(--c-text) 60%, transparent); }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) { .event-card:hover, .card-link:hover, .next-card:hover { transform: none; } }
 /* press feedback on touch-down for every tappable surface (Apple: respond on press, not on release). The press is
-   instant; only the release eases back. Reduced motion keeps the highlight and drops the scale. */
+   instant (the wind-up); the release springs back past 1 and settles (--m-spring). Reduced motion keeps the highlight
+   and drops the scale. */
 .option, .chip, .event-card, .card-link, .next-card, .week button, .tabbar a, .icon-btn, .settings a, .brand {
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
+  transition: transform var(--m-fast) var(--m-spring), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease);
 }
 .option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active, .settings a:active {
   transform: scale(0.97); transition-duration: 0ms; background-color: color-mix(in oklch, var(--c-surfaceSunken) 60%, var(--c-border));
@@ -775,14 +794,15 @@ main.still .bigdate b, main.still .welcome-photo img { animation: none; }
 .chip:has(input:checked):active { background-color: color-mix(in oklch, var(--c-primary) 85%, var(--c-text)); }
 .tabbar a:active, .icon-btn:active, .brand:active { transform: scale(0.97); transition-duration: 0ms; }
 .btn:active { transition-duration: 0ms; }
+.plus-btn:active { transform: scale(0.97); transition-duration: 0ms; }
 @media (prefers-reduced-motion: reduce) {
   .btn:active, .option:active, .chip:active, .event-card:active, .card-link:active, .next-card:active, .week button:active,
-  .settings a:active, .tabbar a:active, .icon-btn:active, .brand:active { transform: none; }
+  .settings a:active, .tabbar a:active, .icon-btn:active, .brand:active, .plus-btn:active { transform: none; }
 }
 
 /* Questionnaire answers (rounds 1-3 study, 14 Nov 2026, after Framer): an answer dims while it is pressed (150 ms) and
    comes back as it fills; the fill and the mark are the selection styles above. */
-.quiz-q :is(.option, .chip) { transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease), opacity 150ms var(--m-ease); }
+.quiz-q :is(.option, .chip) { transition: transform var(--m-fast) var(--m-spring), background-color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease), opacity 150ms var(--m-ease); }
 .quiz-q :is(.option, .chip):active { opacity: 0.6; transition-duration: 0ms, 0ms, 0ms, 150ms; }
 .quiz-q .scale label { transition: opacity 150ms var(--m-ease); }
 .quiz-q .scale label:active { opacity: 0.6; }
@@ -790,7 +810,7 @@ main.still .bigdate b, main.still .welcome-photo img { animation: none; }
 /* The reply line (after Duolingo): once she has chosen, the heading block fades out (180 ms) and one line fades in
    (200 ms) beside the small table, where one seat fills. The block keeps its height (app.js), so the answers never
    move; the question is moved out of sight, not removed, so a screen reader still has it. */
-.q-head { display: flow-root; transition: opacity 200ms var(--m-ease); }
+.q-head { display: flow-root; transition: opacity var(--m-base) var(--m-ease); }
 .q-head.out { opacity: 0; transition-duration: 180ms; }
 .q-head .why { margin-block-end: 0; }
 .q-head.replied { display: grid; align-content: center; }
@@ -861,6 +881,18 @@ main.still .bigdate b, main.still .welcome-photo img { animation: none; }
 /* end of the questions: the table with every seat taken */
 .done-art { width: 132px; height: 132px; margin-block-end: var(--s-2); }
 .done-art .table { width: 100%; height: 100%; }
+/* peak-end: the filled seats pop in one after another (60 ms apart) — on the all-set table, and on the meetup's own
+   table the first time it scrolls into view (app.js adds .seats-pop; never on an all-dashed forming table). Only the
+   mauve .on seats move, so exactly confirmed_count of them; the circles after the table top are nth-of-type 2-7.
+   Static under reduced motion. */
+@keyframes seat-pop { from { transform: scale(0); } }
+:is(.done-art, .seats-pop) .seat.on { transform-box: fill-box; transform-origin: center; animation: seat-pop var(--m-fast) var(--m-spring) backwards; }
+:is(.done-art, .seats-pop) .seat.on:nth-of-type(3) { animation-delay: 60ms; }
+:is(.done-art, .seats-pop) .seat.on:nth-of-type(4) { animation-delay: 120ms; }
+:is(.done-art, .seats-pop) .seat.on:nth-of-type(5) { animation-delay: 180ms; }
+:is(.done-art, .seats-pop) .seat.on:nth-of-type(6) { animation-delay: 240ms; }
+:is(.done-art, .seats-pop) .seat.on:nth-of-type(7) { animation-delay: 300ms; }
+@media (prefers-reduced-motion: reduce) { :is(.done-art, .seats-pop) .seat.on { animation: none; } }
 
 /* utilities that replace inline style attributes (CSP without 'unsafe-inline', NMX-31) */
 [data-u="start"] { align-items: flex-start; }
@@ -885,7 +917,7 @@ main.still .bigdate b, main.still .welcome-photo img { animation: none; }
    no room in the page (its own height is given back), and it is not there for taps or screen readers. */
 .pin-bar { position: sticky; top: 84px; z-index: 9; display: flex; justify-content: space-between; align-items: center; gap: var(--s-3);
   height: 44px; margin-block-end: -44px; padding: 0 var(--s-4); border-radius: var(--r-pill); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border);
-  font-size: calc(var(--u) * 0.8750); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms var(--m-ease), visibility 0s 200ms; }
+  font-size: calc(var(--u) * 0.8750); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--m-base) var(--m-ease), visibility 0s var(--m-base); }
 .pin-bar.on { opacity: 1; visibility: visible; transition-delay: 0s; }
 .pin-bar b { font-family: var(--font-display); font-weight: 700; }
 .pin-bar > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -902,7 +934,7 @@ html:has(main .pin-bar) { scroll-padding-top: 136px; }
 .book-pill .btn { flex: none; min-height: 48px; border-radius: var(--r-pill); }
 .book-pill .btn:only-child { flex: 1; }
 .dock-note { margin: 0; padding: var(--s-2) var(--s-4); border-radius: var(--r-md); background: var(--c-surface); box-shadow: 0 0 0 1px var(--c-border);
-  font-size: var(--t-caption-size); line-height: var(--t-caption-lh); animation: dock-in 300ms var(--m-ease) both; }
+  font-size: var(--t-caption-size); line-height: var(--t-caption-lh); animation: dock-in var(--m-slow) var(--m-ease) both; }
 .dock-note:empty { display: none; }
 @keyframes dock-in { from { opacity: 0; transform: translateY(8px); } }
 /* design patterns (15 Nov 2026): the pill names what she picked (date · time · kind), or why the button waits. The bar's
@@ -913,6 +945,10 @@ html:has(main .pin-bar) { scroll-padding-top: 136px; }
 .book-pill:has(.dock-sum) .btn { flex: 1 0 auto; }
 .dock-pick { margin: 0; font-size: var(--t-caption-size); line-height: var(--t-caption-lh); color: var(--c-textMuted); }
 .dock-pick.picked { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--u) * 0.9375); color: var(--c-text); }
+/* follow-through: when the pill's line changes from the waiting hint to her pick, it rises once and settles
+   (app.js re-adds .rise to restart it) */
+.dock-pick.rise { animation: rise var(--m-base) var(--m-spring); }
+@media (prefers-reduced-motion: reduce) { .dock-pick.rise { animation: none; } }
 .book-pill .dock-sum .caption { flex: none; }
 .dock-pick .nw { white-space: nowrap; }
 .book-pill .dock-sum a.fee-link { min-height: 24px; }
@@ -951,7 +987,7 @@ body:has(main .book-dock) .toast { bottom: calc(var(--dock-h, 100px) + var(--s-1
 .ready-card h2 { margin: 0 0 var(--s-2); font-size: calc(var(--u) * 1.1875); }
 .ready-card ul { position: relative; z-index: 1; list-style: none; margin: 0; padding: 0; display: grid; }
 .ck-row { display: flex; align-items: center; min-height: 44px; padding: 0 var(--s-3); border-inline-start: 3px solid color-mix(in oklch, var(--c-primary) 28%, transparent);
-  color: var(--c-text); text-decoration: none; font-size: calc(var(--u) * 0.9375); cursor: pointer; transition: border-color 250ms var(--m-ease), color 250ms var(--m-ease); }
+  color: var(--c-text); text-decoration: none; font-size: calc(var(--u) * 0.9375); cursor: pointer; transition: border-color var(--m-base) var(--m-ease), color var(--m-base) var(--m-ease); }
 .ck-row.done { border-inline-start-color: var(--c-primary); color: var(--c-textMuted); }
 .ck-row.done svg { flex: none; width: 18px; height: 18px; margin-inline-end: var(--s-2); color: var(--c-primary); }
 summary.ck-row { list-style: none; }
@@ -970,7 +1006,7 @@ summary.ck-row::-webkit-details-marker { display: none; }
    behind "+"; after sending, a summary of what was sent */
 legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); }
 .segs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.segs input + span { width: auto; background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-border); transition: background-color 150ms ease, color 150ms ease; }
+.segs input + span { width: auto; background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-border); transition: background-color var(--m-fast) var(--m-ease), color var(--m-fast) var(--m-ease); }
 .segs input:checked + span { box-shadow: none; }
 .more-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); width: 100%; min-height: 60px; padding: 0; border: 0;
   border-block: 1px solid var(--c-border); background: none; color: var(--c-text); font: inherit; font-weight: 600; text-align: start; cursor: pointer; }
@@ -1025,24 +1061,24 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 }
 @media (prefers-reduced-motion: reduce) { .skel-home :is(.skel-tiles, .skel-slots) > i { animation: none; } }
 /* a full session: her place on the waitlist as a marked step in the session's own row (after Duolingo) */
-.wait-step { position: relative; margin: 0; padding-inline-start: 28px; min-height: 24px; color: var(--c-text); animation: enter-fade 200ms var(--m-ease) backwards; }
+.wait-step { position: relative; margin: 0; padding-inline-start: 28px; min-height: 24px; color: var(--c-text); animation: enter-fade var(--m-base) var(--m-ease) backwards; }
 .wait-step::before { content: ""; position: absolute; inset-inline-start: 4px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--c-primary); }
 /* account (after Linear): an icon at the start of each row; a change is confirmed in the row itself */
 .settings .rl { display: inline-flex; align-items: center; gap: var(--s-3); min-width: 0; }
 .settings .rl .i { color: var(--c-primary); stroke-width: 1.7; }
 .settings .v { margin-inline-start: auto; text-align: end; }
-.settings .v.ok { color: var(--c-primary); animation: enter-fade 150ms var(--m-ease) backwards; }
+.settings .v.ok { color: var(--c-primary); animation: enter-fade var(--m-fast) var(--m-ease) backwards; }
 .settings .v .i { width: 20px; height: 20px; stroke-width: 2.5; }
 /* questionnaire (after Notion): the 1-5 scale is one track, and a raised thumb slides to the chosen number; the chosen
    state is the thumb itself (a shape with an edge), not colour alone. Chips with several answers take the same look. */
 .quiz-q .scale { position: relative; gap: 0; grid-template-columns: repeat(var(--n, 5), 1fr); height: 56px; padding: 4px; border-radius: 28px;
   background: color-mix(in oklch, var(--c-primary) 9%, var(--c-bg)); }
 .quiz-q .scale label { z-index: 1; aspect-ratio: auto; max-height: none; height: 100%; border-radius: 24px; background: none; color: var(--c-textMuted);
-  transition: color 200ms var(--m-ease), opacity 150ms var(--m-ease); }
+  transition: color var(--m-base) var(--m-ease), opacity 150ms var(--m-ease); }
 .quiz-q .scale label:has(input:checked) { background: none; color: var(--c-primary); }
 .scale .thumb { position: absolute; top: 4px; bottom: 4px; inset-inline-start: calc(4px + var(--at, 0) * (100% - 8px) / var(--n, 5)); width: calc((100% - 8px) / var(--n, 5));
   border-radius: 24px; background: var(--c-surface); box-shadow: inset 0 0 0 1.5px var(--c-primary), 0 3px 9px color-mix(in oklch, var(--c-text) 14%, transparent);
-  opacity: 0; transition: inset-inline-start 200ms ease-out, opacity 150ms var(--m-ease); }
+  opacity: 0; transition: inset-inline-start var(--m-base) var(--m-ease), opacity var(--m-fast) var(--m-ease); }
 .scale.has .thumb { opacity: 1; }
 .quiz-q .chip { background: color-mix(in oklch, var(--c-primary) 9%, var(--c-bg)); }
 .quiz-q .chip:has(input:checked) { background: var(--c-surface); color: var(--c-primary);
@@ -1141,7 +1177,7 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 .plus { margin-block: var(--s-4); }
 .plus > .row { gap: var(--s-3); justify-content: flex-start; }
 .plus-btn { min-width: 72px; min-height: 48px; padding: 0 var(--s-4); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); font: inherit; font-weight: 700;
-  font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); cursor: pointer; transition: background-color var(--m-fast) var(--m-ease), color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease); }
+  font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1.5px var(--c-borderStrong); cursor: pointer; transition: background-color var(--m-fast) var(--m-ease), color var(--m-fast) var(--m-ease), box-shadow var(--m-fast) var(--m-ease), transform var(--m-fast) var(--m-spring); }
 .plus-btn[aria-pressed="true"] { background: var(--c-primary); color: var(--c-onPrimary); box-shadow: none; }
 .plus-btn:disabled { color: var(--c-textDisabled); cursor: not-allowed; }
 .plus-btn:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
@@ -1152,7 +1188,7 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 /* what a waiting pay button needs, right under it */
 .pay-why { margin: var(--s-2) 0 0; color: var(--c-textMuted); text-align: center; }
 .pay-why[hidden] { display: none; }
-#plus-panel { margin-block-start: var(--s-3); animation: enter-fade 200ms var(--m-ease) backwards; }
+#plus-panel { margin-block-start: var(--s-3); animation: enter-fade var(--m-base) var(--m-ease) backwards; }
 #plus-panel[hidden] { display: none; }
 #plus-panel > p { margin: 0; }
 .plus-tag { font-weight: 600; }
@@ -1177,7 +1213,7 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 /* "+1": a tick joins the mark while it is on (the state is not told by the fill alone) */
 .plus-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .plus-btn .plus-ok { display: none; }
-.plus-btn[aria-pressed="true"] .plus-ok { display: inline-flex; animation: tick-pop 220ms var(--m-ease) backwards; }
+.plus-btn[aria-pressed="true"] .plus-ok { display: inline-flex; animation: tick-pop var(--m-base) var(--m-ease) backwards; }
 .plus-btn .plus-ok .i { width: 16px; height: 16px; stroke-width: 3; }
 @keyframes tick-pop { from { opacity: 0; transform: scale(0.5); } }
 /* account: each row's icon on a 40 px neutral tile */
@@ -1189,7 +1225,7 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
 .sw { position: relative; flex: none; width: 52px; height: 32px; border-radius: var(--r-pill); background: var(--c-surfaceSunken); box-shadow: inset 0 0 0 1.5px var(--c-borderStrong);
   transition: background-color var(--m-fast) var(--m-ease); }
 .sw-t { position: absolute; top: 4px; inset-inline-start: 4px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--c-surface);
-  box-shadow: 0 0 0 1.5px var(--c-borderStrong); color: var(--c-onPrimary); transition: transform var(--m-base) var(--m-ease); }
+  box-shadow: 0 0 0 1.5px var(--c-borderStrong); color: var(--c-onPrimary); transition: transform var(--m-base) var(--m-spring); }
 .sw-t .i { width: 14px; height: 14px; stroke-width: 3; opacity: 0; transition: opacity var(--m-fast) var(--m-ease); }
 [aria-checked="true"] > .sw { background: var(--c-primary); box-shadow: none; }
 [aria-checked="true"] > .sw .sw-t { transform: translateX(20px); background: var(--c-surface); box-shadow: none; color: var(--c-primary); }
