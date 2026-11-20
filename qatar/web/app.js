@@ -7,7 +7,7 @@ import { DEFAULT_PLAN, GUARANTEE_DAYS, PLANS, planPrices } from "./plans.js";
 import { brandMark, tableSvg, vibeTable } from "./motif.js";
 import { esc } from "./esc.js";
 import { CFG, apiUrl } from "./api-url.js";
-import { askConfirm } from "./dialogs.js";
+import { askConfirm, popFrom } from "./dialogs.js";
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem("q_" + k)); } catch { return null; } },
@@ -97,6 +97,12 @@ document.addEventListener("click", (e) => {
   if (!a || lessMotion()) return;
   const r = a.getBoundingClientRect(), m = main.getBoundingClientRect();
   zoomFrom = { x: Math.round(r.left + r.width / 2 - m.left), y: Math.round(r.top + r.height / 2 - m.top), at: Date.now() };
+});
+// Keyboard in the photo row: newer Chromium no longer scrolls a card that is partly in view into view when it takes
+// focus (the row's snap row), so the row does it itself; nearest keeps the page from jumping vertically.
+main.addEventListener("focusin", (e) => {
+  const li = e.target.closest && e.target.closest(".peek > li");
+  if (li) li.scrollIntoView({ block: "nearest", inline: "nearest" });
 });
 // The entrance starts on whatever shows first (the loading skeleton or the screen) and is not restarted by the next render.
 // It plays on the first visit of each screen in this session; a later visit, Back included, is drawn at rest (still).
@@ -1245,6 +1251,9 @@ async function scrSessions(preselect, keepFocus = null) {
     p.innerHTML = s ? [fmtDate(s.starts_at, { weekday: "short", day: "numeric", month: "short" }), fmtDate(s.starts_at, { hour: "numeric", minute: "2-digit" }), T(s.experience)]
       .map((x, k) => `<span class="nw">${k ? "· " : ""}${esc(x)}</span>`).join(" ") : esc(T("readyPick"));
     if (s) $("#go").removeAttribute("aria-describedby"); else $("#go").setAttribute("aria-describedby", "dock-pick");
+    // follow-through: her pick lands in the pill with a small rise-and-settle (restarted by re-adding the class)
+    p.classList.remove("rise");
+    if (s && !lessMotion()) { void p.offsetWidth; p.classList.add("rise"); }
   };
   watchDock();
   // Round 2 (after Airbnb): the bar floats as one pill, and the chosen session's own cancellation line (the product's
@@ -1440,7 +1449,20 @@ async function scrReview(id) {
     if (needAck) $("#ack").onchange = sync;
     const nameErr = (msg) => { $("#plus-err").textContent = msg; if (msg) $("#plus-name").setAttribute("aria-invalid", "true"); else $("#plus-name").removeAttribute("aria-invalid"); };
     if (canPlus) {
-      $("#plus-btn").onclick = () => { plus.on = !plus.on; if (!plus.on) nameErr(""); sync(); if (plus.on) $("#plus-name").focus(); };
+      $("#plus-btn").onclick = () => {
+        plus.on = !plus.on;
+        if (!plus.on) nameErr("");
+        sync();
+        // secondary action: the amount due now pulses once as it changes (the class leaves on animationend)
+        const due = $("#due-amt");
+        if (due && !lessMotion()) {
+          due.classList.remove("pulse-once");
+          void due.offsetWidth;
+          due.classList.add("pulse-once");
+          due.addEventListener("animationend", () => due.classList.remove("pulse-once"), { once: true });
+        }
+        if (plus.on) $("#plus-name").focus();
+      };
       $("#plus-name").oninput = () => { plus.name = $("#plus-name").value; if (plus.name.trim()) nameErr(""); sync(); };
       $("#plus-ok").onchange = sync;
     }
@@ -1616,9 +1638,7 @@ document.addEventListener("click", (e) => {
   show("top");
   document.body.appendChild(dlg);
   dlg.showModal();
-  // it grows out of the button that opened it
-  const from = b.getBoundingClientRect(), at = dlg.getBoundingClientRect();
-  dlg.style.transformOrigin = `${Math.round(from.left + from.width / 2 - at.left)}px ${Math.round(from.top + from.height / 2 - at.top)}px`;
+  popFrom(dlg); // it grows from where she pressed; opened by the keyboard, from its centre (dialogs.js)
   // her next booking, for the WhatsApp message and the request; the link is updated when it arrives
   api("GET", "/api/v1/bookings").then((r) => {
     const list = (r.ok && r.data.bookings) || [];
@@ -2028,6 +2048,19 @@ async function scrDetails(id) {
       hio.disconnect();
     }, { rootMargin: "0px 0px -25% 0px" });
     hio.observe(hlBox);
+  }
+  // Peak moment (motion, 19 Nov 2026): the first time her table's drawing comes into view, its filled seats pop in one
+  // after another — exactly confirmed_count of them (the CSS moves .seat.on only), never on an all-dashed forming
+  // table, and simply already there under less motion.
+  const tbl = e.table && e.table.confirmed_count > 0 ? $(".table-figure .table") : null;
+  if (tbl && !lessMotion() && "IntersectionObserver" in window) {
+    const sio = new IntersectionObserver(([en]) => {
+      if (!tbl.isConnected) { sio.disconnect(); return; }
+      if (!en.isIntersecting) return;
+      tbl.classList.add("seats-pop");
+      sio.disconnect();
+    }, { rootMargin: "0px 0px -25% 0px" });
+    sio.observe(tbl);
   }
   const ci = $("#ci");
   if (ci) ci.onclick = async () => { setBusy(ci, true); const c = await api("POST", `/api/v1/bookings/${id}/check-in`); if (c.ok) scrDetails(id); else { $("#msg").innerHTML = errorBanner(c.data); setBusy(ci, false); } };

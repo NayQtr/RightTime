@@ -14,6 +14,18 @@ live.setAttribute("aria-live", "polite");
 document.body.appendChild(live);
 let liveTimer = null;
 
+// Anchor to the origin (motion, 19 Nov 2026): a dialog opened from a press grows from that point. The last pointerdown
+// is remembered for a moment; popFrom sets --pop-x/--pop-y on the dialog (styles.css reads them as its transform-origin,
+// defaulting to the centre), so a keyboard open keeps the centre and reduced motion shows no growing at all.
+let lastDown = null;
+document.addEventListener("pointerdown", (e) => { lastDown = { x: e.clientX, y: e.clientY, at: Date.now() }; }, true);
+export function popFrom(dlg) {
+  if (!lastDown || Date.now() - lastDown.at > 1000 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const r = dlg.getBoundingClientRect();
+  dlg.style.setProperty("--pop-x", `${Math.round(lastDown.x - r.left)}px`);
+  dlg.style.setProperty("--pop-y", `${Math.round(lastDown.y - r.top)}px`);
+}
+
 /** Says `text` to screen readers once (the same text twice in a row is said twice). Nothing is shown on screen. */
 export function announce(text) {
   clearTimeout(liveTimer);
@@ -49,6 +61,7 @@ export function askConfirm({ question, confirm, cancel, field = null, danger = t
       resolve(ok ? { value } : null);
     }, { once: true });
     d.showModal();
+    popFrom(d); // it grows from where she pressed; opened by the keyboard, from its centre
     // the safe choice has the focus first; with a reason field, the field does (typing is the next step)
     (field ? d.querySelector("#cd-f") : d.querySelector("#cd-no")).focus();
   });
