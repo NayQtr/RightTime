@@ -18,6 +18,14 @@ confirmed_count; the app details gained a small table drawing for it — flagged
 desktop hover lift. All new motion ≤300ms, transform/opacity only, dead under reduced motion. Owner's «انزل الكل» covers the
 sufra pattern as built (mauve 1-in-6; background continues under «ابدئي»), the suspension auto-expiry, the feminine bill
 line and the dormant opener plumbing. Release this run: see baseline-checks 2026-11-20.
+RELEASED 20 Nov: CI green on b3f2bfb → `release` fast-forwarded 10421c0 → b3f2bfb → production
+dpl_5YEAmf3jJtHXSXq46igNis6txY6i. herzone.app serves herzone-web@b3f2bfb3e4c6; smoke checks pass; live welcome check
+light+dark: spring curve and pattern served, no page error, no sideways scroll, and under reduced motion no errors.
+STAGING FAILED to build (dpl_DPMsEhfcspNmiJsopkpajdGN4Z3B): the Supabase CLI step got 401 «Invalid access token» —
+the SUPABASE_ACCESS_TOKEN environment variable on the Vercel project qatar-mvp-staging is invalid or expired (the
+production project's token works). Staging still serves the previous build (156cbc1), unharmed. WAITING ON THE OWNER:
+create a new access token at https://supabase.com/dashboard/account/tokens and replace SUPABASE_ACCESS_TOKEN in the
+Vercel project qatar-mvp-staging (Settings → Environment Variables, Production), then I redeploy staging.
 
 ## «عالج وطور» batch [2026-11-16] — on rightime-app, NOT released
 Suspensions now end on their own: the every-minute dispatcher lifts a suspension whose recorded end has passed; an S1
