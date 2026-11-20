@@ -230,10 +230,10 @@ test("home and my events: cards rise in once (16 px, 600 ms, 120 ms apart); the 
     const p = await open(hash, { who: booked });
     await p.waitForSelector(sel);
     const card = await p.locator(sel).evaluate((el) => { const cs = getComputedStyle(el), m = getComputedStyle(document.querySelector("main"));
-      const probe = document.createElement("i"); probe.style.color = "var(--c-primary)"; el.append(probe); const primary = getComputedStyle(probe).color; probe.remove();
-      return { shadow: cs.boxShadow, bg: cs.backgroundColor, primary, inset: el.getBoundingClientRect().left - document.querySelector("main").getBoundingClientRect().left - parseFloat(m.paddingLeft),
+      const probe = document.createElement("i"); probe.style.color = "var(--c-surface)"; el.append(probe); const surface = getComputedStyle(probe).color; probe.remove();
+      return { shadow: cs.boxShadow, bg: cs.backgroundColor, surface, inset: el.getBoundingClientRect().left - document.querySelector("main").getBoundingClientRect().left - parseFloat(m.paddingLeft),
         rows: [...el.children].map((c) => { const s = getComputedStyle(c); return [s.animationName, s.animationDuration, s.animationDelay].join(" "); }) }; });
-    assert.equal(card.bg, card.primary, "the card keeps its own fill");
+    assert.equal(card.bg, card.surface, "a surface card like the others (60-30-10), not a filled brand block");
     assert.equal(card.inset, 6, "6 px of frame at the sides");
     const layers = card.shadow.split(/,(?![^(]*\))/).map((x) => x.trim());
     assert.equal(layers.length, 2, card.shadow);

@@ -274,7 +274,7 @@ function setTheme(t, origin = null) {
   const apply = () => {
     store.set("theme", t);
     root.setAttribute("data-theme", t);
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#241620" : "#F7EDE3"); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute("media"); m.setAttribute("content", t === "dark" ? "#241620" : "#F3E6DE"); });
     renderTopbar();
     const row = document.getElementById("thm"); // the account screen's switch follows whichever control changed it
     if (row) row.setAttribute("aria-checked", String(t === "dark"));

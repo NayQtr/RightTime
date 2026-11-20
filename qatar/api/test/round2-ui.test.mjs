@@ -100,7 +100,7 @@ test("details: the date leads as one large numeral; a summary appears under the 
     assert.ok(info.size >= 100, `the numeral is large (${info.size}px)`);
     assert.equal(info.hidden, "true", "a repeat of the heading: not read twice");
     assert.ok(info.fits && info.when.length > 4, "the full date and time stay in the heading for screen readers");
-    assert.equal(info.colour, await asColour(page, "--c-primary"));
+    assert.equal(info.colour, await asColour(page, "--c-text"), "ink (60-30-10)");
     // the summary: not there at the top, there after scrolling, gone again at the top
     const pinState = () => page.evaluate(() => { const p = document.querySelector("#pin"), cs = getComputedStyle(p); return { on: p.classList.contains("on"), visibility: cs.visibility, hidden: [...p.children].filter((c) => c.tagName === "SPAN").every((c) => c.getAttribute("aria-hidden") === "true") }; });
     assert.deepEqual(await pinState(), { on: false, visibility: "hidden", hidden: true });
@@ -214,7 +214,7 @@ test("inbox: notifications sit on a rail under their day; the dot is filled whil
   assert.ok(head.labels, "each day is a labelled group");
   assert.equal(await page.locator(".rail .msg").count(), list.length);
   const dot = () => page.locator(".rail .msg").first().evaluate((m) => ({ isNew: m.classList.contains("is-new"), bg: getComputedStyle(m, "::before").backgroundColor, tag: m.querySelectorAll(".new-tag").length }));
-  assert.deepEqual(await dot(), { isNew: true, bg: await asColour(page, "--c-primary"), tag: 1 }, "new: a filled dot, and the word (not colour alone)");
+  assert.deepEqual(await dot(), { isNew: true, bg: await asColour(page, "--c-text"), tag: 1 }, "new: a filled ink dot, and the word (not colour alone)");
   await noSideScroll(page, "inbox");
   await page.goto(env.base + "/#/home"); await ready(page);
   await page.goto(env.base + "/#/inbox"); await ready(page);
@@ -374,7 +374,7 @@ test("dark theme: the new pieces use the dark tokens (pill, receipt lines, rail,
   assert.equal(await page.locator(".book-pill").evaluate((e) => getComputedStyle(e).backgroundColor), await asColour(page, "--c-surface"));
   await page.goto(`${env.base}/#/events`); await ready(page);
   await page.waitForSelector(".ready-card");
-  assert.equal(await page.locator(".ready-card").evaluate((e) => getComputedStyle(e).backgroundColor), await asColour(page, "--c-primarySubtle"));
+  assert.equal(await page.locator(".ready-card").evaluate((e) => getComputedStyle(e).backgroundColor), await asColour(page, "--c-surface"), "a surface card (60-30-10)");
   assert.equal(await page.locator(".ready-card .ck-row.done").first().evaluate((e) => getComputedStyle(e).color), await asColour(page, "--c-textMuted"));
   await page.goto(`${env.base}/#/home`); await ready(page);
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#tabbar"), "::before").backgroundColor), await asColour(page, "--c-primarySubtle"));

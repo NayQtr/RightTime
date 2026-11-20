@@ -85,7 +85,8 @@ test("+1 from the session choice to the refund: two seats and the doubled total 
   // on, by keyboard
   await btn.focus(); await page.keyboard.press("Enter");
   assert.equal(await btn.getAttribute("aria-pressed"), "true");
-  await page.waitForFunction((c) => getComputedStyle(document.querySelector("#plus-btn")).backgroundColor === c, await asColour(page, "--c-primary"));
+  // on: an ink edge and the tick (60-30-10: not a mauve fill)
+  await page.waitForFunction((c) => getComputedStyle(document.querySelector("#plus-btn")).boxShadow.startsWith(c), await asColour(page, "--c-text"));
   assert.equal(await text(page.locator("#plus-exp")), "هذا الخيار يتيح لكِ الحضور برفقة من تودّين حضورها.");
   assert.equal(await text(page.locator("label[for=plus-name]")), "اسم مرافقتك");
   assert.deepEqual(await page.locator("#plus-name").evaluate((i) => [i.required, i.getAttribute("aria-describedby"), document.activeElement === i]), [true, "plus-exp plus-err", true]);
@@ -260,7 +261,7 @@ test("a full session shows the three waitlist steps; the first is marked once sh
       await row.locator(".wait-step").waitFor();
       assert.equal(await text(row.locator(".wait-step")), "أنتِ في قائمة الانتظار (الترتيب 1).", "her real place stays as built");
       assert.deepEqual(await row.locator(".wait-steps li").evaluateAll((ls) => ls.map((l) => l.classList.contains("done"))), [true, false, false]);
-      assert.equal(await row.locator(".wait-steps li").first().evaluate((e) => getComputedStyle(e, "::before").backgroundColor), await asColour(page, "--c-primary"));
+      assert.equal(await row.locator(".wait-steps li").first().evaluate((e) => getComputedStyle(e, "::before").backgroundColor), await asColour(page, "--c-text"));
     }
     // a session with seats has no steps
     assert.equal(await page.locator(`.sess[data-id="${S.roomy}"] .wait-steps`).count(), 0);

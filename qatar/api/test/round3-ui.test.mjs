@@ -134,7 +134,7 @@ test("home on a wide screen uses the width; while it loads, the places of the ti
   }
 });
 
-test("dark theme: a card is the second surface step with a hairline and no shadow, what sits in it the third; light and the admin console are unchanged", async () => {
+test("dark theme: a card is the second surface step with a hairline and no shadow, what sits in it the third; light a surface card too, and the admin console is unchanged", async () => {
   for (const mode of ["device", "switch"]) {
     const page = await open(`#/booking/${seated.booking}`, { who: seated, colorScheme: mode === "device" ? "dark" : "light" });
     if (mode === "switch") { await page.click("#theme"); await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "dark"); }
@@ -158,10 +158,10 @@ test("dark theme: a card is the second surface step with a hairline and no shado
     await noSideScroll(page, "dark");
     await page.context().close();
   }
-  // light: a card is as it was
+  // light: a card is the surface with a hairline (60-30-10, 20 Nov 2026: no longer a beige block)
   const light = await open(`#/booking/${seated.booking}`, { who: seated });
   await light.waitForSelector("section.card");
-  assert.equal(await light.locator("section.card").first().evaluate((e) => getComputedStyle(e).backgroundColor), await asColour(light, "--c-surfaceSunken"));
+  assert.equal(await light.locator("section.card").first().evaluate((e) => getComputedStyle(e).backgroundColor), await asColour(light, "--c-surface"));
   await light.context().close();
   // the admin console shares the style sheet and keeps its dark cards
   const ctx = await context({ colorScheme: "dark" });
@@ -186,7 +186,7 @@ test("a full session: joining the waitlist puts her real place in the session's 
   assert.equal(await step.getAttribute("role"), "status", "announced");
   assert.equal(await row.locator("[data-wait]").count(), 0, "the button gave way to the step");
   assert.equal(await page.locator("#toast").innerText(), "", "no pop-up message");
-  assert.equal(await step.evaluate((e) => getComputedStyle(e, "::before").backgroundColor), await asColour(page, "--c-primary"), "the step is marked");
+  assert.equal(await step.evaluate((e) => getComputedStyle(e, "::before").backgroundColor), await asColour(page, "--c-text"), "the step is marked (in ink, 60-30-10)");
   assert.equal((await env.sql`SELECT count(*)::int AS n FROM app.waitlist_entries WHERE session_id = ${S.full} AND status = 'waiting'`)[0].n, 1);
   await page.reload(); await ready(page);
   assert.equal((await page.locator(`.sess[data-id="${S.full}"] .wait-step`).innerText()).trim(), "أنتِ في قائمة الانتظار (الترتيب 1).");
@@ -269,7 +269,7 @@ test("questionnaire: the scale is one track and a thumb slides to the chosen num
     assert.equal(chosen.bg, await asColour(page, "--c-surface"));
     assert.notEqual(chosen.bg, rest);
     assert.ok(chosen.shadow.includes("inset"), "an edge, not colour alone");
-    assert.equal(chosen.colour, await asColour(page, "--c-primary"));
+    assert.equal(chosen.colour, await asColour(page, "--c-text"), "ink, not mauve (60-30-10)");
     await page.context().close();
   }
 });
