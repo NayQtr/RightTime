@@ -10,6 +10,19 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
+## 60-30-10 colour pass [2026-11-20] — on rightime-app, NOT released (owner's yes needed)
+Owner's brief: 60% neutral (bg), 30% one secondary family (surface + border), 10% accent only for the primary CTA, at most
+3 accent elements per screen, neutrals tinted ~4% toward the accent, blur test = 3 zones. Done on web and app:
+light neutrals tinted 4% toward #913768 (bg #F3E6DE, surface #FBF2EE, sunken #E9D5C5, border #DBC2AE, borderStrong
+#8A7062; dark already on the accent hue); mauve kept only for the primary CTA, the current tab, table seats (+ yellow
+welcome word); selected states = ink ring + tick; secondary links ink + underline; unread badge ink. Audits: web home
+7→1, profile 11→1, details 6→0, review 4→1, events accent share 31.6%→4.5%; app sessions 20→1, details 13→2, inbox 11→1.
+Pattern mauve layer in light 0.15→0.10 (the darker tinted bg left muted text at 4.31:1 over a crossing; now 4.60).
+Browser theme colour updated to the new bg. 401 web/API tests, 316 app tests.
+NEEDS THE OWNER'S YES: (1) the wine «لقاؤك القادم» card becomes a surface card (reverses the earlier wine decision);
+(2) «HerZone» above the app's welcome headline turns ink like the website; (3) the small yellow dot on the app's
+dinner/coffee tiles is removed. Then release in the usual order.
+
 ## Motion principles + release of everything [2026-11-20] — owner: «خلص وأدمج وارفع وشيك وانشر» and «انزل الكل على herzone.app»
 The 19-principle motion brief applied to web and app in HerZone's own identity: spring (back-out) release on every pressed
 control, slow token 320→280ms, 29 hardcoded durations moved to tokens, arc-tilted toast, dialogs grow from the click point,

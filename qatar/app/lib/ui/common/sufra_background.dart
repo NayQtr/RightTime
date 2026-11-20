@@ -8,14 +8,14 @@ import '../theme.dart';
 /// of single dashed seats behind the welcome screen, the end of the questions and the empty states. Seats only (radius
 /// 4, stroke 1.25, dashes 3 / 2.5), never filled (a filled seat means "taken" in the table drawing) and no table ring
 /// (it would read as the logo). A staggered 64 px grid: layer 1 on every seat in borderStrong at 0.30, layer 2 on one
-/// seat of each 192 px row group in seat at 0.15 in light and 0.22 in dark (0.22 in light would bring muted text over a
+/// seat of each 192 px row group in seat at 0.10 in light and 0.22 in dark (0.22 in light would bring muted text over a
 /// dash under 4.5:1). Static, decorative (a screen reader skips it), and gone when the phone asks for more contrast.
 class SufraBackground extends StatelessWidget {
   const SufraBackground({super.key, required this.child});
   final Widget child;
 
   static const double opacity1 = 0.30;
-  static double opacity2(Brightness b) => b == Brightness.dark ? 0.22 : 0.15;
+  static double opacity2(Brightness b) => b == Brightness.dark ? 0.22 : 0.10;
 
   @override
   Widget build(BuildContext context) {

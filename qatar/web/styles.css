@@ -1278,7 +1278,7 @@ legend .echo { font-style: normal; font-weight: 400; color: var(--c-textMuted); 
    app.js puts the class on <body> on the welcome screen, the questionnaire interstitials and the empty states; the
    /about page uses it on the bands between sections. Layer 2 is 0.15 in light (0.22 in the mockup): at 0.22, where it
    crosses layer 1, muted text over a dash drops to 4.1:1; at 0.15 it keeps 4.5:1 (sufra-ui.test.mjs checks it). */
-:root { --sufra-o1: 0.30; --sufra-o2: 0.15; }
+:root { --sufra-o1: 0.30; --sufra-o2: 0.10; } /* light 0.10: the 4%-tinted background (19 Nov) left muted text at 4.31:1 over a crossing at 0.15; 0.10 gives 4.60 */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sufra-o2: 0.22; } }
 :root[data-theme="dark"] { --sufra-o2: 0.22; }
 .sufra-bg { isolation: isolate; }

@@ -115,7 +115,7 @@ test("shown: welcome and the interstitials (not the privacy one), light and dark
     assert.ok(await on(page), "welcome");
     const [l1, l2] = await shows(page, `welcome ${theme}`);
     assert.equal(l1.opacity, 0.3);
-    assert.equal(l2.opacity, theme === "dark" ? 0.22 : 0.15);
+    assert.equal(l2.opacity, theme === "dark" ? 0.22 : 0.1);
     // the outlined button is solid over it (no dash through the label)
     assert.equal(await page.locator(".hero-welcome .btn-secondary").evaluate((b) => getComputedStyle(b).backgroundColor), await token(page, theme === "dark" ? "--c-surfaceSunken" : "--c-bg"));
     await go(page, "#/quiz/0");

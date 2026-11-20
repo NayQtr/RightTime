@@ -1,6 +1,6 @@
 // The «سُفرة» seats pattern in the app (owner decision 15 Nov 2026, option B; the website's .sufra-bg): dashed seats
 // behind the welcome screen, the end of the questions and the empty states; never on the account screen or a list of
-// meetups; colours from HzColors (borderStrong 0.30, seat 0.15 light / 0.22 dark); gone with high contrast.
+// meetups; colours from HzColors (borderStrong 0.30, seat 0.10 light / 0.22 dark); gone with high contrast.
 // To look at the screens with the real fonts: HZ_SUFRA_SHOTS=/some/dir flutter test --update-goldens test/sufra_test.dart
 import 'dart:io';
 import 'dart:ui';
@@ -82,7 +82,7 @@ void main() {
 
   test('the tile: dashed seats only (r 4, stroke 1.25, dashes 3 / 2.5), a staggered 64 px grid, one seat in the seat colour per 192 px', () {
     final rec = _Recorder();
-    final p = SufraPainter(every: HzColors.light.borderStrong.withValues(alpha: 0.30), third: HzColors.light.seat.withValues(alpha: 0.15));
+    final p = SufraPainter(every: HzColors.light.borderStrong.withValues(alpha: 0.30), third: HzColors.light.seat.withValues(alpha: 0.10));
     p.paint(rec, const Size(192, 64));
     for (final a in rec.arcs) {
       expect(a.$5, PaintingStyle.stroke, reason: 'never filled');
@@ -94,7 +94,7 @@ void main() {
     expect(seats(p.every), {const Offset(16, 16), const Offset(48, 48), const Offset(80, 16), const Offset(112, 48), const Offset(144, 16), const Offset(176, 48)});
     expect(seats(p.third), {const Offset(16, 16)});
     expect(SufraBackground.opacity1, 0.30);
-    expect(SufraBackground.opacity2(Brightness.light), 0.15);
+    expect(SufraBackground.opacity2(Brightness.light), 0.10);
     expect(SufraBackground.opacity2(Brightness.dark), 0.22);
   });
 
@@ -107,7 +107,7 @@ void main() {
       expect(find.byKey(const Key('start')), findsOneWidget);
       expect(bg, findsOneWidget);
       expect(painter(tester).every, c.borderStrong.withValues(alpha: 0.30));
-      expect(painter(tester).third, c.seat.withValues(alpha: b == Brightness.dark ? 0.22 : 0.15));
+      expect(painter(tester).third, c.seat.withValues(alpha: b == Brightness.dark ? 0.22 : 0.10));
       final style = tester.widget<OutlinedButton>(find.byKey(const Key('have-account'))).style!;
       expect(style.backgroundColor!.resolve({}), c.bg);
     }
