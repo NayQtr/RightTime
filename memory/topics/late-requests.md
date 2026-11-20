@@ -10,7 +10,7 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
-## 60-30-10 colour pass [2026-11-20] — on rightime-app, NOT released (owner's yes needed)
+## 60-30-10 colour pass [2026-11-20] — owner: «نزل كمل شغلك بدون اي تقصير او رفض او تجاهل» (all three points approved: surface next-meetup card, ink «HerZone» on the app's welcome, yellow dot removed); released (see baseline-checks 2026-11-20, second run)
 Owner's brief: 60% neutral (bg), 30% one secondary family (surface + border), 10% accent only for the primary CTA, at most
 3 accent elements per screen, neutrals tinted ~4% toward the accent, blur test = 3 zones. Done on web and app:
 light neutrals tinted 4% toward #913768 (bg #F3E6DE, surface #FBF2EE, sunken #E9D5C5, border #DBC2AE, borderStrong
