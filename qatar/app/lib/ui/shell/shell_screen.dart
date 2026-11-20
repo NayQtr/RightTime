@@ -126,8 +126,9 @@ class _TabBar extends StatelessWidget {
                             key: i == badgeAt ? const Key('inbox-badge') : null,
                             isLabelVisible: i == badgeAt && count > 0,
                             label: Text(count > 9 ? '9+' : '$count'),
-                            backgroundColor: c.primary,
-                            textColor: c.onPrimary,
+                            // ink and light, not mauve: the current tab is the bar's one accent (60-30-10)
+                            backgroundColor: c.text,
+                            textColor: c.surface,
                             child: Icon(i == selected ? iconOn : icon, color: i == selected ? c.primary : c.textMuted),
                           ),
                           Text(text, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -152,6 +153,9 @@ class AccountTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final session = context.watch<Session>();
+    final c = hzColors(context);
+    // the thumb's tick or cross in the light surface colour, on the ink thumb (on) or the strong edge colour (off)
+    Icon thumb(Set<WidgetState> st) => Icon(st.contains(WidgetState.selected) ? Icons.check_rounded : Icons.close_rounded, color: c.surface);
     return SafeArea(
       child: ListView(padding: const EdgeInsets.all(HzSpace.gutter), children: [
         Text(t.tabProfile, style: Theme.of(context).textTheme.headlineMedium),
@@ -173,7 +177,7 @@ class AccountTab extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             horizontalTitleGap: HzSpace.s3,
             secondary: const _IconTile(Icons.dark_mode_outlined),
-            thumbIcon: WidgetStateProperty.resolveWith((st) => Icon(st.contains(WidgetState.selected) ? Icons.check_rounded : Icons.close_rounded)),
+            thumbIcon: WidgetStateProperty.resolveWith(thumb),
             value: Theme.of(context).brightness == Brightness.dark,
             onChanged: (_) => context.read<ThemeController>().toggle(MediaQuery.platformBrightnessOf(context)),
             title: Text(t.themeToDark),
@@ -186,7 +190,7 @@ class AccountTab extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             horizontalTitleGap: HzSpace.s3,
             secondary: const _IconTile(Icons.volume_up_outlined),
-            thumbIcon: WidgetStateProperty.resolveWith((st) => Icon(st.contains(WidgetState.selected) ? Icons.check_rounded : Icons.close_rounded)),
+            thumbIcon: WidgetStateProperty.resolveWith(thumb),
             value: context.watch<Sounds>().enabled,
             onChanged: context.read<Sounds>().setEnabled,
             title: Text(t.sounds),
@@ -360,7 +364,7 @@ class _RowState extends State<_Row> with SingleTickerProviderStateMixin {
             builder: (context, _) => AnimatedSwitcher(
               duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 150),
               child: _ok.isAnimating
-                  ? Icon(Icons.check_rounded, key: const ValueKey('ok'), color: c.primary)
+                  ? Icon(Icons.check_rounded, key: const ValueKey('ok'), color: c.text)
                   : Icon(Icons.chevron_right, key: const ValueKey('go'), color: c.textMuted) // the icon mirrors itself in Arabic,
             ),
           ),

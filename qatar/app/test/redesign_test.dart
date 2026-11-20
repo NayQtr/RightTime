@@ -18,7 +18,7 @@ Widget _host(Widget child, {bool reduceMotion = false}) => MaterialApp(
     );
 
 void main() {
-  testWidgets('my meetups: the next meetup is the one filled card, in the brand colour', (tester) async {
+  testWidgets('my meetups: the next meetup is a light surface card with its hairline edge (60-30-10), its button the one accent', (tester) async {
     tallScreen(tester);
     await tester.pumpWidget(HerZoneApp(config: config, tokens: MemoryTokenStore()..token = 'rt_1', trips: MemoryTripStore(), quizStore: QuizStore.memory(), httpClientFactory: () => api(online: () => true)));
     await tester.pumpAndSettle();
@@ -26,7 +26,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('لقاؤك القادم'), findsOneWidget);
     final card = tester.widget<Material>(find.byKey(const Key('booking-$bookingId')));
-    expect(card.color, HzColors.light.primary);
+    expect(card.color, HzColors.light.surface);
+    expect((card.shape! as RoundedRectangleBorder).side.color, HzColors.light.border);
+    final button = tester.widget<Material>(find.descendant(of: find.byKey(const Key('booking-$bookingId')), matching: find.descendant(of: find.byType(FilledButton), matching: find.byType(Material))));
+    expect(button.color, HzColors.light.primary, reason: 'its action stays the primary call to action');
   });
 
   testWidgets('home: each session card carries its date as a calendar leaf', (tester) async {

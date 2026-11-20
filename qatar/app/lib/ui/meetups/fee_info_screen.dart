@@ -26,7 +26,7 @@ class FeeInfoScreen extends StatelessWidget {
           padding: const EdgeInsets.only(top: HzSpace.s2),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // told by the heading and the icon's shape, not by colour alone
-            ExcludeSemantics(child: Icon(included ? Icons.check_rounded : Icons.remove_rounded, size: 20, color: included ? c.primary : c.textMuted)),
+            ExcludeSemantics(child: Icon(included ? Icons.check_rounded : Icons.remove_rounded, size: 20, color: included ? c.text : c.textMuted)),
             const SizedBox(width: HzSpace.s2),
             Expanded(child: Text(text)),
           ]),
@@ -59,7 +59,7 @@ class FeeInfoScreen extends StatelessWidget {
                 ExpansionTile(
                   key: Key('faq-${i + 1}'),
                   title: Text(q, style: tt.titleMedium),
-                  iconColor: c.primary,
+                  iconColor: c.text,
                   collapsedIconColor: c.textMuted,
                   textColor: c.text,
                   collapsedTextColor: c.text,

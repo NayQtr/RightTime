@@ -125,7 +125,7 @@ class _CodeBox extends StatelessWidget {
         color: c.surface,
         borderRadius: BorderRadius.circular(HzRadius.sm),
         border: Border.all(color: error ? c.danger : (next ? c.text : c.borderStrong), width: error || next ? 2 : 1.5),
-        boxShadow: next && !error ? [BoxShadow(color: c.primary.withValues(alpha: 0.2), spreadRadius: 4)] : null,
+        boxShadow: next && !error ? [BoxShadow(color: c.text.withValues(alpha: 0.12), spreadRadius: 4)] : null, // ink, not mauve (60-30-10)
       ),
       child: Text(digit, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: c.text, fontFeatures: const [FontFeature.tabularFigures()])),
     );

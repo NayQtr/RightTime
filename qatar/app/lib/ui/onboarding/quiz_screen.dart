@@ -93,7 +93,7 @@ class _QuizScreenState extends State<QuizScreen> {
       body = const Center(child: CircularProgressIndicator());
     } else {
       body = ListView(key: ValueKey(q.id), padding: const EdgeInsets.all(HzSpace.gutter), children: [
-        LinearProgressIndicator(value: (vm.step + 1) / vm.total, color: c.primary, backgroundColor: c.surfaceSunken, minHeight: 6, borderRadius: BorderRadius.circular(3)),
+        LinearProgressIndicator(value: (vm.step + 1) / vm.total, color: c.text, backgroundColor: c.surfaceSunken, minHeight: 6, borderRadius: BorderRadius.circular(3)),
         const SizedBox(height: HzSpace.s3),
         // After her first answer the heading gives way to one reply line and a seat fills at the small table (owner,
         // 14 Nov: rounds 1-3); the next question brings the heading back. At once with reduced motion.
@@ -107,7 +107,7 @@ class _QuizScreenState extends State<QuizScreen> {
               : Column(key: const ValueKey('heading'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   // the step count, then the time left in a quieter colour
                   Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+                    Text(t.qOf(vm.step + 1, vm.total), style: tt.bodySmall?.copyWith(color: c.text, fontWeight: FontWeight.w600)),
                     Text(' · ${timeLeftText(t, vm.minutesToGo)}', key: const Key('time-left'),
                         style: tt.bodySmall?.copyWith(color: c.textMuted, fontWeight: FontWeight.w600)),
                   ]),
@@ -190,15 +190,15 @@ class _OptionTile extends StatelessWidget {
             curve: HzMotion.easing,
             constraints: const BoxConstraints(minHeight: 56),
             padding: const EdgeInsets.symmetric(horizontal: HzSpace.s4, vertical: HzSpace.s3),
+            // chosen: an ink ring, bold words and a filled mark on the light surface (60-30-10, 20 Nov 2026: no mauve)
             decoration: BoxDecoration(
-              color: selected ? c.primarySubtle : c.surface,
+              color: c.surface,
               borderRadius: BorderRadius.circular(HzRadius.md),
-              border: Border.all(color: selected ? c.primary : c.border, width: selected ? 2 : 1.5),
+              border: Border.all(color: selected ? c.text : c.border, width: selected ? 2 : 1.5),
             ),
             child: Row(children: [
               if (o.emoji != null) ...[Text(o.emoji!, style: const TextStyle(fontSize: 20)), const SizedBox(width: HzSpace.s3)],
-              // the chosen answer reads in mauve, as on the website (identity step, 13 Nov 2026)
-              Expanded(child: Text(o.label, style: selected ? TextStyle(color: c.primary, fontWeight: FontWeight.w600) : null)),
+              Expanded(child: Text(o.label, style: selected ? TextStyle(color: c.text, fontWeight: FontWeight.w600) : null)),
               AnimatedSwitcher(
                 key: ValueKey('mark-${o.key}'),
                 duration: still ? Duration.zero : HzMotion.base,
@@ -207,7 +207,7 @@ class _OptionTile extends StatelessWidget {
                 transitionBuilder: (child, animation) => ScaleTransition(scale: Tween<double>(begin: 0.6, end: 1).animate(animation),
                     child: FadeTransition(opacity: animation, child: child)),
                 child: Icon(selected ? (multi ? Icons.check_box : Icons.radio_button_checked) : (multi ? Icons.check_box_outline_blank : Icons.radio_button_off),
-                    key: ValueKey(selected), color: selected ? c.primary : c.borderStrong),
+                    key: ValueKey(selected), color: selected ? c.text : c.borderStrong),
               ),
             ]),
           ),
@@ -230,11 +230,13 @@ class _Chip extends StatelessWidget {
       key: Key('opt-${o.key}'),
       label: Text(o.emoji == null ? o.label : '${o.emoji} ${o.label}'),
       selected: selected,
-      showCheckmark: false,
-      selectedColor: c.primary,
-      labelStyle: TextStyle(color: selected ? c.onPrimary : c.text),
-      backgroundColor: c.surfaceSunken,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.primary : c.borderStrong)),
+      // chosen: an ink ring and a tick on the light surface (60-30-10)
+      showCheckmark: true,
+      checkmarkColor: c.text,
+      selectedColor: c.surface,
+      labelStyle: TextStyle(color: c.text, fontWeight: selected ? FontWeight.w600 : null),
+      backgroundColor: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: selected ? c.text : c.borderStrong, width: selected ? 2 : 1)),
       onSelected: (_) => onTap(),
     )));
   }
@@ -336,7 +338,7 @@ class _ScaleTrack extends StatelessWidget {
                     onTap: () => onTap(o),
                     child: Center(
                       child: Text(o.label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16, fontWeight: FontWeight.w700, color: i == at ? c.primary : c.textMuted)),
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16, fontWeight: FontWeight.w700, color: i == at ? c.text : c.textMuted)),
                     ),
                   )),
                 ),

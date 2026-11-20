@@ -104,8 +104,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               if (d.identityCheckPending) ...[
                 Container(
                   key: const Key('id-check'),
-                  padding: const EdgeInsets.all(HzSpace.s3),
-                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(HzRadius.sm)),
+                  padding: const EdgeInsets.all(HzSpace.s3 - 1), // the hairline edge takes the pixel
+                  // notes sit in the one container family: the light surface with its hairline edge (60-30-10)
+                  decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.sm), border: Border.all(color: c.border)),
                   child: Text(t.idCheckPending),
                 ),
                 const SizedBox(height: HzSpace.s4),
@@ -117,7 +118,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 label: fmtWhen(d.startsAt, lang),
                 child: ExcludeSemantics(
                   child: RiseIn(index: 0, once: 'details', child: Row(key: const Key('big-date'), crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(fmtDay(d.startsAt), style: tt.displaySmall?.copyWith(fontSize: 112, height: 1, fontWeight: FontWeight.w800, color: c.primary)),
+                    Text(fmtDay(d.startsAt), style: tt.displaySmall?.copyWith(fontSize: 112, height: 1, fontWeight: FontWeight.w800, color: c.text)),
                     const SizedBox(width: HzSpace.s3),
                     Padding(
                       padding: const EdgeInsets.only(bottom: HzSpace.s3),
@@ -161,7 +162,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 if (d.opener != null) ...[
                   const SizedBox(height: HzSpace.s2),
                   TestId('table-opener', child: Row(key: const Key('table-opener'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Icon(Icons.chat_bubble_outline, size: 20, color: c.primary),
+                    Icon(Icons.chat_bubble_outline, size: 20, color: c.text),
                     const SizedBox(width: HzSpace.s2),
                     Expanded(child: Text(d.opener!, style: const TextStyle(fontWeight: FontWeight.w500))),
                   ])),
@@ -170,7 +171,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 if (d.celebration != null) ...[
                   const SizedBox(height: HzSpace.s2),
                   TestId('celebration', child: Row(key: const Key('celebration'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Icon(d.celebration == 'birthday' ? Icons.cake_outlined : Icons.auto_awesome_outlined, size: 20, color: c.primary),
+                    Icon(d.celebration == 'birthday' ? Icons.cake_outlined : Icons.auto_awesome_outlined, size: 20, color: c.text),
                     const SizedBox(width: HzSpace.s2),
                     Expanded(child: Text(d.celebration == 'birthday' ? t.celebrationBirthday : t.celebrationOther, style: const TextStyle(fontWeight: FontWeight.w500))),
                   ])),
@@ -180,8 +181,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               if (v == null && !d.isOver)
                 TestId('venue-hidden', child: Container(
                   key: const Key('venue-hidden'),
-                  padding: const EdgeInsets.all(HzSpace.s3),
-                  decoration: BoxDecoration(color: c.primarySubtle, borderRadius: BorderRadius.circular(HzRadius.sm)),
+                  padding: const EdgeInsets.all(HzSpace.s3 - 1), // the hairline edge takes the pixel
+                  decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(HzRadius.sm), border: Border.all(color: c.border)),
                   child: Text(t.venueHidden(fmtWhen(d.revealAt, lang))),
                 )),
               if (v != null)
@@ -202,7 +203,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       if (d.tableCode != null) ...[
                         const SizedBox(height: HzSpace.s3),
                         Text(t.tableCode),
-                        Ltr(TestId('table-code', child: SelectableText(d.tableCode!, key: const Key('table-code'), style: tt.displaySmall?.copyWith(color: c.primary, letterSpacing: 2)))),
+                        Ltr(TestId('table-code', child: SelectableText(d.tableCode!, key: const Key('table-code'), style: tt.displaySmall?.copyWith(color: c.text, letterSpacing: 2)))),
                         Text(t.mentionCode, style: tt.bodySmall),
                       ],
                       const SizedBox(height: HzSpace.s3),
@@ -253,7 +254,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               if (r.offlineSavedAt == null && ['forming', 'locked', 'revealed', 'day_of', 'completed'].contains(d.phase))
                 Press(child: TextButton.icon(
                   key: const Key('report'),
-                  style: TextButton.styleFrom(foregroundColor: c.primary, minimumSize: const Size.fromHeight(48)),
+                  style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)), // a link: ink and underlined (theme)
                   icon: const Icon(Icons.flag_outlined),
                   label: Text(t.privateReport),
                   onPressed: () => context.push('/report/$bookingId'),
@@ -306,7 +307,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                                     key: const Key('pin-help'),
                                     tooltip: t.contactRequest,
                                     style: IconButton.styleFrom(minimumSize: const Size.square(HzSpace.touchTarget)),
-                                    icon: Icon(Icons.call_outlined, size: 22, color: c.primary),
+                                    icon: Icon(Icons.call_outlined, size: 22, color: c.text),
                                     onPressed: () => showContactSheet(context, snap.data!, bookingId: bookingId, from: button),
                                   ),
                                 ),
@@ -369,8 +370,9 @@ class _Fact extends StatelessWidget {
       );
 }
 
-/// The one gentle highlight on the details: when the time first comes into view, a thin mauve line (primary) draws itself once
-/// under it, from the start side. With reduced motion it is simply there. Decoration only: the words are unchanged.
+/// The one gentle highlight on the details: when the time first comes into view, a thin ink line draws itself once under
+/// it, from the start side (ink since the 60-30-10 rule, 20 Nov 2026: mauve is kept for the primary action, the tab and
+/// the seats). With reduced motion it is simply there. Decoration only: the words are unchanged.
 class _DrawnUnderline extends StatefulWidget {
   const _DrawnUnderline({required this.child});
   final Widget child;
@@ -430,7 +432,7 @@ class _DrawnUnderlineState extends State<_DrawnUnderline> with SingleTickerProvi
       animation: _draw,
       builder: (context, child) => CustomPaint(
         key: const Key('when-highlight'),
-        foregroundPainter: _UnderlinePainter(progress: _draw.value, color: c.primary, rtl: Directionality.of(context) == TextDirection.rtl),
+        foregroundPainter: _UnderlinePainter(progress: _draw.value, color: c.text, rtl: Directionality.of(context) == TextDirection.rtl),
         child: child,
       ),
       child: Padding(padding: const EdgeInsets.only(bottom: 3), child: widget.child),
@@ -474,21 +476,22 @@ class _Tracker extends StatelessWidget {
           child: Semantics(
             selected: i == stage,
             child: Column(children: [
-              Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i <= stage ? c.primary : c.border),
+              Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), color: i == stage ? c.text : i < stage ? c.borderStrong : c.border),
               const SizedBox(height: HzSpace.s1),
-              // done steps carry a tick and the current one is bold in the brand colour: not told by colour alone
+              // done steps are quiet with a tick, the current one is in ink and bold over an ink bar, the next ones are
+              // muted: not told by colour alone, and no mauve (60-30-10)
               // (an icon, not a "✓" character: the app font has no tick glyph)
               Text.rich(
                 TextSpan(children: [
                   if (i < stage) ...[
-                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.primary)),
+                    WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.check_rounded, size: 14, color: c.textMuted)),
                     const TextSpan(text: ' '),
                   ],
                   TextSpan(text: steps[i]),
                 ]),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, fontWeight: i == stage ? FontWeight.w700 : FontWeight.w400,
-                    color: i == stage ? c.primary : i < stage ? c.text : c.textMuted),
+                    color: i == stage ? c.text : c.textMuted),
               ),
             ]),
           ),
@@ -675,7 +678,7 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
     final hz = hzColors(context);
     const gap = SizedBox(height: HzSpace.s3);
     Widget ghost(Key key, String label, VoidCallback onTap) =>
-        Press(child: TextButton(key: key, style: TextButton.styleFrom(foregroundColor: hz.primary, minimumSize: const Size.fromHeight(48)), onPressed: onTap, child: Text(label)));
+        Press(child: TextButton(key: key, style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)), onPressed: onTap, child: Text(label)));
     final wa = widget.coordinator.whatsappUrl;
     final List<Widget> children;
     switch (_level) {
@@ -716,11 +719,13 @@ class _ContactSheetBodyState extends State<_ContactSheetBody> {
                     key: Key('when-$w'),
                     label: Text([t.csWhenNow, t.csWhen10, t.csWhen60, t.csWhenTomorrow][i]),
                     selected: _when == w,
-                    showCheckmark: false,
-                    selectedColor: hz.primary,
-                    backgroundColor: hz.surfaceSunken,
-                    labelStyle: TextStyle(color: _when == w ? hz.onPrimary : hz.text),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: _when == w ? hz.primary : hz.borderStrong)),
+                    // chosen: an ink ring and a tick on the light surface (60-30-10)
+                    showCheckmark: true,
+                    checkmarkColor: hz.text,
+                    selectedColor: hz.surface,
+                    backgroundColor: hz.surface,
+                    labelStyle: TextStyle(color: hz.text, fontWeight: _when == w ? FontWeight.w600 : null),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(HzRadius.pill), side: BorderSide(color: _when == w ? hz.text : hz.borderStrong, width: _when == w ? 2 : 1)),
                     onSelected: (_) => setState(() => _when = w),
                   ),
               ]),

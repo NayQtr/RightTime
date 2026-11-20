@@ -22,7 +22,7 @@ class UpdateScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(HzSpace.gutter),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Icon(Icons.system_update_outlined, size: 56, color: Theme.of(context).colorScheme.primary),
+            Icon(Icons.system_update_outlined, size: 56, color: Theme.of(context).colorScheme.onSurface), // ink: the update button is the accent
             const SizedBox(height: HzSpace.s4),
             Text(t.updateTitle, style: tt.headlineMedium, textAlign: TextAlign.center),
             const SizedBox(height: HzSpace.s3),

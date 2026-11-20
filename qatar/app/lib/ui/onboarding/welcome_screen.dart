@@ -61,7 +61,9 @@ class WelcomeScreen extends StatelessWidget {
                   constraints: BoxConstraints(minHeight: avail - HzSpace.s12),
                   child: Center(
                     child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      rise(0, Text(t.brand, style: tt.titleLarge?.copyWith(color: c.primary))),
+                      // the name in ink, as the website's .brand-name (60-30-10: on this screen the accents are the
+                      // headline's yellow and the start button); the logo itself is not drawn here
+                      rise(0, Text(t.brand, style: tt.titleLarge?.copyWith(color: c.text))),
                       const SizedBox(height: HzSpace.s3),
                       rise(1, heroText),
                       const SizedBox(height: HzSpace.s3),
