@@ -22,6 +22,10 @@ Browser theme colour updated to the new bg. 401 web/API tests, 316 app tests.
 NEEDS THE OWNER'S YES: (1) the wine «لقاؤك القادم» card becomes a surface card (reverses the earlier wine decision);
 (2) «HerZone» above the app's welcome headline turns ink like the website; (3) the small yellow dot on the app's
 dinner/coffee tiles is removed. Then release in the usual order.
+RELEASED 21 Nov: CI green on a60f00b → `release` fast-forwarded b3f2bfb → a60f00b → production
+dpl_716QwTbwoNJJTbxsLgzRgBkqtZjG. herzone.app serves herzone-web@a60f00b2ffa0 with --c-bg #F3E6DE; smoke checks pass;
+live welcome, what-you-get and fee at 360/430, ar/en, light/dark: no page error, no sideways scroll; Sentry no unresolved
+issue in the hour. Staging NOT deployed: still blocked on its expired SUPABASE_ACCESS_TOKEN (owner action above).
 
 ## Motion principles + release of everything [2026-11-20] — owner: «خلص وأدمج وارفع وشيك وانشر» and «انزل الكل على herzone.app»
 The 19-principle motion brief applied to web and app in HerZone's own identity: spring (back-out) release on every pressed
