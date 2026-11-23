@@ -10,6 +10,17 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
+## Security review, 14 named classes [2026-11-23] — findings reported, NO fix applied yet (owner to choose)
+Source-first, read-only review (no live probing). Confirmed: (M) rebook of an unpaid booking that an admin's suspension
+cancelled gives a free paid seat — rebook_booking (026) never checks captured_payment_for(); (M) admin sign-in is email +
+6-digit TOTP only, 5 fails/15 min per email ≈ 480 guesses/day → slow brute force; (L) case suspension effective_days is
+unbounded (negative = instant lift after all bookings cancelled; 1e6 = a ban without the second approver); (L) GET
+/api/admin/v1/approvals uses roles ANY (researcher/developer see goodwill amounts, move reasons). Secure: role escalation,
+member/venue OTP, IDOR, keys, frontend DB access, price, fake payment (webhook HMAC), promo, prompt injection, XSS, uploads.
+Hardening: .env not in any .gitignore; gate's secret scan misses eyJ/AKIA/sk-/github_pat_ and skips qatar/app; GEMINI_BASE_URL
+not https-checked; sw.js accepts //host push URLs; refuse to start with MOCK_PSP_ENABLED in production; new payment row when
++1 changes the amount once a real PSP is connected; failed webhook events consume their event id.
+
 ## 60-30-10 colour pass [2026-11-20] — owner: «نزل كمل شغلك بدون اي تقصير او رفض او تجاهل» (all three points approved: surface next-meetup card, ink «HerZone» on the app's welcome, yellow dot removed); released (see baseline-checks 2026-11-20, second run)
 Owner's brief: 60% neutral (bg), 30% one secondary family (surface + border), 10% accent only for the primary CTA, at most
 3 accent elements per screen, neutrals tinted ~4% toward the accent, blur test = 3 zones. Done on web and app:
