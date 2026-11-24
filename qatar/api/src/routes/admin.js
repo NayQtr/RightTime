@@ -1271,7 +1271,7 @@ export const adminRoutes = [
   { method: "GET", path: `${A}/venue-outbox`, auth: "admin", roles: OPS, handler: listVenueOutbox },
   { method: "POST", path: `${A}/venue-outbox/{id}:sent`, auth: "admin", roles: OPS, handler: markVenueMessageSent },
   { method: "POST", path: `${A}/identity-reviews/{id}:decide`, auth: "admin", roles: [...TS, "owner"], handler: decideIdentityReview },
-  { method: "GET", path: `${A}/approvals`, auth: "admin", roles: ANY, handler: listApprovals },
+  { method: "GET", path: `${A}/approvals`, auth: "admin", roles: APPROVERS, handler: listApprovals },   // security review 23 Nov 2026, finding 4
   { method: "POST", path: `${A}/approvals/{id}:approve`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, true) },
   { method: "POST", path: `${A}/approvals/{id}:reject`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, false) },
   { method: "GET", path: `${A}/support-cases`, auth: "admin", roles: OPS, handler: supportCases },

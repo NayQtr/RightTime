@@ -686,6 +686,17 @@ test("security review 3: a suspension's effective_days is a whole number of days
   assert.equal((await sql`SELECT status FROM app.users WHERE id = ${X.userId}`)[0].status, "suspended");
 });
 
+test("security review 4: the approvals list is read by the approver roles only", async () => {
+  await sql`INSERT INTO app.admin_users (email, name, role, mfa_enabled) VALUES ('researcher@example.test', 'Researcher', 'researcher', true)`;
+  const researcher = await adminLogin(call, sql, "researcher@example.test");
+  assert.equal((await call("GET", "/api/admin/v1/me", { token: researcher.token })).status, 200, "signed in");
+  const denied = await call("GET", "/api/admin/v1/approvals", { token: researcher.token });
+  assert.deepEqual([denied.status, denied.body.code], [403, "FORBIDDEN"]);
+  const ok = await call("GET", "/api/admin/v1/approvals", { token: S.owner.token });
+  assert.equal(ok.status, 200);
+  assert.ok(Array.isArray(ok.body.approvals));
+});
+
 test("NMX-63 admin: a TOTP code works once, sign-out ends the session, re-enrolment needs an explicit reset", async () => {
   await sql`DELETE FROM app.admin_auth_attempts`;
   const ts = await adminLogin(call, sql, "ts.second@example.test");
