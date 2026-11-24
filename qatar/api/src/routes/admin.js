@@ -685,11 +685,20 @@ async function liftInterimSuspension(tx, r) {
 }
 
 async function cancelFutureBookings(tx, userId, reasonCode) {
+  // An unpaid hold is not cancelled by the organiser: it expires, as it would have within minutes. Nothing was paid, so
+  // there is nothing to refund and nothing to rebook (security review of 23 Nov 2026, finding 1: a cancelled unpaid hold
+  // used to be rebookable into a paid seat). The seats go back through release_expired_holds (021, 026), the same path
+  // as the every-minute tick: the cancellation trigger frees seats for cancelled statuses only, not for 'expired'.
+  await tx`
+    UPDATE app.bookings b SET hold_expires_at = now() - interval '1 second'
+      FROM app.event_sessions s
+     WHERE s.id = b.session_id AND s.starts_at > now() AND b.user_id = ${userId} AND b.status = 'payment_pending'`;
+  await tx`SELECT app.release_expired_holds()`;
   const rows = await tx`
     UPDATE app.bookings b SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer', cancel_reason_code = ${reasonCode}
       FROM app.event_sessions s
      WHERE s.id = b.session_id AND s.starts_at > now() AND b.user_id = ${userId}
-       AND b.status IN ('payment_pending','paid_awaiting_group','group_locked','revealed')
+       AND b.status IN ('paid_awaiting_group','group_locked','revealed')
      RETURNING b.id`;
   const refundIds = [];
   for (const b of rows) {

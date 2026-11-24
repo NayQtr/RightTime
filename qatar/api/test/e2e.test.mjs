@@ -582,6 +582,62 @@ test("NMX-63: a refund choice sent while a rebook of the same booking is in prog
   assert.equal(n, 0, "no refund next to the rebooked seat");
 });
 
+test("security review 1: an unpaid booking is never rebooked into a paid seat; a suspension lets an unpaid hold expire", async () => {
+  await sql`DELETE FROM app.otp_challenges`;   // three more sign-ups here: stay under the hourly sign-in code cap per country
+  const s = await newSession({ admin: S.ops.token, startsInDays: 5, district: ["الدفنة", "Dafna"] });
+  const target = await newSession({ admin: S.ops.token, startsInDays: 6, district: ["مشيرب", "Msheireb"] });
+  // a) cancelled by the organiser but never paid (what an older suspension left behind): no choice is offered, and a
+  //    rebook is refused by the API and by the database (027)
+  const U = await signUp(call, { name: "Dana" });
+  const unpaid = await call("POST", "/api/v1/bookings", { token: U.token, body: { session_id: s } });
+  assert.equal(unpaid.status, 201, JSON.stringify(unpaid.body));
+  await sql`UPDATE app.bookings SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer', hold_expires_at = NULL WHERE id = ${unpaid.body.booking_id}`;
+  const evU = (await call("GET", `/api/v1/bookings/${unpaid.body.booking_id}/event-details`, { token: U.token })).body;
+  assert.equal(evU.reveal.phase, "cancelled");
+  assert.ok(!("resolution" in evU) && !evU.actions.some((a) => a.type === "resolution"), JSON.stringify(evU));
+  const rb = await call("POST", `/api/v1/bookings/${unpaid.body.booking_id}/resolution`, { token: U.token, body: { choice: "rebook", session_id: target } });
+  assert.deepEqual([rb.status, rb.body.code, rb.body.details], [409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "no_payment" }]]);
+  const rf = await call("POST", `/api/v1/bookings/${unpaid.body.booking_id}/resolution`, { token: U.token, body: { choice: "refund" } });
+  assert.deepEqual([rf.status, rf.body.details], [409, [{ reason: "no_payment" }]]);
+  await assert.rejects(sql`SELECT app.rebook_booking(${unpaid.body.booking_id}, ${U.userId}, ${target})`,
+    (e) => e.code === "P0030" && /not paid/.test(e.message), "the database refuses it too");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.bookings WHERE rebooked_from_booking_id = ${unpaid.body.booking_id}`)[0].n, 0);
+  assert.equal((await sql`SELECT seats_sold FROM app.event_sessions WHERE id = ${target}`)[0].seats_sold, 0, "no seat taken");
+  // b) a paid booking cancelled the same way keeps both choices and rebooks as before
+  const P = await signUp(call, { name: "Lulwa" });
+  const paid = await bookAndPay(P.token, s, { alternate_session_ids: [target] });
+  await sql`UPDATE app.bookings SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer' WHERE id = ${paid.booking_id}`;
+  const evP = (await call("GET", `/api/v1/bookings/${paid.booking_id}/event-details`, { token: P.token })).body;
+  assert.ok(evP.resolution && evP.resolution.open && evP.actions.some((a) => a.type === "resolution"), JSON.stringify(evP));
+  assert.ok(evP.resolution.options.find((o) => o.type === "rebook").sessions.some((x) => x.session_id === target));
+  const ok = await call("POST", `/api/v1/bookings/${paid.booking_id}/resolution`, { token: P.token, body: { choice: "rebook", session_id: target } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.booking.status, "paid_awaiting_group");
+  // c) a suspension by trust & safety: her unpaid hold expires (seat back, no refund row, no choice); her paid booking
+  //    is cancelled with a refund, as before
+  const M = await signUp(call, { name: "Reem" });
+  const hold = await call("POST", "/api/v1/bookings", { token: M.token, body: { session_id: s } });
+  assert.equal(hold.status, 201, JSON.stringify(hold.body));
+  const paidM = await bookAndPay(M.token, target);
+  const soldBefore = (await sql`SELECT seats_sold FROM app.event_sessions WHERE id = ${s}`)[0].seats_sold;
+  const [rep] = await sql`INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, category, timing, status)
+                          VALUES (app.next_case_ref(), ${U.userId}, ${M.userId}, 'harassment', 'after', 'new') RETURNING id`;
+  const act = await call("POST", `/api/admin/v1/cases/${rep.id}/actions`, { token: S.ts.token, body: { action: "suspension", effective_days: 7, rationale: "test" } });
+  assert.equal(act.status, 200, JSON.stringify(act.body));
+  const [h] = await sql`SELECT status, hold_expires_at, cancel_reason_code FROM app.bookings WHERE id = ${hold.body.booking_id}`;
+  assert.deepEqual([h.status, h.hold_expires_at, h.cancel_reason_code], ["expired", null, null], "the unpaid hold expired, it was not cancelled by the organiser");
+  assert.equal((await sql`SELECT seats_sold FROM app.event_sessions WHERE id = ${s}`)[0].seats_sold, soldBefore - 1, "the held seat went back");
+  const [pm] = await sql`SELECT status, cancel_reason_code FROM app.bookings WHERE id = ${paidM.booking_id}`;
+  assert.deepEqual([pm.status, pm.cancel_reason_code], ["cancelled_by_organizer", "account_suspended"]);
+  const refunds = await sql`SELECT booking_id FROM app.refunds WHERE booking_id IN (${hold.body.booking_id}, ${paidM.booking_id})`;
+  assert.deepEqual(refunds.map((r) => r.booking_id), [paidM.booking_id], "a refund for the paid booking only");
+  // while suspended she may still open the expired booking: nothing to choose, nothing to rebook
+  const evH = await call("GET", `/api/v1/bookings/${hold.body.booking_id}/event-details`, { token: M.token });
+  assert.equal(evH.status, 200);
+  assert.deepEqual([evH.body.reveal.phase, evH.body.refund.status, "resolution" in evH.body], ["cancelled", "none", false]);
+  await assert.rejects(sql`SELECT app.rebook_booking(${hold.body.booking_id}, ${M.userId}, ${target})`, (e) => e.code === "P0030");
+});
+
 test("NMX-63 admin: a TOTP code works once, sign-out ends the session, re-enrolment needs an explicit reset", async () => {
   await sql`DELETE FROM app.admin_auth_attempts`;
   const ts = await adminLogin(call, sql, "ts.second@example.test");

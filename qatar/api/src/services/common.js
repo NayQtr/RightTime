@@ -40,10 +40,17 @@ export function computePhase(booking, session, table, now = new Date()) {
 }
 
 
-// Captured payment for a booking, following rebooked_from_booking_id (v0.4 C10: the fee moves with a rebook).
-export async function capturedPayment(tx, bookingId) {
+// Id of the captured payment for a booking, following rebooked_from_booking_id (v0.4 C10: the fee moves with a rebook),
+// or null when nothing was ever paid for it. Reads only, so a GET can ask without taking a row lock.
+export async function capturedPaymentId(tx, bookingId) {
   const [row] = await tx`SELECT app.captured_payment_for(${bookingId}) AS id`;
-  if (!row || !row.id) return null;
-  const [p] = await tx`SELECT * FROM app.payments WHERE id = ${row.id} FOR UPDATE`;
+  return row && row.id ? row.id : null;
+}
+
+// The captured payment row itself, locked for the caller's transaction (refunds and resolutions change it).
+export async function capturedPayment(tx, bookingId) {
+  const id = await capturedPaymentId(tx, bookingId);
+  if (!id) return null;
+  const [p] = await tx`SELECT * FROM app.payments WHERE id = ${id} FOR UPDATE`;
   return p;
 }

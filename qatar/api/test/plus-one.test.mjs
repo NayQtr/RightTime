@@ -387,3 +387,25 @@ test("migration 026 is safe to run twice, and no client role can reach the new c
   assert.deepEqual(open.map((r) => r.proname), []);
   assert.equal((await sql`SELECT count(*)::int AS n FROM pg_proc WHERE pronamespace = 'app'::regnamespace AND proname = 'hold_seat'`)[0].n, 1, "one hold_seat, not two");
 });
+
+test("migration 027 is safe to run twice; rebook_booking refuses a booking that was never paid and no client role can run it", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const file = fileURLToPath(new URL("../../db/migrations/027_rebook_requires_payment.sql", import.meta.url));
+  execFileSync("psql", ["-h", process.env.PGHOST_PSQL || "/tmp", "-p", String(process.env.PGPORT || 5433), "-U", process.env.PGUSER || "app", "-d", env.db,
+    "-v", "ON_ERROR_STOP=1", "-q", "-1", "-f", file], { stdio: ["ignore", "pipe", "pipe"] });
+  const fns = await sql`SELECT has_function_privilege('public', p.oid, 'EXECUTE') AS open FROM pg_proc p
+                         WHERE p.pronamespace = 'app'::regnamespace AND p.proname = 'rebook_booking'`;
+  assert.deepEqual(fns.map((f) => f.open), [false], "one rebook_booking, not two, and not executable by public");
+  // an unpaid two-seat hold cancelled by the organiser (what an older suspension left behind) moves no seat
+  const S = await newSession(6), T = await newSession(6);
+  const u = await member("Unpaid");
+  const b = await book(u, S, { name: "Maryam" });
+  assert.equal(b.status, 201, JSON.stringify(b.body));
+  await sql`UPDATE app.bookings SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer', hold_expires_at = NULL WHERE id = ${b.body.booking_id}`;
+  await assert.rejects(sql`SELECT app.rebook_booking(${b.body.booking_id}, ${u.userId}, ${T})`, (e) => e.code === "P0030" && /not paid/.test(e.message));
+  assert.equal((await seats(T)).seats_sold, 0);
+  await assertExact(T);
+  const r = await call("POST", `/api/v1/bookings/${b.body.booking_id}/resolution`, { token: u.token, body: { choice: "rebook", session_id: T } });
+  assert.deepEqual([r.status, r.body.details], [409, [{ reason: "no_payment" }]]);
+});
