@@ -31,7 +31,7 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
-## Security fixes 1–5 [2026-11-24] — on branch `security-fixes` (from rightime-app bd2df88), NOT merged, NOT released
+## Security fixes 1–5 [2026-11-24] — merged on rightime-app (59f328e, plus 3c2aad4: effective_days checked for a suspension only, the console sends it with every decision); 027 applied to staging AND production through the connector; released under «اصلح واعمل كل العمل لحالك» (baseline-checks 2026-11-24)
 Items 1–5 of the 23 Nov review are built with tests, one commit each: (1) migration 027 `rebook_booking` refuses a booking
 without a captured payment (P0030 'not paid'); the API offers no resolution for one and refuses the rebook (409
 no_payment); a suspension/ban lets an unpaid hold EXPIRE (seats back through release_expired_holds) instead of cancelling
@@ -41,9 +41,10 @@ else 422 RANGE_1_365; (4) GET /approvals roles APPROVERS; (5) .gitignore secrets
 sk-, github_pat_, Twilio pair, AIza 30+) + scans app/lib (ops/secret-scan.mjs), GEMINI_BASE_URL https-only, sw.js push
 URL path-only (also `/\host`), production refuses /api/mock-psp/* when SENTRY_ENVIRONMENT=production and logs it (API
 keeps serving; health still lists mock_payments so smoke/uptime fail). helpers.mjs lists 027 (the harness has no glob).
-WAITING ON THE OWNER: (a) merge/release approval in the usual order; (b) run `qatar/db/migrations/027_rebook_requires_payment.sql`
-in BOTH Supabase SQL editors (staging, production) BEFORE the API release; (c) the second factor for admin sign-in
-(password with argon2 or a passkey) is still a product decision. Item 6 (real-PSP items) untouched.
+DONE 24 Nov under the owner's «اصلح واعمل كل العمل لحالك»: (a) merged and released in the usual order; (b) 027 applied by
+apply_migration on staging and production, verified read-only (check present, no EXECUTE for anon/authenticated,
+recorded). STILL THE OWNER'S: (c) the second factor for admin sign-in (password with argon2 or a passkey) is a product
+decision. Item 6 (real-PSP items) untouched.
 
 ## Security review, 14 named classes [2026-11-23] — findings reported; items 1–5 built 24 Nov on `security-fixes` (above), item 6 open
 Source-first, read-only review (no live probing). Confirmed: (M) rebook of an unpaid booking that an admin's suspension
