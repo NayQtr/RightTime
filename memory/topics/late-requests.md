@@ -272,7 +272,7 @@ blocked before it left the browser).
 
 ## herzone.app: «الاستبيان غير موجود» after ابدئي [2026-11-13] — FIXED; owner's admin account ACTIVATED (checked 14 Nov)
 
-Done 13 Nov with the owner's answers (email nayeffr@gmail.com, name «المالك», role owner): admin account created in
+Done 13 Nov with the owner's answers (email: the owner's address, kept out of this public file, name «المالك», role owner): admin account created in
 production (id 9290aa62…, audit rows admin_create and admin_enroll_token), one-use enrolment token valid 24 hours, given
 to the owner in chat (not stored in the repository). QA-2026-05 published in production with the owner as approver
 (audit questionnaire_publish, reason owner_approved_in_chat); its content hash matches staging's QA-2026-05. Checked on
