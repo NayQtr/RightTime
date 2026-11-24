@@ -8,8 +8,8 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 ## للمالكة — ملخص بالعربية
 
-- **الموقع herzone.app يعرض آخر كود.** فرع الإنتاج `release` = 0d3e4e2 (إصلاحات الأمن الخمسة + الهجرة 027، 24 نوفمبر)، والفرق بينه وبين فرع العمل ملاحظات فقط، لا كود.
-- **النسخة التجريبية على الالتزام نفسه 0d3e4e2** رغم أن مفتاح Supabase في مشروعها على Vercel ما زال منتهيًا: الموقع عبر بناء معاينة موجَّه بـalias، والـAPI منشورة عبر موصل Supabase باستيراد مثبّت بالـSHA (القسم 6 الخطوة 5).
+- **الموقع herzone.app يعرض آخر كود.** فرع الإنتاج `release` = f7170ae (إصلاحات الأمن الخمسة + 027، ثم تهيئة الدفع قبل بوابة حقيقية + 028، 24 نوفمبر)، والفرق بينه وبين فرع العمل ملاحظات فقط، لا كود.
+- **النسخة التجريبية على الالتزام نفسه f7170ae** رغم أن مفتاح Supabase في مشروعها على Vercel ما زال منتهيًا: الموقع عبر بناء معاينة موجَّه بـalias، والـAPI منشورة عبر موصل Supabase باستيراد مثبّت بالـSHA (القسم 6 الخطوة 5).
 - **إشعار الخصوصية privacy-qa-5 منشور في الإنتاج وstaging** (24 نوفمبر). التسجيل ما زال يحتاج الشروط وقواعد السلوك منشورة.
 - **الإنتاج لا يخدم عضوة بعد.** الشروط وقواعد السلوك غير منشورة، ولا مزوّد رسائل نصية، ولا بوابة دفع حقيقية، ولا مكان ولا جلسة.
 - **التطبيق مبني ومختبر، لكنه ليس في المتجرين** (الحسابان لم يُفتحا).
@@ -39,9 +39,9 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 | Ref | SHA | Note |
 |---|---|---|
-| `rightime-app` (working branch, origin) | `0d3e4e28f44a848cfceb34b185869ec301993a6a` plus notes commits after it | Clean worktree. |
-| `release` (production branch, origin) | `0d3e4e28f44a848cfceb34b185869ec301993a6a` | What production serves (security fixes 1–5, hardening, 027). |
-| Delta `0d3e4e2..rightime-app` | notes only (`handoff.md`, `memory/topics/late-requests.md`) | No code is waiting to be released. |
+| `rightime-app` (working branch, origin) | `f7170ae95c2330b0d038f8cf530af712bc3f4fb6` plus notes commits after it | Clean worktree. |
+| `release` (production branch, origin) | `f7170ae95c2330b0d038f8cf530af712bc3f4fb6` | What production serves (security fixes 1–5, hardening, 027; payment hardening, 028). |
+| Delta `f7170ae..rightime-app` | notes only (`handoff.md`, `memory/topics/late-requests.md`) | No code is waiting to be released. |
 | GitHub default branch | `add-rea-mcp-permissions` (stale) | See §8.1 item 1. It breaks the scheduled workflows. |
 
 - Repo: `NayQtr/RightTime`. It is **public** (`private: false`).
@@ -51,8 +51,8 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 | Site | Serves | Vercel project | Last deployment |
 |---|---|---|---|
-| https://herzone.app (+ www → 308) | `herzone-web@0d3e4e28f44a` | `herzone-production` (`prj_D7nHuK1OMpWKNLyL409yxekEsnTE`) | `dpl_DYaCi4kZi2btkd9phcdxs8byfDUY` (24 Nov, production target: website + Edge Function `api`) |
-| https://qatar-mvp-staging.vercel.app | `herzone-web@0d3e4e28f44a` | `qatar-mvp-staging` (`prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`) | Website: preview build `dpl_Cbnxhs1eGefJ3T7uYvkV514uNRkg` aliased to the staging domain (`assign_alias`). API: Edge Function version 52, deployed through the Supabase connector with a jsDelivr import pinned to 0d3e4e2 (§6 step 5). A production-target build of this project still **fails** (Supabase CLI 401, expired `SUPABASE_ACCESS_TOKEN`). |
+| https://herzone.app (+ www → 308) | `herzone-web@f7170ae95c23` | `herzone-production` (`prj_D7nHuK1OMpWKNLyL409yxekEsnTE`) | `dpl_Sh6K6ft67sBfbBHjmuZ63nLetxc1` (24 Nov, second release, production target: website + Edge Function `api` v29) |
+| https://qatar-mvp-staging.vercel.app | `herzone-web@f7170ae95c23` | `qatar-mvp-staging` (`prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`) | Website: preview build `dpl_4xDPygYMRWkLkLR1A8FGmppNifEa` aliased to the staging domain (`assign_alias`). API: Edge Function version 53, deployed through the Supabase connector with a jsDelivr import pinned to f7170ae (§6 step 5). A production-target build of this project still **fails** (Supabase CLI 401, expired `SUPABASE_ACCESS_TOKEN`). |
 
 - Check the release tag with `curl -s https://herzone.app/config.js | grep -o 'herzone-web@[0-9a-f]*'`.
 
@@ -74,19 +74,19 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 | `WEB_BASE_URL` | `https://herzone.app` | `https://qatar-mvp-staging.vercel.app` |
 | `PUSH_DISPATCH_URL` set (pg_cron every minute) | yes | yes |
 
-- **All migrations through `027_rebook_requires_payment.sql` are applied on both projects** (027 by `apply_migration`
-  on 24 Nov, verified read-only: the 'not paid' check is in `rebook_booking`, no EXECUTE for `anon`/`authenticated`,
-  recorded in `supabase_migrations.schema_migrations`).
-  - The file list is 001–021, then 023–027. There is no 022.
-  - The next new migration is `028_…`.
+- **All migrations through `028_guest_change_new_payment.sql` are applied on both projects** (027 and 028 by
+  `apply_migration` on 24 Nov, each verified read-only: the new check is in the function, no EXECUTE for
+  `anon`/`authenticated`, recorded in `supabase_migrations.schema_migrations`).
+  - The file list is 001–021, then 023–028. There is no 022.
+  - The next new migration is `029_…`.
 
 ### 2.4 Tests (last full runs)
 
-- **Website + API + DB + browser** (`cd qatar/api && npm run check`): 414/414 green on the merged tree (24 Nov, security fixes included).
+- **Website + API + DB + browser** (`cd qatar/api && npm run check`): 417/417 green (24 Nov evening, security fixes and payment hardening included).
 - **Flutter** (`flutter analyze`, `flutter test`): analyze clean; 316 passed, 24 skipped (opt-in golden/store-shot tests).
 - **Python matching engine:** `qatar/matching/test_matching_engine.py`, 41 test functions. JS/Python parity is checked by
   `qatar/api/test/parity.test.mjs`.
-- **CI on GitHub** (`ci.yml`, jobs `test`, `app`, `lighthouse`): green on 0d3e4e2.
+- **CI on GitHub** (`ci.yml`, jobs `test`, `app`, `lighthouse`): green on f7170ae.
 
 ### 2.5 What a visitor can do on herzone.app today
 
@@ -490,11 +490,15 @@ decision.
    - Require https for `GEMINI_BASE_URL`, like `sms.js` does.
    - `sw.js` ~48: reject push URLs starting with `//`.
    - Refuse to start in production with `MOCK_PSP_ENABLED` on.
-6. **Before a real PSP:**
-   - Create a new payment row and checkout when "+1" changes the amount (`user.js` ~806).
-   - A failed webhook event must not consume its event id (`routes/payments.js` ~28).
-   - Validate `refund.succeeded` amount and intent.
-   - Re-test all refund rules.
+6. **Before a real PSP: DONE on 24 Nov (evening), released in f7170ae, migration 028 on both projects.**
+   - "+1" changing the total now cancels the unpaid payment and creates a new one with a new intent (028 +
+     `routes/user.js` setGuest); the checkout never hands out a page for another amount (`payment_superseded` audit).
+   - A webhook event whose processing failed stays open and answers 500, so the provider's retry is processed; a
+     server-decided rejection (unknown intent, mismatch, unsupported type) closes it with 200 (`routes/payments.js`).
+   - `refund.succeeded` must carry this refund's amount and payment, else `REFUND_MISMATCH` (audited, refund untouched).
+   - Refund rules re-run: 417/417. The adapter contract is at the top of `services/psp.js`.
+   - **Still for the real adapter:** cancel a superseded intent at the provider, send the cardholder name, and re-test
+     every refund rule against the real PSP before it takes real money.
 
 **B. Other development work**
 - **Opener library.** Once `GEMINI_API_KEY` is a GitHub secret and the default branch is fixed:
@@ -524,6 +528,7 @@ All released unless marked otherwise.
 | 21 Nov | 60-30-10 colour pass: tinted neutrals (bg `#F3E6DE`, surface `#FBF2EE`, sunken `#E9D5C5`, border `#DBC2AE`, borderStrong `#8A7062`); surface next-meetup card; ink «HerZone» on the app welcome; yellow dot removed; pattern mauve layer 0.10 in light | a60f00b, dpl_716QwTbwoNJJTbxsLgzRgBkqtZjG |
 | 23 Nov | Security review of 14 classes. Findings in §8.3 A. No code change. | 43cf69c (notes) |
 | 24 Nov | Privacy notice published on both projects; owner's e-mail removed from the notes; staging website refreshed by alias and staging API redeployed through the connector (pinned import); security fixes 1–5 and the hardening list built on `security-fixes` with 12 new tests, merged, 027 applied to staging and production, released; `effective_days` check limited to suspensions. Default-branch change attempted and refused (settings API 403, push to the default branch denied by the harness). | 59f328e, 3c2aad4, 0d3e4e2; dpl_DYaCi4kZi2btkd9phcdxs8byfDUY (prod), dpl_Cbnxhs1eGefJ3T7uYvkV514uNRkg (staging web), Edge Function v52 (staging) |
+| 24 Nov, evening | Backlog item 6 (before a real PSP): a changed total gets a new payment (028), open webhook events are retried rather than dropped, refund.succeeded validated; 3 new tests; 028 on both projects; released. Staging refreshed to the same commit (preview alias + Edge Function v53). | 56903f8, f7170ae; dpl_Sh6K6ft67sBfbBHjmuZ63nLetxc1 (prod), dpl_4xDPygYMRWkLkLR1A8FGmppNifEa (staging web) |
 
 ---
 
@@ -535,7 +540,7 @@ All released unless marked otherwise.
 | Member OTP | `qatar/api/src/routes/user.js` ~140–210 |
 | Admin login, enrol, lockout (15-min and daily caps) | `qatar/api/src/routes/admin.js` ~21–150; `lib/crypto.js`; `lib/config.js` (`adminMaxFailsPerEmailDaily`) |
 | Booking, hold, +1, review, pay, rebook | `routes/user.js` (book ~669, checkout ~797, resolution ~965); `db/migrations/026_plus_one.sql`, `027_rebook_requires_payment.sql` |
-| Payments and webhook | `routes/payments.js`; `services/payments.js`; `services/psp.js` |
+| Payments and webhook (retry semantics, refund checks, adapter contract) | `routes/payments.js`; `services/payments.js`; `services/psp.js`; `db/migrations/028_guest_change_new_payment.sql` |
 | Minute dispatcher: push, coordinator alerts, refunds, suspensions | `routes/push.js` `dispatch`; `services/{coordinator_alerts,payments,suspensions}.js` |
 | Identity card-name check plus Gemini | `services/identity.js`; `lib/ai.js`; `lib/namematch.js` |
 | Matching | `api/src/matching/{engine,personality}.js`; `qatar/matching/*.py` |

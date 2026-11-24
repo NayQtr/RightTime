@@ -31,7 +31,15 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
-## Backlog item 6 «before a real PSP» [2026-11-24, evening] — built after the owner's «Continue»; 028 on both projects; release in the usual order
+## Release 24 Nov (second): payment hardening (item 6) + 028 — LIVE on herzone.app
+Order followed: baseline run recorded (f7170ae) → CI green on f7170ae95c2330b0d038f8cf530af712bc3f4fb6 → push to release →
+Vercel create_deployment herzone-production dpl_Sh6K6ft67sBfbBHjmuZ63nLetxc1 → tag herzone-web@f7170ae95c23 live 21:42
+UTC → `smoke.mjs production` all pass → production Edge Function `api` version 29 → Sentry 0 unresolved issues in the
+last hour → live pages (welcome + privacy, 360/430, light/dark, production and staging) 32 of 32 clean. Staging on the
+same commit: preview dpl_4xDPygYMRWkLkLR1A8FGmppNifEa aliased, Edge Function version 53 (pinned import at f7170ae),
+smoke staging all pass.
+
+## Backlog item 6 «before a real PSP» [2026-11-24, evening] — built after the owner's «Continue»; 028 on both projects; released (above)
 (a) +1 changes the total → set_booking_guest (028) cancels the unpaid payments instead of rewriting the amount, and the
 API creates a new payment with a new intent in the same transaction (routes/user.js setGuest); newCheckout cancels an
 open payment whose amount is not the booking's total (audit payment_superseded) and creates a new one; a rename changes
