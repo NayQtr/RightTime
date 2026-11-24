@@ -1,5 +1,8 @@
 // Runtime configuration: app.app_config rows, overridable by environment variables of the same name.
 import { BLOCKED_CALLING_CODES } from "./countries.js";
+import { safeBase } from "./sms.js";
+
+const GEMINI = "https://generativelanguage.googleapis.com";
 
 let cache = null;
 let loadedAt = 0;
@@ -39,8 +42,11 @@ export async function loadConfig(sql, getEnv) {
     // Card name vs registered name (015). Off until migration 015 has run, which sets it to true.
     cardNameCheck: get("CARD_NAME_CHECK", "false") === "true",
     // Gemini second opinion on a mismatch (lib/ai.js); the key itself is read from GEMINI_API_KEY, never kept here.
+    // GEMINI_BASE_URL only points the tests at a fake server: like TWILIO_BASE_URL (lib/sms.js) it must be https, or
+    // plain http to this machine; anything else is null and Gemini is simply not asked (the key never leaves over
+    // plain http to a stranger's host).
     geminiModel: get("GEMINI_MODEL", "gemini-flash-lite-latest"),
-    geminiBaseUrl: get("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").replace(/\/$/, ""),
+    geminiBaseUrl: safeBase(get("GEMINI_BASE_URL", GEMINI), GEMINI),
     // Member engagement (023, provisional 10 Nov): an overall rating at or below lowRatingReasonsMax keeps the reasons she
     // picked (the website and the app show them at the same rating: LOW_RATING_REASONS_UP_TO in web/app.js and
     // lowRatingReasonsUpTo in the app's feedback_screen.dart); at or below compensationMaxRating the admin console suggests

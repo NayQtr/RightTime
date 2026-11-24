@@ -39,6 +39,13 @@ test("without GEMINI_API_KEY the run stops with a clear message and writes nothi
   assert.match(r.stderr, /GEMINI_API_KEY is not set/);
 });
 
+test("a GEMINI_BASE_URL that is not https (and not this machine) stops the run before the key is sent anywhere", () => {
+  const r = spawnSync(process.execPath, [SCRIPT], { env: { ...process.env, GEMINI_API_KEY: "test-key", GEMINI_BASE_URL: "http://203.0.113.9" }, encoding: "utf8" });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /GEMINI_BASE_URL must be https/);
+  assert.doesNotMatch(r.stdout, /drafts written/);
+});
+
 test("openerFor: null with the empty library; the first approved line for the themes, in her language", () => {
   assert.deepEqual(OPENERS, {}, "nothing reaches members until the owner approves lines");
   const themes = [{ q: "Q05", o: "gaming" }, { q: "Q05", o: "music" }, { q: "Q19", o: "games" }];
