@@ -5,6 +5,9 @@ import { applyPspEvent, dispatchRefund } from "../services/payments.js";
 import { verifyWebhook } from "../services/psp.js";
 import { runAiOpinions } from "../services/identity.js";
 
+// Rejections decided by applyPspEvent (services/payments.js): a retry of the same event cannot change them.
+const PERMANENT_REJECTIONS = new Set(["UNKNOWN_PAYMENT_INTENT", "AMOUNT_MISMATCH", "UNKNOWN_REFUND", "REFUND_MISMATCH", "UNSUPPORTED_EVENT_TYPE"]);
+
 // The webhook log keeps the event for audit, but never the name on the card (that is stored encrypted, on the payment).
 const withoutCardName = (event) => (event && event.data && event.data.cardholder_name
   ? { ...event, data: { ...event.data, cardholder_name: "[stored encrypted]" } } : event);
@@ -21,22 +24,33 @@ async function webhook(ctx) {
                       ${sql.json(event || { raw_length: rawBody.length })}, 'signature_invalid')`;
     fail(401, "SIGNATURE_INVALID");
   }
-  const inserted = await sql`
+  // One row per event id. A processed event is a duplicate and is ignored. An event that is still open (its processing
+  // failed, below) is NOT a duplicate: the provider's retry is processed again, so a failure never swallows an event.
+  const [row] = await sql`
     INSERT INTO app.payment_webhook_events (psp, psp_event_id, event_type, signature_valid, payload)
     VALUES ('test_psp', ${event.id}, ${event.type}, true, ${sql.json(withoutCardName(event))})
-    ON CONFLICT (psp, psp_event_id) DO NOTHING RETURNING id`;
-  if (!inserted.length) return json(200, { received: true, duplicate: true });
+    ON CONFLICT (psp, psp_event_id) DO UPDATE SET processing_error = NULL, payload = EXCLUDED.payload, updated_at = now()
+      WHERE app.payment_webhook_events.processed_at IS NULL
+    RETURNING id, (xmax = 0) AS fresh`;
+  if (!row) return json(200, { received: true, duplicate: true });
   let refunds = [];
   try {
     refunds = await applyPspEvent(sql, event, { keys, cfg: ctx.cfg });
-    await sql`UPDATE app.payment_webhook_events SET processed_at = now() WHERE id = ${inserted[0].id}`;
-    await runAiOpinions(sql, ctx, { limit: 3 }); // after commit; never fails the webhook
+    await sql`UPDATE app.payment_webhook_events SET processed_at = now() WHERE id = ${row.id}`;
   } catch (e) {
-    await sql`UPDATE app.payment_webhook_events SET processing_error = ${String(e.message).slice(0, 500)} WHERE id = ${inserted[0].id}`;
-    return json(200, { received: true, processed: false });
+    const code = String((e && e.message) || "error").slice(0, 500);
+    // A rejection the server decided on (an unknown intent, an amount that does not match) will not change on a retry:
+    // the event is closed with its error and answered 200. Anything else (the database, a fault) keeps the event open and
+    // answers 500, so the provider sends it again and the retry above processes it.
+    const permanent = PERMANENT_REJECTIONS.has(code);
+    await sql`UPDATE app.payment_webhook_events SET processing_error = ${code}, processed_at = ${permanent ? new Date() : null} WHERE id = ${row.id}`;
+    if (permanent) return json(200, { received: true, processed: false, error: code });
+    console.error(`webhook ${event.id} (${event.type}) failed and stays open for the provider's retry:`, code);
+    fail(500, "WEBHOOK_RETRY", [{ reason: "processing_failed" }]);
   }
+  try { await runAiOpinions(sql, ctx, { limit: 3 }); } catch (e) { console.error("ai opinions after webhook:", e && e.message); } // never fails the webhook
   for (const id of refunds) await dispatchRefund(sql, ctx.psp, id);
-  return json(200, { received: true, processed: true });
+  return json(200, { received: true, processed: true, retried: !row.fresh });
 }
 
 async function mockIntent(ctx) {

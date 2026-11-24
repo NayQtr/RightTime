@@ -1,6 +1,6 @@
 // Webhook processing and refund dispatch (v0.3 §3.5, v0.4 §1.3.2 I3–I8).
 import { encrypt } from "../lib/crypto.js";
-import { money } from "../lib/http.js";
+import { isUuid, money } from "../lib/http.js";
 import { checkCardName } from "../lib/namematch.js";
 import { audit, notify } from "./common.js";
 
@@ -23,7 +23,8 @@ export async function applyPspEvent(sql, event, opts = {}) {
         return;
       }
       if (Number(d.amount_minor) !== p.amount_minor || d.currency !== p.currency) {
-        await audit(tx, null, "payment_amount_mismatch", "payments", p.id, "I5");
+        // written outside the transaction: the throw below rolls the transaction back, the audit row must stay
+        await audit(sql, null, "payment_amount_mismatch", "payments", p.id, "I5");
         throw new Error("AMOUNT_MISMATCH");
       }
       const [dup] = await tx`
@@ -70,11 +71,18 @@ export async function applyPspEvent(sql, event, opts = {}) {
       return;
     }
     if (event.type === "refund.succeeded") {
+      if (!isUuid(d.refund_id)) throw new Error("UNKNOWN_REFUND");
       const [r] = await tx`SELECT * FROM app.refunds WHERE id = ${d.refund_id} FOR UPDATE`;
       if (!r) throw new Error("UNKNOWN_REFUND");
+      const [p] = await tx`SELECT * FROM app.payments WHERE id = ${r.payment_id} FOR UPDATE`;
+      // The provider's answer must be about this refund: the same amount, on the same payment (I5, as for a charge).
+      // Anything else is recorded and refused; the refund stays as it was, for finance to check with the provider.
+      if (Number(d.amount_minor) !== r.amount_minor || String(d.payment_intent || "") !== p.psp_payment_intent_id) {
+        await audit(sql, null, "refund_mismatch", "refunds", r.id, "I5");
+        throw new Error("REFUND_MISMATCH");
+      }
       if (r.status === "refunded") return;
       await tx`UPDATE app.refunds SET status = 'refunded', psp_refund_id = ${d.psp_refund_id}, completed_at = now() WHERE id = ${r.id}`;
-      const [p] = await tx`SELECT * FROM app.payments WHERE id = ${r.payment_id} FOR UPDATE`;
       const [{ total }] = await tx`SELECT COALESCE(sum(amount_minor), 0)::int AS total FROM app.refunds WHERE payment_id = ${p.id} AND status = 'refunded'`;
       if (["succeeded", "partially_refunded"].includes(p.status)) {
         await tx`UPDATE app.payments SET status = ${total >= p.amount_minor ? "refunded" : "partially_refunded"} WHERE id = ${p.id}`;

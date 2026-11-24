@@ -235,6 +235,78 @@ test("NMX-63: a charge that succeeds after the member cancelled her unpaid booki
   assert.equal(r.reason, "seat_unavailable");
 });
 
+const webhookSecret = async () => (await sql`SELECT value FROM app.server_keys WHERE name = 'PSP_WEBHOOK_SECRET'`)[0].value;
+async function postWebhook(event) {
+  const raw = JSON.stringify(event);
+  const res = await fetch(`${env.base}/api/v1/payments/webhooks/test_psp`, { method: "POST", headers: { "content-type": "application/json", ...signWebhook(await webhookSecret(), raw) }, body: raw });
+  return { status: res.status, body: await res.json() };
+}
+const webhookRow = async (id) => (await sql`SELECT processed_at, processing_error FROM app.payment_webhook_events WHERE psp = 'test_psp' AND psp_event_id = ${id}`)[0];
+
+test("webhook: a failed event keeps its id open and is processed on the provider's retry; a rejection closes it", async () => {
+  const u = await signUp(call, { name: "Retry" });
+  const b = await call("POST", "/api/v1/bookings", { token: u.token, body: { session_id: S.s3 } });
+  const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.body.booking_id}`;
+  const id = "evt_retry_" + p.id;
+  // a fault while processing (stand-in for any unexpected error: here a card brand longer than its column, which the
+  // database refuses after the checks passed): 500, nothing committed, so the provider sends the event again
+  const broken = await postWebhook({ id, type: "payment.succeeded", data: { payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor, currency: p.currency, method_brand: "x".repeat(40), card_last4: "4242" } });
+  assert.equal(broken.status, 500, JSON.stringify(broken.body));
+  assert.equal(broken.body.code, "WEBHOOK_RETRY");
+  let row = await webhookRow(id);
+  assert.equal(row.processed_at, null, "the event stays open");
+  assert.ok(row.processing_error, "with its error");
+  assert.equal((await sql`SELECT status FROM app.bookings WHERE id = ${b.body.booking_id}`)[0].status, "payment_pending");
+  // the retry, same event id: processed, not dropped as a duplicate
+  const retry = await postWebhook({ id, type: "payment.succeeded", data: { payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor, currency: p.currency, method_brand: "visa", card_last4: "4242" } });
+  assert.deepEqual([retry.status, retry.body], [200, { received: true, processed: true, retried: true }]);
+  row = await webhookRow(id);
+  assert.ok(row.processed_at, "closed now");
+  assert.equal(row.processing_error, null);
+  assert.equal((await sql`SELECT status FROM app.bookings WHERE id = ${b.body.booking_id}`)[0].status, "paid_awaiting_group", "the payment confirmed the booking");
+  // a third delivery is a duplicate
+  assert.deepEqual((await postWebhook({ id, type: "payment.succeeded", data: { payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor, currency: p.currency } })).body, { received: true, duplicate: true });
+  // a rejection the server decided on closes the event at once: a retry would change nothing
+  const unknown = await postWebhook({ id: "evt_unknown_" + p.id, type: "payment.succeeded", data: { payment_intent: "pi_test_nobody", amount_minor: 1, currency: "QAR" } });
+  assert.deepEqual([unknown.status, unknown.body], [200, { received: true, processed: false, error: "UNKNOWN_PAYMENT_INTENT" }]);
+  row = await webhookRow("evt_unknown_" + p.id);
+  assert.ok(row.processed_at && row.processing_error === "UNKNOWN_PAYMENT_INTENT");
+  assert.deepEqual((await postWebhook({ id: "evt_unknown_" + p.id, type: "payment.succeeded", data: { payment_intent: "pi_test_nobody", amount_minor: 1, currency: "QAR" } })).body, { received: true, duplicate: true });
+  // a charge for another amount on a pending payment: refused, closed, the booking stays unpaid, and the audit row
+  // survives the rolled-back transaction
+  const u2 = await signUp(call, { name: "Wrong" });
+  const b2 = await call("POST", "/api/v1/bookings", { token: u2.token, body: { session_id: S.s3 } });
+  const [p2] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b2.body.booking_id}`;
+  const wrong = await postWebhook({ id: "evt_wrong_" + p2.id, type: "payment.succeeded", data: { payment_intent: p2.psp_payment_intent_id, amount_minor: p2.amount_minor + 100, currency: p2.currency } });
+  assert.deepEqual([wrong.status, wrong.body.error], [200, "AMOUNT_MISMATCH"]);
+  assert.ok((await webhookRow("evt_wrong_" + p2.id)).processed_at, "closed: a retry would change nothing");
+  assert.deepEqual([(await sql`SELECT status FROM app.bookings WHERE id = ${b2.body.booking_id}`)[0].status, (await sql`SELECT status FROM app.payments WHERE id = ${p2.id}`)[0].status], ["payment_pending", "created"]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'payment_amount_mismatch' AND entity_id = ${p2.id}`)[0].n, 1);
+});
+
+test("webhook: refund.succeeded must name this refund's amount and payment, or it is refused and recorded", async () => {
+  const u = await signUp(call, { name: "Refunded" });
+  const b = await bookAndPay(u.token, S.s3);
+  const [p] = await sql`SELECT * FROM app.payments WHERE booking_id = ${b.booking_id} AND status = 'succeeded'`;
+  // a refund on its way to the provider (as dispatchRefund leaves it)
+  const [r] = await sql`INSERT INTO app.refunds (payment_id, booking_id, amount_minor, reason, status, idempotency_key)
+                        VALUES (${p.id}, ${b.booking_id}, ${p.amount_minor}, 'seat_unavailable', 'processing', ${"test-" + p.id}) RETURNING id`;
+  const refusal = async (data, label) => {
+    const res = await postWebhook({ id: "evt_rf_" + label + "_" + r.id, type: "refund.succeeded", data: { refund_id: r.id, psp_refund_id: "re_test_x", payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor, ...data } });
+    assert.deepEqual([res.status, res.body.error], [200, "REFUND_MISMATCH"], label);
+    assert.equal((await sql`SELECT status FROM app.refunds WHERE id = ${r.id}`)[0].status, "processing", label + ": the refund is left as it was");
+  };
+  await refusal({ amount_minor: p.amount_minor - 1 }, "amount");
+  await refusal({ payment_intent: "pi_test_other" }, "intent");
+  await refusal({ payment_intent: undefined }, "no intent");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'refund_mismatch' AND entity_id = ${r.id}`)[0].n, 3);
+  assert.equal((await postWebhook({ id: "evt_rf_nobody", type: "refund.succeeded", data: { refund_id: "not-a-uuid", amount_minor: 1 } })).body.error, "UNKNOWN_REFUND");
+  const ok = await postWebhook({ id: "evt_rf_ok_" + r.id, type: "refund.succeeded", data: { refund_id: r.id, psp_refund_id: "re_test_ok", payment_intent: p.psp_payment_intent_id, amount_minor: p.amount_minor } });
+  assert.deepEqual([ok.status, ok.body.processed], [200, true]);
+  const [done] = await sql`SELECT r.status, r.psp_refund_id, p.status AS pay FROM app.refunds r JOIN app.payments p ON p.id = r.payment_id WHERE r.id = ${r.id}`;
+  assert.deepEqual({ ...done }, { status: "refunded", psp_refund_id: "re_test_ok", pay: "refunded" });
+});
+
 // ===================================================================== matching, lock, reveal, day-of
 test("12 paid in S1 -> dry-run + publish (2 x 6), phases forming -> locked -> revealed -> day_of with ETag", async () => {
   S.reported = await signUp(call, { name: "Omar", topics: ["sport", "tech"] });

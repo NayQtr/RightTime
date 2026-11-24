@@ -221,18 +221,24 @@ test("review step: the companion is added, renamed and removed on an unpaid book
   const add = await guest({ name: "Maryam" });
   assert.equal(add.status, 200, JSON.stringify(add.body));
   assert.deepEqual([add.body.seats, add.body.guest_name, add.body.unit_fee_minor, add.body.amount.amount_minor], [2, "Maryam", FEE, FEE * 2]);
-  assert.equal(add.body.checkout_url, b.checkout_url, "the same payment, with the new amount");
+  // 028: the total changed, so the unpaid payment is replaced by a new one (a provider's intent has a fixed amount)
+  assert.ok(add.body.checkout_url && add.body.checkout_url !== b.checkout_url, "a new payment page for the new total");
   assert.equal((await seats(S)).seats_sold, 2);
-  assert.equal((await sql`SELECT amount_minor FROM app.payments WHERE booking_id = ${b.booking_id}`)[0].amount_minor, FEE * 2);
+  const payRows = async () => (await sql`SELECT status, amount_minor FROM app.payments WHERE booking_id = ${b.booking_id} ORDER BY created_at`).map((p) => [p.status, p.amount_minor]);
+  assert.deepEqual(await payRows(), [["cancelled", FEE], ["created", FEE * 2]], "the old payment is cancelled, the new one is for the total");
+  const stale = await payViaMock(call, b.checkout_url);
+  assert.deepEqual([stale.status, stale.body.code], [409, "PAYMENT_NOT_PENDING"], "the old page can no longer be paid");
   const ren = await guest({ name: "Mariam" });
   assert.deepEqual([ren.body.seats, ren.body.guest_name, (await seats(S)).seats_sold], [2, "Mariam", 2]);
+  assert.equal(ren.body.checkout_url, add.body.checkout_url, "a rename changes no amount: the same payment");
   assert.equal((await guest({ name: "" })).body.code, "GUEST_NAME_REQUIRED");
   assert.equal((await call("POST", `/api/v1/bookings/${b.booking_id}/guest`, { token: u.token, body: {} })).status, 422);
   const other = await member("Other");
   assert.equal((await guest({ name: "X" }, other.token)).status, 404, "not her booking");
   const off = await guest(null);
   assert.deepEqual([off.body.seats, off.body.guest_name, off.body.amount.amount_minor, (await seats(S)).seats_sold], [1, null, FEE, 1]);
-  assert.equal((await sql`SELECT amount_minor FROM app.payments WHERE booking_id = ${b.booking_id}`)[0].amount_minor, FEE);
+  assert.deepEqual(await payRows(), [["cancelled", FEE], ["cancelled", FEE * 2], ["created", FEE]], "back to one seat: a third payment, for one fee");
+  assert.equal((await call("GET", `/api/v1/bookings/${b.booking_id}`, { token: u.token })).body.checkout_url, off.body.checkout_url, "the review step shows the current page");
   // no second seat left: refused, nothing changes
   for (const n of ["A", "B", "C"]) await bookAndPay(await member(n), S);
   const none = await guest({ name: "Maryam" });
@@ -240,10 +246,28 @@ test("review step: the companion is added, renamed and removed on an unpaid book
   assert.equal((await call("GET", `/api/v1/bookings/${b.booking_id}`, { token: u.token })).body.plus_one_available, false);
   assert.equal((await seats(S)).seats_sold, 4);
   // once paid, the seats are fixed (API and database)
-  assert.equal((await payViaMock(call, b.checkout_url)).status, 200);
+  assert.equal((await payViaMock(call, off.body.checkout_url)).status, 200);
   assert.deepEqual([(await guest({ name: "Maryam" })).status, (await guest({ name: "Maryam" })).body.code], [409, "PAYMENT_NOT_PENDING"]);
   await assert.rejects(sql`UPDATE app.bookings SET seats = 2, guest_name = 'x' WHERE id = ${b.booking_id}`, (e) => e.code === "P0014");
   await assertExact(S);
+});
+
+test("checkout: an open payment for another amount than the booking's total is cancelled and replaced (028)", async () => {
+  const S = await newSession(4);
+  const u = await member("Drift");
+  const b = (await book(u, S)).body;
+  // the amount drifted behind the server's back (nothing in the API does this; the guard is the second layer)
+  await sql`UPDATE app.payments SET amount_minor = ${FEE * 3} WHERE booking_id = ${b.booking_id}`;
+  const co = await call("POST", `/api/v1/bookings/${b.booking_id}/checkout`, { token: u.token, body: {} });
+  assert.equal(co.status, 200, JSON.stringify(co.body));
+  assert.notEqual(co.body.checkout_url, b.checkout_url, "a new page");
+  const rows = (await sql`SELECT status, amount_minor FROM app.payments WHERE booking_id = ${b.booking_id} ORDER BY created_at`).map((p) => [p.status, p.amount_minor]);
+  assert.deepEqual(rows, [["cancelled", FEE * 3], ["created", FEE]]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM app.audit_logs WHERE action = 'payment_superseded'`)[0].n, 1);
+  const again = await call("POST", `/api/v1/bookings/${b.booking_id}/checkout`, { token: u.token, body: {} });
+  assert.equal(again.body.checkout_url, co.body.checkout_url, "the right page is handed out again, not a fourth payment");
+  assert.equal((await payViaMock(call, co.body.checkout_url)).status, 200);
+  assert.equal((await sql`SELECT status FROM app.bookings WHERE id = ${b.booking_id}`)[0].status, "paid_awaiting_group");
 });
 
 test("a charge that is not the booking's total never confirms it: it is refunded in full", async () => {

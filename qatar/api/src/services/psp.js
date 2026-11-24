@@ -3,6 +3,11 @@
 // refund(refund, intent) contract, for every adapter: send refund.idempotency_key as the PSP's own idempotency key, so a
 // refund the PSP has already received is never paid twice. Throw an error with `definite = true` only when the PSP
 // refused the refund (no money moved); any other error means "outcome unknown" (services/payments.js dispatchRefund).
+// Webhook contract, for every adapter: payment.succeeded carries payment_intent, amount_minor and currency;
+// refund.succeeded carries refund_id (our id), psp_refund_id, payment_intent and amount_minor. The server refuses an
+// event whose amount or payment does not match its own row (applyPspEvent: AMOUNT_MISMATCH, REFUND_MISMATCH).
+// A payment intent is created per amount: when the booking's total changes (+1), the open intent is cancelled on our side
+// and a new one is created (028); a real adapter should also cancel it at the provider.
 // MUST be re-tested against the real PSP before it takes real money.
 import { hmacHex, randomToken, safeEqual } from "../lib/crypto.js";
 

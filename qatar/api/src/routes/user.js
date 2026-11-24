@@ -772,22 +772,31 @@ async function bookingView(ctx, b) {
 
 // "+1" on the review step (026): adds, renames ({ guest: { name } }) or removes ({ guest: null }) the companion of an
 // unpaid booking whose hold is still running. The second seat is taken or given back atomically (app.set_booking_guest)
-// and the amount to pay follows: fee x seats, on the booking and on its unpaid payment.
+// and the amount to pay follows: fee x seats, on the booking; the unpaid payment is replaced by one for the new total (028).
 async function setGuest(ctx) {
   const { sql, body } = ctx;
   if (!("guest" in body)) fail(422, "VALIDATION_FAILED", [{ field: "guest", code: "REQUIRED" }]);
   const guest = guestNameOf(body);
-  const b = await ownedBooking(sql, ctx, ctx.params.id);
-  if (b.status !== "payment_pending") fail(409, "PAYMENT_NOT_PENDING");
-  if (!b.hold_expires_at || new Date(b.hold_expires_at) <= new Date()) fail(409, "HOLD_EXPIRED");
-  let nb;
-  try {
-    [nb] = await sql`SELECT (g).* FROM (SELECT app.set_booking_guest(${b.id}, ${ctx.user.id}, ${guest}) AS g) x`;
-  } catch (e) {
-    if (e && e.code === "P0013") notEnoughSeats();
-    if (e && e.code === "P0014") fail(409, "PAYMENT_NOT_PENDING");
-    throw e;
-  }
+  const nb = await sql.begin(async (tx) => {
+    const b = await ownedBooking(tx, ctx, ctx.params.id, true);
+    if (b.status !== "payment_pending") fail(409, "PAYMENT_NOT_PENDING");
+    if (!b.hold_expires_at || new Date(b.hold_expires_at) <= new Date()) fail(409, "HOLD_EXPIRED");
+    let nb;
+    try {
+      [nb] = await tx`SELECT (g).* FROM (SELECT app.set_booking_guest(${b.id}, ${ctx.user.id}, ${guest}) AS g) x`;
+    } catch (e) {
+      if (e && e.code === "P0013") notEnoughSeats();
+      if (e && e.code === "P0014") fail(409, "PAYMENT_NOT_PENDING");
+      throw e;
+    }
+    // 028: a changed total cancelled the unpaid payment (a provider's intent has a fixed amount); a new payment, with a
+    // new intent, is created for the new total, and the answer carries its page. A rename changes nothing here.
+    if (nb.price_minor !== b.price_minor) {
+      const [{ n }] = await tx`SELECT count(*)::int AS n FROM app.payments WHERE booking_id = ${b.id}`;
+      await createPayment(tx, ctx, nb, n);
+    }
+    return nb;
+  });
   return json(200, await bookingView(ctx, nb));
 }
 
@@ -804,7 +813,12 @@ async function newCheckout(ctx) {
       await audit(tx, null, "late_no_refund_ack", "bookings", b.id, terms.afterPayment);
     }
     const pays = await tx`SELECT * FROM app.payments WHERE booking_id = ${b.id} ORDER BY created_at DESC`;
-    if (pays[0] && pays[0].status === "created") return { b, p: pays[0] };
+    if (pays[0] && pays[0].status === "created") {
+      if (pays[0].amount_minor === b.price_minor) return { b, p: pays[0] };
+      // 028: a page for another amount than the booking's total is never handed out again
+      await tx`UPDATE app.payments SET status = 'cancelled' WHERE id = ${pays[0].id} AND status = 'created'`;
+      await audit(tx, null, "payment_superseded", "payments", pays[0].id, "total_changed");
+    }
     return { b, p: await createPayment(tx, ctx, b, pays.length) };
   });
   return json(200, { checkout_url: ctx.psp.checkoutUrl(out.b.id, out.p.psp_payment_intent_id), hold_expires_at: qa(out.b.hold_expires_at),
