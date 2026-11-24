@@ -41,7 +41,8 @@ async function webhook(ctx) {
 
 async function mockIntent(ctx) {
   const { sql, cfg, params, locale } = ctx;
-  if (!cfg.mockPspEnabled) fail(404, "MOCK_PSP_DISABLED");
+  // never in production, whatever MOCK_PSP_ENABLED says (lib/config.js logs the misconfiguration; health reports it)
+  if (!cfg.mockPspEnabled || cfg.production) fail(404, "MOCK_PSP_DISABLED");
   const [p] = await sql`
     SELECT p.*, b.booking_ref, b.hold_expires_at, b.status AS booking_status FROM app.payments p JOIN app.bookings b ON b.id = p.booking_id
      WHERE p.psp_payment_intent_id = ${params.pi}`;

@@ -1,9 +1,13 @@
 // Runtime configuration: app.app_config rows, overridable by environment variables of the same name.
 import { BLOCKED_CALLING_CODES } from "./countries.js";
+import { safeBase } from "./sms.js";
+
+const GEMINI = "https://generativelanguage.googleapis.com";
 
 let cache = null;
 let loadedAt = 0;
 const TTL_MS = 30_000;
+let warnedMockPsp = false;
 
 export async function loadConfig(sql, getEnv) {
   if (cache && Date.now() - loadedAt < TTL_MS) return cache;
@@ -13,6 +17,9 @@ export async function loadConfig(sql, getEnv) {
   cache = {
     otpDevMode: get("OTP_DEV_MODE", "false") === "true",
     mockPspEnabled: get("MOCK_PSP_ENABLED", "false") === "true",
+    // This API serves production when SENTRY_ENVIRONMENT says so (herzone-production's app_config row; staging says
+    // "staging"). The mock checkout (routes/payments.js) is refused there whatever MOCK_PSP_ENABLED says; see below.
+    production: String(get("SENTRY_ENVIRONMENT", "staging")).trim().toLowerCase() === "production",
     webBaseUrl: get("WEB_BASE_URL", "http://localhost:8787").replace(/\/$/, ""),
     corsOrigins: get("CORS_ORIGINS", "*").split(",").map((s) => s.trim()),
     seatHoldMinutes: Number(get("SEAT_HOLD_MINUTES", "10")),
@@ -25,6 +32,11 @@ export async function loadConfig(sql, getEnv) {
     adminMaxFailsPerEmail: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL", "5")),
     adminMaxFailsPerIp: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_IP", "20")),
     adminLoginWindowMinutes: Number(get("ADMIN_LOGIN_WINDOW_MINUTES", "15")),
+    // Daily cap per e-mail (security review of 23 Nov 2026, finding 2): the 15-minute lock alone still allows about 480
+    // guesses a day at a 6-digit code. Past this many failures in the daily window the e-mail stays locked for a day.
+    // whole() keeps the defaults when a setting is unreadable, so a typo can never switch the cap off.
+    adminMaxFailsPerEmailDaily: whole(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL_DAILY", "20"), 20, 1, 1000),
+    adminLoginDailyWindowHours: whole(get("ADMIN_LOGIN_DAILY_WINDOW_HOURS", "24"), 24, 1, 168),
     coordinatorPhone: get("COORDINATOR_PHONE_E164", "").trim(),
     coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
     sentryDsn: get("SENTRY_DSN", "").trim(),
@@ -34,8 +46,11 @@ export async function loadConfig(sql, getEnv) {
     // Card name vs registered name (015). Off until migration 015 has run, which sets it to true.
     cardNameCheck: get("CARD_NAME_CHECK", "false") === "true",
     // Gemini second opinion on a mismatch (lib/ai.js); the key itself is read from GEMINI_API_KEY, never kept here.
+    // GEMINI_BASE_URL only points the tests at a fake server: like TWILIO_BASE_URL (lib/sms.js) it must be https, or
+    // plain http to this machine; anything else is null and Gemini is simply not asked (the key never leaves over
+    // plain http to a stranger's host).
     geminiModel: get("GEMINI_MODEL", "gemini-flash-lite-latest"),
-    geminiBaseUrl: get("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").replace(/\/$/, ""),
+    geminiBaseUrl: safeBase(get("GEMINI_BASE_URL", GEMINI), GEMINI),
     // Member engagement (023, provisional 10 Nov): an overall rating at or below lowRatingReasonsMax keeps the reasons she
     // picked (the website and the app show them at the same rating: LOW_RATING_REASONS_UP_TO in web/app.js and
     // lowRatingReasonsUpTo in the app's feedback_screen.dart); at or below compensationMaxRating the admin console suggests
@@ -71,6 +86,14 @@ export async function loadConfig(sql, getEnv) {
     launchFree: String(get("PRICING_LAUNCH_FREE", "false")).trim().toLowerCase() === "true",
   };
   loadedAt = Date.now();
+  // Security review of 23 Nov 2026, hardening (e): MOCK_PSP_ENABLED must never be true in production. The API keeps
+  // serving (stopping it would take sign-in and bookings down for a setting mistake), but the mock checkout answers
+  // 404 MOCK_PSP_DISABLED, this error is logged once per process, and /api/v1/health keeps listing "mock_payments" so
+  // the release smoke check and the every-30-minutes uptime check fail until the owner sets it back to false.
+  if (cache.production && cache.mockPspEnabled && !warnedMockPsp) {
+    warnedMockPsp = true;
+    console.error("MOCK_PSP_ENABLED is true in production: the mock checkout stays refused (404 MOCK_PSP_DISABLED) and health reports mock_payments open. Set MOCK_PSP_ENABLED to false in app_config / the environment.");
+  }
   return cache;
 }
 

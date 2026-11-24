@@ -31,10 +31,11 @@ Answer only with the JSON fields. confidence is 0 to 1 for question 1.`;
 
 /**
  * Asks Gemini. Returns { same: bool, gender: "female"|"male"|"unclear", confidence: number } or null when it cannot
- * answer in time (busy, down, no key). A null answer leaves the review to a person.
+ * answer in time (busy, down, no key, or no https base URL: config.js refused GEMINI_BASE_URL). A null answer leaves the
+ * review to a person; nothing is sent in that case.
  */
 export async function askNameOpinion({ apiKey, model, baseUrl, registered, card, timeoutMs = 8000, fetchImpl = fetch }) {
-  if (!apiKey) return null;
+  if (!apiKey || !baseUrl) return null;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

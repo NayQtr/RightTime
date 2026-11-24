@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { THEME_QUESTIONS, THEME_EXCLUDED_OPTIONS } from "../api/src/matching/personality.js";
+import { safeBase } from "../api/src/lib/sms.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // QA-2026-05 (seed_questionnaire_v5.sql) copies every v4 question and option unchanged and adds only Q25, which is not a
@@ -16,7 +17,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const SEED = path.join(ROOT, "ops", "seed_questionnaire_v4.sql");
 export const OUT = path.join(ROOT, "docs", "openers", "drafts.json");
 const DEFAULT_MODEL = "gemini-flash-lite-latest";
-const BASE_URL = (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/$/, "");
+// GEMINI_BASE_URL only points a test at a fake server: https, or plain http to this machine, as lib/config.js and
+// lib/sms.js require; anything else is null and the run stops before the key is sent anywhere.
+const BASE_URL = safeBase(process.env.GEMINI_BASE_URL, "https://generativelanguage.googleapis.com");
 const TIMEOUT_MS = 8000;
 const PAUSE_MS = 1500;   // between calls: well under the free tier's per-minute limit
 const RETRY_PAUSE_MS = 5000;
@@ -151,6 +154,10 @@ async function main(argv) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("GEMINI_API_KEY is not set: nothing drafted. Add it as a GitHub secret and run the 'Draft table openers' workflow.");
+    return 2;
+  }
+  if (!BASE_URL) {
+    console.error("GEMINI_BASE_URL must be https (plain http only to this machine): nothing drafted, the key was not sent.");
     return 2;
   }
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;

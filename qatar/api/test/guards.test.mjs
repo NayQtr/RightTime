@@ -76,6 +76,33 @@ test("notification tap: an open window is reused only when it is on the same pag
   assert.deepEqual(await tap("/#/inbox", ["/index.html#/home"]), ["focus /index.html#/home", "navigate /index.html#/home -> /#/inbox"]);
 });
 
+// Security review of 23 Nov 2026, hardening (d): the screen a push notification opens comes from the payload, so it must
+// be a path on this site. "//host/x" and "/\host/x" both resolve to https://host/x, which a tap would open.
+test("push: the screen to open is taken from the payload only as a path on this site; anything else opens the inbox", async () => {
+  const src = readFileSync(new URL("sw.js", WEB), "utf8");
+  const O = "https://herzone.example";
+  async function shown(payload) {
+    const handlers = {}, calls = [];
+    const self = { location: new URL(O + "/sw.js"), addEventListener: (k, f) => (handlers[k] = f), clients: {},
+      registration: { showNotification: async (title, opts) => calls.push({ title, opts }) } };
+    vm.runInNewContext(src, { self, URL, caches: {}, fetch: () => {} });
+    let done;
+    handlers.push({ data: { json: () => payload, text: () => JSON.stringify(payload) }, waitUntil: (p) => (done = p) });
+    await done;
+    return calls[0];
+  }
+  for (const ok of ["/#/booking/abc", "/admin/#/alerts", "/venue/", "/"]) {
+    const n = await shown({ title: "t", url: ok });
+    assert.equal(n.opts.data.url, ok);
+    assert.equal(new URL(n.opts.data.url, O).origin, O);
+  }
+  for (const bad of ["//evil.example/x", "/\\evil.example/x", "/\\/evil.example", "https://evil.example/", "javascript:alert(1)", "evil", "#/inbox", 7, null, undefined]) {
+    const n = await shown({ title: "t", url: bad });
+    assert.equal(n.opts.data.url, "/#/inbox", String(bad));
+  }
+  assert.equal((await shown({})).title, "HerZone", "no title: the app's name");
+});
+
 // The owner's order of 11 Nov 2026 (item 38): «لا تكتب هذه ولا تكتب يعني شيء مشابه». This reads every text the
 // member can be shown — the website's strings, both .arb files and the server's own messages — so the line cannot
 // come back by hand or by a careless merge, in either language.

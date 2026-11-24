@@ -2,7 +2,8 @@
 // If any check fails, the build stops: the site is not published and the API is not deployed.
 //   1. Syntax check of every web and API JavaScript file (a file that fails to parse breaks the app for everyone).
 //   2. The automated tests that need no database or browser (public page, design, error reporting, API description, matching, quiz flow, Flutter tokens).
-//   3. No server secret in the shipped web files, and no hand-written colour (colours.test.mjs, plan D7).
+//   3. No server secret in the shipped web files or the app's source (ops/secret-scan.mjs), and no hand-written colour
+//      (colours.test.mjs, plan D7).
 //   4. Size limits: the shipped JavaScript all together and each image (ops/size-limits.mjs, plan Q1).
 //   5. Known vulnerabilities in the API's runtime libraries (npm audit, high or critical).
 // The database and browser tests (e2e, ui, push, promo, ...) need Postgres and Chromium, which the Vercel build machine
@@ -13,10 +14,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { SIZE_LIMITS, checkSizes, measure } from "./size-limits.mjs";
+import { scanForSecrets } from "./secret-scan.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const API = path.join(ROOT, "api");
-const PURE_TESTS = ["about-page", "colours", "countries", "design", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "size-limits", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
+const PURE_TESTS = ["about-page", "colours", "countries", "design", "hardening", "ip", "monitor", "namematch", "openapi", "personality", "quiz-flow", "secret-scan", "size-limits", "tokens-dart", "write-config"].map((n) => path.join(API, "test", `${n}.test.mjs`));
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -64,21 +66,12 @@ step("tests without database", () => {
   console.log(`[gate]      ${pass} tests passed`);
 });
 
-// The web folder is shipped to every browser: no server secret may appear in it. Key formats only, so the scan
-// does not depend on any particular value.
-const SECRET_FORMS = [/sk_live_[0-9A-Za-z]{10,}/, /sk_test_[0-9A-Za-z]{10,}/, /AIza[0-9A-Za-z_-]{35}/, /sbp_[0-9a-f]{20,}/,
-  /sb_secret_[0-9A-Za-z_-]{10,}/, /ghp_[0-9A-Za-z]{30,}/, /-----BEGIN [A-Z ]*PRIVATE KEY-----/, /SERVER_KEYS_KEK\s*[=:]/];
-function webFiles(dir) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) return webFiles(p);
-    return /\.(js|mjs|html|css|json|txt|map)$/.test(e.name) ? [p] : [];
-  });
-}
-step("no server secret in the shipped web files", () => {
-  const hits = webFiles(path.join(ROOT, "web")).filter((f) => { const src = readFileSync(f, "utf8"); return SECRET_FORMS.some((re) => re.test(src)); });
-  if (hits.length) { console.error(hits.map((f) => `[gate]      secret-like text in ${path.relative(ROOT, f)}`).join("\n")); throw new Error("secret-like text in web files"); }
-  console.log(`[gate]      ${webFiles(path.join(ROOT, "web")).length} web files scanned`);
+// The web folder is shipped to every browser and app/lib is built into every phone: no server secret may appear in
+// either. Key formats only (ops/secret-scan.mjs), so the scan does not depend on any particular value.
+step("no server secret in the shipped web files or the app's source", () => {
+  const { hits, scanned } = scanForSecrets([path.join(ROOT, "web"), path.join(ROOT, "app", "lib")]);
+  if (hits.length) { console.error(hits.map((f) => `[gate]      secret-like text in ${path.relative(ROOT, f)}`).join("\n")); throw new Error("secret-like text in shipped files"); }
+  console.log(`[gate]      ${scanned} files scanned (web, app/lib)`);
 });
 
 // Plan Q1: the JavaScript all together and each image stay under the limits in ops/size-limits.mjs (provisional values).

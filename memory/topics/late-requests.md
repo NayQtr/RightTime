@@ -31,7 +31,21 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
-## Security review, 14 named classes [2026-11-23] — findings reported, NO fix applied yet (owner to choose)
+## Security fixes 1–5 [2026-11-24] — on branch `security-fixes` (from rightime-app bd2df88), NOT merged, NOT released
+Items 1–5 of the 23 Nov review are built with tests, one commit each: (1) migration 027 `rebook_booking` refuses a booking
+without a captured payment (P0030 'not paid'); the API offers no resolution for one and refuses the rebook (409
+no_payment); a suspension/ban lets an unpaid hold EXPIRE (seats back through release_expired_holds) instead of cancelling
+it; (2) admin sign-in daily cap: 20 failures per e-mail in 24 h → 429 for a day, scope `email_daily`
+(ADMIN_LOGIN_MAX_FAILS_PER_EMAIL_DAILY / ADMIN_LOGIN_DAILY_WINDOW_HOURS in config.js); (3) effective_days whole 1–365
+else 422 RANGE_1_365; (4) GET /approvals roles APPROVERS; (5) .gitignore secrets, gate secret scan widened (eyJ, AKIA,
+sk-, github_pat_, Twilio pair, AIza 30+) + scans app/lib (ops/secret-scan.mjs), GEMINI_BASE_URL https-only, sw.js push
+URL path-only (also `/\host`), production refuses /api/mock-psp/* when SENTRY_ENVIRONMENT=production and logs it (API
+keeps serving; health still lists mock_payments so smoke/uptime fail). helpers.mjs lists 027 (the harness has no glob).
+WAITING ON THE OWNER: (a) merge/release approval in the usual order; (b) run `qatar/db/migrations/027_rebook_requires_payment.sql`
+in BOTH Supabase SQL editors (staging, production) BEFORE the API release; (c) the second factor for admin sign-in
+(password with argon2 or a passkey) is still a product decision. Item 6 (real-PSP items) untouched.
+
+## Security review, 14 named classes [2026-11-23] — findings reported; items 1–5 built 24 Nov on `security-fixes` (above), item 6 open
 Source-first, read-only review (no live probing). Confirmed: (M) rebook of an unpaid booking that an admin's suspension
 cancelled gives a free paid seat — rebook_booking (026) never checks captured_payment_for(); (M) admin sign-in is email +
 6-digit TOTP only, 5 fails/15 min per email ≈ 480 guesses/day → slow brute force; (L) case suspension effective_days is

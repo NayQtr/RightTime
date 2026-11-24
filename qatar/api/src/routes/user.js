@@ -5,7 +5,7 @@ import { ALL_COUNTRIES } from "../lib/config.js";
 import { callingCodeOf } from "../lib/countries.js";
 import { decisionLabel, durationText, outboundText } from "../lib/i18n.js";
 import { sendSms, smsSettings } from "../lib/sms.js";
-import { audit, capturedPayment, computePhase, currentTable, notify, seatToken } from "../services/common.js";
+import { audit, capturedPayment, capturedPaymentId, computePhase, currentTable, notify, seatToken } from "../services/common.js";
 import { alertKind, pageWithin, raiseAlert } from "../services/coordinator_alerts.js";
 import { dispatchRefund } from "../services/payments.js";
 import { newPaymentIntentId } from "../services/psp.js";
@@ -911,7 +911,10 @@ async function eventDetails(ctx) {
     const st = await resolutionState(sql, b.id);
     out.refund = st.refund ? { status: st.refund.status, amount: money(st.refund.amount_minor, locale) } : { status: "none" };
     if (st.child) out.rebooked_into = { booking_id: st.child.id, ref: st.child.booking_ref, status: st.child.status };
-    if (b.status === "cancelled_by_organizer" && b.cancel_reason_code !== "identity_rejected" && !st.child && !st.refund) {
+    // Security review of 23 Nov 2026, finding 1: a booking that was never paid has no fee to move or return, so it is
+    // offered neither choice (migration 027 refuses the rebook in the database as well).
+    if (b.status === "cancelled_by_organizer" && b.cancel_reason_code !== "identity_rejected" && !st.child && !st.refund
+        && await capturedPaymentId(sql, b.id)) {
       out.resolution = await resolutionOptions(sql, b, locale, cfg);
       if (out.resolution.open) out.actions.push({ type: "resolution", method: "POST", href: `/api/v1/bookings/${b.id}/resolution` });
     }
@@ -966,6 +969,8 @@ async function chooseResolution(ctx) {
   if (new Date() > new Date(new Date(b.cancelled_at).getTime() + cfg.rebookChoiceHours * 3600 * 1000)) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "deadline_passed" }]);
   if (body.choice === "rebook") {
     requireUuid(body.session_id, "session_id");
+    // the fee moves with the booking (v0.4 C10): nothing paid, nothing to move (027 makes the same check in the database)
+    if (!(await capturedPayment(sql, b.id))) fail(409, "RESOLUTION_NOT_AVAILABLE", [{ reason: "no_payment" }]);
     const [nb] = await sql`SELECT (r).* FROM (SELECT app.rebook_booking(${b.id}, ${user.id}, ${body.session_id}) AS r) x`;
     return json(200, { choice: "rebook", booking: { id: nb.id, ref: nb.booking_ref, status: nb.status } });
   }

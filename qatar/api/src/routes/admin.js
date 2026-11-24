@@ -18,6 +18,8 @@ const P4_REASONS = ["case_triage", "investigation", "second_approval", "appeal_r
 // ------------------------------------------------------------------ auth
 // Brute-force protection (audit F5): failed sign-ins / enrolments are recorded per e-mail hash and IP prefix.
 // Too many failures inside the window -> 429 + Retry-After, checked before the secret is verified.
+// Three rules, the longest lock first: the daily cap per e-mail (security review of 23 Nov 2026, finding 2), then the
+// 15-minute window per e-mail, then the 15-minute window per IP prefix.
 async function lockedFor(tx, kind, emailHash, ipTrunc, cfg) {
   const win = cfg.adminLoginWindowMinutes;
   const retry = async (rows, max) => {
@@ -25,6 +27,13 @@ async function lockedFor(tx, kind, emailHash, ipTrunc, cfg) {
     const oldest = new Date(rows[rows.length - 1].attempted_at).getTime();
     return Math.max(1, Math.ceil((oldest + win * 60000 - Date.now()) / 1000));
   };
+  // per e-mail, per day: every failure in the daily window counts, a success in between does not start it afresh (a
+  // guesser never produces one, and the real admin's sign-in must not hand her more guesses). Lock: a whole day.
+  const [{ n_daily }] = await tx`
+    SELECT count(*)::int AS n_daily FROM app.admin_auth_attempts
+     WHERE kind = ${kind} AND email_hash = ${emailHash} AND NOT succeeded
+       AND attempted_at > now() - make_interval(hours => ${cfg.adminLoginDailyWindowHours})`;
+  if (n_daily >= cfg.adminMaxFailsPerEmailDaily) return { retryAfter: 86400, scope: "email_daily" };
   // per e-mail: failures since the last success, inside the window
   const byEmail = await tx`
     SELECT attempted_at FROM app.admin_auth_attempts
@@ -685,11 +694,20 @@ async function liftInterimSuspension(tx, r) {
 }
 
 async function cancelFutureBookings(tx, userId, reasonCode) {
+  // An unpaid hold is not cancelled by the organiser: it expires, as it would have within minutes. Nothing was paid, so
+  // there is nothing to refund and nothing to rebook (security review of 23 Nov 2026, finding 1: a cancelled unpaid hold
+  // used to be rebookable into a paid seat). The seats go back through release_expired_holds (021, 026), the same path
+  // as the every-minute tick: the cancellation trigger frees seats for cancelled statuses only, not for 'expired'.
+  await tx`
+    UPDATE app.bookings b SET hold_expires_at = now() - interval '1 second'
+      FROM app.event_sessions s
+     WHERE s.id = b.session_id AND s.starts_at > now() AND b.user_id = ${userId} AND b.status = 'payment_pending'`;
+  await tx`SELECT app.release_expired_holds()`;
   const rows = await tx`
     UPDATE app.bookings b SET status = 'cancelled_by_organizer', cancelled_at = now(), cancel_actor = 'organizer', cancel_reason_code = ${reasonCode}
       FROM app.event_sessions s
      WHERE s.id = b.session_id AND s.starts_at > now() AND b.user_id = ${userId}
-       AND b.status IN ('payment_pending','paid_awaiting_group','group_locked','revealed')
+       AND b.status IN ('paid_awaiting_group','group_locked','revealed')
      RETURNING b.id`;
   const refundIds = [];
   for (const b of rows) {
@@ -732,7 +750,10 @@ async function caseAction(ctx) {
     await audit(sql, admin.id, "approval_proposed", "admin_approvals", a.id, "case_ban");
     return json(202, { approval_id: a.id, status: "pending", code: "APPROVAL_REQUIRED" });
   }
-  const days = Number(body.effective_days || 30);
+  // a whole number of days from 1 to 365 (security review of 23 Nov 2026, finding 3: a negative number lifted the
+  // suspension at once after cancelling her bookings; a huge one was a ban without the second approver)
+  const days = body.effective_days === undefined ? 30 : Number(body.effective_days);
+  if (!Number.isInteger(days) || days < 1 || days > 365) fail(422, "VALIDATION_FAILED", [{ field: "effective_days", code: "RANGE_1_365" }]);
   const refunds = await sql.begin(async (tx) => {
     const [r] = await tx`SELECT * FROM app.safety_reports WHERE id = ${r0.id} FOR UPDATE`;
     await tx`INSERT INTO app.report_actions (report_id, action, actor_id, effective_to, rationale_enc)
@@ -1250,7 +1271,7 @@ export const adminRoutes = [
   { method: "GET", path: `${A}/venue-outbox`, auth: "admin", roles: OPS, handler: listVenueOutbox },
   { method: "POST", path: `${A}/venue-outbox/{id}:sent`, auth: "admin", roles: OPS, handler: markVenueMessageSent },
   { method: "POST", path: `${A}/identity-reviews/{id}:decide`, auth: "admin", roles: [...TS, "owner"], handler: decideIdentityReview },
-  { method: "GET", path: `${A}/approvals`, auth: "admin", roles: ANY, handler: listApprovals },
+  { method: "GET", path: `${A}/approvals`, auth: "admin", roles: APPROVERS, handler: listApprovals },   // security review 23 Nov 2026, finding 4
   { method: "POST", path: `${A}/approvals/{id}:approve`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, true) },
   { method: "POST", path: `${A}/approvals/{id}:reject`, auth: "admin", roles: ANY, handler: (ctx) => decideApproval(ctx, false) },
   { method: "GET", path: `${A}/support-cases`, auth: "admin", roles: OPS, handler: supportCases },
