@@ -666,6 +666,26 @@ test("security review 1: an unpaid booking is never rebooked into a paid seat; a
   await assert.rejects(sql`SELECT app.rebook_booking(${hold.body.booking_id}, ${M.userId}, ${target})`, (e) => e.code === "P0030");
 });
 
+test("security review 3: a suspension's effective_days is a whole number of days from 1 to 365; left out, it is 30", async () => {
+  const X = await signUp(call, { name: "Wadha" });
+  const [reporter] = await sql`SELECT id FROM app.users WHERE status = 'active' AND id <> ${X.userId} LIMIT 1`;
+  const [rep] = await sql`INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, category, timing, status)
+                          VALUES (app.next_case_ref(), ${reporter.id}, ${X.userId}, 'harassment', 'after', 'new') RETURNING id`;
+  for (const bad of [-1, 0, 0.5, 366, 1e6, "abc", "", null]) {
+    const r = await call("POST", `/api/admin/v1/cases/${rep.id}/actions`, { token: S.ts.token, body: { action: "suspension", effective_days: bad } });
+    assert.equal(r.status, 422, `${JSON.stringify(bad)}: ${JSON.stringify(r.body)}`);
+    assert.deepEqual(r.body.details, [{ field: "effective_days", code: "RANGE_1_365" }]);
+  }
+  assert.equal((await sql`SELECT status FROM app.safety_reports WHERE id = ${rep.id}`)[0].status, "new", "nothing happened to the case");
+  assert.equal((await sql`SELECT status FROM app.users WHERE id = ${X.userId}`)[0].status, "active", "nor to the member");
+  const ok = await call("POST", `/api/admin/v1/cases/${rep.id}/actions`, { token: S.ts.token, body: { action: "suspension" } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const [a] = await sql`SELECT effective_to FROM app.report_actions WHERE report_id = ${rep.id} AND action = 'suspension'`;
+  const days = (new Date(a.effective_to) - Date.now()) / 86400000;
+  assert.ok(days > 29.99 && days < 30.01, `30 days by default, got ${days}`);
+  assert.equal((await sql`SELECT status FROM app.users WHERE id = ${X.userId}`)[0].status, "suspended");
+});
+
 test("NMX-63 admin: a TOTP code works once, sign-out ends the session, re-enrolment needs an explicit reset", async () => {
   await sql`DELETE FROM app.admin_auth_attempts`;
   const ts = await adminLogin(call, sql, "ts.second@example.test");

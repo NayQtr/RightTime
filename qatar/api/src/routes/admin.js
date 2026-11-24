@@ -750,7 +750,10 @@ async function caseAction(ctx) {
     await audit(sql, admin.id, "approval_proposed", "admin_approvals", a.id, "case_ban");
     return json(202, { approval_id: a.id, status: "pending", code: "APPROVAL_REQUIRED" });
   }
-  const days = Number(body.effective_days || 30);
+  // a whole number of days from 1 to 365 (security review of 23 Nov 2026, finding 3: a negative number lifted the
+  // suspension at once after cancelling her bookings; a huge one was a ban without the second approver)
+  const days = body.effective_days === undefined ? 30 : Number(body.effective_days);
+  if (!Number.isInteger(days) || days < 1 || days > 365) fail(422, "VALIDATION_FAILED", [{ field: "effective_days", code: "RANGE_1_365" }]);
   const refunds = await sql.begin(async (tx) => {
     const [r] = await tx`SELECT * FROM app.safety_reports WHERE id = ${r0.id} FOR UPDATE`;
     await tx`INSERT INTO app.report_actions (report_id, action, actor_id, effective_to, rationale_enc)
