@@ -1,0 +1,32 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.nayqtr.righttime'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.nayqtr.righttime"
+        // Android TV baseline. The target TV is Android 9 (API 28).
+        minSdk 21
+        targetSdk 28
+        versionCode 1
+        versionName "0.1.0"
+        // The TV is armv7l. A 64-bit-only build will not install on it.
+        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint { abortOnError false }
+}
+
+// No dependencies. Not a single one.
+// Every line that runs on the TV is in this repo, which is the point.
+dependencies { }
