@@ -16,8 +16,13 @@ published_at 2026-11-24 16:06 UTC prod, 16:08 staging; /api/v1/legal/current sho
 #/privacy renders on both sites, light/dark, no error). Registration still needs terms + conduct: the server answers 422
 CONSENT_REQUIRED until they are published (web sends only the documents that exist, no crash). Staging website brought to
 cd66a66 WITHOUT the expired token: a preview build (dpl_6SEUmpTbN37HsFyQiFzJjM27yvZj, API deploy skipped by design in
-previews) aliased to qatar-mvp-staging.vercel.app; smoke checks pass. The staging Edge Function is still the 156cbc1 code
-(only a production-target build or a valid SUPABASE_ACCESS_TOKEN deploys it). The owner's e-mail address was removed from
+previews) aliased to qatar-mvp-staging.vercel.app; smoke checks pass. The staging Edge Function `api` was then
+brought current WITHOUT the token, through the Supabase connector (deploy_edge_function): version 51, a 20-line
+index.ts that imports qatar/api/src/app.js from jsDelivr pinned by FULL commit SHA (immutable, served as
+application/javascript; src has only relative + node: imports, so the server-side bundle takes the whole router);
+health 200, /users/me 401, smoke staging all pass. Staging-only workaround: the regular Vercel production build still
+deploys the bundled copy (herzone-production's token works). To move staging's API again: redeploy the same index.ts
+with the new full SHA (git rev-parse, never a short hash) and run `node qatar/ops/smoke.mjs staging`. The owner's e-mail address was removed from
 this file (history still has it). BLOCKED by the session's own guardrails, not by access: the GitHub proxy refuses
 repository-settings writes (default branch) and the harness refused to push a prepared merge of rightime-app onto the
 default branch add-rea-mcp-permissions (commit aaaeecd, kept only in a scratch worktree). Owner: Settings → General →
