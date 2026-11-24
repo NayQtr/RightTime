@@ -25,6 +25,11 @@ export async function loadConfig(sql, getEnv) {
     adminMaxFailsPerEmail: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL", "5")),
     adminMaxFailsPerIp: Number(get("ADMIN_LOGIN_MAX_FAILS_PER_IP", "20")),
     adminLoginWindowMinutes: Number(get("ADMIN_LOGIN_WINDOW_MINUTES", "15")),
+    // Daily cap per e-mail (security review of 23 Nov 2026, finding 2): the 15-minute lock alone still allows about 480
+    // guesses a day at a 6-digit code. Past this many failures in the daily window the e-mail stays locked for a day.
+    // whole() keeps the defaults when a setting is unreadable, so a typo can never switch the cap off.
+    adminMaxFailsPerEmailDaily: whole(get("ADMIN_LOGIN_MAX_FAILS_PER_EMAIL_DAILY", "20"), 20, 1, 1000),
+    adminLoginDailyWindowHours: whole(get("ADMIN_LOGIN_DAILY_WINDOW_HOURS", "24"), 24, 1, 168),
     coordinatorPhone: get("COORDINATOR_PHONE_E164", "").trim(),
     coordinatorWhatsapp: get("COORDINATOR_WHATSAPP", "false") === "true",
     sentryDsn: get("SENTRY_DSN", "").trim(),

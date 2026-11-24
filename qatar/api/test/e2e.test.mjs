@@ -554,6 +554,34 @@ test("F5: admin sign-in and enrolment brute force get 429 + Retry-After per e-ma
   await sql`DELETE FROM app.admin_auth_attempts`;
 });
 
+test("security review 2: twenty failed sign-ins for one e-mail within a day lock it for a day, even once every 15-minute window has passed", async () => {
+  await sql`DELETE FROM app.admin_auth_attempts`;
+  const from = (n) => ({ "x-real-ip": `198.51.${n}.7` });
+  const login = (email, code, n) => call("POST", "/api/admin/v1/auth/login", { headers: from(n), body: { email, totp_code: code } });
+  const owner = "owner@example.test";
+  const good = () => totpAt(S.owner.secret, Date.now());
+  const wrong = () => String((Number(good()) + 500000) % 1000000).padStart(6, "0");
+  // four rounds of five failures from different prefixes, each round then aged past the 15-minute window: with the
+  // window rule alone the next guess would be checked again
+  for (let round = 0; round < 4; round++) {
+    for (let i = 0; i < 5; i++) assert.equal((await login(owner, wrong(), 10 + round)).status, 401, `round ${round} guess ${i}`);
+    await sql`UPDATE app.admin_auth_attempts SET attempted_at = attempted_at - interval '16 minutes'`;
+  }
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM app.admin_auth_attempts WHERE NOT succeeded AND attempted_at > now() - interval '15 minutes'`;
+  assert.equal(n, 0, "nothing inside the 15-minute window any more");
+  const locked = await login(owner, good(), 14);
+  assert.equal(locked.status, 429, JSON.stringify(locked.body));
+  assert.equal(locked.body.code, "ADMIN_LOGIN_LOCKED");
+  assert.equal(Number(locked.headers.get("retry-after")), 86400);
+  assert.ok((await sql`SELECT 1 FROM app.audit_logs WHERE action = 'admin_login_locked' AND reason_code = 'email_daily'`).length >= 1, "the lock is audited with its own scope");
+  assert.equal((await login("ops.oncall@example.test", "000000", 14)).status, 401, "another e-mail is not locked by it");
+  // the oldest failures leave the daily window: she signs in again
+  await sql`UPDATE app.admin_auth_attempts SET attempted_at = attempted_at - interval '24 hours'`;
+  await sql`UPDATE app.admin_users SET last_login_at = now() - interval '2 minutes' WHERE email = ${owner}`; // codes are single-use (NMX-63)
+  assert.equal((await login(owner, good(), 14)).status, 200, "a day later the lock has lifted");
+  await sql`DELETE FROM app.admin_auth_attempts`;
+});
+
 test("F10 + F6 probes: coordinator contact from config, health reports the key source", async () => {
   const c = await call("GET", "/api/v1/support/contact");
   assert.equal(c.status, 200);

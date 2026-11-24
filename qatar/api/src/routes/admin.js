@@ -18,6 +18,8 @@ const P4_REASONS = ["case_triage", "investigation", "second_approval", "appeal_r
 // ------------------------------------------------------------------ auth
 // Brute-force protection (audit F5): failed sign-ins / enrolments are recorded per e-mail hash and IP prefix.
 // Too many failures inside the window -> 429 + Retry-After, checked before the secret is verified.
+// Three rules, the longest lock first: the daily cap per e-mail (security review of 23 Nov 2026, finding 2), then the
+// 15-minute window per e-mail, then the 15-minute window per IP prefix.
 async function lockedFor(tx, kind, emailHash, ipTrunc, cfg) {
   const win = cfg.adminLoginWindowMinutes;
   const retry = async (rows, max) => {
@@ -25,6 +27,13 @@ async function lockedFor(tx, kind, emailHash, ipTrunc, cfg) {
     const oldest = new Date(rows[rows.length - 1].attempted_at).getTime();
     return Math.max(1, Math.ceil((oldest + win * 60000 - Date.now()) / 1000));
   };
+  // per e-mail, per day: every failure in the daily window counts, a success in between does not start it afresh (a
+  // guesser never produces one, and the real admin's sign-in must not hand her more guesses). Lock: a whole day.
+  const [{ n_daily }] = await tx`
+    SELECT count(*)::int AS n_daily FROM app.admin_auth_attempts
+     WHERE kind = ${kind} AND email_hash = ${emailHash} AND NOT succeeded
+       AND attempted_at > now() - make_interval(hours => ${cfg.adminLoginDailyWindowHours})`;
+  if (n_daily >= cfg.adminMaxFailsPerEmailDaily) return { retryAfter: 86400, scope: "email_daily" };
   // per e-mail: failures since the last success, inside the window
   const byEmail = await tx`
     SELECT attempted_at FROM app.admin_auth_attempts
