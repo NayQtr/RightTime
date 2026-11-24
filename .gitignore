@@ -3,3 +3,15 @@
 .arena/
 __pycache__/
 .pytest_cache/
+
+# secrets never belong in the repository (public): local env files, keys, keystores, service accounts, Firebase configs
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
