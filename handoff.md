@@ -8,18 +8,20 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 ## للمالكة — ملخص بالعربية
 
-- **الموقع herzone.app يعرض آخر كود.** فرع الإنتاج `release` = a60f00b، والفرق بينه وبين فرع العمل ملاحظات فقط، لا كود.
-- **النسخة التجريبية متوقفة عند 156cbc1** لأن مفتاح Supabase في مشروعها على Vercel منتهي.
-- **الإنتاج لا يخدم عضوة بعد.** لا وثائق قانونية منشورة، ولا مزوّد رسائل نصية، ولا بوابة دفع حقيقية، ولا مكان ولا جلسة.
+- **الموقع herzone.app يعرض آخر كود.** فرع الإنتاج `release` = 0d3e4e2 (إصلاحات الأمن الخمسة + الهجرة 027، 24 نوفمبر)، والفرق بينه وبين فرع العمل ملاحظات فقط، لا كود.
+- **النسخة التجريبية على الالتزام نفسه 0d3e4e2** رغم أن مفتاح Supabase في مشروعها على Vercel ما زال منتهيًا: الموقع عبر بناء معاينة موجَّه بـalias، والـAPI منشورة عبر موصل Supabase باستيراد مثبّت بالـSHA (القسم 6 الخطوة 5).
+- **إشعار الخصوصية privacy-qa-5 منشور في الإنتاج وstaging** (24 نوفمبر). التسجيل ما زال يحتاج الشروط وقواعد السلوك منشورة.
+- **الإنتاج لا يخدم عضوة بعد.** الشروط وقواعد السلوك غير منشورة، ولا مزوّد رسائل نصية، ولا بوابة دفع حقيقية، ولا مكان ولا جلسة.
 - **التطبيق مبني ومختبر، لكنه ليس في المتجرين** (الحسابان لم يُفتحا).
-- **اكتشاف مهم:** النسخ الاحتياطي اليومي ومراقبة الموقع كل 30 دقيقة **لا يعملان إطلاقًا**. السبب أن الفرع الافتراضي في GitHub ما زال `add-rea-mcp-permissions`. الحل: غيّريه إلى `rightime-app` (القسم 8.1).
+- **اكتشاف مهم:** النسخ الاحتياطي اليومي ومراقبة الموقع كل 30 دقيقة **لا يعملان إطلاقًا**. السبب أن الفرع الافتراضي في GitHub ما زال `add-rea-mcp-permissions`. الحل: غيّريه إلى `rightime-app` (القسم 8.1). (مراقبة التوفر الدقيقية في Sentry على herzone.app تعمل، فالموقع ليس بلا رقابة.)
+- **المتصفح وصفحات GitHub وSupabase المفتوحة على جهازك لا تصل للجلسات السحابية**: مجلد Remote Control على xnms-MacBook-Pro يظهر «not available». حدّثي تطبيق Claude على الماك أو افتحي جلسة على الجهاز نفسه إذا أردت أن ينفّذ المطوّر خطوات لوحات التحكم.
 - **ما ينتظرك أنتِ:** القسم 8.1. **ما ينتظر قرارك:** القسم 8.2. **ما يستطيع المطوّر فعله دون انتظارك:** القسم 8.3.
 
 ---
 
 ## 1. How to use this file
 
-- Facts here are a snapshot of 2026-11-24. Before acting on any of them, re-check the live state (commands in §5 and §6).
+- Facts here are a snapshot of 2026-11-24 (evening, after the security-fixes release). Before acting on any of them, re-check the live state (commands in §5 and §6).
 - Order of authority when sources disagree:
   1. The owner's latest words in chat.
   2. `CLAUDE.md`.
@@ -37,9 +39,9 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 | Ref | SHA | Note |
 |---|---|---|
-| `rightime-app` (working branch, origin) | `43cf69c0a34d01efe45182b3ce70e5254bea25fd` | Clean worktree. |
-| `release` (production branch, origin) | `a60f00b2ffa0df634d7712b84d3ee7812e7fd598` | What production serves. |
-| Delta `a60f00b..43cf69c` | 2 commits, `memory/topics/late-requests.md` only | No code is waiting to be released. |
+| `rightime-app` (working branch, origin) | `0d3e4e28f44a848cfceb34b185869ec301993a6a` plus notes commits after it | Clean worktree. |
+| `release` (production branch, origin) | `0d3e4e28f44a848cfceb34b185869ec301993a6a` | What production serves (security fixes 1–5, hardening, 027). |
+| Delta `0d3e4e2..rightime-app` | notes only (`handoff.md`, `memory/topics/late-requests.md`) | No code is waiting to be released. |
 | GitHub default branch | `add-rea-mcp-permissions` (stale) | See §8.1 item 1. It breaks the scheduled workflows. |
 
 - Repo: `NayQtr/RightTime`. It is **public** (`private: false`).
@@ -49,8 +51,8 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 
 | Site | Serves | Vercel project | Last deployment |
 |---|---|---|---|
-| https://herzone.app (+ www → 308) | `herzone-web@a60f00b2ffa0` | `herzone-production` (`prj_D7nHuK1OMpWKNLyL409yxekEsnTE`) | `dpl_716QwTbwoNJJTbxsLgzRgBkqtZjG` (21 Nov) |
-| https://qatar-mvp-staging.vercel.app | `herzone-web@156cbc12583f` (stale) | `qatar-mvp-staging` (`prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`) | Last good: `dpl_7KU2odEvFi3dkNBzhXBWyzYJW3YZ` (156cbc1). `dpl_DPMsEhfcspNmiJsopkpajdGN4Z3B` (b3f2bfb) **failed**: Supabase CLI 401 "Invalid access token". |
+| https://herzone.app (+ www → 308) | `herzone-web@0d3e4e28f44a` | `herzone-production` (`prj_D7nHuK1OMpWKNLyL409yxekEsnTE`) | `dpl_DYaCi4kZi2btkd9phcdxs8byfDUY` (24 Nov, production target: website + Edge Function `api`) |
+| https://qatar-mvp-staging.vercel.app | `herzone-web@0d3e4e28f44a` | `qatar-mvp-staging` (`prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`) | Website: preview build `dpl_Cbnxhs1eGefJ3T7uYvkV514uNRkg` aliased to the staging domain (`assign_alias`). API: Edge Function version 52, deployed through the Supabase connector with a jsDelivr import pinned to 0d3e4e2 (§6 step 5). A production-target build of this project still **fails** (Supabase CLI 401, expired `SUPABASE_ACCESS_TOKEN`). |
 
 - Check the release tag with `curl -s https://herzone.app/config.js | grep -o 'herzone-web@[0-9a-f]*'`.
 
@@ -59,7 +61,7 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 | | Production `pwxxulqgdydrkowmtkia` | Staging `fvodcnqmxskgzziwuwmz` |
 |---|---|---|
 | Tables in schema `app` / without RLS | 56 / 0 | 56 / 0 |
-| Legal documents | **none** (privacy-qa-5 file not yet run by the owner) | terms-qa-1, conduct-qa-1, privacy-qa-1…4, mkt-qa-1, cxl-qa-1 (one-line test texts except privacy) |
+| Legal documents | **privacy-qa-5 published** (24 Nov, through the connector); no terms, no conduct → registration answers 422 CONSENT_REQUIRED | terms-qa-1, conduct-qa-1, privacy-qa-1…5 (5 published 24 Nov), mkt-qa-1, cxl-qa-1 (one-line test texts except privacy) |
 | Admin users | 1: owner role, active, MFA on | 7 |
 | Venues / sessions | 0 / 0 | 3 venues / 6 sessions with status `on_sale` |
 | Users / bookings | 0 / 0 | test data |
@@ -72,24 +74,26 @@ Read this file, then `CLAUDE.md` (rules), then `memory/topics/late-requests.md` 
 | `WEB_BASE_URL` | `https://herzone.app` | `https://qatar-mvp-staging.vercel.app` |
 | `PUSH_DISPATCH_URL` set (pg_cron every minute) | yes | yes |
 
-- **All migrations through `026_plus_one.sql` are applied on both projects.**
-  - The file list is 001–021, then 023–026. There is no 022.
-  - The next new migration is `027_…`.
+- **All migrations through `027_rebook_requires_payment.sql` are applied on both projects** (027 by `apply_migration`
+  on 24 Nov, verified read-only: the 'not paid' check is in `rebook_booking`, no EXECUTE for `anon`/`authenticated`,
+  recorded in `supabase_migrations.schema_migrations`).
+  - The file list is 001–021, then 023–027. There is no 022.
+  - The next new migration is `028_…`.
 
 ### 2.4 Tests (last full runs)
 
-- **Website + API + DB + browser** (`cd qatar/api && npm run check`): 401/401 green on the merged tree (20–21 Nov).
+- **Website + API + DB + browser** (`cd qatar/api && npm run check`): 414/414 green on the merged tree (24 Nov, security fixes included).
 - **Flutter** (`flutter analyze`, `flutter test`): analyze clean; 316 passed, 24 skipped (opt-in golden/store-shot tests).
 - **Python matching engine:** `qatar/matching/test_matching_engine.py`, 41 test functions. JS/Python parity is checked by
   `qatar/api/test/parity.test.mjs`.
-- **CI on GitHub** (`ci.yml`, jobs `test`, `app`, `lighthouse`): green on a60f00b.
+- **CI on GitHub** (`ci.yml`, jobs `test`, `app`, `lighthouse`): green on 0d3e4e2.
 
 ### 2.5 What a visitor can do on herzone.app today
 
 - Open the welcome page, `/about`, "what you get", the fee page, and the full questionnaire (QA-2026-05, 21 questions plus
   interstitials).
 - At "رقم جوالك" the flow stops: no SMS provider, so the API answers 503 «الخدمة غير متاحة مؤقتًا.».
-- Even with SMS working, registration would stop at the legal-consent step: production has no published documents.
+- Even with SMS working, registration would stop at the legal-consent step: production has only the privacy notice published (terms and conduct are drafts).
 - Nothing can be booked: no venue, no session.
 
 ---
@@ -130,7 +134,7 @@ at build time.
 | Vercel staging project | `qatar-mvp-staging`, `prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`, ref `rightime-app` | Deployed with target `production` (it is staging's own "production"). Its `SUPABASE_ACCESS_TOKEN` env var is **expired** (§8.1). |
 | Supabase production | `pwxxulqgdydrkowmtkia` (ap-south-1) | SQL editor: https://supabase.com/dashboard/project/pwxxulqgdydrkowmtkia/sql/new |
 | Supabase staging | `fvodcnqmxskgzziwuwmz` (ap-south-1) | SQL editor: https://supabase.com/dashboard/project/fvodcnqmxskgzziwuwmz/sql/new |
-| Edge Function | `api` in both projects | Deployed by a production-target Vercel build through `ops/deploy-api-from-vercel.mjs`, which needs that Vercel project's `SUPABASE_ACCESS_TOKEN`. Preview builds never deploy the API. |
+| Edge Function | `api` in both projects | Deployed by a production-target Vercel build through `ops/deploy-api-from-vercel.mjs`, which needs that Vercel project's `SUPABASE_ACCESS_TOKEN`. Preview builds never deploy the API. Workaround used for staging (24 Nov): Supabase connector `deploy_edge_function` with a one-file `index.ts` whose router import is `https://cdn.jsdelivr.net/gh/NayQtr/RightTime@<FULL SHA>/qatar/api/src/app.js` (`src` has only relative and `node:` imports; jsDelivr serves `application/javascript`, immutable per SHA). |
 | Sentry | org `herzone`, regionUrl `https://de.sentry.io`; projects herzone-web, herzone-api, herzone-app | Check: `search_issues` with `is:unresolved lastSeen:-1h`. |
 | GitHub | `NayQtr/RightTime` | Registered workflows today: only "CI" and "Deploy API" (§8.1). |
 | Domains | `herzone.app` at Vercel (Vercel nameservers); `www.herzone.app` → 308 | On herzone-production since 13 Nov. |
@@ -231,7 +235,13 @@ approval for that scope only.
      and Vercel refuses it with `incorrect_git_source_info`.
    - A production-target build also deploys the Edge Function `api`.
 5. **Staging deployment.** Same call with name `qatar-mvp-staging`, project `prj_IGzPeHwJwOLWpyAyrDY3xYJC0juu`, ref
-   `rightime-app`. **Currently blocked** by the expired token (§8.1).
+   `rightime-app`, target `production`. **Still blocked** by the expired token (§8.1). Workaround that works today:
+   - Website: the same call **without** `target` (a preview build; it skips the API deploy by design), wait for
+     `readyState: READY`, then `assign_alias` of that deployment to `qatar-mvp-staging.vercel.app`.
+   - API: Supabase connector `deploy_edge_function` on `fvodcnqmxskgzziwuwmz`, name `api`, `verify_jwt: false`,
+     one file `index.ts` = `qatar/api/edge-index.ts` with the import changed to
+     `https://cdn.jsdelivr.net/gh/NayQtr/RightTime@<FULL SHA>/qatar/api/src/app.js` (read the SHA with `git rev-parse`).
+   - Then `node qatar/ops/smoke.mjs staging` and `curl -s https://qatar-mvp-staging.vercel.app/config.js | grep -o 'herzone-web@[0-9a-f]*'`.
 6. **Wait for the release tag** on `config.js`. Then:
    - Run `node qatar/ops/smoke.mjs production`: release tag, pages 200, API 401 without login, no open test path, mock
      checkout 404.
@@ -335,19 +345,14 @@ The owner rejected a design round for breaking these. They are binding.
      - `draft-openers.yml`
      - `app-e2e.yml`
    - Production has **no backups at all**: Supabase is on the Free plan and the dump workflow never runs.
-2. **Renew staging's Supabase token.**
+2. **Renew staging's Supabase token** (lower priority now: staging is kept current by the workaround in §6 step 5).
    - Create a token at https://supabase.com/dashboard/account/tokens.
    - In Vercel → `qatar-mvp-staging` → Settings → Environment Variables, replace `SUPABASE_ACCESS_TOKEN` (Production).
-   - Then the developer redeploys staging at `rightime-app` HEAD.
-3. **Publish the privacy notice (privacy-qa-5).**
-   - Run the one-file SQL in BOTH SQL editors, production first. It was sent to the owner as
-     `publish_privacy_v5.sql`.
-   - It is idempotent: it upserts the text only while unpublished, then sets `published_at`.
-   - Its source is `qatar/ops/seed_privacy_v5.sql`, plus
-     `UPDATE app.legal_documents SET published_at = now() WHERE version = 'privacy-qa-5' AND published_at IS NULL;`.
-     Regenerate it from the seed if the scratchpad copy is gone.
-   - **Not yet run:** production has no legal rows.
+   - Then a production-target staging build works again and replaces the pinned-import Edge Function with the bundled copy.
+3. **Privacy notice (privacy-qa-5): DONE 24 Nov** on production and staging through the Supabase connector
+   (`qatar/ops/seed_privacy_v5.sql` plus the `published_at = now()` update). Nothing left to run.
    - The title still reads «(مسودة بانتظار مراجعة المستشار القانوني)». The owner was told and has not asked to change it.
+   - Registration still needs terms and conduct published (item 7).
 4. **Backups.**
    - Create an age key pair.
    - Add GitHub secrets `SUPABASE_DB_URL` (session pooler string) and `BACKUP_AGE_RECIPIENT`.
@@ -373,11 +378,12 @@ The owner rejected a design round for breaking these. They are binding.
 10. **First venue and first session in production,** then a live end-to-end test.
 11. **Vercel production branch** = `release` (herzone-production → Settings → Git). Optional: the explicit
     `create_deployment` path works without it.
-12. **Privacy of the owner's email.**
-    - The owner's personal email address appears in plain text in `memory/topics/late-requests.md` (section "herzone.app:
-      «الاستبيان غير موجود»…") in this **public** repository.
-    - Ask the owner whether to remove it. Note that it stays in git history unless the history is rewritten, which needs
-      the owner's explicit decision.
+12. **Privacy of the owner's email: removed from `memory/topics/late-requests.md` on 24 Nov (cd66a66).** It stays in git
+    history unless the history is rewritten, which needs the owner's explicit decision (rewriting a public branch
+    breaks every clone).
+13. **Browser access for the developer (optional).** Dashboard-only steps (items 1, 2, 4, 8, 11) could be done by the
+    developer if a Remote Control folder on the Mac were reachable: today `xnms-MacBook-Pro / Claude 101` is listed but
+    `not_available` to cloud sessions (update the Claude desktop app, or run a session on the Mac itself).
 
 ### 8.2 Owner decisions pending
 
@@ -448,8 +454,12 @@ The owner rejected a design round for breaking these. They are binding.
 
 Ask the owner first only where marked.
 
-**A. Security findings from the 23 Nov review.** Source-verified. Nothing applied yet; the owner was asked whether to
-apply items 1–5.
+**A. Security findings from the 23 Nov review.** Items 1–5 were **built, tested and released on 24 Nov** (branch
+`security-fixes`, merged in 59f328e, released in 0d3e4e2; 027 applied to both projects; details in
+`memory/topics/late-requests.md`, section "Security fixes 1–5"). The notes below describe the findings as they were;
+what remains open is item 2's second factor (owner decision) and item 6 (before a real PSP). One deviation from the
+plan below: `effective_days` is validated only for a suspension, because the admin console sends the field with every
+decision.
 
 1. **(Medium) Free paid seat via rebook of an unpaid booking.**
    - **Path:**
@@ -499,7 +509,7 @@ apply items 1–5.
 
 ---
 
-## 9. Recent work log (13–23 Nov)
+## 9. Recent work log (13–24 Nov)
 
 All released unless marked otherwise.
 
@@ -513,6 +523,7 @@ All released unless marked otherwise.
 | 20 Nov | «سُفرة» pattern (option B), the 19 motion principles, everything above | b3f2bfb, dpl_5YEAmf3jJtHXSXq46igNis6txY6i |
 | 21 Nov | 60-30-10 colour pass: tinted neutrals (bg `#F3E6DE`, surface `#FBF2EE`, sunken `#E9D5C5`, border `#DBC2AE`, borderStrong `#8A7062`); surface next-meetup card; ink «HerZone» on the app welcome; yellow dot removed; pattern mauve layer 0.10 in light | a60f00b, dpl_716QwTbwoNJJTbxsLgzRgBkqtZjG |
 | 23 Nov | Security review of 14 classes. Findings in §8.3 A. No code change. | 43cf69c (notes) |
+| 24 Nov | Privacy notice published on both projects; owner's e-mail removed from the notes; staging website refreshed by alias and staging API redeployed through the connector (pinned import); security fixes 1–5 and the hardening list built on `security-fixes` with 12 new tests, merged, 027 applied to staging and production, released; `effective_days` check limited to suspensions. Default-branch change attempted and refused (settings API 403, push to the default branch denied by the harness). | 59f328e, 3c2aad4, 0d3e4e2; dpl_DYaCi4kZi2btkd9phcdxs8byfDUY (prod), dpl_Cbnxhs1eGefJ3T7uYvkV514uNRkg (staging web), Edge Function v52 (staging) |
 
 ---
 
@@ -522,8 +533,8 @@ All released unless marked otherwise.
 |---|---|
 | Auth dispatcher (token types, roles, suspended gate) | `qatar/api/src/app.js` ~72–113 |
 | Member OTP | `qatar/api/src/routes/user.js` ~140–210 |
-| Admin login, enrol, lockout | `qatar/api/src/routes/admin.js` ~21–140; `lib/crypto.js` |
-| Booking, hold, +1, review, pay | `routes/user.js` (book ~669, checkout ~797, resolution ~960); `db/migrations/026_plus_one.sql` |
+| Admin login, enrol, lockout (15-min and daily caps) | `qatar/api/src/routes/admin.js` ~21–150; `lib/crypto.js`; `lib/config.js` (`adminMaxFailsPerEmailDaily`) |
+| Booking, hold, +1, review, pay, rebook | `routes/user.js` (book ~669, checkout ~797, resolution ~965); `db/migrations/026_plus_one.sql`, `027_rebook_requires_payment.sql` |
 | Payments and webhook | `routes/payments.js`; `services/payments.js`; `services/psp.js` |
 | Minute dispatcher: push, coordinator alerts, refunds, suspensions | `routes/push.js` `dispatch`; `services/{coordinator_alerts,payments,suspensions}.js` |
 | Identity card-name check plus Gemini | `services/identity.js`; `lib/ai.js`; `lib/namematch.js` |
@@ -532,3 +543,4 @@ All released unless marked otherwise.
 | Pattern, motion, colour | `web/styles.css` (`.sufra-bg`, `--sufra-o1/o2`); `app/lib/ui/common/sufra_background.dart`; `app/lib/ui/common/press.dart`; `design/tokens.json` |
 | Legal | `qatar/docs/legal/*`; `qatar/ops/seed_privacy_v5.sql` |
 | Release record | `qatar/docs/security/baseline-checks.md` |
+| Secret scan (build gate, web + app/lib) | `qatar/ops/secret-scan.mjs`; `api/test/secret-scan.test.mjs` |

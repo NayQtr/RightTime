@@ -31,6 +31,16 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
+## Release 24 Nov: security fixes 1–5 + hardening + 027 — LIVE on herzone.app
+Order followed: baseline run recorded (0d3e4e2) → CI green on 0d3e4e28f44a848cfceb34b185869ec301993a6a → `git push origin
+<sha>:release` → Vercel create_deployment herzone-production target production dpl_DYaCi4kZi2btkd9phcdxs8byfDUY →
+tag herzone-web@0d3e4e28f44a live 17:39 UTC → `smoke.mjs production` all pass (pages 200, API 401 without sign-in, no
+open test path, mock checkout 404) → production Edge Function `api` now version 28 (deployed by the build) → Sentry 0
+unresolved issues in the last hour → live pages (welcome + privacy, 360/430, light/dark, production and staging): 32 of 32
+clean, no page error, no side-scroll (the quick check's English toggle did not take; the UI did not change in this
+release). Staging on the same commit: website preview dpl_Cbnxhs1eGefJ3T7uYvkV514uNRkg aliased to the staging domain,
+Edge Function version 52 (pinned import at 0d3e4e2), smoke staging all pass. Flutter unchanged: analyze clean, 316 passed.
+
 ## Security fixes 1–5 [2026-11-24] — merged on rightime-app (59f328e, plus 3c2aad4: effective_days checked for a suspension only, the console sends it with every decision); 027 applied to staging AND production through the connector; released under «اصلح واعمل كل العمل لحالك» (baseline-checks 2026-11-24)
 Items 1–5 of the 23 Nov review are built with tests, one commit each: (1) migration 027 `rebook_booking` refuses a booking
 without a captured payment (P0030 'not paid'); the API offers no resolution for one and refuses the rebook (409
