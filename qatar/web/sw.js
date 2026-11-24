@@ -45,7 +45,8 @@ self.addEventListener("push", (e) => {
     body: d.body || "", lang: d.lang || "ar", dir: d.dir || "rtl", tag: d.tag, icon: "/icons/icon-192.png", badge: "/icons/badge-96.png",
     // a coordinator's safety alert (urgent) stays on screen until she acts on it
     requireInteraction: d.urgent === true,
-    data: { url: typeof d.url === "string" && d.url.startsWith("/") ? d.url : "/#/inbox" },
+    // only a path on this site opens on tap: "//host" and "/\host" resolve to another origin, so they fall back to the inbox
+    data: { url: typeof d.url === "string" && d.url.startsWith("/") && !/^\/[\/\\]/.test(d.url) ? d.url : "/#/inbox" },
   }));
 });
 
