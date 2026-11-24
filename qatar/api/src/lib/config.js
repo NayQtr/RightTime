@@ -7,6 +7,7 @@ const GEMINI = "https://generativelanguage.googleapis.com";
 let cache = null;
 let loadedAt = 0;
 const TTL_MS = 30_000;
+let warnedMockPsp = false;
 
 export async function loadConfig(sql, getEnv) {
   if (cache && Date.now() - loadedAt < TTL_MS) return cache;
@@ -16,6 +17,9 @@ export async function loadConfig(sql, getEnv) {
   cache = {
     otpDevMode: get("OTP_DEV_MODE", "false") === "true",
     mockPspEnabled: get("MOCK_PSP_ENABLED", "false") === "true",
+    // This API serves production when SENTRY_ENVIRONMENT says so (herzone-production's app_config row; staging says
+    // "staging"). The mock checkout (routes/payments.js) is refused there whatever MOCK_PSP_ENABLED says; see below.
+    production: String(get("SENTRY_ENVIRONMENT", "staging")).trim().toLowerCase() === "production",
     webBaseUrl: get("WEB_BASE_URL", "http://localhost:8787").replace(/\/$/, ""),
     corsOrigins: get("CORS_ORIGINS", "*").split(",").map((s) => s.trim()),
     seatHoldMinutes: Number(get("SEAT_HOLD_MINUTES", "10")),
@@ -82,6 +86,14 @@ export async function loadConfig(sql, getEnv) {
     launchFree: String(get("PRICING_LAUNCH_FREE", "false")).trim().toLowerCase() === "true",
   };
   loadedAt = Date.now();
+  // Security review of 23 Nov 2026, hardening (e): MOCK_PSP_ENABLED must never be true in production. The API keeps
+  // serving (stopping it would take sign-in and bookings down for a setting mistake), but the mock checkout answers
+  // 404 MOCK_PSP_DISABLED, this error is logged once per process, and /api/v1/health keeps listing "mock_payments" so
+  // the release smoke check and the every-30-minutes uptime check fail until the owner sets it back to false.
+  if (cache.production && cache.mockPspEnabled && !warnedMockPsp) {
+    warnedMockPsp = true;
+    console.error("MOCK_PSP_ENABLED is true in production: the mock checkout stays refused (404 MOCK_PSP_DISABLED) and health reports mock_payments open. Set MOCK_PSP_ENABLED to false in app_config / the environment.");
+  }
   return cache;
 }
 

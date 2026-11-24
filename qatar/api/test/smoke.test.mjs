@@ -49,6 +49,37 @@ test("a server configured like production passes every check", async () => {
   } finally { await env.stop(); resetConfigCache(); }
 });
 
+// Security review of 23 Nov 2026, hardening (e): the API keeps serving, the mock checkout is refused, the mistake is
+// logged, and health still lists the open path so the production smoke check and the uptime check fail until it is fixed.
+test("production with MOCK_PSP_ENABLED left on: the mock checkout is refused, the error is logged, health still reports it", async () => {
+  resetConfigCache();
+  const logged = [];
+  const original = console.error;
+  console.error = (...a) => logged.push(a.map(String).join(" "));
+  const env = await startTestEnv({ SENTRY_ENVIRONMENT: "production", OTP_DEV_MODE: "false", MOCK_PSP_ENABLED: "true" });
+  try {
+    const health = await (await fetch(`${env.base}/api/v1/health`)).json();
+    assert.deepEqual(health.test_paths_open, ["mock_payments"], "the misconfiguration stays visible to the smoke and uptime checks");
+    for (const method of ["GET", "POST"]) {
+      const r = await fetch(`${env.base}/api/mock-psp/checkout/pi_test_anything`, { method, headers: { "content-type": "application/json" }, body: method === "POST" ? JSON.stringify({ outcome: "success" }) : undefined });
+      assert.equal(r.status, 404, method);
+      assert.equal((await r.json()).code, "MOCK_PSP_DISABLED", method);
+    }
+    assert.ok(logged.some((l) => l.includes("MOCK_PSP_ENABLED is true in production")), `logged once: ${JSON.stringify(logged)}`);
+    const r = byCheck(await runSmoke(asProduction(env.base), { pages }));
+    assert.equal(r["API health answers 200 ok"].ok, true, "the API itself keeps serving");
+    assert.equal(r["mock checkout closed (404 MOCK_PSP_DISABLED)"].ok, true);
+    assert.equal(r["test paths closed (health)"].ok, false, "the release and uptime checks still fail until the setting is fixed");
+    // staging with the same setting is the normal, open mock checkout
+    resetConfigCache();
+    const staging = await startTestEnv({ SENTRY_ENVIRONMENT: "staging", MOCK_PSP_ENABLED: "true" });
+    try {
+      const m = await fetch(`${staging.base}/api/mock-psp/checkout/pi_test_anything`);
+      assert.equal((await m.json()).code, "NOT_FOUND", "open on staging: a made-up intent is simply not found");
+    } finally { await staging.stop(); }
+  } finally { console.error = original; await env.stop(); resetConfigCache(); }
+});
+
 test("a site that is down fails without throwing; a missing web address and an older API only warn", async () => {
   const down = await runSmoke([{ name: "production", web: "http://127.0.0.1:9", api: "http://127.0.0.1:9", production: true }], { pages: ["/"] });
   assert.ok(down.filter((x) => !x.ok).length >= 4);
