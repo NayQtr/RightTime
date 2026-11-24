@@ -1,0 +1,12 @@
+# ===================================================================
+# TIER 2 — the actual source of the ad-filled home screen.
+#
+# DANGER: disabling these with no working replacement launcher leaves
+# the TV with no home screen. `ct debloat` refuses to touch this file
+# until `ct launcher` has verified a replacement is resolving as HOME.
+# ===================================================================
+
+com.google.android.tvlauncher              # the stock home screen and its sponsored row
+com.google.android.tvrecommendations       # engine that fills the recommendation/ad rows
+com.google.android.leanbacklauncher        # older Android TV launcher, present on some builds
+com.google.android.tungsten.setupwraith    # setup wizard; can re-assert itself as HOME

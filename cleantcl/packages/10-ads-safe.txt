@@ -1,0 +1,32 @@
+# ===================================================================
+# TIER 1 — ad / upsell / telemetry packages that are safe to disable
+# while the stock launcher is still in place.
+# Everything here is reversible with:  ct restore
+# ===================================================================
+
+# -- Google ad + recommendation plumbing --
+com.google.android.partnersetup            # partner attribution / preload tracking
+com.google.android.feedback                # usage feedback reporting
+com.google.android.printservice.recommendation
+com.google.android.syncadapters.contacts   # nothing to sync on a TV
+com.google.android.syncadapters.calendar
+com.android.providers.partnerbookmarks     # preloaded partner bookmarks
+
+# -- Google storefront / upsell apps (not the Play Store itself) --
+com.google.android.videos                  # Play Movies/Google TV store: heavy upsell
+com.google.android.play.games
+com.google.android.music
+com.google.android.youtube.tvmusic
+
+# -- Preloaded streaming apps --
+# You chose NOT to preserve Netflix / Disney+ / Prime, so these go.
+# Any you later want back install cleanly from the Play Store.
+com.netflix.ninja                          # Netflix for Android TV
+com.netflix.partner.activation             # Netflix preload/activation hook
+com.disney.disneyplus
+com.amazon.amazonvideo.livingroom
+com.amazon.aiv.eu
+com.amazon.aiv.us
+com.hulu.livingroomplus
+com.wbd.stream
+com.spotify.tv.android

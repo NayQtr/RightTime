@@ -1,0 +1,374 @@
+#!/usr/bin/env bash
+# ct - CleanTCL. Debloat and re-home a TCL Android TV over ADB. Reversible.
+set -uo pipefail
+
+CT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export CT_ROOT
+. "$CT_ROOT/lib/common.sh"
+. "$CT_ROOT/lib/guard.sh"
+
+CT_ASSUME_YES="${CT_ASSUME_YES:-0}"
+CT_APPLY=0
+CT_INCLUDE_TIER2=0
+
+usage() {
+  cat <<'USAGE'
+ct — CleanTCL
+
+  ct connect <tv-ip>      Connect to the TV over network ADB
+  ct status               Show connection, current home launcher, disabled count
+  ct inventory            Snapshot full package state  (ALWAYS run this first)
+  ct debloat [--apply]    Disable ad/bloat packages. Dry-run unless --apply.
+                          --tier2  also disable the stock launcher (needs a
+                                   verified replacement; see `ct launcher`)
+  ct launcher list        Show installed apps that can act as a home screen
+  ct launcher set <pkg>   Make <pkg> the home screen and verify it took
+  ct launcher verify      Check which package currently resolves as HOME
+  ct restore [snapshot]   Put every package and the home screen back
+  ct snapshots            List saved snapshots
+
+Global flags:  --yes   skip confirmation prompts
+USAGE
+}
+
+# ---------------- argument pre-pass ----------------
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --yes|-y)  CT_ASSUME_YES=1 ;;
+    --apply)   CT_APPLY=1 ;;
+    --tier2)   CT_INCLUDE_TIER2=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *)         ARGS+=("$a") ;;
+  esac
+done
+export CT_ASSUME_YES
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+[ $# -ge 1 ] || { usage; exit 1; }
+cmd="$1"; shift
+
+ct_require_adb
+
+# ---------------- connect ----------------
+cmd_connect() {
+  local ip="${1:-}"
+  [ -n "$ip" ] || die "Usage: ct connect <tv-ip>   (e.g. ct connect 192.168.1.50)"
+  case "$ip" in *:*) ;; *) ip="$ip:5555" ;; esac
+
+  info "Connecting to $ip ..."
+  "$ADB" disconnect "$ip" >/dev/null 2>&1
+  local out; out="$("$ADB" connect "$ip" 2>&1 | tr -d '\r')"
+  dim "    $out"
+  case "$out" in
+    *"connected to"*) ;;
+    *) die "Could not connect. On the TV: Settings > Device Preferences > About,
+     click Build 7 times, then Developer options > Network debugging ON." ;;
+  esac
+
+  local state; state="$("$ADB" -s "$ip" get-state 2>/dev/null | tr -d '\r')"
+  if [ "$state" != "device" ]; then
+    warn "Connected but state is '${state:-unauthorized}'."
+    warn "Look at the TV screen — there is an 'Allow debugging?' prompt."
+    warn "Accept it (tick 'Always allow'), then run this command again."
+    exit 1
+  fi
+
+  ct_save_session "$ip"
+  CT_SERIAL="$ip"
+  ok "Connected to $ip"
+  local model ver
+  model="$(ash getprop ro.product.model)"
+  ver="$(ash getprop ro.build.version.release)"
+  dim "    model: ${model:-unknown}   android: ${ver:-unknown}"
+}
+
+# ---------------- status ----------------
+cmd_status() {
+  ct_load_session
+  if [ -z "${CT_SERIAL:-}" ]; then
+    warn "Not connected. Run: ct connect <tv-ip>"
+    exit 1
+  fi
+  ok "Connected: $CT_SERIAL"
+  printf '    %-18s %s\n' "model:"   "$(ash getprop ro.product.model)"
+  printf '    %-18s %s\n' "android:" "$(ash getprop ro.build.version.release)"
+  printf '    %-18s %s\n' "build:"   "$(ash getprop ro.build.display.id)"
+  printf '    %-18s %s\n' "home launcher:" "$(guard_current_home)"
+  printf '    %-18s %s\n' "disabled pkgs:"  "$(ash pm list packages -d | grep -c . )"
+  local n; n="$(ls -1 "$CT_SNAPSHOT_DIR" 2>/dev/null | grep -c . )"
+  printf '    %-18s %s\n' "snapshots:" "$n"
+}
+
+# ---------------- inventory ----------------
+cmd_inventory() {
+  ct_load_session; ct_target >/dev/null
+  local stamp dir
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  dir="$CT_SNAPSHOT_DIR/$stamp"
+  mkdir -p "$dir"
+
+  info "Snapshotting package state -> snapshots/$stamp"
+
+  ash getprop > "$dir/device-props.txt"
+  ash pm list packages      | sed 's/^package://' | sort > "$dir/packages-all.txt"
+  ash pm list packages -e   | sed 's/^package://' | sort > "$dir/packages-enabled.txt"
+  ash pm list packages -d   | sed 's/^package://' | sort > "$dir/packages-disabled.txt"
+  ash pm list packages -s   | sed 's/^package://' | sort > "$dir/packages-system.txt"
+  ash pm list packages -3   | sed 's/^package://' | sort > "$dir/packages-thirdparty.txt"
+  guard_current_home > "$dir/home-launcher.txt"
+
+  {
+    printf 'snapshot: %s\n' "$stamp"
+    printf 'serial:   %s\n' "$CT_SERIAL"
+    printf 'model:    %s\n' "$(ash getprop ro.product.model)"
+    printf 'android:  %s\n' "$(ash getprop ro.build.version.release)"
+    printf 'build:    %s\n' "$(ash getprop ro.build.display.id)"
+  } > "$dir/meta.txt"
+
+  ln -sfn "$stamp" "$CT_SNAPSHOT_DIR/latest"
+
+  local total enabled disabled
+  total="$(grep -c . < "$dir/packages-all.txt")"
+  enabled="$(grep -c . < "$dir/packages-enabled.txt")"
+  disabled="$(grep -c . < "$dir/packages-disabled.txt")"
+  ok "Captured $total packages ($enabled enabled, $disabled already disabled)"
+  dim "    home launcher: $(cat "$dir/home-launcher.txt")"
+
+  # ---- vendor review report: what is TCL/Realtek, and what is shielded ----
+  guard_load
+  local report="$dir/vendor-review.txt"
+  {
+    echo "# Vendor packages found on this TV."
+    echo "# PROTECTED = matched a rule in packages/00-protected.txt and will"
+    echo "# never be disabled. REVIEW = unclassified; decide manually before"
+    echo "# adding to packages/30-vendor-review.txt."
+    echo
+    local p pat
+    while IFS= read -r p; do
+      case "$p" in
+        *tcl*|*TCL*|*realtek*|*rtk*|*amlogic*|*mstar*|*novatek*)
+          if pat="$(guard_is_protected "$p")"; then
+            printf 'PROTECTED  %-55s (rule: %s)\n' "$p" "$pat"
+          else
+            printf 'REVIEW     %s\n' "$p"
+          fi
+          ;;
+      esac
+    done < "$dir/packages-all.txt"
+  } > "$report"
+  local nrev; nrev="$(grep -c '^REVIEW' "$report" || true)"
+  if [ "${nrev:-0}" -gt 0 ]; then
+    warn "$nrev vendor packages need manual review: $report"
+    dim "    None of them will be touched until you classify them."
+  fi
+}
+
+# ---------------- debloat ----------------
+cmd_debloat() {
+  ct_load_session; ct_target >/dev/null
+  guard_load
+
+  [ -d "$CT_SNAPSHOT_DIR/latest" ] \
+    || die "No inventory snapshot found. Run 'ct inventory' first — it is what makes this reversible."
+
+  CT_CURRENT_HOME="$(guard_current_home)"
+  export CT_CURRENT_HOME
+
+  local -a targets=()
+  while IFS= read -r p; do [ -n "$p" ] && targets+=("$p"); done \
+    < <(read_pkg_list "$CT_PKG_DIR/10-ads-safe.txt")
+  while IFS= read -r p; do [ -n "$p" ] && targets+=("$p"); done \
+    < <(read_pkg_list "$CT_PKG_DIR/30-vendor-review.txt")
+
+  if [ "$CT_INCLUDE_TIER2" = "1" ]; then
+    local home="$CT_CURRENT_HOME"
+    local stock=0
+    case "$home" in
+      com.google.android.tvlauncher|com.google.android.leanbacklauncher) stock=1 ;;
+      "") stock=1 ;;
+    esac
+    if [ "$stock" = "1" ]; then
+      err "--tier2 refused: the home screen is still '${home:-unresolved}'."
+      err "Disabling the stock launcher now would leave the TV with no home screen."
+      err "Set a replacement first:  ct launcher set <pkg>"
+      exit 1
+    fi
+    ok "Replacement launcher verified ($home) — including tier 2."
+    while IFS= read -r p; do [ -n "$p" ] && targets+=("$p"); done \
+      < <(read_pkg_list "$CT_PKG_DIR/20-launcher-dependent.txt")
+  fi
+
+  # Classify against what is actually installed.
+  local installed="$CT_SNAPSHOT_DIR/latest/packages-all.txt"
+  # Live disabled state, not the snapshot's -- debloat may have run already.
+  local already; already="$(mktemp)"
+  ash pm list packages -d | sed 's/^package://' | sort > "$already"
+  trap 'rm -f "$already"' RETURN
+  local -a todo=() skipped=() blocked=()
+  local p reason
+  for p in "${targets[@]}"; do
+    if ! grep -qxF "$p" "$installed"; then
+      skipped+=("$p|not installed"); continue
+    fi
+    if grep -qxF "$p" "$already"; then
+      skipped+=("$p|already disabled"); continue
+    fi
+    if ! reason="$(guard_check "$p")"; then
+      blocked+=("$p|$reason"); continue
+    fi
+    todo+=("$p")
+  done
+
+  echo
+  if [ "${#blocked[@]}" -gt 0 ]; then
+    warn "Guard blocked ${#blocked[@]} package(s):"
+    for p in "${blocked[@]}"; do printf '      %-50s %s\n' "${p%%|*}" "${p#*|}"; done
+    echo
+  fi
+  if [ "${#skipped[@]}" -gt 0 ]; then
+    dim "    Skipping ${#skipped[@]} (not installed / already disabled)"
+  fi
+  if [ "${#todo[@]}" -eq 0 ]; then
+    ok "Nothing left to disable."
+    return 0
+  fi
+
+  info "Will disable ${#todo[@]} package(s):"
+  for p in "${todo[@]}"; do printf '      %s\n' "$p"; done
+  echo
+
+  if [ "$CT_APPLY" != "1" ]; then
+    warn "DRY RUN — nothing changed. Re-run with --apply to do it."
+    return 0
+  fi
+  confirm "Disable these ${#todo[@]} packages now?" || { warn "Aborted."; return 1; }
+
+  local fail=0 done_n=0 out
+  for p in "${todo[@]}"; do
+    out="$(ash_strict pm disable-user --user 0 "$p")"
+    if printf '%s' "$out" | grep -qi 'new state'; then
+      ok "disabled  $p"; done_n=$((done_n+1))
+    else
+      err "failed    $p — $out"; fail=$((fail+1))
+    fi
+  done
+  echo
+  ok "$done_n disabled, $fail failed."
+  dim "    Undo everything with:  ct restore"
+}
+
+# ---------------- launcher ----------------
+cmd_launcher() {
+  ct_load_session; ct_target >/dev/null
+  local sub="${1:-verify}"; shift || true
+  case "$sub" in
+    verify)
+      local home; home="$(guard_current_home)"
+      if [ -z "$home" ]; then
+        err "No package currently resolves as HOME. The TV has no home screen."
+        exit 1
+      fi
+      case "$home" in
+        com.google.android.tvlauncher|com.google.android.leanbacklauncher)
+          warn "HOME is still the stock launcher: $home" ;;
+        *) ok "HOME resolves to: $home" ;;
+      esac
+      ;;
+    list)
+      info "Apps that declare a HOME activity:"
+      ash cmd package query-activities -c android.intent.category.HOME --user 0 \
+        | sed -n 's/.*packageName=\([a-zA-Z0-9._]*\).*/  \1/p' | sort -u
+      ;;
+    set)
+      local pkg="${1:-}"
+      [ -n "$pkg" ] || die "Usage: ct launcher set <package>"
+      grep -qxF "$pkg" "$CT_SNAPSHOT_DIR/latest/packages-all.txt" 2>/dev/null \
+        || die "$pkg is not installed on the TV. Install it first (Play Store on the TV is easiest), then re-run 'ct inventory'."
+      local act
+      act="$(ash cmd package query-activities -c android.intent.category.HOME --user 0 \
+             | tr ' ' '\n' | grep -o "$pkg/[A-Za-z0-9._]*" | head -1)"
+      [ -n "$act" ] || die "$pkg does not declare a HOME activity — it cannot act as a launcher."
+      info "Setting home activity to $act"
+      ash cmd package set-home-activity "$act" >/dev/null
+      sleep 1
+      local now; now="$(guard_current_home)"
+      if [ "$now" = "$pkg" ]; then
+        ok "HOME is now $pkg"
+        dim "    Press the Home button on the remote to confirm, then you can run:"
+        dim "    ct debloat --tier2 --apply"
+      else
+        err "Set command ran but HOME still resolves to '${now:-none}'."
+        err "Not safe to disable the stock launcher. Investigate before continuing."
+        exit 1
+      fi
+      ;;
+    *) die "Unknown: ct launcher $sub" ;;
+  esac
+}
+
+# ---------------- restore ----------------
+cmd_restore() {
+  ct_load_session; ct_target >/dev/null
+  local snap="${1:-latest}"
+  local dir="$CT_SNAPSHOT_DIR/$snap"
+  [ -d "$dir" ] || die "No such snapshot: $snap  (see: ct snapshots)"
+
+  info "Restoring from snapshot $(basename "$(readlink -f "$dir")")"
+
+  local -a to_enable=()
+  local p
+  # Anything enabled at snapshot time but disabled now gets re-enabled.
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    if ash pm list packages -d | sed 's/^package://' | grep -qxF "$p"; then
+      to_enable+=("$p")
+    fi
+  done < "$dir/packages-enabled.txt"
+
+  if [ "${#to_enable[@]}" -eq 0 ]; then
+    ok "Every package is already in its snapshot state."
+  else
+    info "Re-enabling ${#to_enable[@]} package(s)"
+    confirm "Proceed?" || { warn "Aborted."; return 1; }
+    for p in "${to_enable[@]}"; do
+      if ash_strict pm enable "$p" | grep -qi 'new state'; then ok "enabled   $p"
+      else err "failed    $p"; fi
+    done
+  fi
+
+  local oldhome; oldhome="$(cat "$dir/home-launcher.txt" 2>/dev/null)"
+  local nowhome; nowhome="$(guard_current_home)"
+  if [ -n "$oldhome" ] && [ "$oldhome" != "$nowhome" ]; then
+    local act
+    act="$(ash cmd package query-activities -c android.intent.category.HOME --user 0 \
+           | tr ' ' '\n' | grep -o "$oldhome/[A-Za-z0-9._]*" | head -1)"
+    if [ -n "$act" ]; then
+      info "Restoring home launcher to $oldhome"
+      ash cmd package set-home-activity "$act" >/dev/null
+      ok "home launcher restored"
+    fi
+  fi
+  ok "Restore complete."
+}
+
+cmd_snapshots() {
+  [ -d "$CT_SNAPSHOT_DIR" ] || { warn "No snapshots yet."; return 0; }
+  local d
+  for d in "$CT_SNAPSHOT_DIR"/*/; do
+    [ -d "$d" ] || continue
+    printf '  %-18s %s\n' "$(basename "$d")" \
+      "$(sed -n 's/^model:[[:space:]]*//p' "$d/meta.txt" 2>/dev/null)"
+  done
+}
+
+case "$cmd" in
+  connect)   cmd_connect   "$@" ;;
+  status)    cmd_status    "$@" ;;
+  inventory) cmd_inventory "$@" ;;
+  debloat)   cmd_debloat   "$@" ;;
+  launcher)  cmd_launcher  "$@" ;;
+  restore)   cmd_restore   "$@" ;;
+  snapshots) cmd_snapshots "$@" ;;
+  help)      usage ;;
+  *)         err "Unknown command: $cmd"; usage; exit 1 ;;
+esac

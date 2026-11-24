@@ -1,0 +1,4 @@
+# Live device state - machine-specific, never commit
+.session
+snapshots/*
+!snapshots/.gitkeep

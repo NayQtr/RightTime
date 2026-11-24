@@ -1,0 +1,87 @@
+# ===================================================================
+# PROTECTED — never disabled, by any command, for any reason.
+# Glob patterns (*) are supported.
+# Each entry says what breaks if it goes. Do not trim this file
+# because some debloat list on the internet is more aggressive.
+# ===================================================================
+
+# ---- Android framework core: removing any of these = boot loop ----
+android                               # the framework itself
+com.android.systemui                  # ALL on-screen UI. TV shows nothing.
+com.android.settings                  # settings backend
+com.android.settings.intelligence
+com.android.tv.settings               # the Settings app you actually use on Android TV
+com.android.providers.settings        # settings storage -> boot loop
+com.android.providers.media           # media scanning, used by every player
+com.android.providers.downloads       # app installs and updates
+com.android.providers.downloads.ui
+com.android.providers.contacts
+com.android.providers.calendar
+com.android.providers.telephony
+com.android.packageinstaller          # cannot install anything without this
+com.google.android.packageinstaller
+com.android.permissioncontroller
+com.android.location.fused            # KNOWN boot loop on Android TV if disabled
+com.android.externalstorage
+com.android.documentsui
+com.android.keychain
+com.android.certinstaller
+com.android.se
+com.android.statementservice
+com.android.proxyhandler
+
+# ---- ADB itself. Disable this and you lose all remote access ----
+com.android.shell
+
+# ---- Network stack: no wifi = no ADB = no way back in ----
+com.android.networkstack*
+com.android.wifi*
+com.android.captiveportallogin
+com.android.connectivity*
+com.android.cellbroadcast*
+
+# ---- WebView: dozens of apps hard-crash without it ----
+com.android.webview
+com.google.android.webview
+com.android.htmlviewer
+
+# ---- Input: remote control pairing and on-screen keyboard ----
+com.android.bluetooth                 # Bluetooth remote stops pairing
+com.android.inputdevices
+com.google.android.tv.remote.service  # Android TV remote service
+com.google.android.tv.remotepairing   # pairing a replacement remote
+com.google.android.inputmethod.latin  # disable the only keyboard = cannot type
+com.android.inputmethod.latin
+com.android.tv.frameworkpackagestubs
+
+# ---- Media/DRM: not ads. Removing only caps future streaming quality ----
+com.android.providers.media.module
+com.google.android.gms.supervision
+*widevine*
+*drm*
+
+# ===================================================================
+# USER-SELECTED KEEPS  (from this session's choices)
+#   kept: Google Play Store + Assistant, Chromecast casting, HDMI-CEC
+#   NOT kept: Netflix / Disney+ / Prime apps  -> free to remove
+# ===================================================================
+
+# -- Play Store + Assistant --
+com.android.vending                   # Play Store
+com.google.android.gms                # Play Services: Store, Assistant and Cast all need it
+com.google.android.gsf                # Google Services Framework
+com.google.android.katniss            # Android TV search + Assistant (the mic button)
+com.google.android.tvsearch
+
+# -- Chromecast built-in --
+com.google.android.apps.mediashell    # the Cast receiver. No casting without it.
+
+# -- HDMI-CEC and input switching (vendor side) --
+# Vendor package names vary per TCL build, so these are matched by pattern.
+# The inventory step lists exactly what matched on your TV.
+*hdmi*
+*cec*
+*.tvinput*
+com.android.tv.*input*
+*sourcemanager*
+*inputsource*

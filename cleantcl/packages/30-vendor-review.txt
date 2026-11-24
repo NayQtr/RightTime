@@ -1,0 +1,14 @@
+# ===================================================================
+# TIER 3 — TCL / Realtek vendor packages.
+#
+# Deliberately EMPTY of auto-removals.
+#
+# TCL's package names differ between firmware builds, and the same
+# com.tcl.* prefix covers both advertising junk AND the code that
+# drives the panel, HDMI-CEC and input switching. Guessing here is how
+# people end up with a TV that no longer switches to the console.
+#
+# `ct inventory` lists every vendor package found on YOUR TV, with the
+# protected-pattern matches already marked. Move specific lines here
+# only after reviewing that output.
+# ===================================================================
