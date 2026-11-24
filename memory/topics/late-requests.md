@@ -31,6 +31,20 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
+## Backlog item 6 «before a real PSP» [2026-11-24, evening] — built after the owner's «Continue»; 028 on both projects; release in the usual order
+(a) +1 changes the total → set_booking_guest (028) cancels the unpaid payments instead of rewriting the amount, and the
+API creates a new payment with a new intent in the same transaction (routes/user.js setGuest); newCheckout cancels an
+open payment whose amount is not the booking's total (audit payment_superseded) and creates a new one; a rename changes
+nothing. Website already uses the checkout_url from the guest answer; the app sets the companion at booking time only.
+(b) Webhook: INSERT ... ON CONFLICT DO UPDATE ... WHERE processed_at IS NULL — an open (failed) event is processed again on
+the provider's retry, not dropped as a duplicate; PERMANENT_REJECTIONS (UNKNOWN_PAYMENT_INTENT, AMOUNT_MISMATCH,
+UNKNOWN_REFUND, REFUND_MISMATCH, UNSUPPORTED_EVENT_TYPE) close the event with 200; anything else keeps it open and answers
+500 WEBHOOK_RETRY. (c) refund.succeeded must carry this refund's amount_minor and payment_intent (and a UUID refund_id),
+else REFUND_MISMATCH / UNKNOWN_REFUND; the mismatch audits are written with the outer connection so they survive the
+rollback (the old payment_amount_mismatch audit never persisted). (d) Refund rules re-run: refunds-tick, booking-states,
+plus-one, e2e all green; 417/417 in the full check. Contract for a real adapter written at the top of services/psp.js.
+Still before a real PSP: cancel a superseded intent at the provider; send the cardholder name; re-test against it.
+
 ## Release 24 Nov: security fixes 1–5 + hardening + 027 — LIVE on herzone.app
 Order followed: baseline run recorded (0d3e4e2) → CI green on 0d3e4e28f44a848cfceb34b185869ec301993a6a → `git push origin
 <sha>:release` → Vercel create_deployment herzone-production target production dpl_DYaCi4kZi2btkd9phcdxs8byfDUY →
