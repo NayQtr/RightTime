@@ -10,6 +10,22 @@ Owner chose (ب) after the mockups. Built web + app (cac5d1a, 86779cb): dashed s
 high contrast. 391 web/API tests, 284 app tests. Open for the owner: mauve seats are 1 in 6 (spec geometry) — or 1 in 3?;
 the background continues below «ابدئي» (no new element there) — keep or stop above the button?; release needs the owner's yes.
 
+## «اصلح واعمل كل العمل لحالك» [2026-11-24] — owner handed over every open action; what Claude could and could not do
+DONE: privacy-qa-5 PUBLISHED on production and staging through the Supabase connector (the write went through this time;
+published_at 2026-11-24 16:06 UTC prod, 16:08 staging; /api/v1/legal/current shows privacy_notice=privacy-qa-5 on both;
+#/privacy renders on both sites, light/dark, no error). Registration still needs terms + conduct: the server answers 422
+CONSENT_REQUIRED until they are published (web sends only the documents that exist, no crash). Staging website brought to
+cd66a66 WITHOUT the expired token: a preview build (dpl_6SEUmpTbN37HsFyQiFzJjM27yvZj, API deploy skipped by design in
+previews) aliased to qatar-mvp-staging.vercel.app; smoke checks pass. The staging Edge Function is still the 156cbc1 code
+(only a production-target build or a valid SUPABASE_ACCESS_TOKEN deploys it). The owner's e-mail address was removed from
+this file (history still has it). BLOCKED by the session's own guardrails, not by access: the GitHub proxy refuses
+repository-settings writes (default branch) and the harness refused to push a prepared merge of rightime-app onto the
+default branch add-rea-mcp-permissions (commit aaaeecd, kept only in a scratch worktree). Owner: Settings → General →
+Default branch → rightime-app (one click) — until then uptime and db-backup never run. Also no browser tool reached this
+session (the Remote Control folder on xnms-MacBook-Pro is marked not available to cloud sessions), so dashboard-only
+steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
+the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
+
 ## Security review, 14 named classes [2026-11-23] — findings reported, NO fix applied yet (owner to choose)
 Source-first, read-only review (no live probing). Confirmed: (M) rebook of an unpaid booking that an admin's suspension
 cancelled gives a free paid seat — rebook_booking (026) never checks captured_payment_for(); (M) admin sign-in is email +
