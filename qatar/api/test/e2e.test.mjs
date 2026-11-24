@@ -678,6 +678,11 @@ test("security review 3: a suspension's effective_days is a whole number of days
   }
   assert.equal((await sql`SELECT status FROM app.safety_reports WHERE id = ${rep.id}`)[0].status, "new", "nothing happened to the case");
   assert.equal((await sql`SELECT status FROM app.users WHERE id = ${X.userId}`)[0].status, "active", "nor to the member");
+  // the admin console sends the field with every decision; a warning with the box emptied is still recorded
+  const [rep2] = await sql`INSERT INTO app.safety_reports (case_ref, reporter_user_id, reported_user_id, category, timing, status)
+                           VALUES (app.next_case_ref(), ${reporter.id}, ${X.userId}, 'harassment', 'after', 'new') RETURNING id`;
+  const warn = await call("POST", `/api/admin/v1/cases/${rep2.id}/actions`, { token: S.ts.token, body: { action: "warning", effective_days: "" } });
+  assert.equal(warn.status, 200, JSON.stringify(warn.body));
   const ok = await call("POST", `/api/admin/v1/cases/${rep.id}/actions`, { token: S.ts.token, body: { action: "suspension" } });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   const [a] = await sql`SELECT effective_to FROM app.report_actions WHERE report_id = ${rep.id} AND action = 'suspension'`;
