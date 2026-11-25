@@ -31,6 +31,18 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
+## Final pitch decks, Arabic + English [2026-11-25] — built per the competition's focus-areas document
+Two Slides artifacts, 9 slides each (one-liner cover, problem, Vision 2030 social pillar, live product, edge, MVP
+evidence, model, scale, ask), brand palette from tokens.json (mauve #913768 on sand #F3E6DE), fonts Alexandria +
+IBM Plex Sans (Arabic deck: IBM Plex Sans Arabic, RTL); the 3-minute script is in the speaker notes slide by slide.
+Arabic deck https://claude.ai/artifact/RsqwbdPJwqSnka7afXiezf with the Arabic framed store screenshots; English deck
+https://claude.ai/artifact/6V6KeRYN3YmDRTPeZragsr with the ENGLISH screenshots only (CLAUDE.md rule). Verified figures
+used: QAR 59 per-seat fee (ops/production/reference.sql), 417 tests, 21 questions, herzone.app live.
+WAITING ON THE OWNER (all marked in orange on the slides): (a) the local survey figure + sample («سيصلك لاحقًا»);
+(b) the final ask amount — QAR 500,000 is a PLACEHOLDER the owner asked for until their decision; (c) the team line
+(role, local connections) in the owner's own words; (d) results of the first real pilot dinner; (e) sourced market
+size (women 21–45, Qatar then Gulf) — Claude can research it from official statistics on request.
+
 ## Release 24 Nov (second): payment hardening (item 6) + 028 — LIVE on herzone.app
 Order followed: baseline run recorded (f7170ae) → CI green on f7170ae95c2330b0d038f8cf530af712bc3f4fb6 → push to release →
 Vercel create_deployment herzone-production dpl_Sh6K6ft67sBfbBHjmuZ63nLetxc1 → tag herzone-web@f7170ae95c23 live 21:42
