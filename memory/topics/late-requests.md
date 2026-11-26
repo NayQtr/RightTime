@@ -673,3 +673,17 @@ Still open in the plan:
 20. Celebration meetups (owner, 7 Nov): a member (example "Sara") books a dinner to celebrate her birthday with women she does not know; HerZone arranges small preparations with the venue. Owner asked for Claude's wording and suggestions; the owner's message ended mid-sentence ("ولكن…"), so the rest is awaited. Claude proposed (not built): (A) a questionnaire question on how she feels about joining another member's celebration, used by matching so a celebration table only gets women who are happy with it; (B) an optional question at booking, "is this date for an occasion?", which alerts the coordinator. Open for the owner: the rest of the message, the Arabic and English wording, who pays for the preparations, the minimum notice, and what the other women are told beforehand.
 20a. Built (7 Nov, owner: "موافق على الصياغة، نفّذ"): migration 018 (bookings.occasion birthday|other, support case type occasion_celebration, matching_input from 016 plus occasion), questionnaire QA-2026-05 = v4 + Q25 with the owner's wording (purpose line reuses the approved «لنعرف الأجواء التي ترتاحين فيها.»), booking question on the site and in the app, coordinator case in the admin console (Support requests), engine rule in JS and Python (a celebrant and a woman whose Q25 is not love_to_join/dont_mind, unanswered included, never share a table; parity test covers it). Owner chose a cake icon instead of the 🎂 emoji (site design bans emoji): Lucide "cake" on the site, Icons.cake_outlined in the app. Tests: API/DB/browser 146/146, app 52/52, Python 46/46, real-font layout 360/390/402/430 ar/en light/dark clean. Not yet on the test site or production: needs 018 + seed v5 applied to the database and the API deployed. Open for the owner: minimum notice and what the other women are told (not built), who pays for preparations, whether a celebrant should get priority when the rule leaves someone out, and whether the privacy notice should mention the occasion.
 
+## إصلاح عرضي Canva — 26 نوفمبر 2026
+
+- النسخة العربية DAHb-XgVEgI: أُصلحت داخل Canva (جلسة تحرير مفتوحة 6884275371626715120 — **بانتظار موافقة المالكة على الحفظ**):
+  كل الأخطاء الإملائية (يرتّبها، نبني، مفسَّرة، تقدّمه، أولًا، مؤنّثة، آليًا، مختبِرة، مقهى، وحاضنة، 6 أشهر، 21–45)،
+  إرجاع العناصر النائبة ([__٪] للاستبيان، [__] للمختبِرات، الاقتباس بين قوسين) بلون كهرماني،
+  حذف واجهة «تطبيق العافية» المهلوسة (28 عنصرًا) ووضع صورة طاولة حقيقية مكانها،
+  استبدال شاشات الهاتف المزيفة (سؤال «شريك الحياة») بلقطات التطبيق الحقيقية MAHb-RbiKsc/MAHb-UizOzI،
+  حذف صف المقارنة المُختلَق «مطابقة فعالية في العالم الحقيقي»، وتوسيم مبلغ 500,000 كافتراضي.
+- النسخة الإنجليزية DAHb-WH2ynY: أُصلحت (جلسة 8236481158789483834 — **بانتظار الموافقة**):
+  إزالة 78% المختلَقة → [__%]، استبدال الهاتفين المزيفين (أسعار QAR 265/250/15 مختلَقة تناقض 59) باللقطات الإنجليزية
+  MAHb-VWVhZs/MAHb-b4qowg وحذف ~45 عنصر واجهة مزيفًا، حذف سطر مكرر في الغلاف، [__] كهرماني، توسيم المبلغ كافتراضي،
+  إصلاح ×[dinners per year]. جدول المقارنة الإنجليزي كان سليمًا.
+- لم يُحفظ أي شيء نهائيًا بعد: سياسة أداة Canva تشترط موافقة صريحة قبل commit. عند قول المالكة «اعتمد» → استدعاء
+  edit-design بـ finalize:"commit" (بلا operations) لكل جلسة.
