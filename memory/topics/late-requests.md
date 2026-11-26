@@ -31,6 +31,14 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
+## Pitch decks: pivot to Canva [2026-11-26] — owner rejected hand-built files, demanded real design platforms
+Owner: «انت لا تستخدم البرامج والمواقع وتعتمد على صناعة ملف متخلف». Pivoted to generating the decks INSIDE Canva via the
+connector: brand photos uploaded from herzone.app (hero MAHb-ZbCc8A, seat MAHb-bjkN1Q, toast MAHb-TdHM1I) plus store
+screenshots (AR: MAHb-RbiKsc welcome / MAHb-UizOzI book; EN: MAHb-VWVhZs / MAHb-b4qowg). No brand kit exists on the
+account (list-brand-kits empty — creating one is a good follow-up). Two create-design jobs launched with the full
+approved 8-slide outline, identity hexes and placeholder rules in the brief (AR job cc927f81…, EN job 008ec88a…).
+The Slides-artifact decks remain as the fallback/speaker-notes master (notes don't transfer to Canva generation).
+
 ## Pitch decks v4 [2026-11-26] — rebuilt to the owner's creative-director brief (8 slides, timings, photos)
 After the owner rejected the flat first design («سادة جدا وسيئة جدا») and then pasted a strict brief: identity from the
 brand's REAL assets (hero/seat/toast photos from /about with a deep-plum duotone scrim, the site's dashed-seat sufra
