@@ -31,6 +31,17 @@ session (the Remote Control folder on xnms-MacBook-Pro is marked not available t
 steps (Supabase access token for staging, Vercel production branch, Google key restrictions, GitHub secrets) stay with
 the owner. Third time: a short SHA was expanded from memory and Vercel refused it — always `git rev-parse`.
 
+## Pitch decks v4 [2026-11-26] — rebuilt to the owner's creative-director brief (8 slides, timings, photos)
+After the owner rejected the flat first design («سادة جدا وسيئة جدا») and then pasted a strict brief: identity from the
+brand's REAL assets (hero/seat/toast photos from /about with a deep-plum duotone scrim, the site's dashed-seat sufra
+motif, Alexandria + IBM Plex (Arabic)), 8 mandated slides with a timing badge in every footer, the stat as the slide's
+hero, a 5-column comparison grid (HerZone highlighted; alternatives: global dating apps, public events/groups, Timeleft)
+with the women-only row shaded as THE advantage, a 3-box flow diagram for the 59 QAR model (labelled assumptions pill),
+and one closing slide merging timeline + market + ask + team. The brief's own per-slide timings sum to 200s, so they were
+trimmed to exactly 180s (15/30/15/35/20/25/20/20) and the owner was told. Removed slides edge/scale/ask; new compare/close.
+Both artifacts re-verified by headless render (x-icons/arrows don't draw in preview only). NEW PLACEHOLDER NEEDING THE
+OWNER: the persona «مها، 28، موظفة انتقلت إلى الدوحة قبل سنة» is illustrative — confirm or replace the name/details.
+
 ## Final pitch decks, Arabic + English [2026-11-25] — built per the competition's focus-areas document
 Two Slides artifacts, 9 slides each (one-liner cover, problem, Vision 2030 social pillar, live product, edge, MVP
 evidence, model, scale, ask), brand palette from tokens.json (mauve #913768 on sand #F3E6DE), fonts Alexandria +
