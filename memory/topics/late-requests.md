@@ -43,7 +43,7 @@ The Slides-artifact decks remain as the fallback/speaker-notes master (notes don
 After the owner rejected the flat first design («سادة جدا وسيئة جدا») and then pasted a strict brief: identity from the
 brand's REAL assets (hero/seat/toast photos from /about with a deep-plum duotone scrim, the site's dashed-seat sufra
 motif, Alexandria + IBM Plex (Arabic)), 8 mandated slides with a timing badge in every footer, the stat as the slide's
-hero, a 5-column comparison grid (HerZone highlighted; alternatives: global dating apps, public events/groups, Timeleft)
+hero, a comparison grid (HerZone highlighted; alternatives: public events/groups, Timeleft — the «global dating apps» column was REMOVED 26 Nov on the owner's order, see below)
 with the women-only row shaded as THE advantage, a 3-box flow diagram for the 59 QAR model (labelled assumptions pill),
 and one closing slide merging timeline + market + ask + team. The brief's own per-slide timings sum to 200s, so they were
 trimmed to exactly 180s (15/30/15/35/20/25/20/20) and the owner was told. Removed slides edge/scale/ask; new compare/close.
@@ -724,3 +724,18 @@ Still open in the plan:
 - عيوب مطبوعة في صور الخلفية غُطيت برقع بلون الخلفية: علامة بيضاء ص7 عربي (#230C1A)، حافة هاتف ص4 إنجليزي (#F9EEE6)،
   نص شبح ص5 إنجليزي (#1E0E14)، أقواس شبح ص8 إنجليزي (#1B0912).
 - معاينة الصفحات الـ16 أُرسلت للمالكة كصورتين. عند «اعتمد»: edit-design finalize:"commit" بلا operations لكل جلسة.
+
+### توجيه المالكة 26 نوفمبر (ثابت): HerZone منافس لـ Timeleft وليس له علاقة بتطبيقات المواعدة
+- نصها: «تطبيقي هير زون هو منافس ل timeleft، وليس لي علاقة بنوعية برامج dating … هي تواصل اجتماعي حقيقي وليس تعارف وتودد».
+  **ممنوع في أي عرض أو مادة**: مقارنة بتطبيقات التعارف/dating، أو «التطبيقات مختلطة» كطرف مقارنة، أو أي إيحاء بالمواعدة.
+  الإطار الصحيح: تواصل اجتماعي حقيقي وتقارب اجتماعي حسب رؤية قطر 2030، والمنافس Timeleft.
+- الخطأ كان مني (Claude) منذ العرض المرجعي: عمود «تطبيقات التعارف العالمية / Global dating apps» وسطر «مختلطة ولا تناسب القيم».
+- أُصلح: Canva العربي ص5 (حُذف العمود وأعيد توزيع «فعاليات عامة» و«Timeleft»)، ص2 «الفعاليات زحام بلا علاقات»؛
+  Canva الإنجليزي ص5 (حُذف العمود وفاصل) وص2 ← «Nothing is built for women / in the Gulf from day one» (نص المرجع).
+  العرضان المرجعيان (Slides): عُدّلت الملفات محليًا (problem + compare + الملاحظات) لكن **النشر رفضه نظام الصلاحيات** — بانتظار إذن المالكة.
+- جلسات Canva انتهت صلاحيتها مرة ثانية أثناء التدقيق (تنتهي خلال نحو ساعة)؛ أعيد التطبيق في جلستين جديدتين:
+  العربية 4621216610778767045، الإنجليزية 5789900711581469603. ملفات التطبيق الكاملة في scratchpad/replay2.
+- مقترحات تنتظر المالكة (لم تُنفّذ): صور الخلفية المولّدة فيها شموع وورود وكؤوس نبيذ (إيحاء «عشاء رومانسي» وكحول) في
+  EN ص2/ص6 وAR ص2/ص8 والغلافين — اقتراح استبدالها بصور العلامة الحقيقية (hero/seat/toast)؛ كلمة «تعارف» في كلمات
+  متجر Apple المفتاحية (qatar/docs/store/store-listing-draft.md:110)؛ نص الموقع/التطبيق «Meet people who get you» وسؤال
+  الأسئلة الشائعة «What if I want to meet someone again?» (لا تغيير لنص التطبيق إلا بكلماتها).
